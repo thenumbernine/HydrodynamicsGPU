@@ -8,26 +8,49 @@
 #include <sys/stat.h>
 #include <OpenCL/opencl.h>
 
-#include "Common/Finally.h"
-#include "Common/Exception.h"
 #include <string>
 #include <fstream>
 #include <iostream>
 #include <vector>
-#include "Cell.h"
+#include <algorithm>
 
+#include "Common/Finally.h"
+#include "Common/Exception.h"
+#include "Image/System.h"
+
+//OpenCL shared header
+#include "roe_cell.h"
+
+#define numberof(x)	(sizeof(x)/sizeof((x)[0]))
 /*
-kernels needed for burgers solver:
+kernels needed for Roe solver:
+1) calc CFL <- reduce
+2) calc eigen decomposition
+	reads:	solid, q
+	writes:	eigenvalues, eigenvectors, eigenvectorsInverse
+3) calculate delta q tilde
+	reads: solid, q
+	writes:	deltaQTilde
+4) calculate r tilde
+	reads: deltaQTilde, eigenvalues
+	writes: rTilde
+5) calculate flux
+	reads: solid, q, eigenvalues, eigenvectors, eigenvectorsInverse
+	writes: flux
+6) calculate dx/dt
+	reads: q, flux, x
+	writes: dx/dt
+7) integrate
+	reads: dx/dt
+	writes: temp registers, q, etc
+
+kernels needed for Burgers solver:
 1) calc CFL	<- reduce
 2) apply boundary	(or not since we will have already)
 3) integrate flux
 4) apply boundary
 5) integrate pressure
 6) apply boundary	(or not, since we will be again soon)
-
-kernels needed for Roe solver:
-1) calc CFL <- reduce
-2) integrate flux
 */
 
 std::string readFile(std::string filename) {
@@ -48,45 +71,38 @@ int main(int argc, char** argv)
 {
 	int err;
 	  
-	unsigned int correct;
- 
 	size_t global[DIM];
-	size_t local[DIM] = {16, 16};
  
-	cl_device_id deviceID;
-	cl_context context;
-	cl_kernel kernel;
 	  
-	std::string kernelSource = readFile("res/burgers.cl");
+	std::string kernelSource = readFile("res/roe_integrate_flux.cl");
 
 	real noise = real(.01);
-	int i = 0;
 	int size[DIM] = {1024, 1024};
+	real xmin[DIM] = {.5, .5};
+	real xmax[DIM] = {.5, .5};
 	unsigned int count = size[0] * size[1];
-	std::vector<Cell> data(count);
+	std::vector<Cell> cells(count);
 	{
-		real xmin[DIM] = {.5, .5};
-		real xmax[DIM] = {.5, .5};
 		int index[DIM];
 		
-		int e = 0;
-		Cell *cell = &data[0];
+		Cell *cell = &cells[0];
 		//for (index[2] = 0; index[2] < size[2]; ++index[2]) {
 			for (index[1] = 0; index[1] < size[1]; ++index[1]) {
-				for (index[0] = 0; index[0] < size[0]; ++index[0], ++e, ++cell) {
+				for (index[0] = 0; index[0] < size[0]; ++index[0], ++cell) {
 					bool lhs = true;
 					for (int n = 0; n < DIM; ++n) {
-						cell->x[n] = real(xmax[n] - xmin[n]) * real(index[n]) / real(size[n]) + real(xmin[n]);
-						if (cell->x[n] > real(.5) * real(xmax[n] + xmin[n])) {
+						cell->x.s[n] = real(xmax[n] - xmin[n]) * real(index[n]) / real(size[n]) + real(xmin[n]);
+						if (cell->x.s[n] > real(.5) * real(xmax[n] + xmin[n])) {
 							lhs = false;
 						}
 					}
 
 					for (int m = 0; m < DIM; ++m) {
+						cell->interfaces[m].solid = false;
 						for (int n = 0; n < DIM; ++n) {
-							cell->interfaces[m].x[n] = cell->x[n];
+							cell->interfaces[m].x.s[n] = cell->x.s[n];
 							if (m == n) {
-								cell->interfaces[m].x[n] -= real(xmax[n] - xmin[n]) * real(.5) / real(size[n]);
+								cell->interfaces[m].x.s[n] -= real(xmax[n] - xmin[n]) * real(.5) / real(size[n]);
 							}
 						}
 					}
@@ -103,50 +119,37 @@ int main(int argc, char** argv)
 					real energyThermal = 1.;
 					real energyTotal = energyKinetic + energyThermal;
 
-					cell->state[0] = density;
+					cell->q.s[0] = density;
 					for (int n = 0; n < DIM; ++n) {
-						cell->state[n+1] = density * velocity[n];
+						cell->q.s[n+1] = density * velocity[n];
 					}
-					cell->state[DIM+1] = density * energyTotal;
-
-					cell->value = rand() / (real)RAND_MAX;
+					cell->q.s[DIM+1] = density * energyTotal;
 				}
 			}
 		//}
 	}
+#if 0
 
 	// Connect to a compute device
 	//
 	int gpu = 1;
+	cl_device_id deviceID;
 	err = clGetDeviceIDs(NULL, gpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &deviceID, NULL);
-	if (err != CL_SUCCESS) {
-		throw Exception() << "Error: Failed to create a device group!";
-	}
+	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to create a device group!";
   
-	// Create a compute context 
-	//
-	context = clCreateContext(0, 1, &deviceID, NULL, NULL, &err);
-	if (!context) {
-		throw Exception() << "Error: Failed to create a compute context!";
-	}
+	cl_context context = clCreateContext(0, 1, &deviceID, NULL, NULL, &err);
+	if (!context) throw Exception() << "Error: Failed to create a compute context!";
+	Finally([&](){ clReleaseContext(context); });
  
-	// Create a command commands
-	//
 	cl_command_queue commands = clCreateCommandQueue(context, deviceID, 0, &err);
-	if (!commands) {
-		throw Exception() << "Error: Failed to create a command commands!";
-	}
+	if (!commands) throw Exception() << "Error: Failed to create a command commands!";
+	Finally([&](){ clReleaseCommandQueue(commands); });
  
-	// Create the compute program from the source buffer
-	//
 	const char *kernelSourcePtr = kernelSource.c_str();
 	cl_program program = clCreateProgramWithSource(context, 1, (const char **) &kernelSourcePtr, NULL, &err);
-	if (!program) {
-		throw Exception() << "Error: Failed to create compute program!";
-	}
+	if (!program) throw Exception() << "Error: Failed to create compute program!";
+	Finally([&](){ clReleaseProgram(program); });
  
-	// Build the program executable
-	//
 	err = clBuildProgram(program, 0, NULL, "-I res/include", NULL, NULL);
 	if (err != CL_SUCCESS) {
 		size_t len;
@@ -158,42 +161,68 @@ int main(int argc, char** argv)
 		exit(1);
 	}
  
-	// Create the compute kernel in the program we wish to run
-	//
-	kernel = clCreateKernel(program, "square", &err);
-	if (!kernel || err != CL_SUCCESS) {
-		std::cout << "Error: Failed to create compute kernel!\n" << std::endl;
-		exit(1);
-	}
- 
-	// Create the input and output arrays in device memory for our calculation
-	//
-	cl_mem input = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(Cell) * count, NULL, NULL);
-	cl_mem output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(Cell) * count, NULL, NULL);
-	if (!input || !output) {
-		std::cout << "Error: Failed to allocate device memory!\n" << std::endl;
-		exit(1);
-	}	
-	
-	// Write our data set into the input array in device memory 
-	//
-	err = clEnqueueWriteBuffer(commands, input, CL_TRUE, 0, sizeof(Cell) * count, &data[0], 0, NULL, NULL);
+	cl_mem cl_cells = clCreateBuffer(context,  CL_MEM_READ_WRITE,  sizeof(Cell) * count, NULL, NULL);
+	if (!cl_cells) throw Exception() << "Error: Failed to allocate device memory!";
+	Finally([&](){ clReleaseMemObject(cl_cells); });
+
+	err = clEnqueueWriteBuffer(commands, cl_cells, CL_TRUE, 0, sizeof(Cell) * count, &cells[0], 0, NULL, NULL);
 	if (err != CL_SUCCESS) {
 		std::cout << "Error: Failed to write to source array!\n" << std::endl;
 		exit(1);
 	}
  
-	// Set the arguments to our compute kernel
-	//
-	err = 0;
-	err  = clSetKernelArg(kernel, 0, sizeof(cl_mem), &input);
-	err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &output);
-	err |= clSetKernelArg(kernel, 2, sizeof(cl_uint), &size[0]);
-	err |= clSetKernelArg(kernel, 3, sizeof(cl_uint), &size[1]);
-	if (err != CL_SUCCESS) {
-		std::cout << "Error: Failed to set kernel arguments! " << err << std::endl;
-		exit(1);
+	for (int n = 0; n < DIM; ++n) {
+		global[n] = size[n];
 	}
+
+	cl_kernel calcEigenDecompositionKernel = clCreateKernel(program, "calcEigenDecomposition", &err);
+	if (!calcEigenDecompositionKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
+	Finally([&](){ clReleaseKernel(calcEigenDecompositionKernel); });
+	
+	cl_kernel calcDeltaQTildeKernel = clCreateKernel(program, "calcDeltaQTilde", &err);
+	if (!calcDeltaQTildeKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
+	Finally([&](){ clReleaseKernel(calcDeltaQTildeKernel ); });
+	
+	cl_kernel calcRTildeKernel = clCreateKernel(program, "calcRTilde", &err);
+	if (!calcRTildeKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
+	Finally([&](){ clReleaseKernel(calcRTildeKernel ); });
+
+	cl_kernel calcFluxKernel = clCreateKernel(program, "calcFlux", &err);
+	if (!calcFluxKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
+	Finally([&](){ clReleaseKernel(calcFluxKernel ); });
+	
+	cl_kernel updateStateKernel = clCreateKernel(program, "updateState", &err);
+	if (!updateStateKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
+	Finally([&](){ clReleaseKernel(updateStateKernel); });
+	
+	cl_kernel* kernels[] = {
+		&calcEigenDecompositionKernel,
+		&calcDeltaQTildeKernel,
+		&calcRTildeKernel,
+		&calcFluxKernel,
+		&updateStateKernel,
+	};
+	std::for_each(kernels, kernels + numberof(kernels), [&](cl_kernel* kernel) {
+		err = 0;
+		err  = clSetKernelArg(*kernel, 0, sizeof(cl_mem), &cl_cells);
+		err |= clSetKernelArg(*kernel, 1, sizeof(cl_uint2), &size[0]);
+		if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
+	});
+	
+	real dx[DIM];
+	for (int i = 0; i < DIM; ++i) {
+		dx[i] = (xmax[i] - xmin[i]) / (float)size[i];
+	}
+	real dt = .01;
+	real dt_dx[DIM];
+	for (int i = 0; i < DIM; ++i) {
+		dt_dx[i] = dt / dx[i];
+	}
+	err = clSetKernelArg(calcFluxKernel, 2, DIM * sizeof(real), dt_dx);
+	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
+
+	err = clSetKernelArg(updateStateKernel, 2, DIM * sizeof(real), dt_dx);
+	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
 
 /*
 	why isn't this working?
@@ -204,51 +233,49 @@ int main(int argc, char** argv)
 		std::cout << "Error: Failed to retrieve kernel work group info! " << err << std::endl;
 		exit(1);
 	}
-*/ 
-	// Execute the kernel over the entire range of our 1d input data set
-	// using the maximum number of work group items for this device
-	//
-	for (int n = 0; n < DIM; ++n) {
-		global[n] = size[n];
-	}
-	err = clEnqueueNDRangeKernel(commands, kernel, 2, NULL, global, local, 0, NULL, NULL);
-	if (err) {
-		throw Exception() << "Error: Failed to execute kernel!";
-	}
+*/	//manually provide it in the mean time: 
+	size_t local[DIM] = {16, 16};
+
+	std::for_each(kernels, kernels + numberof(kernels), [&](cl_kernel* kernel) {
+		err = clEnqueueNDRangeKernel(commands, *kernel, 2, NULL, global, local, 0, NULL, NULL);
+		if (err) throw Exception() << "Error: Failed to execute kernel!";
+	});
  
-	// Wait for the command commands to get serviced before reading back results
-	//
 	clFinish(commands);
- 
-	// Read back the results from the device to verify the output
-	//
-	std::vector<Cell> results(count);
-	err = clEnqueueReadBuffer( commands, output, CL_TRUE, 0, sizeof(Cell) * count, &results[0], 0, NULL, NULL );  
-	if (err != CL_SUCCESS) {
-		std::cout << "Error: Failed to read output array! " << err << std::endl;
-		exit(1);
+
+	err = clEnqueueReadBuffer( commands, cl_cells, CL_TRUE, 0, sizeof(Cell) * count, &cells[0], 0, NULL, NULL );  
+	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to read cl_cells array! " << err;
+#endif
+
+	//write out to an image or something
+	Image::ImageType<> image(Vector<int,2>(size[0], size[1]), NULL);
+	char *pixel = image.getDataType();
+	Cell *cell = &cells[0];
+	float colors[][3] = {
+		{0, 0, .5},
+		{1, 1, 0},
+		{1, .5, 0},
+		{1, 0, 0}
+	};
+	for (int j = 0; j < size[1]; ++j) {
+		for (int i = 0; i < size[0]; ++i) {
+			float f = cell->q.s[0]; ++cell;
+			f *= 2.;	//value scale
+			f *= (float)numberof(colors);	//pallete count
+			int n = ((int)f) % numberof(colors);
+			n = (n + numberof(colors)) % numberof(colors);
+			float s = f - (float)n;
+			float t = 1. - s;
+			float *ca = colors[n];
+			float *cb = colors[(n+1)%numberof(colors)];
+			*pixel = (char)(255.f * (cb[0] * s + ca[0] * t)); ++pixel;
+			*pixel = (char)(255.f * (cb[1] * s + ca[1] * t)); ++pixel;
+			*pixel = (char)(255.f * (cb[2] * s + ca[2] * t)); ++pixel;
+		}
 	}
-	
-	// Validate our results
-	//
-	correct = 0;
-	for(i = 0; i < count; i++) {
-		if(results[i].value == data[i].value * data[i].value)
-			correct++;
-	}
-	
-	// Print a brief summary detailing the results
-	//
-	std::cout << "Computed '" << correct << "/" << count << "' correct values!" << std::endl;
-	
-	// Shutdown and cleanup
-	//
-	clReleaseMemObject(input);
-	clReleaseMemObject(output);
-	clReleaseProgram(program);
-	clReleaseKernel(kernel);
-	clReleaseCommandQueue(commands);
-	clReleaseContext(context);
- 
+	Image::sys->save(&image, "output.png");
+
+	std::cout << "Success!" << std::endl;
+
 	return 0;
 }

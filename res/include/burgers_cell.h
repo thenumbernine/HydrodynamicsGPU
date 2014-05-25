@@ -3,6 +3,7 @@
 //double depends on cl_khr_fp64 extension
 // which isn't working on my machine ... 
 typedef float real;
+typedef float2 real2;
 
 #define DIM	2
 #define NUM_STATES	2+DIM
