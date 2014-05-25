@@ -250,3 +250,21 @@ __kernel void updateState(
 	}
 }
 
+__kernel void copyToTex(
+	__global Cell* cells,
+	int2 size,
+	__global char *tex)
+{
+	int2 i = int2(get_global_id(0), get_global_id(1));
+	if (i.x >= size.x || i.y >= size.y) return;
+	
+	int index = i.x + size.x * i.y;
+	__global Cell *cell = cells + index;
+	__global char *pixel = tex + index;
+
+	//map values here
+	float value = (float)cell->q[0];
+	int ivalue = (int)(value * 255.);
+	*pixel = (char)ivalue;
+}
+
