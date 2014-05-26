@@ -21,15 +21,15 @@ __kernel void calcEigenDecomposition(
 		__global Cell *cellL = cells + indexPrev;
 		__global Cell *cellR = cell;
 		
-		real2 normal = real2(0., 0.);
+		real2 normal = (real2)(0., 0.);
 		normal[side] = 1;
 
 		real densityL = cellL->q[0];
-		real2 velocityL = real2(cellL->q[1], cellL->q[2]) / densityL;
+		real2 velocityL = (real2)(cellL->q[1], cellL->q[2]) / densityL;
 		real energyTotalL = cellL->q[3] / densityL;
 
 		real densityR = cellR->q[0];
-		real2 velocityR = real2(cellR->q[1], cellR->q[2]) / densityR;
+		real2 velocityR = (real2)(cellR->q[1], cellR->q[2]) / densityR;
 		real energyTotalR = cellR->q[3] / densityR;
 
 		real velocitySqL = dot(velocityL, velocityL);
@@ -53,7 +53,7 @@ __kernel void calcEigenDecomposition(
 		real velocitySq = dot(velocity, velocity);
 		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) / denom;
 		real speedOfSound = sqrt((GAMMA - 1.) * (enthalpyTotal - .5 * velocitySq));
-		real2 tangent = real2(-normal.y, normal.x);
+		real2 tangent = (real2)(-normal.y, normal.x);
 		real velocityN = dot(velocity, normal);
 		real velocityT = dot(velocity, tangent);
 	
@@ -262,9 +262,28 @@ __kernel void convertToTex(
 	int index = i.x + size.x * i.y;
 	__global Cell *cell = cells + index;
 
+#if 0	//plot eigenbasis error 
+	__global Interface *interface = &cell->interfaces[0];
+	// a_ij = u_ik w_k v_kj
+	// delta_ij = u_ik v_kj
+	float err = 0.;
+	for (int i = 0; i < 4; ++i) {
+		for (int j = 0; j < 4; ++j) {
+			real sum = 0.;
+			for (int k = 0; k < 4; ++k) {
+				sum += interface->eigenvectors[i][k] * interface->eigenvectorsInverse[k][j];
+			}
+			err += fabs(sum - (i == j ? 1. : 0.));
+		}
+	}
+	float4 color = (float4)(err, 0., 0., 1.);
+	write_imagef(fluidTex, i, color);
+#endif
+#if 1	//plot density
 	float4 color = read_imagef(gradientTex, 
 		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_NONE | CLK_FILTER_LINEAR,
 		(float2)(cell->q[0] * 2.f, .5));
 	write_imagef(fluidTex, i, color.bgra);
+#endif
 }
 

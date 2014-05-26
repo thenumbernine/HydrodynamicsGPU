@@ -29,36 +29,8 @@
 #include "roe_cell.h"
 
 #define numberof(x)	(sizeof(x)/sizeof((x)[0]))
-/*
-kernels needed for Roe solver:
-1) calc CFL <- reduce
-2) calc eigen decomposition
-	reads:	solid, q
-	writes:	eigenvalues, eigenvectors, eigenvectorsInverse
-3) calculate delta q tilde
-	reads: solid, q
-	writes:	deltaQTilde
-4) calculate r tilde
-	reads: deltaQTilde, eigenvalues
-	writes: rTilde
-5) calculate flux
-	reads: solid, q, eigenvalues, eigenvectors, eigenvectorsInverse
-	writes: flux
-6) calculate dx/dt
-	reads: q, flux, x
-	writes: dx/dt
-7) integrate
-	reads: dx/dt
-	writes: temp registers, q, etc
-
-kernels needed for Burgers solver:
-1) calc CFL	<- reduce
-2) apply boundary	(or not since we will have already)
-3) integrate flux
-4) apply boundary
-5) integrate pressure
-6) apply boundary	(or not, since we will be again soon)
-*/
+#define frand() ((double)rand() / (double)RAND_MAX)
+#define crand()	(frand() * 2. - 1.)
 
 std::string readFile(std::string filename) {
 	std::ifstream f(filename);
@@ -70,9 +42,6 @@ std::string readFile(std::string filename) {
 	f.read(buf, len);
 	return std::string(buf, len);
 }
-
-#define frand() ((double)rand() / (double)RAND_MAX)
-#define crand()	(frand() * 2. - 1.)
 
 struct HydroGPUApp : public GLApp {
 	GLuint fluidTex;
@@ -135,7 +104,7 @@ void HydroGPUApp::init() {
 
 	int err;
 	  
-	std::string kernelSource = readFile("res/roe_integrate_flux.cl");
+	std::string kernelSource = readFile("res/roe_solver.cl");
 
 	real noise = real(.01);
 	int size[DIM] = {256, 256};
@@ -442,7 +411,7 @@ void HydroGPUApp::update() {
 	int err = 0;
 static bool updating = true;
 if (updating) {
-updating = false;
+//updating = false;
 	size_t local_size[DIM] = {16, 16};
 
 	err = clEnqueueNDRangeKernel(commands, calcEigenDecompositionKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
@@ -494,7 +463,7 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 
 	switch (event.type) {
 	case SDL_MOUSEMOTION:
-		{	
+		{
 			int dx = event.motion.xrel;
 			int dy = event.motion.yrel;
 			if (leftButtonDown) {
