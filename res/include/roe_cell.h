@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __OPENCL_VERSION__
+#pragma OPENCL EXTENSION cl_APPLE_fp64_ops : enable
+#endif
+
 //double depends on cl_khr_fp64 extension
 // which isn't working on my machine ... 
 typedef float real;
@@ -16,19 +20,22 @@ typedef cl_float4 real4;
 #define GAMMA 1.4
 
 struct Interface {
-	real2 x;
+	//Roe-specific values
 	real4 eigenvalues;
-	//stored as columns 
-	real4 eigenvectors[NUM_STATES];
-	real4 eigenvectorsInverse[NUM_STATES];
+	real4 eigenvectors[NUM_STATES];			//stored as columns 
+	real4 eigenvectorsInverse[NUM_STATES];	//
 	real4 rTilde;
 	real4 deltaQTilde;
+	
+	//base cell values
+	real2 x;
 	real4 flux;
 	bool solid;
 };
 typedef struct Interface Interface;
 
 struct Cell {
+	//base cell values
 	real4 q;
 	real2 x;
 

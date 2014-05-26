@@ -1,12 +1,3 @@
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-
 #include <string>
 #include <fstream>
 #include <iostream>
@@ -20,46 +11,30 @@
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h>
 
-#include "Common/Finally.h"
 #include "Common/Exception.h"
-#include "Image/System.h"
 #include "GLApp/GLApp.h" 
 
-//OpenCL shared header
-#include "roe_cell.h"
+#include "HydroGPU/Solver.h"
+#include "HydroGPU/RoeSolver.h"
+#include "Macros.h"
 
-#define numberof(x)	(sizeof(x)/sizeof((x)[0]))
-#define frand() ((double)rand() / (double)RAND_MAX)
-#define crand()	(frand() * 2. - 1.)
-
-std::string readFile(std::string filename) {
-	std::ifstream f(filename);
-	f.seekg(0, f.end);
-	size_t len = f.tellg();
-	f.seekg(0, f.beg);
-	char *buf = new char[len];
-	Finally finally([&](){ delete[] buf; });
-	f.read(buf, len);
-	return std::string(buf, len);
-}
+#include "TensorMath/Vector.h"
 
 struct HydroGPUApp : public GLApp {
 	GLuint fluidTex;
 	GLuint gradientTex;
+	
+	cl_device_id deviceID;
 	cl_context context;
+	
 	cl_command_queue commands;
-	cl_program program;
-	cl_mem cellsMem;
-	cl_mem fluidTexMem;
-	cl_mem gradientTexMem;
-	cl_kernel calcEigenDecompositionKernel;
-	cl_kernel calcDeltaQTildeKernel;
-	cl_kernel calcRTildeKernel;
-	cl_kernel calcFluxKernel;
-	cl_kernel updateStateKernel;
-	cl_kernel convertToTexKernel;
+	cl_mem fluidTexMem;		//data is written to this buffer before rendering
+	cl_mem gradientTexMem;	//as it is written, data is read from this for mapping values to colors
+
+	Solver *solver;
 
 	size_t global_size[DIM];
+	cl_int2 size;
 	  
 	bool leftButtonDown;
 	bool leftShiftDown;
@@ -68,30 +43,11 @@ struct HydroGPUApp : public GLApp {
 	float viewPosX;
 	float viewPosY;
 
-	HydroGPUApp()
-	: GLApp()
-	, fluidTex(GLuint())
-	, gradientTex(GLuint())
-	, context(cl_context())
-	, commands(cl_command_queue())
-	, program(cl_program())
-	, cellsMem(cl_mem())
-	, fluidTexMem(cl_mem())
-	, gradientTexMem(cl_mem())
-	, calcEigenDecompositionKernel(cl_kernel())
-	, calcDeltaQTildeKernel(cl_kernel())
-	, calcRTildeKernel(cl_kernel())
-	, calcFluxKernel(cl_kernel())
-	, updateStateKernel(cl_kernel())
-	, convertToTexKernel(cl_kernel())
-	, leftButtonDown(false)
-	, leftShiftDown(false)
-	, rightShiftDown(false)
-	, viewZoom(1.f)
-	, viewPosX(0.f)
-	, viewPosY(0.f)
-	{}
-	
+	HydroGPUApp();
+
+	cl_platform_id getPlatformID();
+	cl_device_id getDeviceID(cl_platform_id platformID);
+
 	virtual void init();
 	virtual void shutdown();
 	virtual void resize(int width, int height);
@@ -99,31 +55,258 @@ struct HydroGPUApp : public GLApp {
 	virtual void sdlEvent(SDL_Event &event);
 };
 
+HydroGPUApp::HydroGPUApp()
+: GLApp()
+, fluidTex(GLuint())
+, gradientTex(GLuint())
+, deviceID(cl_device_id())
+, context(cl_context())
+, commands(cl_command_queue())
+, fluidTexMem(cl_mem())
+, gradientTexMem(cl_mem())
+, leftButtonDown(false)
+, leftShiftDown(false)
+, rightShiftDown(false)
+, viewZoom(1.f)
+, viewPosX(0.f)
+, viewPosY(0.f)
+{
+	for (int i = 0; i < DIM; ++i) {
+		size.s[i] = 256;
+	}
+	
+	for (int n = 0; n < DIM; ++n) {
+		global_size[n] = size.s[n];
+	}
+}
+
+cl_platform_id HydroGPUApp::getPlatformID() {
+	cl_uint numPlatforms = 0;
+	int err = clGetPlatformIDs(0, NULL, &numPlatforms);
+	if (err != CL_SUCCESS || numPlatforms == 0) throw Exception() << "failed to query number of CL platforms.  got error " << err;
+	
+	std::vector<cl_platform_id> platformIDs(numPlatforms);
+	err = clGetPlatformIDs(numPlatforms, &platformIDs[0], NULL);
+	if (err != CL_SUCCESS) throw Exception() << "failed to query CL platforms.  got error " << err;
+ 
+	std::for_each(platformIDs.begin(), platformIDs.end(), [&](cl_platform_id platformID) {
+		std::cout << "platform " << platformID << std::endl;
+		std::pair<cl_uint, const char *> queries[] = {
+			std::pair<cl_uint, const char *>(CL_PLATFORM_NAME, "name"),
+			std::pair<cl_uint, const char *>(CL_PLATFORM_VENDOR, "vendor"),
+			std::pair<cl_uint, const char *>(CL_PLATFORM_VERSION, "version"),
+			std::pair<cl_uint, const char *>(CL_PLATFORM_PROFILE, "profile"),
+			std::pair<cl_uint, const char *>(CL_PLATFORM_EXTENSIONS, "extensions"),
+		};
+		std::for_each(queries, queries + numberof(queries), [&](std::pair<cl_uint, const char *> query) {	
+			size_t param_value_size_ret = 0;
+			err = clGetPlatformInfo(platformID, query.first, 0, NULL, &param_value_size_ret);
+			if (err != CL_SUCCESS) throw Exception() << "clGetPlatformInfo failed to query " << query.second << " (" << query.first << ") for platform " << platformID << " with error " << err;		
+		
+			std::string param_value(param_value_size_ret, '\0');
+			err = clGetPlatformInfo(platformID, query.first, param_value_size_ret, (void*)param_value.c_str(), NULL);
+			if (err != CL_SUCCESS) throw Exception() << "clGetPlatformInfo failed for platform " << platformID << " with error " << err;
+			
+			std::cout << query.second << ":\t" << param_value << std::endl;
+		});
+		std::cout << std::endl;
+	});
+
+	return platformIDs[0];
+}
+
+struct DeviceParameterQuery {
+	cl_uint param;
+	const char *name;
+	DeviceParameterQuery(cl_uint param_, const char *name_) : param(param_), name(name_) {}
+	virtual void query(cl_device_id deviceID) = 0;
+	virtual std::string tostring() = 0;
+};
+
+template<typename Type>
+struct DeviceParameterQueryType : public DeviceParameterQuery {
+	Type value;
+	bool failed;
+	DeviceParameterQueryType(cl_uint param_, const char *name_) : DeviceParameterQuery(param_, name_), value(Type()), failed(false) {}
+	virtual void query(cl_device_id deviceID) {
+		int err = clGetDeviceInfo(deviceID, param, sizeof(value), &value, NULL);
+		if (err != CL_SUCCESS) {
+			//throw Exception() << "clGetDeviceInfo failed to query " << name << " (" << param << ") for device " << deviceID << " with error " << err;
+			failed = true;
+			return;
+		}
+	}
+	virtual std::string tostring() {
+		if (failed) return "-failed-";
+		std::stringstream ss;
+		ss << value;
+		return ss.str();
+	}
+};
+
+template<>
+struct DeviceParameterQueryType<char*> : public DeviceParameterQuery {
+	std::string value;
+	bool failed;
+	DeviceParameterQueryType(cl_uint param_, const char *name_) : DeviceParameterQuery(param_, name_), failed(false) {}
+	virtual void query(cl_device_id deviceID) {
+		size_t size = 0;
+		int err = clGetDeviceInfo(deviceID, param, 0, NULL, &size);
+		if (err != CL_SUCCESS) {
+			//throw Exception() << "clGetDeviceInfo failed to query " << name << " (" << param << ") for device " << deviceID << " with error " << err;
+			failed = true;
+			return;
+		}
+	
+		value = std::string(size, '\0');
+		err = clGetDeviceInfo(deviceID, param, size, (void*)value.c_str(), NULL);
+		if (err != CL_SUCCESS) {
+			//throw Exception() << "clGetDeviceInfo failed to query " << name << " (" << param << ") for device " << deviceID << " with error " << err;
+			failed = true;
+			return;
+		}
+	}
+	virtual std::string tostring() { return failed ? "-failed-" : value; }
+};
+
+cl_device_id HydroGPUApp::getDeviceID(cl_platform_id platformID) {
+	bool useGPU = true;	//whether we want to request the GPU or CPU
+	
+	cl_uint numDevices = 0;
+	int err = clGetDeviceIDs(platformID, useGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 0, NULL, &numDevices);
+	if (err != CL_SUCCESS || numDevices == 0) throw Exception() << "failed to query number of CL devices.  got error " << err;
+
+	std::vector<cl_device_id> deviceIDs(numDevices);
+
+	err = clGetDeviceIDs(platformID, useGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, numDevices, &deviceIDs[0], NULL);
+	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to create a device group!";
+	
+	std::vector<std::shared_ptr<DeviceParameterQuery>> deviceParameters = {
+		std::make_shared<DeviceParameterQueryType<char*>>(CL_DEVICE_NAME, "name"),
+		std::make_shared<DeviceParameterQueryType<char*>>(CL_DEVICE_VENDOR, "vendor"),
+		std::make_shared<DeviceParameterQueryType<char*>>(CL_DEVICE_VERSION, "version"),
+		std::make_shared<DeviceParameterQueryType<char*>>(CL_DRIVER_VERSION, "driver version"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_VENDOR_ID, "vendor id"),
+		std::make_shared<DeviceParameterQueryType<cl_platform_id>>(CL_DEVICE_PLATFORM, "platform id"),
+		std::make_shared<DeviceParameterQueryType<cl_bool>>(CL_DEVICE_AVAILABLE, "available?"),
+		std::make_shared<DeviceParameterQueryType<cl_bool>>(CL_DEVICE_COMPILER_AVAILABLE, "compiler available?"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MAX_CLOCK_FREQUENCY, "max clock freq"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MAX_COMPUTE_UNITS, "cores"),
+		std::make_shared<DeviceParameterQueryType<cl_device_type>>(CL_DEVICE_TYPE, "type"),
+		std::make_shared<DeviceParameterQueryType<cl_device_fp_config>>(CL_DEVICE_ADDRESS_BITS, "fp caps"),	//bitflags: 
+		std::make_shared<DeviceParameterQueryType<cl_device_fp_config>>(CL_DEVICE_HALF_FP_CONFIG, "half fp caps"),
+		std::make_shared<DeviceParameterQueryType<cl_device_fp_config>>(CL_DEVICE_SINGLE_FP_CONFIG, "single fp caps"),
+#if 0
+CL_FP_DENORM - denorms are supported.
+CL_FP_INF_NAN - INF and NaNs are supported.
+CL_FP_ROUND_TO_NEAREST - round to nearest even rounding mode supported.
+CL_FP_ROUND_TO_ZERO - round to zero rounding mode supported.
+CL_FP_ROUND_TO_INF - round to +ve and -ve infinity rounding modes supported.
+CP_FP_FMA - IEEE754-20080 fused multiply-add is supported.
+#endif
+
+		std::make_shared<DeviceParameterQueryType<cl_bool>>(CL_DEVICE_ENDIAN_LITTLE, "little endian?"),
+		std::make_shared<DeviceParameterQueryType<cl_device_exec_capabilities>>(CL_DEVICE_EXECUTION_CAPABILITIES, "exec caps"),
+#if 0
+CL_EXEC_KERNEL - The OpenCL device can execute OpenCL kernels.
+CL_EXEC_NATIVE_KERNEL - The OpenCL device can execute native kernels.
+#endif
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_ADDRESS_BITS, "address space size"),
+		std::make_shared<DeviceParameterQueryType<cl_ulong>>(CL_DEVICE_GLOBAL_MEM_SIZE, "global mem size"),
+		std::make_shared<DeviceParameterQueryType<cl_ulong>>(CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, "global mem cache size"),
+		std::make_shared<DeviceParameterQueryType<cl_device_mem_cache_type>>(CL_DEVICE_GLOBAL_MEM_CACHE_TYPE, "global mem cache type"),	//CL_NONE, CL_READ_ONLY_CACHE, and CL_READ_WRITE_CACHE.
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, "global mem cache line size"),
+		std::make_shared<DeviceParameterQueryType<cl_ulong>>(CL_DEVICE_LOCAL_MEM_SIZE, "local mem size"),
+		std::make_shared<DeviceParameterQueryType<cl_device_local_mem_type>>(CL_DEVICE_LOCAL_MEM_TYPE, "local mem type"),	//SRAM, or CL_GLOBAL
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MEM_BASE_ADDR_ALIGN, "mem align"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, "data type align"),
+		std::make_shared<DeviceParameterQueryType<cl_bool>>(CL_DEVICE_IMAGE_SUPPORT, "image support?"),
+		std::make_shared<DeviceParameterQueryType<size_t>>(CL_DEVICE_IMAGE2D_MAX_WIDTH, "image2d max width"),
+		std::make_shared<DeviceParameterQueryType<size_t>>(CL_DEVICE_IMAGE2D_MAX_HEIGHT, "image2d max height"),
+		std::make_shared<DeviceParameterQueryType<size_t>>(CL_DEVICE_IMAGE3D_MAX_WIDTH, "image3d max width"),
+		std::make_shared<DeviceParameterQueryType<size_t>>(CL_DEVICE_IMAGE3D_MAX_HEIGHT, "image3d max height"),
+		std::make_shared<DeviceParameterQueryType<size_t>>(CL_DEVICE_IMAGE3D_MAX_DEPTH, "image2d max depth"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MAX_CONSTANT_ARGS, "max __constant args"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, "max __constant buffer size"),
+		std::make_shared<DeviceParameterQueryType<cl_ulong>>(CL_DEVICE_MAX_MEM_ALLOC_SIZE, "max mem alloc size"),
+		std::make_shared<DeviceParameterQueryType<size_t>>(CL_DEVICE_MAX_PARAMETER_SIZE, "max param size"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MAX_READ_IMAGE_ARGS, "max read image objs"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MAX_WRITE_IMAGE_ARGS, "max write image objs"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MAX_SAMPLERS, "max samplers"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, "preferred char vector width"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, "preferred short vector width"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT, "preferred int vector width"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, "preferred long vector width"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, "preferred float vector width"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, "preferred double vector width"),
+		std::make_shared<DeviceParameterQueryType<size_t>>(CL_DEVICE_MAX_WORK_GROUP_SIZE, "max items in work-group"),
+		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, "max work item dim"),
+		std::make_shared<DeviceParameterQueryType<Vector<size_t,3>>>(CL_DEVICE_MAX_WORK_ITEM_SIZES, "max work item sizes"),
+		std::make_shared<DeviceParameterQueryType<char*>>(CL_DEVICE_PROFILE, "profile"),
+		std::make_shared<DeviceParameterQueryType<size_t>>(CL_DEVICE_PROFILING_TIMER_RESOLUTION, "profile timer resolution"),
+		std::make_shared<DeviceParameterQueryType<cl_command_queue_properties>>(CL_DEVICE_QUEUE_PROPERTIES, "command-queue properties"),
+		std::make_shared<DeviceParameterQueryType<char*>>(CL_DEVICE_EXTENSIONS, "extensions"),
+	};
+
+	std::vector<cl_device_id>::iterator deviceIter =
+		std::find_if(deviceIDs.begin(), deviceIDs.end(), [&](cl_device_id deviceID)
+	{
+		std::cout << "device " << deviceID << std::endl;
+		std::for_each(deviceParameters.begin(), deviceParameters.end(), [&](std::shared_ptr<DeviceParameterQuery> &query) {
+			query->query(deviceID);
+			std::cout << query->name << ":\t" << query->tostring() << std::endl;
+		});
+		std::cout << std::endl;
+
+		size_t param_value_size_ret = 0;
+		err = clGetDeviceInfo(deviceID, CL_DEVICE_EXTENSIONS, 0, NULL, &param_value_size_ret);
+		if (err != CL_SUCCESS) throw Exception() << "clGetDeviceInfo failed for device " << deviceID << " with error " << err;		
+	
+		std::string param_value(param_value_size_ret, '\0');
+		err = clGetDeviceInfo(deviceID, CL_DEVICE_EXTENSIONS, param_value_size_ret, (void*)param_value.c_str(), NULL);
+		if (err != CL_SUCCESS) throw Exception() << "clGetDeivceInfo failed for device " << deviceID << " with error " << err;
+
+		std::vector<std::string> caps;
+		std::istringstream iss(param_value);
+		std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(), std::back_inserter<std::vector<std::string>>(caps));
+
+		std::vector<std::string>::iterator extension = 
+			std::find_if(caps.begin(), caps.end(), [&](const std::string &s)
+		{
+			return s == std::string("cl_khr_gl_sharing") 
+				|| s == std::string("cl_APPLE_gl_sharing");
+		});
+	 
+		return extension != caps.end();
+	});
+	if (deviceIter == deviceIDs.end()) throw Exception() << "failed to find a device with cap cl_khr_gl_sharing";
+	return *deviceIter;
+}
+
 void HydroGPUApp::init() {
 	GLApp::init();
 
 	int err;
 	  
-	std::string kernelSource = readFile("res/roe_solver.cl");
-
 	real noise = real(.01);
-	int size[DIM] = {256, 256};
-	real xmin[DIM] = {-.5, -.5};
-	real xmax[DIM] = {.5, .5};
-	unsigned int count = size[0] * size[1];
+	real2 xmin, xmax;
+	for (int n = 0; n < DIM; ++n) {
+		xmin.s[n] = -.5;
+		xmax.s[n] = .5;
+	}
 	
-	std::vector<Cell> cells(count);
+	std::vector<Cell> cells(size.s[0] * size.s[1]);
 	{
 		int index[DIM];
 		
 		Cell *cell = &cells[0];
-		//for (index[2] = 0; index[2] < size[2]; ++index[2]) {
-			for (index[1] = 0; index[1] < size[1]; ++index[1]) {
-				for (index[0] = 0; index[0] < size[0]; ++index[0], ++cell) {
+		//for (index[2] = 0; index[2] < size.s[2]; ++index[2]) {
+			for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
+				for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++cell) {
 					bool lhs = true;
 					for (int n = 0; n < DIM; ++n) {
-						cell->x.s[n] = real(xmax[n] - xmin[n]) * real(index[n]) / real(size[n]) + real(xmin[n]);
-						if (cell->x.s[n] > real(.3) * real(xmax[n]) + real(.7) * real(xmin[n])) {
+						cell->x.s[n] = real(xmax.s[n] - xmin.s[n]) * real(index[n]) / real(size.s[n]) + real(xmin.s[n]);
+						if (cell->x.s[n] > real(.3) * real(xmax.s[n]) + real(.7) * real(xmin.s[n])) {
 							lhs = false;
 						}
 					}
@@ -133,7 +316,7 @@ void HydroGPUApp::init() {
 						for (int n = 0; n < DIM; ++n) {
 							cell->interfaces[m].x.s[n] = cell->x.s[n];
 							if (m == n) {
-								cell->interfaces[m].x.s[n] -= real(xmax[n] - xmin[n]) * real(.5) / real(size[n]);
+								cell->interfaces[m].x.s[n] -= real(xmax.s[n] - xmin.s[n]) * real(.5) / real(size.s[n]);
 							}
 						}
 					}
@@ -160,55 +343,10 @@ void HydroGPUApp::init() {
 		//}
 	}
 
-	int gpu = 1;	//whether we want to request the GPU or CPU
-	
-	cl_uint numPlatforms = 0;
-	err = clGetPlatformIDs(0, NULL, &numPlatforms);
-	if (err != CL_SUCCESS || numPlatforms == 0) throw Exception() << "failed to query number of CL platforms.  got error " << err;
-	
-	std::vector<cl_platform_id> platformIDs(numPlatforms);
-	err = clGetPlatformIDs(numPlatforms, &platformIDs[0], NULL);
-	if (err != CL_SUCCESS) throw Exception() << "failed to query CL platforms.  got error " << err;
- 	
-	cl_platform_id platformID = platformIDs[0];
+	cl_platform_id platformID = getPlatformID();
+	deviceID = getDeviceID(platformID);
 
-	cl_uint numDevices = 0;
-	err = clGetDeviceIDs(platformID, gpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 0, NULL, &numDevices);
-	if (err != CL_SUCCESS || numDevices == 0) throw Exception() << "failed to query number of CL devices.  got error " << err;
-
-	std::vector<cl_device_id> deviceIDs(numDevices);
-
-	err = clGetDeviceIDs(platformID, gpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, numDevices, &deviceIDs[0], NULL);
-	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to create a device group!";
-
-	std::vector<cl_device_id>::iterator deviceIter =
-		std::find_if(deviceIDs.begin(), deviceIDs.end(), [&](cl_device_id deviceID)
-	{
-		size_t param_value_size_ret = 0;
-		err = clGetDeviceInfo(deviceID, CL_DEVICE_EXTENSIONS, 0, NULL, &param_value_size_ret );
-		if (err != CL_SUCCESS) throw Exception() << "clGetDeviceInfo failed for device " << deviceID << " with error " << err;		
-	
-		std::string param_value(param_value_size_ret, '\0');
-		err = clGetDeviceInfo(deviceID, CL_DEVICE_EXTENSIONS, param_value_size_ret, (void*)param_value.c_str(), NULL );
-		if (err != CL_SUCCESS) throw Exception() << "clGetDeivceInfo failed for device " << deviceID << " with error " << err;
-
-		std::vector<std::string> caps;
-		std::istringstream iss(param_value);
-		std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(), std::back_inserter<std::vector<std::string>>(caps));
-
-		std::vector<std::string>::iterator extension = 
-			std::find_if(caps.begin(), caps.end(), [&](const std::string &s)
-		{
-			return s == std::string("cl_khr_gl_sharing") 
-				|| s == std::string("cl_APPLE_gl_sharing");
-		});
-	 
-		return extension != caps.end();
-	});
-	if (deviceIter == deviceIDs.end()) throw Exception() << "failed to find a device with cap cl_khr_gl_sharing";
-	cl_device_id deviceID = *deviceIter;
-
-#if PLATFORM_OSX
+#if PLATFORM_osx
 	CGLContextObj kCGLContext = CGLGetCurrentContext();	// GL Context
 	CGLShareGroupObj kCGLShareGroup = CGLGetShareGroup(kCGLContext); // Share Group
 	cl_context_properties properties[] = {
@@ -217,7 +355,7 @@ void HydroGPUApp::init() {
 		0
 	};
 #endif
-#if PLATFORM_WINDOWS
+#if PLATFORM_windows
 	cl_context_properties properties[] = {
 		CL_GL_CONTEXT_KHR, (cl_context_properties) wglGetCurrentContext(), // HGLRC handle
 		CL_WGL_HDC_KHR, (cl_context_properties) wglGetCurrentDC(), // HDC handle
@@ -237,7 +375,7 @@ void HydroGPUApp::init() {
 	glBindTexture(GL_TEXTURE_2D, fluidTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, 4, size[0], size[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, 4, size.s[0], size.s[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	if ((err = glGetError()) != 0) throw Exception() << "failed to create GL texture.  got error " << err;
 	
@@ -281,88 +419,7 @@ void HydroGPUApp::init() {
 	gradientTexMem = clCreateFromGLTexture(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex, &err);
 	if (!gradientTexMem) throw Exception() << "failed to create CL memory from GL texture.  got error " << err;
 
-	const char *kernelSourcePtr = kernelSource.c_str();
-	cl_program program = clCreateProgramWithSource(context, 1, (const char **) &kernelSourcePtr, NULL, &err);
-	if (!program) throw Exception() << "Error: Failed to create compute program!";
- 
-	err = clBuildProgram(program, 0, NULL, "-I res/include", NULL, NULL);
-	if (err != CL_SUCCESS) {
-		size_t len;
-		char buffer[2048];
- 
-		std::cout << "Error: Failed to build program executable!\n" << std::endl;
-		clGetProgramBuildInfo(program, deviceID, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
-		std::cout << buffer << std::endl;
-		exit(1);
-	}
- 
-	cellsMem = clCreateBuffer(context,  CL_MEM_READ_WRITE,  sizeof(Cell) * count, NULL, NULL);
-	if (!cellsMem) throw Exception() << "Error: Failed to allocate device memory!";
-
-	err = clEnqueueWriteBuffer(commands, cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0], 0, NULL, NULL);
-	if (err != CL_SUCCESS) {
-		std::cout << "Error: Failed to write to source array!\n" << std::endl;
-		exit(1);
-	}
- 
-	for (int n = 0; n < DIM; ++n) {
-		global_size[n] = size[n];
-	}
-
-	calcEigenDecompositionKernel = clCreateKernel(program, "calcEigenDecomposition", &err);
-	if (!calcEigenDecompositionKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-	
-	calcDeltaQTildeKernel = clCreateKernel(program, "calcDeltaQTilde", &err);
-	if (!calcDeltaQTildeKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-	
-	calcRTildeKernel = clCreateKernel(program, "calcRTilde", &err);
-	if (!calcRTildeKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-
-	calcFluxKernel = clCreateKernel(program, "calcFlux", &err);
-	if (!calcFluxKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-	
-	updateStateKernel = clCreateKernel(program, "updateState", &err);
-	if (!updateStateKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-
-	convertToTexKernel = clCreateKernel(program, "convertToTex", &err);
-	if (!convertToTexKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-
-	cl_kernel* kernels[] = {
-		&calcEigenDecompositionKernel,
-		&calcDeltaQTildeKernel,
-		&calcRTildeKernel,
-		&calcFluxKernel,
-		&updateStateKernel,
-	};
-	std::for_each(kernels, kernels + numberof(kernels), [&](cl_kernel* kernel) {
-		err = 0;
-		err  = clSetKernelArg(*kernel, 0, sizeof(cl_mem), &cellsMem);
-		err |= clSetKernelArg(*kernel, 1, sizeof(cl_uint2), &size[0]);
-		if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
-	});
-	
-	real dx[DIM];
-	for (int i = 0; i < DIM; ++i) {
-		dx[i] = (xmax[i] - xmin[i]) / (float)size[i];
-	}
-	real dt = .01;
-	real dt_dx[DIM];
-	for (int i = 0; i < DIM; ++i) {
-		dt_dx[i] = dt / dx[i];
-	}
-	err = clSetKernelArg(calcFluxKernel, 2, DIM * sizeof(real), dt_dx);
-	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
-
-	err = clSetKernelArg(updateStateKernel, 2, DIM * sizeof(real), dt_dx);
-	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
-
-	err = 0;
-	err  = clSetKernelArg(convertToTexKernel, 0, sizeof(cl_mem), &cellsMem);
-	err |= clSetKernelArg(convertToTexKernel, 1, sizeof(cl_uint2), &size[0]);
-	err |= clSetKernelArg(convertToTexKernel, 2, sizeof(cl_mem), &fluidTexMem);
-	err |= clSetKernelArg(convertToTexKernel, 3, sizeof(cl_mem), &gradientTexMem);
-	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
-
+	solver = new RoeSolver(deviceID, context, size, commands, cells, xmin, xmax, fluidTexMem, gradientTexMem);
 /*
 	why isn't this working?
 	// Get the maximum work group size for executing the kernel on the device
@@ -375,7 +432,7 @@ void HydroGPUApp::init() {
 */	//manually provide it in the mean time: 
 
 #if 0
-	err = clEnqueueReadBuffer( commands, cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0], 0, NULL, NULL );  
+	err = clEnqueueReadBuffer( commands, cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0], 0, NULL, NULL);  
 	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to read cellsMem array! " << err;
 #endif
 
@@ -383,20 +440,13 @@ void HydroGPUApp::init() {
 }
 
 void HydroGPUApp::shutdown() {
+	delete solver; solver = NULL;
 	glDeleteTextures(1, &fluidTex);
 	glDeleteTextures(1, &gradientTex);
 	clReleaseContext(context);
 	clReleaseCommandQueue(commands);
-	clReleaseProgram(program);
-	clReleaseMemObject(cellsMem);
 	clReleaseMemObject(fluidTexMem);
 	clReleaseMemObject(gradientTexMem);
-	clReleaseKernel(calcEigenDecompositionKernel);
-	clReleaseKernel(calcDeltaQTildeKernel);
-	clReleaseKernel(calcRTildeKernel);
-	clReleaseKernel(calcFluxKernel);
-	clReleaseKernel(updateStateKernel);
-	clReleaseKernel(convertToTexKernel);
 }
 
 void HydroGPUApp::resize(int width, int height) {
@@ -408,38 +458,10 @@ void HydroGPUApp::resize(int width, int height) {
 void HydroGPUApp::update() {
 	GLApp::update();	//glclear 
 
-	int err = 0;
-static bool updating = true;
-if (updating) {
-//updating = false;
-	size_t local_size[DIM] = {16, 16};
-
-	err = clEnqueueNDRangeKernel(commands, calcEigenDecompositionKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "Error: Failed to execute kernel!";
+	size_t local_size[2];
+	local_size[0] = local_size[1] = 16;
 	
-	err = clEnqueueNDRangeKernel(commands, calcDeltaQTildeKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "Error: Failed to execute kernel!";
-	
-	err = clEnqueueNDRangeKernel(commands, calcRTildeKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "Error: Failed to execute kernel!";
-	
-	err = clEnqueueNDRangeKernel(commands, calcFluxKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "Error: Failed to execute kernel!";
-	
-	err = clEnqueueNDRangeKernel(commands, updateStateKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "Error: Failed to execute kernel!";
-
-	glFlush();
-	glFinish();
-	clEnqueueAcquireGLObjects(commands, 1, &fluidTexMem, 0, 0, 0);
-	
-	err = clEnqueueNDRangeKernel(commands, convertToTexKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "Error: Failed to execute kernel!";
-
-	clEnqueueReleaseGLObjects(commands, 1, &fluidTexMem, 0, 0, 0);
-	clFlush(commands);
-	clFinish(commands);
-}
+	solver->update(commands, fluidTexMem, global_size, local_size);
 
 	glPushMatrix();
 	glTranslatef(-viewPosX, -viewPosY, 0);
@@ -455,7 +477,8 @@ if (updating) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glPopMatrix();
 
-	if ((err = glGetError())) std::cout << "error " << err << std::endl;
+	int err = glGetError();
+	if (err) std::cout << "error " << err << std::endl;
 }
 
 void HydroGPUApp::sdlEvent(SDL_Event &event) {

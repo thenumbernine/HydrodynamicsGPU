@@ -87,25 +87,26 @@ __kernel void calcEigenDecomposition(
 		
 		//calculate eigenvector inverses ... 
 		//min row
-		interface->eigenvectorsInverse[0][0] = (.5 * (GAMMA - 1.) * velocitySq + speedOfSound * velocityN) / (2. * speedOfSound * speedOfSound);
-		interface->eigenvectorsInverse[1][0] = -(normal.x * speedOfSound + (GAMMA - 1.) * velocity.x) / (2. * speedOfSound * speedOfSound);
-		interface->eigenvectorsInverse[2][0] = -(normal.y * speedOfSound + (GAMMA - 1.) * velocity.y) / (2. * speedOfSound * speedOfSound);
-		interface->eigenvectorsInverse[3][0] = (GAMMA - 1.) / (2. * speedOfSound * speedOfSound);
+		real scalar = .5 / (speedOfSound * speedOfSound);
+		interface->eigenvectorsInverse[0][0] = (.5 * (GAMMA - 1.) * velocitySq + speedOfSound * velocityN) * scalar;
+		interface->eigenvectorsInverse[1][0] = -(normal.x * speedOfSound + (GAMMA - 1.) * velocity.x) * scalar;
+		interface->eigenvectorsInverse[2][0] = -(normal.y * speedOfSound + (GAMMA - 1.) * velocity.y) * scalar;
+		interface->eigenvectorsInverse[3][0] = (GAMMA - 1.) * scalar;
 		//mid normal row
-		interface->eigenvectorsInverse[0][1] = 1. - .5 * (GAMMA - 1.) * velocitySq / (speedOfSound * speedOfSound);
-		interface->eigenvectorsInverse[1][1] = (GAMMA - 1.) * velocity.x / (speedOfSound * speedOfSound);
-		interface->eigenvectorsInverse[2][1] = (GAMMA - 1.) * velocity.y / (speedOfSound * speedOfSound);
-		interface->eigenvectorsInverse[3][1] = -(GAMMA - 1.) / (speedOfSound * speedOfSound);
+		interface->eigenvectorsInverse[0][1] = 1. - (GAMMA - 1.) * velocitySq * scalar;
+		interface->eigenvectorsInverse[1][1] = (GAMMA - 1.) * velocity.x * 2. * scalar;
+		interface->eigenvectorsInverse[2][1] = (GAMMA - 1.) * velocity.y * 2. * scalar;
+		interface->eigenvectorsInverse[3][1] = -(GAMMA - 1.) * 2. * scalar;
 		//mid tangent row
 		interface->eigenvectorsInverse[0][2] = -velocityT; 
 		interface->eigenvectorsInverse[1][2] = tangent.x;
 		interface->eigenvectorsInverse[2][2] = tangent.y;
 		interface->eigenvectorsInverse[3][2] = 0.;
 		//max row
-		interface->eigenvectorsInverse[0][3] = (.5 * (GAMMA - 1.) * velocitySq - speedOfSound * velocityN) / (2. * speedOfSound * speedOfSound);
-		interface->eigenvectorsInverse[1][3] = (normal.x * speedOfSound - (GAMMA - 1.) * velocity.x) / (2. * speedOfSound * speedOfSound);
-		interface->eigenvectorsInverse[2][3] = (normal.y * speedOfSound - (GAMMA - 1.) * velocity.y) / (2. * speedOfSound * speedOfSound);
-		interface->eigenvectorsInverse[3][3] = (GAMMA - 1.) / (2. * speedOfSound * speedOfSound);
+		interface->eigenvectorsInverse[0][3] = (.5 * (GAMMA - 1.) * velocitySq - speedOfSound * velocityN) * scalar;
+		interface->eigenvectorsInverse[1][3] = (normal.x * speedOfSound - (GAMMA - 1.) * velocity.x) * scalar;
+		interface->eigenvectorsInverse[2][3] = (normal.y * speedOfSound - (GAMMA - 1.) * velocity.y) * scalar;
+		interface->eigenvectorsInverse[3][3] = (GAMMA - 1.) * scalar;
 	}
 }
 
@@ -262,10 +263,24 @@ __kernel void convertToTex(
 	int index = i.x + size.x * i.y;
 	__global Cell *cell = cells + index;
 
+#if 0	//cell position
+	float2 f = (float2)(i.x, i.y) / (float2)(size.x, size.y);
+	float4 color = (float4)(
+		fabs(cell->x.x - (f.x - .5)),
+		fabs(cell->x.y - (f.y - .5)),
+		0., 1.);
+	write_imagef(fluidTex, i, color);
+#endif
 #if 0	//plot eigenbasis error 
 	__global Interface *interface = &cell->interfaces[0];
 	// a_ij = u_ik w_k v_kj
 	// delta_ij = u_ik v_kj
+	real4 check[4] = {
+		(real4)(1., 0., 0., 0.),
+		(real4)(0., 1., 0., 0.),
+		(real4)(0., 0., 1., 0.),
+		(real4)(0., 0., 0., 1.)
+	};
 	float err = 0.;
 	for (int i = 0; i < 4; ++i) {
 		for (int j = 0; j < 4; ++j) {
@@ -273,16 +288,40 @@ __kernel void convertToTex(
 			for (int k = 0; k < 4; ++k) {
 				sum += interface->eigenvectors[i][k] * interface->eigenvectorsInverse[k][j];
 			}
-			err += fabs(sum - (i == j ? 1. : 0.));
+			err += fabs(sum - check[i][j]);
 		}
 	}
 	float4 color = (float4)(err, 0., 0., 1.);
 	write_imagef(fluidTex, i, color);
 #endif
-#if 1	//plot density
+#if 1	//plot eigenstate reconstruction vs calculated flux
+	__global Interface *interface = &cell->interfaces[0];
+	// a_ij = u_ik w_k v_kj
+	// delta_ij = u_ik v_kj
+	real4 check[4] = {
+		(real4)(0., 1., 0., 0.),	//error: .5, 0, 1, .5
+		(real4)(0., 1., 0., 0.),
+		(real4)(0., 0., 1., 0.),
+		(real4)(0., 0., 0., 1.)
+	};
+	float err = 0.;
+//	for (int i = 0; i < 4; ++i) {
+//		for (int j = 0; j < 4; ++j) {
+	{ { int i = 0; int j = 0;
+			real sum = 0.;
+			for (int k = 0; k < 4; ++k) {
+				sum += interface->eigenvectors[i][k] * interface->eigenvalues[k] * interface->eigenvectorsInverse[k][j];
+			}
+			err += fabs(sum - check[i][j]);
+		}
+	}
+	float4 color = (float4)(err, 0., 0., 1.);
+	write_imagef(fluidTex, i, color);
+#endif
+#if 0	//plot density
 	float4 color = read_imagef(gradientTex, 
 		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_NONE | CLK_FILTER_LINEAR,
-		(float2)(cell->q[0] * 2.f, .5));
+		(float2)(cell->q[0] * 2., .5));
 	write_imagef(fluidTex, i, color.bgra);
 #endif
 }
