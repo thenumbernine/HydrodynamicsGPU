@@ -45,12 +45,14 @@ RoeSolver::RoeSolver(
  
 	err = clBuildProgram(program, 0, NULL, "-I res/include", NULL, NULL);
 	if (err != CL_SUCCESS) {
-		size_t len;
-		char buffer[2048];
  
-		std::cout << "Error: Failed to build program executable!\n" << std::endl;
-		clGetProgramBuildInfo(program, deviceID, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
-		std::cout << buffer << std::endl;
+		std::cout << "failed to build program executable!" << std::endl;
+		
+		size_t len;
+		clGetProgramBuildInfo(program, deviceID, CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
+		std::string log(len, '\0');
+		clGetProgramBuildInfo(program, deviceID, CL_PROGRAM_BUILD_LOG, len, (void*)log.c_str(), NULL);
+		std::cout << log << std::endl;
 		exit(1);
 	}
  
@@ -100,7 +102,7 @@ RoeSolver::RoeSolver(
 	for (int i = 0; i < DIM; ++i) {
 		dx[i] = (xmax.s[i] - xmin.s[i]) / (float)size.s[i];
 	}
-	real dt = .00001;
+	real dt = .001;
 	real2 dt_dx;
 	for (int i = 0; i < DIM; ++i) {
 		dt_dx.s[i] = dt / dx[i];

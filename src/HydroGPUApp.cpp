@@ -118,16 +118,20 @@ cl_platform_id HydroGPUApp::getPlatformID() {
 struct DeviceParameterQuery {
 	cl_uint param;
 	const char *name;
-	DeviceParameterQuery(cl_uint param_, const char *name_) : param(param_), name(name_) {}
+	bool failed;
+	DeviceParameterQuery(cl_uint param_, const char *name_) : param(param_), name(name_), failed(false) {}
 	virtual void query(cl_device_id deviceID) = 0;
-	virtual std::string tostring() = 0;
+	std::string tostring() {
+		if (failed) return "-failed-";
+		return toStringType();
+	}
+	virtual std::string toStringType() = 0;
 };
 
 template<typename Type>
 struct DeviceParameterQueryType : public DeviceParameterQuery {
 	Type value;
-	bool failed;
-	DeviceParameterQueryType(cl_uint param_, const char *name_) : DeviceParameterQuery(param_, name_), value(Type()), failed(false) {}
+	DeviceParameterQueryType(cl_uint param_, const char *name_) : DeviceParameterQuery(param_, name_), value(Type()) {}
 	virtual void query(cl_device_id deviceID) {
 		int err = clGetDeviceInfo(deviceID, param, sizeof(value), &value, NULL);
 		if (err != CL_SUCCESS) {
@@ -136,8 +140,7 @@ struct DeviceParameterQueryType : public DeviceParameterQuery {
 			return;
 		}
 	}
-	virtual std::string tostring() {
-		if (failed) return "-failed-";
+	virtual std::string toStringType() {
 		std::stringstream ss;
 		ss << value;
 		return ss.str();
@@ -147,8 +150,7 @@ struct DeviceParameterQueryType : public DeviceParameterQuery {
 template<>
 struct DeviceParameterQueryType<char*> : public DeviceParameterQuery {
 	std::string value;
-	bool failed;
-	DeviceParameterQueryType(cl_uint param_, const char *name_) : DeviceParameterQuery(param_, name_), failed(false) {}
+	DeviceParameterQueryType(cl_uint param_, const char *name_) : DeviceParameterQuery(param_, name_) {}
 	virtual void query(cl_device_id deviceID) {
 		size_t size = 0;
 		int err = clGetDeviceInfo(deviceID, param, 0, NULL, &size);
@@ -166,7 +168,62 @@ struct DeviceParameterQueryType<char*> : public DeviceParameterQuery {
 			return;
 		}
 	}
-	virtual std::string tostring() { return failed ? "-failed-" : value; }
+	virtual std::string toStringType() { return value; }
+};
+
+//has to be a class separate of DeviceParameterQueryType because some types are used with both (cl_device_fp_config is typedef'd as a cl_uint)
+template<typename Type>
+struct DeviceParameterQueryEnumType : public DeviceParameterQuery {
+	Type value;
+	DeviceParameterQueryEnumType(cl_uint param_, const char *name_) : DeviceParameterQuery(param_, name_), value(Type()) {}
+	virtual void query(cl_device_id deviceID) {
+		int err = clGetDeviceInfo(deviceID, param, sizeof(value), &value, NULL);
+		if (err != CL_SUCCESS) {
+			//throw Exception() << "clGetDeviceInfo failed to query " << name << " (" << param << ") for device " << deviceID << " with error " << err;
+			failed = true;
+			return;
+		}
+	}
+	virtual std::vector<std::pair<Type, const char *>> getFlags() = 0;
+	virtual std::string toStringType() {
+		std::vector<std::pair<Type, const char *>>flags = getFlags();
+		Type copy = value;
+		std::stringstream ss;
+		std::for_each(flags.begin(), flags.end(), [&](std::pair<Type, const char *> flag) {
+			if (copy & flag.first) {
+				copy -= flag.first;
+				ss << "\n\t" << flag.second;
+			}
+		});
+		if (copy) {
+			ss << "\n\textra flags: " << copy;
+		}
+		return ss.str();
+	};
+};
+
+struct DeviceParameterQueryEnumType_cl_device_fp_config : public DeviceParameterQueryEnumType<cl_device_fp_config> {
+	using DeviceParameterQueryEnumType::DeviceParameterQueryEnumType;
+	virtual std::vector<std::pair<cl_device_fp_config, const char *>> getFlags() { 
+		return std::vector<std::pair<cl_device_fp_config, const char *>>{
+			std::pair<cl_device_fp_config, const char *>(CL_FP_DENORM, "CL_FP_DENORM - denorms are supported"),
+			std::pair<cl_device_fp_config, const char *>(CL_FP_INF_NAN, "CL_FP_INF_NAN - INF and NaNs are supported"),
+			std::pair<cl_device_fp_config, const char *>(CL_FP_ROUND_TO_NEAREST, "CL_FP_ROUND_TO_NEAREST - round to nearest even rounding mode supported"),
+			std::pair<cl_device_fp_config, const char *>(CL_FP_ROUND_TO_ZERO, "CL_FP_ROUND_TO_ZERO - round to zero rounding mode supported"),
+			std::pair<cl_device_fp_config, const char *>(CL_FP_ROUND_TO_INF, "CL_FP_ROUND_TO_INF - round to +ve and -ve infinity rounding modes supported"),
+			std::pair<cl_device_fp_config, const char *>(CL_FP_FMA, "CL_FP_FMA - IEEE754-20080 fused multiply-add is supported"),
+		};
+	}
+};
+
+struct DeviceParameterQueryEnumType_cl_device_exec_capabilities : public DeviceParameterQueryEnumType<cl_device_exec_capabilities> {
+	using DeviceParameterQueryEnumType::DeviceParameterQueryEnumType;
+	virtual std::vector<std::pair<cl_device_exec_capabilities, const char *>> getFlags() { 
+		return std::vector<std::pair<cl_device_exec_capabilities, const char *>>{
+			std::pair<cl_device_exec_capabilities, const char *>(CL_EXEC_KERNEL, "CL_EXEC_KERNEL - The OpenCL device can execute OpenCL kernels"),
+			std::pair<cl_device_exec_capabilities, const char *>(CL_EXEC_NATIVE_KERNEL, "CL_EXEC_NATIVE_KERNEL - The OpenCL device can execute native kernels"),
+		};
+	}
 };
 
 cl_device_id HydroGPUApp::getDeviceID(cl_platform_id platformID) {
@@ -193,24 +250,11 @@ cl_device_id HydroGPUApp::getDeviceID(cl_platform_id platformID) {
 		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MAX_CLOCK_FREQUENCY, "max clock freq"),
 		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_MAX_COMPUTE_UNITS, "cores"),
 		std::make_shared<DeviceParameterQueryType<cl_device_type>>(CL_DEVICE_TYPE, "type"),
-		std::make_shared<DeviceParameterQueryType<cl_device_fp_config>>(CL_DEVICE_ADDRESS_BITS, "fp caps"),	//bitflags: 
-		std::make_shared<DeviceParameterQueryType<cl_device_fp_config>>(CL_DEVICE_HALF_FP_CONFIG, "half fp caps"),
-		std::make_shared<DeviceParameterQueryType<cl_device_fp_config>>(CL_DEVICE_SINGLE_FP_CONFIG, "single fp caps"),
-#if 0
-CL_FP_DENORM - denorms are supported.
-CL_FP_INF_NAN - INF and NaNs are supported.
-CL_FP_ROUND_TO_NEAREST - round to nearest even rounding mode supported.
-CL_FP_ROUND_TO_ZERO - round to zero rounding mode supported.
-CL_FP_ROUND_TO_INF - round to +ve and -ve infinity rounding modes supported.
-CP_FP_FMA - IEEE754-20080 fused multiply-add is supported.
-#endif
-
+		std::make_shared<DeviceParameterQueryEnumType_cl_device_fp_config>(CL_DEVICE_ADDRESS_BITS, "fp caps"),	//bitflags: 
+		std::make_shared<DeviceParameterQueryEnumType_cl_device_fp_config>(CL_DEVICE_HALF_FP_CONFIG, "half fp caps"),
+		std::make_shared<DeviceParameterQueryEnumType_cl_device_fp_config>(CL_DEVICE_SINGLE_FP_CONFIG, "single fp caps"),
 		std::make_shared<DeviceParameterQueryType<cl_bool>>(CL_DEVICE_ENDIAN_LITTLE, "little endian?"),
-		std::make_shared<DeviceParameterQueryType<cl_device_exec_capabilities>>(CL_DEVICE_EXECUTION_CAPABILITIES, "exec caps"),
-#if 0
-CL_EXEC_KERNEL - The OpenCL device can execute OpenCL kernels.
-CL_EXEC_NATIVE_KERNEL - The OpenCL device can execute native kernels.
-#endif
+		std::make_shared<DeviceParameterQueryEnumType_cl_device_exec_capabilities>(CL_DEVICE_EXECUTION_CAPABILITIES, "exec caps"),
 		std::make_shared<DeviceParameterQueryType<cl_uint>>(CL_DEVICE_ADDRESS_BITS, "address space size"),
 		std::make_shared<DeviceParameterQueryType<cl_ulong>>(CL_DEVICE_GLOBAL_MEM_SIZE, "global mem size"),
 		std::make_shared<DeviceParameterQueryType<cl_ulong>>(CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, "global mem cache size"),
@@ -245,7 +289,7 @@ CL_EXEC_NATIVE_KERNEL - The OpenCL device can execute native kernels.
 		std::make_shared<DeviceParameterQueryType<char*>>(CL_DEVICE_PROFILE, "profile"),
 		std::make_shared<DeviceParameterQueryType<size_t>>(CL_DEVICE_PROFILING_TIMER_RESOLUTION, "profile timer resolution"),
 		std::make_shared<DeviceParameterQueryType<cl_command_queue_properties>>(CL_DEVICE_QUEUE_PROPERTIES, "command-queue properties"),
-		std::make_shared<DeviceParameterQueryType<char*>>(CL_DEVICE_EXTENSIONS, "extensions"),
+		//std::make_shared<DeviceParameterQueryType<char*>>(CL_DEVICE_EXTENSIONS, "extensions"),
 	};
 
 	std::vector<cl_device_id>::iterator deviceIter =
@@ -256,7 +300,6 @@ CL_EXEC_NATIVE_KERNEL - The OpenCL device can execute native kernels.
 			query->query(deviceID);
 			std::cout << query->name << ":\t" << query->tostring() << std::endl;
 		});
-		std::cout << std::endl;
 
 		size_t param_value_size_ret = 0;
 		err = clGetDeviceInfo(deviceID, CL_DEVICE_EXTENSIONS, 0, NULL, &param_value_size_ret);
@@ -266,18 +309,24 @@ CL_EXEC_NATIVE_KERNEL - The OpenCL device can execute native kernels.
 		err = clGetDeviceInfo(deviceID, CL_DEVICE_EXTENSIONS, param_value_size_ret, (void*)param_value.c_str(), NULL);
 		if (err != CL_SUCCESS) throw Exception() << "clGetDeivceInfo failed for device " << deviceID << " with error " << err;
 
-		std::vector<std::string> caps;
+		std::vector<std::string> extensions;
 		std::istringstream iss(param_value);
-		std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(), std::back_inserter<std::vector<std::string>>(caps));
+		std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(), std::back_inserter<std::vector<std::string>>(extensions));
+
+		std::cout << "extensions:" << std::endl;
+		std::for_each(extensions.begin(), extensions.end(), [&](const std::string &s) {
+			std::cout << "\t" << s << std::endl;
+		});
+		std::cout << std::endl;
 
 		std::vector<std::string>::iterator extension = 
-			std::find_if(caps.begin(), caps.end(), [&](const std::string &s)
+			std::find_if(extensions.begin(), extensions.end(), [&](const std::string &s)
 		{
 			return s == std::string("cl_khr_gl_sharing") 
 				|| s == std::string("cl_APPLE_gl_sharing");
 		});
 	 
-		return extension != caps.end();
+		return extension != extensions.end();
 	});
 	if (deviceIter == deviceIDs.end()) throw Exception() << "failed to find a device with cap cl_khr_gl_sharing";
 	return *deviceIter;

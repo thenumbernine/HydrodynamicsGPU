@@ -1,11 +1,11 @@
 #pragma once
 
+#if 0
 #ifdef __OPENCL_VERSION__
 #pragma OPENCL EXTENSION cl_APPLE_fp64_ops : enable
 #endif
+#endif
 
-//double depends on cl_khr_fp64 extension
-// which isn't working on my machine ... 
 typedef float real;
 #ifdef __OPENCL_VERSION__
 typedef float2 real2;
@@ -17,13 +17,13 @@ typedef cl_float4 real4;
 
 #define DIM	2
 #define NUM_STATES	2+DIM
-#define GAMMA 1.4
+#define GAMMA 1.4f
 
 struct Interface {
 	//Roe-specific values
 	real4 eigenvalues;
-	real4 eigenvectors[NUM_STATES];			//stored as columns 
-	real4 eigenvectorsInverse[NUM_STATES];	//
+	real4 eigenvectors[NUM_STATES];			//stored row-major 
+	real4 eigenvectorsInverse[NUM_STATES];	// so math matches array index notation
 	real4 rTilde;
 	real4 deltaQTilde;
 	
