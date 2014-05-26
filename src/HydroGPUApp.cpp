@@ -212,7 +212,7 @@ void HydroGPUApp::init() {
 	if (deviceIter == deviceIDs.end()) throw Exception() << "failed to find a device with cap cl_khr_gl_sharing";
 	cl_device_id deviceID = *deviceIter;
 
-//#if PLATFORM==OSX
+#if PLATFORM_OSX
 	CGLContextObj kCGLContext = CGLGetCurrentContext();	// GL Context
 	CGLShareGroupObj kCGLShareGroup = CGLGetShareGroup(kCGLContext); // Share Group
 	cl_context_properties properties[] = {
@@ -220,8 +220,8 @@ void HydroGPUApp::init() {
 		CL_CONTEXT_PLATFORM, (cl_context_properties)platformID,
 		0
 	};
-//#endif
-/*#if PLATFORM==WINDOWS
+#endif
+#if PLATFORM_WINDOWS
 	cl_context_properties properties[] = {
 		CL_GL_CONTEXT_KHR, (cl_context_properties) wglGetCurrentContext(), // HGLRC handle
 		CL_WGL_HDC_KHR, (cl_context_properties) wglGetCurrentDC(), // HDC handle
@@ -229,7 +229,7 @@ void HydroGPUApp::init() {
 		0
 	};	
 #endif
-*/
+
 	cl_context context = clCreateContext(properties, 1, &deviceID, NULL, NULL, &err);
 	if (!context) throw Exception() << "Error: Failed to create a compute context!";
 	Finally contextFinally([&](){ clReleaseContext(context); });
