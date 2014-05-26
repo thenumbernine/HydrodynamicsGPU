@@ -250,10 +250,11 @@ __kernel void updateState(
 	}
 }
 
-__kernel void copyToTex(
+__kernel void convertToTex(
 	__global Cell* cells,
 	int2 size,
-	__write_only image2d_t tex)
+	__write_only image2d_t fluidTex,
+	__read_only image2d_t gradientTex)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
@@ -261,11 +262,9 @@ __kernel void copyToTex(
 	int index = i.x + size.x * i.y;
 	__global Cell *cell = cells + index;
 
-	float4 color = (float4)(
-		cell->q[0],
-		0.,
-		0.,
-		1.);
-	write_imagef(tex, i, color);
+	float4 color = read_imagef(gradientTex, 
+		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_NONE | CLK_FILTER_LINEAR,
+		(float2)(cell->q[0] * 2.f, .5));
+	write_imagef(fluidTex, i, color.bgra);
 }
 

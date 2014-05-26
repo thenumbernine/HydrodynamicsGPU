@@ -76,6 +76,22 @@ std::string readFile(std::string filename) {
 
 struct HydroGPUApp : public GLApp {
 	GLuint fluidTex;
+	GLuint gradientTex;
+	cl_context context;
+	cl_command_queue commands;
+	cl_program program;
+	cl_mem cellsMem;
+	cl_mem fluidTexMem;
+	cl_mem gradientTexMem;
+	cl_kernel calcEigenDecompositionKernel;
+	cl_kernel calcDeltaQTildeKernel;
+	cl_kernel calcRTildeKernel;
+	cl_kernel calcFluxKernel;
+	cl_kernel updateStateKernel;
+	cl_kernel convertToTexKernel;
+
+	size_t global_size[DIM];
+	  
 	bool leftButtonDown;
 	bool leftShiftDown;
 	bool rightShiftDown;
@@ -85,7 +101,20 @@ struct HydroGPUApp : public GLApp {
 
 	HydroGPUApp()
 	: GLApp()
-	, fluidTex(0)
+	, fluidTex(GLuint())
+	, gradientTex(GLuint())
+	, context(cl_context())
+	, commands(cl_command_queue())
+	, program(cl_program())
+	, cellsMem(cl_mem())
+	, fluidTexMem(cl_mem())
+	, gradientTexMem(cl_mem())
+	, calcEigenDecompositionKernel(cl_kernel())
+	, calcDeltaQTildeKernel(cl_kernel())
+	, calcRTildeKernel(cl_kernel())
+	, calcFluxKernel(cl_kernel())
+	, updateStateKernel(cl_kernel())
+	, convertToTexKernel(cl_kernel())
 	, leftButtonDown(false)
 	, leftShiftDown(false)
 	, rightShiftDown(false)
@@ -105,8 +134,6 @@ void HydroGPUApp::init() {
 	GLApp::init();
 
 	int err;
-	  
-	size_t global[DIM];
 	  
 	std::string kernelSource = readFile("res/roe_integrate_flux.cl");
 
@@ -230,13 +257,11 @@ void HydroGPUApp::init() {
 	};	
 #endif
 
-	cl_context context = clCreateContext(properties, 1, &deviceID, NULL, NULL, &err);
+	context = clCreateContext(properties, 1, &deviceID, NULL, NULL, &err);
 	if (!context) throw Exception() << "Error: Failed to create a compute context!";
-	Finally contextFinally([&](){ clReleaseContext(context); });
  
-	cl_command_queue commands = clCreateCommandQueue(context, deviceID, 0, &err);
+	commands = clCreateCommandQueue(context, deviceID, 0, &err);
 	if (!commands) throw Exception() << "Error: Failed to create a command queue!";
-	Finally commandsFinally([&](){ clReleaseCommandQueue(commands); });
 
 	//get a texture going for visualizing the output
 	glGenTextures(1, &fluidTex);
@@ -247,13 +272,49 @@ void HydroGPUApp::init() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	if ((err = glGetError()) != 0) throw Exception() << "failed to create GL texture.  got error " << err;
 	
-	cl_mem texMem = clCreateFromGLTexture(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex, &err);
-	if (!texMem) throw Exception() << "failed to create CL memory from GL texture.  got error " << err;
+	fluidTexMem = clCreateFromGLTexture(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex, &err);
+	if (!fluidTexMem) throw Exception() << "failed to create CL memory from GL texture.  got error " << err;
+
+	//gradient texture
+	{
+		glGenTextures(1, &gradientTex);
+		glBindTexture(GL_TEXTURE_2D, gradientTex);
+
+		float colors[][3] = {
+			{0, 0, 0},
+			{0, 0, .5},
+			{1, .5, 0},
+			{1, 0, 0}
+		};
+
+		const int width = 256;
+		unsigned char data[width*3];
+		for (int i = 0; i < width; ++i) {
+			float f = (float)i / (float)width * (float)numberof(colors);
+			int ci = (int)f;
+			float s = f - (float)ci;
+			if (ci >= numberof(colors)) {
+				ci = numberof(colors)-1;
+				s = 0;
+			}
+
+			for (int j = 0; j < 3; ++j) {
+				data[3 * i + j] = (unsigned char)(255. * (colors[ci][j] * (1.f - s) + colors[ci+1][j] * s));
+			}
+		}
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	gradientTexMem = clCreateFromGLTexture(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex, &err);
+	if (!gradientTexMem) throw Exception() << "failed to create CL memory from GL texture.  got error " << err;
 
 	const char *kernelSourcePtr = kernelSource.c_str();
 	cl_program program = clCreateProgramWithSource(context, 1, (const char **) &kernelSourcePtr, NULL, &err);
 	if (!program) throw Exception() << "Error: Failed to create compute program!";
-	Finally programFinally([&](){ clReleaseProgram(program); });
  
 	err = clBuildProgram(program, 0, NULL, "-I res/include", NULL, NULL);
 	if (err != CL_SUCCESS) {
@@ -266,9 +327,8 @@ void HydroGPUApp::init() {
 		exit(1);
 	}
  
-	cl_mem cellsMem = clCreateBuffer(context,  CL_MEM_READ_WRITE,  sizeof(Cell) * count, NULL, NULL);
+	cellsMem = clCreateBuffer(context,  CL_MEM_READ_WRITE,  sizeof(Cell) * count, NULL, NULL);
 	if (!cellsMem) throw Exception() << "Error: Failed to allocate device memory!";
-	Finally cellsMemFinally([&](){ clReleaseMemObject(cellsMem); });
 
 	err = clEnqueueWriteBuffer(commands, cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0], 0, NULL, NULL);
 	if (err != CL_SUCCESS) {
@@ -277,32 +337,26 @@ void HydroGPUApp::init() {
 	}
  
 	for (int n = 0; n < DIM; ++n) {
-		global[n] = size[n];
+		global_size[n] = size[n];
 	}
 
-	cl_kernel calcEigenDecompositionKernel = clCreateKernel(program, "calcEigenDecomposition", &err);
+	calcEigenDecompositionKernel = clCreateKernel(program, "calcEigenDecomposition", &err);
 	if (!calcEigenDecompositionKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-	Finally k1Finally([&](){ clReleaseKernel(calcEigenDecompositionKernel); });
 	
-	cl_kernel calcDeltaQTildeKernel = clCreateKernel(program, "calcDeltaQTilde", &err);
+	calcDeltaQTildeKernel = clCreateKernel(program, "calcDeltaQTilde", &err);
 	if (!calcDeltaQTildeKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-	Finally k2Finally([&](){ clReleaseKernel(calcDeltaQTildeKernel ); });
 	
-	cl_kernel calcRTildeKernel = clCreateKernel(program, "calcRTilde", &err);
+	calcRTildeKernel = clCreateKernel(program, "calcRTilde", &err);
 	if (!calcRTildeKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-	Finally k3Finally([&](){ clReleaseKernel(calcRTildeKernel ); });
 
-	cl_kernel calcFluxKernel = clCreateKernel(program, "calcFlux", &err);
+	calcFluxKernel = clCreateKernel(program, "calcFlux", &err);
 	if (!calcFluxKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-	Finally k4Finally([&](){ clReleaseKernel(calcFluxKernel ); });
 	
-	cl_kernel updateStateKernel = clCreateKernel(program, "updateState", &err);
+	updateStateKernel = clCreateKernel(program, "updateState", &err);
 	if (!updateStateKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-	Finally k5Finally([&](){ clReleaseKernel(updateStateKernel); });
 
-	cl_kernel copyToTexKernel = clCreateKernel(program, "copyToTex", &err);
-	if (!copyToTexKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-	Finally k6Finally([&](){ clReleaseKernel(copyToTexKernel); });
+	convertToTexKernel = clCreateKernel(program, "convertToTex", &err);
+	if (!convertToTexKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
 
 	cl_kernel* kernels[] = {
 		&calcEigenDecompositionKernel,
@@ -334,38 +388,22 @@ void HydroGPUApp::init() {
 	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
 
 	err = 0;
-	err  = clSetKernelArg(copyToTexKernel, 0, sizeof(cl_mem), &cellsMem);
-	err |= clSetKernelArg(copyToTexKernel, 1, sizeof(cl_uint2), &size[0]);
-	err |= clSetKernelArg(copyToTexKernel, 2, sizeof(cl_mem), &texMem);
+	err  = clSetKernelArg(convertToTexKernel, 0, sizeof(cl_mem), &cellsMem);
+	err |= clSetKernelArg(convertToTexKernel, 1, sizeof(cl_uint2), &size[0]);
+	err |= clSetKernelArg(convertToTexKernel, 2, sizeof(cl_mem), &fluidTexMem);
+	err |= clSetKernelArg(convertToTexKernel, 3, sizeof(cl_mem), &gradientTexMem);
 	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
 
 /*
 	why isn't this working?
 	// Get the maximum work group size for executing the kernel on the device
 	//
-	err = clGetKernelWorkGroupInfo(kernel, deviceID, CL_KERNEL_WORK_GROUP_SIZE, 2 * sizeof(local), local, NULL);
+	err = clGetKernelWorkGroupInfo(kernel, deviceID, CL_KERNEL_WORK_GROUP_SIZE, 2 * sizeof(local_size), local_size, NULL);
 	if (err != CL_SUCCESS) {
 		std::cout << "Error: Failed to retrieve kernel work group info! " << err << std::endl;
 		exit(1);
 	}
 */	//manually provide it in the mean time: 
-	size_t local[DIM] = {16, 16};
-
-	std::for_each(kernels, kernels + numberof(kernels), [&](cl_kernel* kernel) {
-		err = clEnqueueNDRangeKernel(commands, *kernel, 2, NULL, global, local, 0, NULL, NULL);
-		if (err) throw Exception() << "Error: Failed to execute kernel!";
-	});
-
-	glFlush();
-	glFinish();
-	clEnqueueAcquireGLObjects(commands, 1, &texMem, 0, 0, 0);
-	
-	err = clEnqueueNDRangeKernel(commands, copyToTexKernel, 2, NULL, global, local, 0, NULL, NULL);
-	if (err) throw Exception() << "Error: Failed to execute kernel!";
-
-	clEnqueueReleaseGLObjects(commands, 1, &texMem, 0, 0, 0);
-	clFlush(commands);
-	clFinish(commands);
 
 #if 0
 	err = clEnqueueReadBuffer( commands, cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0], 0, NULL, NULL );  
@@ -376,6 +414,20 @@ void HydroGPUApp::init() {
 }
 
 void HydroGPUApp::shutdown() {
+	glDeleteTextures(1, &fluidTex);
+	glDeleteTextures(1, &gradientTex);
+	clReleaseContext(context);
+	clReleaseCommandQueue(commands);
+	clReleaseProgram(program);
+	clReleaseMemObject(cellsMem);
+	clReleaseMemObject(fluidTexMem);
+	clReleaseMemObject(gradientTexMem);
+	clReleaseKernel(calcEigenDecompositionKernel);
+	clReleaseKernel(calcDeltaQTildeKernel);
+	clReleaseKernel(calcRTildeKernel);
+	clReleaseKernel(calcFluxKernel);
+	clReleaseKernel(updateStateKernel);
+	clReleaseKernel(convertToTexKernel);
 }
 
 void HydroGPUApp::resize(int width, int height) {
@@ -386,7 +438,40 @@ void HydroGPUApp::resize(int width, int height) {
 
 void HydroGPUApp::update() {
 	GLApp::update();	//glclear 
+
+	int err = 0;
+static bool updating = true;
+if (updating) {
+updating = false;
+	size_t local_size[DIM] = {16, 16};
+
+	err = clEnqueueNDRangeKernel(commands, calcEigenDecompositionKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
+	if (err) throw Exception() << "Error: Failed to execute kernel!";
 	
+	err = clEnqueueNDRangeKernel(commands, calcDeltaQTildeKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
+	if (err) throw Exception() << "Error: Failed to execute kernel!";
+	
+	err = clEnqueueNDRangeKernel(commands, calcRTildeKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
+	if (err) throw Exception() << "Error: Failed to execute kernel!";
+	
+	err = clEnqueueNDRangeKernel(commands, calcFluxKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
+	if (err) throw Exception() << "Error: Failed to execute kernel!";
+	
+	err = clEnqueueNDRangeKernel(commands, updateStateKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
+	if (err) throw Exception() << "Error: Failed to execute kernel!";
+
+	glFlush();
+	glFinish();
+	clEnqueueAcquireGLObjects(commands, 1, &fluidTexMem, 0, 0, 0);
+	
+	err = clEnqueueNDRangeKernel(commands, convertToTexKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
+	if (err) throw Exception() << "Error: Failed to execute kernel!";
+
+	clEnqueueReleaseGLObjects(commands, 1, &fluidTexMem, 0, 0, 0);
+	clFlush(commands);
+	clFinish(commands);
+}
+
 	glPushMatrix();
 	glTranslatef(-viewPosX, -viewPosY, 0);
 	glScalef(viewZoom, viewZoom, viewZoom);
@@ -401,7 +486,6 @@ void HydroGPUApp::update() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glPopMatrix();
 
-	int err = 0;
 	if ((err = glGetError())) std::cout << "error " << err << std::endl;
 }
 
