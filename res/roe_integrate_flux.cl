@@ -4,7 +4,7 @@ __kernel void calcEigenDecomposition(
 	__global Cell* cells,
 	int2 size)
 {
-	int2 i = int2(get_global_id(0), get_global_id(1));
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 	
 	int index = i.x + size.x * i.y;
@@ -113,7 +113,7 @@ __kernel void calcDeltaQTilde(
 	__global Cell* cells,
 	int2 size) 
 {
-	int2 i = int2(get_global_id(0), get_global_id(1));
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 	
 	int index = i.x + size.x * i.y;
@@ -143,7 +143,7 @@ __kernel void calcRTilde(
 	__global Cell* cells,
 	int2 size) 
 {
-	int2 i = int2(get_global_id(0), get_global_id(1));
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 	
 	int index = i.x + size.x * i.y;
@@ -177,9 +177,9 @@ __kernel void calcRTilde(
 	}
 }
 
-constant real4 zero4 = real4(0., 0., 0., 0.);
-constant real4 one4 = real4(1., 1., 1., 1.);
-constant real4 two4 = real4(2., 2., 2., 2.);
+constant real4 zero4 = (real4)(0., 0., 0., 0.);
+constant real4 one4 = (real4)(1., 1., 1., 1.);
+constant real4 two4 = (real4)(2., 2., 2., 2.);
 real4 fluxMethod(real4 r) {
 	//superbee
 	return max(zero4, max(min(one4, 2. * r), min(two4, r)));
@@ -190,7 +190,7 @@ __kernel void calcFlux(
 	int2 size,
 	real2 dt_dx)
 {
-	int2 i = int2(get_global_id(0), get_global_id(1));
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 
 	int index = i.x + size.x * i.y;
@@ -231,7 +231,7 @@ __kernel void updateState(
 	int2 size,
 	real2 dt_dx)
 {
-	int2 i = int2(get_global_id(0), get_global_id(1));
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 
 	int index = i.x + size.x * i.y;
@@ -253,18 +253,19 @@ __kernel void updateState(
 __kernel void copyToTex(
 	__global Cell* cells,
 	int2 size,
-	__global char *tex)
+	__write_only image2d_t tex)
 {
-	int2 i = int2(get_global_id(0), get_global_id(1));
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 	
 	int index = i.x + size.x * i.y;
 	__global Cell *cell = cells + index;
-	__global char *pixel = tex + index;
 
-	//map values here
-	float value = (float)cell->q[0];
-	int ivalue = (int)(value * 255.);
-	*pixel = (char)ivalue;
+	float4 color = (float4)(
+		cell->q[0],
+		0.,
+		0.,
+		1.);
+	write_imagef(tex, i, color);
 }
 

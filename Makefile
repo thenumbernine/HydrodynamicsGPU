@@ -1,12 +1,5 @@
-# PLATFORM: osx
-# BUILD: debug, release
-
 DIST_FILENAME=hydro-gpu
 DIST_TYPE=app
-
-OBJECTS=main.o
-SOURCES=$(shell find src -type f)
-HEADERS=$(shell find include -type f)
 
 include ../GLApp/Makefile.mk
 
