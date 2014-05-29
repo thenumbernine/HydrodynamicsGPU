@@ -142,7 +142,7 @@ __kernel void calcCFLAndDeltaQTilde(
 	for (int side = 0; side < 2; ++side) {
 		int2 iNext = i;
 		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexR = iNext.x + size.x * iNext.y;
+		int indexNext = iNext.x + size.x * iNext.y;
 
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
@@ -150,7 +150,7 @@ __kernel void calcCFLAndDeltaQTilde(
 			
 		{
 			__global Interface *interfaceL = cell->interfaces + side;
-			__global Interface *interfaceR = &cells[indexR].interfaces[side];
+			__global Interface *interfaceR = &cells[indexNext].interfaces[side];
 		
 			real maxLambda = max(
 				max(
@@ -243,7 +243,11 @@ __kernel void calcRTilde(
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
-		
+
+		int2 iPrev2 = iPrev;
+		iPrev2[side] = (iPrev2[side] + size[side] - 1) % size[side];
+		int indexPrev2 = iPrev2.x + size.x * iPrev2.y;
+
 		int2 iNext = i;
 		iNext[side] = (iNext[side] + 1) % size[side];
 		int indexNext = iNext.x + size.x * iNext.y;
@@ -252,12 +256,23 @@ __kernel void calcRTilde(
 		__global Interface *interface = &cells[index].interfaces[side];
 		__global Interface *interfaceR = &cells[indexNext].interfaces[side];
 
+		__global Cell *cellL2 = cells + indexPrev2;
+		__global Cell *cellL = cells + indexPrev;
+		__global Cell *cellR = cell;
+		__global Cell *cellR2 = cells + indexNext;
+
+		real4 deltaQTildeL = matmul(interfaceL->eigenvectorsInverse, cellL->q - cellL2->q);
+		real4 deltaQTilde = matmul(interface->eigenvectorsInverse, cellR->q - cellL->q);
+		
+		real4 deltaQTildeR = interfaceR->deltaQTilde;	//works
+		//real4 deltaQTildeR = matmul(interfaceR->eigenvectorsInverse, cellR2->q - cellR->q);	//crashes
+		
 		for (int state = 0; state < 4; ++state) {
-			if (fabs(interface->deltaQTilde[state]) > 0.f) {
+			if (fabs(deltaQTilde[state]) > 0.f) {
 				if (interface->eigenvalues[state] > 0.f) {
-					interface->rTilde[state] = interfaceL->deltaQTilde[state] / interface->deltaQTilde[state];
+					interface->rTilde[state] = deltaQTildeL[state] / deltaQTilde[state];
 				} else {
-					interface->rTilde[state] = interfaceR->deltaQTilde[state] / interface->deltaQTilde[state];
+					interface->rTilde[state] = deltaQTildeR[state] / deltaQTilde[state];
 				}
 			} else {
 				interface->rTilde[state] = 0.f;

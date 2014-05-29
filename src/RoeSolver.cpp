@@ -1,8 +1,8 @@
 #include "HydroGPU/RoeSolver.h"
 #include "Common/Exception.h"
 #include "Common/Finally.h"
+#include "Common/Macros.h"
 #include "TensorMath/Vector.h"
-#include "Macros.h"
 #include <OpenGL/gl.h>
 #include <fstream>
 

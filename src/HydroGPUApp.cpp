@@ -1,25 +1,19 @@
+#include "HydroGPU/Solver.h"
+#include "HydroGPU/RoeSolver.h"
+#include "GLApp/GLApp.h" 
+#include "Profiler/Profiler.h"
+#include "TensorMath/Vector.h"
+#include "Common/Exception.h"
+#include "Common/Macros.h"
+#include <SDL2/SDL.h>
+#include <OpenCL/opencl.h>
+#include <OpenGL/gl.h>
+#include <OpenGL/OpenGL.h>
 #include <string>
 #include <fstream>
 #include <iostream>
 #include <vector>
 #include <algorithm>
-
-#include <SDL2/SDL.h>
-
-//mac osx CL & GL stuff: 
-#include <OpenCL/opencl.h>
-#include <OpenGL/gl.h>
-#include <OpenGL/OpenGL.h>
-
-#include "Common/Exception.h"
-#include "GLApp/GLApp.h" 
-
-#include "HydroGPU/Solver.h"
-#include "HydroGPU/RoeSolver.h"
-#include "Profiler/Profiler.h"
-#include "Macros.h"
-
-#include "TensorMath/Vector.h"
 
 struct HydroGPUApp : public GLApp {
 	bool useGPU;	//whether we want to request the GPU or CPU.  required prior to init()
