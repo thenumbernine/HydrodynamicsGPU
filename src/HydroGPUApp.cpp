@@ -529,8 +529,6 @@ void HydroGPUApp::shutdown() {
 	clReleaseCommandQueue(commands);
 	clReleaseMemObject(fluidTexMem);
 	clReleaseMemObject(gradientTexMem);
-
-	PROFILE_DONE()
 }
 
 void HydroGPUApp::resize(int width, int height) {
