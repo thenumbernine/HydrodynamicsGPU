@@ -59,10 +59,11 @@ __kernel void calcEigenDecomposition(
 	
 		//eigenvalues
 
-		interface->eigenvalues[0] = velocityN - speedOfSound;
-		interface->eigenvalues[1] = velocityN;
-		interface->eigenvalues[2] = velocityN;
-		interface->eigenvalues[3] = velocityN + speedOfSound;
+		interface->eigenvalues = (real4)(
+			velocityN - speedOfSound,
+			velocityN,
+			velocityN,
+			velocityN + speedOfSound);
 
 		//min col 
 		interface->eigenvectors[0][0] = 1.f;
@@ -88,25 +89,29 @@ __kernel void calcEigenDecomposition(
 		//calculate eigenvector inverses ... 
 		//min row
 		real invDenom = .5f / (speedOfSound * speedOfSound);
-		interface->eigenvectorsInverse[0][0] = (.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom;
-		interface->eigenvectorsInverse[0][1] = -(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom;
-		interface->eigenvectorsInverse[0][2] = -(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom;
-		interface->eigenvectorsInverse[0][3] = (GAMMA - 1.f) * invDenom;
+		interface->eigenvectorsInverse[0] = (real4)(
+			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom,
+			-(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
+			-(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom,
+			(GAMMA - 1.f) * invDenom);
 		//mid normal row
-		interface->eigenvectorsInverse[1][0] = 1.f - (GAMMA - 1.f) * velocitySq * invDenom;
-		interface->eigenvectorsInverse[1][1] = (GAMMA - 1.f) * velocity.x * 2.f * invDenom;
-		interface->eigenvectorsInverse[1][2] = (GAMMA - 1.f) * velocity.y * 2.f * invDenom;
-		interface->eigenvectorsInverse[1][3] = -(GAMMA - 1.f) * 2.f * invDenom;
+		interface->eigenvectorsInverse[1] = (real4)(
+			1.f - (GAMMA - 1.f) * velocitySq * invDenom,
+			(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
+			(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
+			-(GAMMA - 1.f) * 2.f * invDenom);
 		//mid tangent row
-		interface->eigenvectorsInverse[2][0] = -velocityT; 
-		interface->eigenvectorsInverse[2][1] = tangent.x;
-		interface->eigenvectorsInverse[2][2] = tangent.y;
-		interface->eigenvectorsInverse[2][3] = 0.f;
+		interface->eigenvectorsInverse[2] = (real4)(
+			-velocityT, 
+			tangent.x,
+			tangent.y,
+			0.f);
 		//max row
-		interface->eigenvectorsInverse[3][0] = (.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom;
-		interface->eigenvectorsInverse[3][1] = (normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom;
-		interface->eigenvectorsInverse[3][2] = (normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom;
-		interface->eigenvectorsInverse[3][3] = (GAMMA - 1.f) * invDenom;
+		interface->eigenvectorsInverse[3] = (real4)(
+			(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom,
+			(normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
+			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
+			(GAMMA - 1.f) * invDenom);
 	}
 }
 
@@ -131,12 +136,21 @@ __kernel void calcCFL(
 
 		__global Interface *interfaceR = &cells[indexR].interfaces[side];
 	
-		real maxLambda = 0.f;
-		real minLambda = 0.f;
-		for (int state = 0; state < 4; ++state) {
-			maxLambda = max(maxLambda, interfaceL->eigenvalues[state]);
-			minLambda = min(minLambda, interfaceR->eigenvalues[state]);
-		}
+		real maxLambda = max(
+			max(
+				interfaceL->eigenvalues.x,
+				interfaceL->eigenvalues.y), 
+			max(
+				interfaceL->eigenvalues.z,
+				interfaceL->eigenvalues.w));
+
+		real minLambda = min(
+			min(
+				interfaceR->eigenvalues.x,
+				interfaceR->eigenvalues.y),
+			min(
+				interfaceR->eigenvalues.z,
+				interfaceR->eigenvalues.w));
 	
 		cfl[index] = dx[side] / (maxLambda - minLambda);
 	}
