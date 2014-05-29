@@ -131,19 +131,11 @@ __kernel void calcDeltaQTilde(
 		__global Cell *cellR = cell;
 
 		real4 deltaQ = cellR->q - cellL->q;
-		//multiply by inverse
-		for (int state = 0; state < 4; ++state) {
-			real sum = 0.f;
-			for (int k = 0; k < 4; ++k) {
-				sum += interface->eigenvectorsInverse[state][k] * deltaQ[k];
-			}
-			interface->deltaQTilde[state] = sum;
-		}
-		//interface->deltaQTilde = (real4)( 
-		//	dot(interface->eigenvectorsInverse[0], deltaQ),
-		//	dot(interface->eigenvectorsInverse[1], deltaQ),
-		//	dot(interface->eigenvectorsInverse[2], deltaQ),
-		//	dot(interface->eigenvectorsInverse[3], deltaQ));
+		interface->deltaQTilde = (real4)( 
+			dot(interface->eigenvectorsInverse[0], deltaQ),
+			dot(interface->eigenvectorsInverse[1], deltaQ),
+			dot(interface->eigenvectorsInverse[2], deltaQ),
+			dot(interface->eigenvectorsInverse[3], deltaQ));
 	}
 }
 
@@ -185,11 +177,7 @@ __kernel void calcRTilde(
 	}
 }
 
-constant real4 zero4 = (real4)(0.f, 0.f, 0.f, 0.f);
-constant real4 one4 = (real4)(1.f, 1.f, 1.f, 1.f);
-constant real4 two4 = (real4)(2.f, 2.f, 2.f, 2.f);
-real fluxMethod(real r);
-real fluxMethod(real r) {
+real4 fluxMethod(real4 r) {
 	//superbee
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
@@ -216,31 +204,24 @@ __kernel void calcFlux(
 
 		real4 qAvg = (cellR->q + cellL->q) * .5f;
 	
-		real4 fluxAvgTilde;
-		for (int state = 0; state < 4; ++state) {
-			real sum = 0.f;
-			for (int k = 0; k < 4; ++k) {
-				sum += interface->eigenvectorsInverse[state][k] * qAvg[k];
-			}
-			fluxAvgTilde[state] = sum * interface->eigenvalues[state];
-		}
+		real4 fluxAvgTilde = (real4)(
+			dot(interface->eigenvectorsInverse[0], qAvg),
+			dot(interface->eigenvectorsInverse[1], qAvg),
+			dot(interface->eigenvectorsInverse[2], qAvg),
+			dot(interface->eigenvectorsInverse[3], qAvg));
+		fluxAvgTilde *= interface->eigenvalues;
 
-		real4 fluxTilde;
-		for (int state = 0; state < 4; ++state) {
-			real theta = step(0.f, interface->eigenvalues[state]) * 2.f - 1.f;
-			real phi = fluxMethod(interface->rTilde[state]);
-			real epsilon = interface->eigenvalues[state] * dt_dx[side];
-			real deltaFluxTilde = interface->eigenvalues[state] * interface->deltaQTilde[state];
-			fluxTilde[state] = fluxAvgTilde[state] - .5f * deltaFluxTilde * (theta + phi * (epsilon - theta));
-		}
+		real4 theta = step(0.f, interface->eigenvalues) * 2.f - 1.f;
+		real4 phi = fluxMethod(interface->rTilde);
+		real4 epsilon = interface->eigenvalues * dt_dx[side];
+		real4 deltaFluxTilde = interface->eigenvalues * interface->deltaQTilde;
+		real4 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + phi * (epsilon - theta));
 
-		for (int state = 0; state < 4; ++state) {
-			real sum = 0.f;
-			for (int k = 0; k < 4; ++k) {
-				sum += interface->eigenvectors[state][k] * fluxTilde[k];
-			}
-			interface->flux[state] = sum;
-		}
+		interface->flux = (real4)(
+			dot(interface->eigenvectors[0], fluxTilde),
+			dot(interface->eigenvectors[1], fluxTilde),
+			dot(interface->eigenvectors[2], fluxTilde),
+			dot(interface->eigenvectors[3], fluxTilde));
 	}
 }
 
@@ -263,10 +244,8 @@ __kernel void updateState(
 		__global Interface *interfaceL = &cells[index].interfaces[side];
 		__global Interface *interfaceR = &cells[indexNext].interfaces[side];
 
-		for (int state = 0; state < 4; ++state) {
-			float df = interfaceR->flux[state] - interfaceL->flux[state];
-			cell->q[state] -= df * dt_dx[side];
-		}
+		real4 df = interfaceR->flux - interfaceL->flux;
+		cell->q -= df * dt_dx[side];
 	}
 }
 
