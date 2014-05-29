@@ -8,10 +8,9 @@ struct RoeSolver : public Solver {
 	cl_mem cflMem;
 	cl_mem cflTimestepMem;
 	cl_kernel calcEigenDecompositionKernel;
-	cl_kernel calcCFLKernel;
+	cl_kernel calcCFLAndDeltaQTildeKernel;
 	cl_kernel calcCFLMinReduceKernel;
 	cl_kernel calcCFLMinFinalKernel;
-	cl_kernel calcDeltaQTildeKernel;
 	cl_kernel calcRTildeKernel;
 	cl_kernel calcFluxKernel;
 	cl_kernel updateStateKernel;

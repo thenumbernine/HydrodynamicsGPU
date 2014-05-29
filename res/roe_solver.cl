@@ -119,7 +119,7 @@ __kernel void calcEigenDecomposition(
 	}
 }
 
-__kernel void calcCFL(
+__kernel void calcCFLAndDeltaQTilde(
 	__global Cell *cells,
 	int2 size,
 	__global real *cfl,
@@ -132,31 +132,49 @@ __kernel void calcCFL(
 	__global Cell *cell = cells + index;
 
 	for (int side = 0; side < 2; ++side) {
-		__global Interface *interfaceL = cell->interfaces + side;
-
 		int2 iNext = i;
 		iNext[side] = (iNext[side] + 1) % size[side];
 		int indexR = iNext.x + size.x * iNext.y;
 
-		__global Interface *interfaceR = &cells[indexR].interfaces[side];
-	
-		real maxLambda = max(
-			max(
-				interfaceL->eigenvalues.x,
-				interfaceL->eigenvalues.y), 
-			max(
-				interfaceL->eigenvalues.z,
-				interfaceL->eigenvalues.w));
+		{
+			__global Interface *interfaceL = cell->interfaces + side;
+			__global Interface *interfaceR = &cells[indexR].interfaces[side];
+		
+			real maxLambda = max(
+				max(
+					interfaceL->eigenvalues.x,
+					interfaceL->eigenvalues.y), 
+				max(
+					interfaceL->eigenvalues.z,
+					interfaceL->eigenvalues.w));
 
-		real minLambda = min(
-			min(
-				interfaceR->eigenvalues.x,
-				interfaceR->eigenvalues.y),
-			min(
-				interfaceR->eigenvalues.z,
-				interfaceR->eigenvalues.w));
-	
-		cfl[index] = dx[side] / (maxLambda - minLambda);
+			real minLambda = min(
+				min(
+					interfaceR->eigenvalues.x,
+					interfaceR->eigenvalues.y),
+				min(
+					interfaceR->eigenvalues.z,
+					interfaceR->eigenvalues.w));
+		
+			cfl[index] = dx[side] / (maxLambda - minLambda);
+		}
+
+		{
+			int2 iPrev = i;
+			iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+			int indexPrev = iPrev.x + size.x * iPrev.y;
+			
+			__global Interface *interface = cell->interfaces + side;
+			__global Cell *cellL = cells + indexPrev;
+			__global Cell *cellR = cell;
+
+			real4 deltaQ = cellR->q - cellL->q;
+			interface->deltaQTilde = (real4)( 
+				dot(interface->eigenvectorsInverse.s0123, deltaQ),
+				dot(interface->eigenvectorsInverse.s4567, deltaQ),
+				dot(interface->eigenvectorsInverse.s89AB, deltaQ),
+				dot(interface->eigenvectorsInverse.sCDEF, deltaQ));
+		}
 	}
 }
 
@@ -206,35 +224,6 @@ __kernel void calcCFLMinFinal(
 	}
 }
 
-__kernel void calcDeltaQTilde(
-	__global Cell* cells,
-	int2 size) 
-{
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	
-	int index = i.x + size.x * i.y;
-	__global Cell *cell = cells + index;
-	
-	for (int side = 0; side < 2; ++side) {	
-		__global Interface *interface = cell->interfaces + side;
-		
-		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
-		
-		__global Cell *cellL = cells + indexPrev;
-		__global Cell *cellR = cell;
-
-		real4 deltaQ = cellR->q - cellL->q;
-		interface->deltaQTilde = (real4)( 
-			dot(interface->eigenvectorsInverse.s0123, deltaQ),
-			dot(interface->eigenvectorsInverse.s4567, deltaQ),
-			dot(interface->eigenvectorsInverse.s89AB, deltaQ),
-			dot(interface->eigenvectorsInverse.sCDEF, deltaQ));
-	}
-}
-
 __kernel void calcRTilde(
 	__global Cell* cells,
 	int2 size) 
@@ -261,6 +250,9 @@ __kernel void calcRTilde(
 
 		for (int state = 0; state < 4; ++state) {
 			if (fabs(interface->deltaQTilde[state]) > 0.f) {
+				//real eltz = step(0.f, -interface->eigenvalues[state]);	//1. for each eigenvalue less than zero
+				//interface->rTilde = (interfaceL->deltaQTilde[state] * (1.f - eltz)
+				//	+ interfaceR->deltaQTilde[state] * eltz) / interface->deltaQTilde[state];
 				if (interface->eigenvalues[state] > 0.f) {
 					interface->rTilde[state] = interfaceL->deltaQTilde[state] / interface->deltaQTilde[state];
 				} else {

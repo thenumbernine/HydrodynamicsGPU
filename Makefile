@@ -4,6 +4,7 @@ DIST_TYPE=app
 include ../GLApp/Makefile.mk
 
 CFLAGS_BASE+= -I../GLApp/include
+CFLAGS_BASE+= -I../Profiler/include
 CFLAGS_BASE+= -I../TensorMath/include
 CFLAGS_BASE+= -Ires/include
 LDFLAGS_BASE+= -lGLApp

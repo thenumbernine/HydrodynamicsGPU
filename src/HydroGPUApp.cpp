@@ -16,6 +16,7 @@
 
 #include "HydroGPU/Solver.h"
 #include "HydroGPU/RoeSolver.h"
+#include "Profiler/Profiler.h"
 #include "Macros.h"
 
 #include "TensorMath/Vector.h"
@@ -533,6 +534,8 @@ void HydroGPUApp::shutdown() {
 	clReleaseCommandQueue(commands);
 	clReleaseMemObject(fluidTexMem);
 	clReleaseMemObject(gradientTexMem);
+
+	PROFILE_DONE()
 }
 
 void HydroGPUApp::resize(int width, int height) {
@@ -545,6 +548,9 @@ void HydroGPUApp::resize(int width, int height) {
 }
 
 void HydroGPUApp::update() {
+PROFILE_BEGIN_FRAME()
+{
+PROFILE()
 	GLApp::update();	//glclear 
 	
 	//CPU need to bind beforehand for roe/cpu to use it
@@ -574,6 +580,8 @@ void HydroGPUApp::update() {
 
 	int err = glGetError();
 	if (err) std::cout << "error " << err << std::endl;
+}
+PROFILE_END_FRAME();
 }
 
 void HydroGPUApp::sdlEvent(SDL_Event &event) {

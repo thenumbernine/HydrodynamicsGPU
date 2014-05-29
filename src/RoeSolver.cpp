@@ -35,10 +35,9 @@ RoeSolver::RoeSolver(
 , cflMem(cl_mem())
 , cflTimestepMem(cl_mem())
 , calcEigenDecompositionKernel(cl_kernel())
-, calcCFLKernel(cl_kernel())
+, calcCFLAndDeltaQTildeKernel(cl_kernel())
 , calcCFLMinReduceKernel(cl_kernel())
 , calcCFLMinFinalKernel(cl_kernel())
-, calcDeltaQTildeKernel(cl_kernel())
 , calcRTildeKernel(cl_kernel())
 , calcFluxKernel(cl_kernel())
 , updateStateKernel(cl_kernel())
@@ -86,8 +85,8 @@ RoeSolver::RoeSolver(
 	calcEigenDecompositionKernel = clCreateKernel(program, "calcEigenDecomposition", &err);
 	if (!calcEigenDecompositionKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
 
-	calcCFLKernel = clCreateKernel(program, "calcCFL", &err);
-	if (!calcCFLKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel with error " << err;
+	calcCFLAndDeltaQTildeKernel = clCreateKernel(program, "calcCFLAndDeltaQTilde", &err);
+	if (!calcCFLAndDeltaQTildeKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel with error " << err;
 	
 	calcCFLMinReduceKernel = clCreateKernel(program, "calcCFLMinReduce", &err);
 	if (!calcCFLMinReduceKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel with error " << err;
@@ -95,9 +94,6 @@ RoeSolver::RoeSolver(
 	calcCFLMinFinalKernel = clCreateKernel(program, "calcCFLMinFinal", &err);
 	if (!calcCFLMinFinalKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel with error " << err;
 
-	calcDeltaQTildeKernel = clCreateKernel(program, "calcDeltaQTilde", &err);
-	if (!calcDeltaQTildeKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-	
 	calcRTildeKernel = clCreateKernel(program, "calcRTilde", &err);
 	if (!calcRTildeKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
 
@@ -115,8 +111,7 @@ RoeSolver::RoeSolver(
 
 	cl_kernel* kernels[] = {
 		&calcEigenDecompositionKernel,
-		&calcCFLKernel,
-		&calcDeltaQTildeKernel,
+		&calcCFLAndDeltaQTildeKernel,
 		&calcRTildeKernel,
 		&calcFluxKernel,
 		&updateStateKernel,
@@ -141,8 +136,8 @@ RoeSolver::RoeSolver(
 	err |= clSetKernelArg(updateStateKernel, 3, sizeof(cl_mem), &cflTimestepMem);
 	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
 	
-	err = clSetKernelArg(calcCFLKernel, 2, sizeof(cl_mem), &cflMem);
-	err |= clSetKernelArg(calcCFLKernel, 3, sizeof(real2), dx.s);
+	err = clSetKernelArg(calcCFLAndDeltaQTildeKernel, 2, sizeof(cl_mem), &cflMem);
+	err |= clSetKernelArg(calcCFLAndDeltaQTildeKernel, 3, sizeof(real2), dx.s);
 	if (err != CL_SUCCESS) throw Exception() << "failed to set argument with error " << err;
 
 	err = clSetKernelArg(calcCFLMinReduceKernel, 0, sizeof(cl_mem), &cflMem);
@@ -172,10 +167,9 @@ RoeSolver::~RoeSolver() {
 	clReleaseMemObject(cflMem);
 	clReleaseMemObject(cflTimestepMem);
 	clReleaseKernel(calcEigenDecompositionKernel);
-	clReleaseKernel(calcCFLKernel);
+	clReleaseKernel(calcCFLAndDeltaQTildeKernel);
 	clReleaseKernel(calcCFLMinReduceKernel);
 	clReleaseKernel(calcCFLMinFinalKernel);
-	clReleaseKernel(calcDeltaQTildeKernel);
 	clReleaseKernel(calcRTildeKernel);
 	clReleaseKernel(calcFluxKernel);
 	clReleaseKernel(updateStateKernel);
@@ -193,8 +187,8 @@ void RoeSolver::update(
 	err = clEnqueueNDRangeKernel(commands, calcEigenDecompositionKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
 	if (err) throw Exception() << "failed to execute calcEigenDecompositionKernel with error " << err;
 	
-	err = clEnqueueNDRangeKernel(commands, calcCFLKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "failed to execute calcCFLKernel with error " << err;
+	err = clEnqueueNDRangeKernel(commands, calcCFLAndDeltaQTildeKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
+	if (err) throw Exception() << "failed to execute calcCFLAndDeltaQTildeKernel with error " << err;
 
 	size_t reduceGlobalSize = global_size[0] * global_size[1] / 4;
 	err = clEnqueueNDRangeKernel(commands, calcCFLMinReduceKernel, 1, NULL, &reduceGlobalSize, local_size, 0, NULL, NULL);
@@ -212,13 +206,6 @@ void RoeSolver::update(
 
 	err = clEnqueueNDRangeKernel(commands, calcCFLMinFinalKernel, 1, NULL, local_size, local_size, 0, NULL, NULL);
 	if (err) throw Exception() << "failed to execute calcCFLMinFinalKernel with error " << err;
-
-//real result;
-//err = clEnqueueReadBuffer(commands, cflTimestepMem, CL_TRUE, 0, sizeof(real), &result, 0, NULL, NULL);
-//std::cout << "result " << result << std::endl;
-
-	err = clEnqueueNDRangeKernel(commands, calcDeltaQTildeKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "failed to execute calcDeltaQTildeKernel with error " << err;
 	
 	err = clEnqueueNDRangeKernel(commands, calcRTildeKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
 	if (err) throw Exception() << "failed to execute calcRTildeKernel with error " << err;
