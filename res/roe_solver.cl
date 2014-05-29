@@ -59,10 +59,10 @@ __kernel void calcEigenDecomposition(
 	
 		//eigenvalues
 
-		interface->eigenvalues[0]  = velocityN - speedOfSound;
-		interface->eigenvalues[1]  = velocityN;
-		interface->eigenvalues[2]  = velocityN;
-		interface->eigenvalues[3]  = velocityN + speedOfSound;
+		interface->eigenvalues[0] = velocityN - speedOfSound;
+		interface->eigenvalues[1] = velocityN;
+		interface->eigenvalues[2] = velocityN;
+		interface->eigenvalues[3] = velocityN + speedOfSound;
 
 		//min col 
 		interface->eigenvectors[0][0] = 1.f;
@@ -142,6 +142,52 @@ __kernel void calcCFL(
 	}
 }
 
+__kernel void calcCFLMinReduce(
+	__global real *cflDst, 
+	__local real *cflSrc) 
+{
+	int lid = get_local_id(0);
+	int group_size = get_local_size(0);
+
+	cflSrc[lid] = cflDst[get_global_id(0)];
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	for(int i = group_size/2; i>0; i >>= 1) {
+		if(lid < i) {
+			 cflSrc[lid] = min(cflSrc[lid], cflSrc[lid + i]);
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+	}
+
+	if(lid == 0) {
+		cflDst[get_group_id(0)] = cflSrc[0];
+	}
+}
+
+__kernel void calcCFLMinFinal(
+	__global real *cflDst, 
+	__local real *cflSrc, 
+	__global real *result,
+	real cfl,
+	size_t group_size)
+{
+	int lid = get_local_id(0);
+
+	cflSrc[lid] = cflDst[get_local_id(0)];
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	for(int i = group_size/2; i>0; i >>= 1) {
+		if(lid < i) {
+			cflSrc[lid] = min(cflSrc[lid], cflSrc[lid + i]);
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+	}
+
+	if(lid == 0) {
+		*result = cflSrc[0] * cfl;
+	}
+}
+
 __kernel void calcDeltaQTilde(
 	__global Cell* cells,
 	int2 size) 
@@ -217,8 +263,11 @@ real4 fluxMethod(real4 r) {
 __kernel void calcFlux(
 	__global Cell* cells,
 	int2 size,
-	real2 dt_dx)
+	real2 dx,
+	__global real *dt)
 {
+	real2 dt_dx = *dt / dx;
+	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 
@@ -260,8 +309,11 @@ __kernel void calcFlux(
 __kernel void updateState(
 	__global Cell* cells,
 	int2 size,
-	real2 dt_dx)
+	real2 dx,
+	__global real* dt)
 {
+	real2 dt_dx = *dt / dx;
+	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 

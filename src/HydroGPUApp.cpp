@@ -509,7 +509,18 @@ void HydroGPUApp::init() {
 	gradientTexMem = clCreateFromGLTexture(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex, &err);
 	if (!gradientTexMem) throw Exception() << "failed to create CL memory from GL texture.  got error " << err;
 
-	solver = new RoeSolver(deviceID, context, size, commands, cells, xmin, xmax, fluidTexMem, gradientTexMem, useGPU);
+	solver = new RoeSolver(
+		deviceID, 
+		context, 
+		size, 
+		commands, 
+		cells, 
+		xmin, 
+		xmax, 
+		fluidTexMem, 
+		gradientTexMem, 
+		local_size.v,
+		useGPU);
 
 	std::cout << "Success!" << std::endl;
 }

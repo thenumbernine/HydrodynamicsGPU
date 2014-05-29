@@ -6,8 +6,11 @@ struct RoeSolver : public Solver {
 	cl_program program;
 	cl_mem cellsMem;		//our main OpenCL buffer for the simulation
 	cl_mem cflMem;
+	cl_mem cflTimestepMem;
 	cl_kernel calcEigenDecompositionKernel;
 	cl_kernel calcCFLKernel;
+	cl_kernel calcCFLMinReduceKernel;
+	cl_kernel calcCFLMinFinalKernel;
 	cl_kernel calcDeltaQTildeKernel;
 	cl_kernel calcRTildeKernel;
 	cl_kernel calcFluxKernel;
@@ -15,6 +18,8 @@ struct RoeSolver : public Solver {
 	cl_kernel convertToTexKernel;
 	cl_int2 size;
 	bool useGPU;
+	
+	real cfl;
 
 	RoeSolver(
 		cl_device_id deviceID, 
@@ -26,6 +31,7 @@ struct RoeSolver : public Solver {
 		real2 xmax,
 		cl_mem fluidTexMem,
 		cl_mem gradientTexMem,
+		size_t *local_size,
 		bool useGPU);
 
 	virtual ~RoeSolver();

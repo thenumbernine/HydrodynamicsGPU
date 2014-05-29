@@ -27,19 +27,24 @@ RoeSolver::RoeSolver(
 	real2 xmax,
 	cl_mem fluidTexMem,
 	cl_mem gradientTexMem,
+	size_t *local_size,
 	bool useGPU_)
-: Solver(deviceID, context, size_, commands, cells, xmin, xmax, fluidTexMem, gradientTexMem, useGPU_)
+: Solver(deviceID, context, size_, commands, cells, xmin, xmax, fluidTexMem, gradientTexMem, local_size, useGPU_)
 , program(cl_program())
 , cellsMem(cl_mem())
 , cflMem(cl_mem())
+, cflTimestepMem(cl_mem())
 , calcEigenDecompositionKernel(cl_kernel())
 , calcCFLKernel(cl_kernel())
+, calcCFLMinReduceKernel(cl_kernel())
+, calcCFLMinFinalKernel(cl_kernel())
 , calcDeltaQTildeKernel(cl_kernel())
 , calcRTildeKernel(cl_kernel())
 , calcFluxKernel(cl_kernel())
 , updateStateKernel(cl_kernel())
 , convertToTexKernel(cl_kernel())
 , useGPU(useGPU_)
+, cfl(.5f)
 {
 	int err = 0;
 	size = size_;
@@ -68,7 +73,10 @@ RoeSolver::RoeSolver(
 
 	cflMem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real) * count, NULL, NULL);
 	if (!cflMem) throw Exception() << "failed to allocate device memory";
-
+	
+	cflTimestepMem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real), NULL, NULL);
+	if (!cflTimestepMem) throw Exception() << "failed to allocate device memory";
+	
 	err = clEnqueueWriteBuffer(commands, cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0], 0, NULL, NULL);
 	if (err != CL_SUCCESS) {
 		std::cout << "Error: Failed to write to source array!\n" << std::endl;
@@ -80,6 +88,12 @@ RoeSolver::RoeSolver(
 
 	calcCFLKernel = clCreateKernel(program, "calcCFL", &err);
 	if (!calcCFLKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel with error " << err;
+	
+	calcCFLMinReduceKernel = clCreateKernel(program, "calcCFLMinReduce", &err);
+	if (!calcCFLMinReduceKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel with error " << err;
+
+	calcCFLMinFinalKernel = clCreateKernel(program, "calcCFLMinFinal", &err);
+	if (!calcCFLMinFinalKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel with error " << err;
 
 	calcDeltaQTildeKernel = clCreateKernel(program, "calcDeltaQTilde", &err);
 	if (!calcDeltaQTildeKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
@@ -118,19 +132,27 @@ RoeSolver::RoeSolver(
 	for (int i = 0; i < DIM; ++i) {
 		dx.s[i] = (xmax.s[i] - xmin.s[i]) / (float)size.s[i];
 	}
-	real dt = .001;
-	real2 dt_dx;
-	for (int i = 0; i < DIM; ++i) {
-		dt_dx.s[i] = dt / dx.s[i];
-	}
-	err = clSetKernelArg(calcFluxKernel, 2, sizeof(real2), dt_dx.s);
+	
+	err = clSetKernelArg(calcFluxKernel, 2, sizeof(real2), dx.s);
+	err |= clSetKernelArg(calcFluxKernel, 3, sizeof(cl_mem), &cflTimestepMem);
 	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
 
-	err = clSetKernelArg(updateStateKernel, 2, sizeof(real2), dt_dx.s);
+	err = clSetKernelArg(updateStateKernel, 2, sizeof(real2), dx.s);
+	err |= clSetKernelArg(updateStateKernel, 3, sizeof(cl_mem), &cflTimestepMem);
 	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
 	
 	err = clSetKernelArg(calcCFLKernel, 2, sizeof(cl_mem), &cflMem);
 	err |= clSetKernelArg(calcCFLKernel, 3, sizeof(real2), dx.s);
+	if (err != CL_SUCCESS) throw Exception() << "failed to set argument with error " << err;
+
+	err = clSetKernelArg(calcCFLMinReduceKernel, 0, sizeof(cl_mem), &cflMem);
+	err |= clSetKernelArg(calcCFLMinReduceKernel, 1, local_size[0] * sizeof(real), NULL);
+	if (err != CL_SUCCESS) throw Exception() << "failed to set argument with error " << err;
+	
+	err = clSetKernelArg(calcCFLMinFinalKernel, 0, sizeof(cl_mem), &cflMem);
+	err |= clSetKernelArg(calcCFLMinFinalKernel, 1, local_size[0] * sizeof(real), NULL);
+	err |= clSetKernelArg(calcCFLMinFinalKernel, 2, sizeof(cl_mem), &cflTimestepMem);
+	err |= clSetKernelArg(calcCFLMinFinalKernel, 3, sizeof(real), &cfl);
 	if (err != CL_SUCCESS) throw Exception() << "failed to set argument with error " << err;
 
 	//if (useGPU) 
@@ -148,8 +170,11 @@ RoeSolver::~RoeSolver() {
 	clReleaseProgram(program);
 	clReleaseMemObject(cellsMem);
 	clReleaseMemObject(cflMem);
+	clReleaseMemObject(cflTimestepMem);
 	clReleaseKernel(calcEigenDecompositionKernel);
 	clReleaseKernel(calcCFLKernel);
+	clReleaseKernel(calcCFLMinReduceKernel);
+	clReleaseKernel(calcCFLMinFinalKernel);
 	clReleaseKernel(calcDeltaQTildeKernel);
 	clReleaseKernel(calcRTildeKernel);
 	clReleaseKernel(calcFluxKernel);
@@ -169,8 +194,29 @@ void RoeSolver::update(
 	if (err) throw Exception() << "failed to execute calcEigenDecompositionKernel with error " << err;
 	
 	err = clEnqueueNDRangeKernel(commands, calcCFLKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "failed to execute calcEigenDecompositionKernel with error " << err;
+	if (err) throw Exception() << "failed to execute calcCFLKernel with error " << err;
+
+	size_t reduceGlobalSize = global_size[0] * global_size[1] / 4;
+	err = clEnqueueNDRangeKernel(commands, calcCFLMinReduceKernel, 1, NULL, &reduceGlobalSize, local_size, 0, NULL, NULL);
+	if (err) throw Exception() << "failed to execute calcCFLMinReduceKernel with error " << err;
 	
+	while (reduceGlobalSize / local_size[0] > local_size[0]) {
+		reduceGlobalSize /= local_size[0];
+		err = clEnqueueNDRangeKernel(commands, calcCFLMinReduceKernel, 1, NULL, &reduceGlobalSize, local_size, 0, NULL, NULL);
+		if (err) throw Exception() << "failed to execute calcCFLMinReduceKernel loop with error " << err;
+	}
+	reduceGlobalSize /= local_size[0];
+
+	err = clSetKernelArg(calcCFLMinFinalKernel, 4, sizeof(size_t), &reduceGlobalSize);
+	if (err != CL_SUCCESS) throw Exception() << "failed to set kernel arguments! " << err;
+
+	err = clEnqueueNDRangeKernel(commands, calcCFLMinFinalKernel, 1, NULL, local_size, local_size, 0, NULL, NULL);
+	if (err) throw Exception() << "failed to execute calcCFLMinFinalKernel with error " << err;
+
+//real result;
+//err = clEnqueueReadBuffer(commands, cflTimestepMem, CL_TRUE, 0, sizeof(real), &result, 0, NULL, NULL);
+//std::cout << "result " << result << std::endl;
+
 	err = clEnqueueNDRangeKernel(commands, calcDeltaQTildeKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
 	if (err) throw Exception() << "failed to execute calcDeltaQTildeKernel with error " << err;
 	
