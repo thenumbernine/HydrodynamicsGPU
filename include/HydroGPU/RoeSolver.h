@@ -5,7 +5,9 @@
 struct RoeSolver : public Solver {
 	cl_program program;
 	cl_mem cellsMem;		//our main OpenCL buffer for the simulation
+	cl_mem cflMem;
 	cl_kernel calcEigenDecompositionKernel;
+	cl_kernel calcCFLKernel;
 	cl_kernel calcDeltaQTildeKernel;
 	cl_kernel calcRTildeKernel;
 	cl_kernel calcFluxKernel;

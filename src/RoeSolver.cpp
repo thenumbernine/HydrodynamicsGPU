@@ -31,7 +31,9 @@ RoeSolver::RoeSolver(
 : Solver(deviceID, context, size_, commands, cells, xmin, xmax, fluidTexMem, gradientTexMem, useGPU_)
 , program(cl_program())
 , cellsMem(cl_mem())
+, cflMem(cl_mem())
 , calcEigenDecompositionKernel(cl_kernel())
+, calcCFLKernel(cl_kernel())
 , calcDeltaQTildeKernel(cl_kernel())
 , calcRTildeKernel(cl_kernel())
 , calcFluxKernel(cl_kernel())
@@ -40,7 +42,6 @@ RoeSolver::RoeSolver(
 , useGPU(useGPU_)
 {
 	int err = 0;
-
 	size = size_;
 
 	std::string kernelSource = readFile("res/roe_solver.cl");
@@ -63,7 +64,10 @@ RoeSolver::RoeSolver(
  
 	unsigned int count = size.s[0] * size.s[1];
 	cellsMem = clCreateBuffer(context,  CL_MEM_READ_WRITE,  sizeof(Cell) * count, NULL, NULL);
-	if (!cellsMem) throw Exception() << "Error: Failed to allocate device memory!";
+	if (!cellsMem) throw Exception() << "failed to allocate device memory!";
+
+	cflMem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real) * count, NULL, NULL);
+	if (!cflMem) throw Exception() << "failed to allocate device memory";
 
 	err = clEnqueueWriteBuffer(commands, cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0], 0, NULL, NULL);
 	if (err != CL_SUCCESS) {
@@ -73,7 +77,10 @@ RoeSolver::RoeSolver(
  
 	calcEigenDecompositionKernel = clCreateKernel(program, "calcEigenDecomposition", &err);
 	if (!calcEigenDecompositionKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
-	
+
+	calcCFLKernel = clCreateKernel(program, "calcCFL", &err);
+	if (!calcCFLKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel with error " << err;
+
 	calcDeltaQTildeKernel = clCreateKernel(program, "calcDeltaQTilde", &err);
 	if (!calcDeltaQTildeKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
 	
@@ -94,6 +101,7 @@ RoeSolver::RoeSolver(
 
 	cl_kernel* kernels[] = {
 		&calcEigenDecompositionKernel,
+		&calcCFLKernel,
 		&calcDeltaQTildeKernel,
 		&calcRTildeKernel,
 		&calcFluxKernel,
@@ -105,21 +113,25 @@ RoeSolver::RoeSolver(
 		err |= clSetKernelArg(*kernel, 1, sizeof(cl_uint2), &size.s[0]);
 		if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
 	});
-	
-	real dx[DIM];
+
+	real2 dx;
 	for (int i = 0; i < DIM; ++i) {
-		dx[i] = (xmax.s[i] - xmin.s[i]) / (float)size.s[i];
+		dx.s[i] = (xmax.s[i] - xmin.s[i]) / (float)size.s[i];
 	}
 	real dt = .001;
 	real2 dt_dx;
 	for (int i = 0; i < DIM; ++i) {
-		dt_dx.s[i] = dt / dx[i];
+		dt_dx.s[i] = dt / dx.s[i];
 	}
 	err = clSetKernelArg(calcFluxKernel, 2, sizeof(real2), dt_dx.s);
 	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
 
 	err = clSetKernelArg(updateStateKernel, 2, sizeof(real2), dt_dx.s);
 	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
+	
+	err = clSetKernelArg(calcCFLKernel, 2, sizeof(cl_mem), &cflMem);
+	err |= clSetKernelArg(calcCFLKernel, 3, sizeof(real2), dx.s);
+	if (err != CL_SUCCESS) throw Exception() << "failed to set argument with error " << err;
 
 	//if (useGPU) 
 	{
@@ -135,7 +147,9 @@ RoeSolver::RoeSolver(
 RoeSolver::~RoeSolver() {
 	clReleaseProgram(program);
 	clReleaseMemObject(cellsMem);
+	clReleaseMemObject(cflMem);
 	clReleaseKernel(calcEigenDecompositionKernel);
+	clReleaseKernel(calcCFLKernel);
 	clReleaseKernel(calcDeltaQTildeKernel);
 	clReleaseKernel(calcRTildeKernel);
 	clReleaseKernel(calcFluxKernel);
@@ -152,6 +166,9 @@ void RoeSolver::update(
 	int err = 0;
 
 	err = clEnqueueNDRangeKernel(commands, calcEigenDecompositionKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
+	if (err) throw Exception() << "failed to execute calcEigenDecompositionKernel with error " << err;
+	
+	err = clEnqueueNDRangeKernel(commands, calcCFLKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
 	if (err) throw Exception() << "failed to execute calcEigenDecompositionKernel with error " << err;
 	
 	err = clEnqueueNDRangeKernel(commands, calcDeltaQTildeKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);

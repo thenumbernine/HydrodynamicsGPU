@@ -110,6 +110,38 @@ __kernel void calcEigenDecomposition(
 	}
 }
 
+__kernel void calcCFL(
+	__global Cell *cells,
+	int2 size,
+	__global real *cfl,
+	real2 dx)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	if (i.x >= size.x || i.y >= size.y) return;
+
+	int index = i.x + size.x * i.y;
+	__global Cell *cell = cells + index;
+
+	for (int side = 0; side < 2; ++side) {
+		__global Interface *interfaceL = cell->interfaces + side;
+
+		int2 iNext = i;
+		iNext[side] = (iNext[side] + 1) % size[side];
+		int indexR = iNext.x + size.x * iNext.y;
+
+		__global Interface *interfaceR = &cells[indexR].interfaces[side];
+	
+		real maxLambda = 0.f;
+		real minLambda = 0.f;
+		for (int state = 0; state < 4; ++state) {
+			maxLambda = max(maxLambda, interfaceL->eigenvalues[state]);
+			minLambda = min(minLambda, interfaceR->eigenvalues[state]);
+		}
+	
+		cfl[index] = dx[side] / (maxLambda - minLambda);
+	}
+}
+
 __kernel void calcDeltaQTilde(
 	__global Cell* cells,
 	int2 size) 
