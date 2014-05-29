@@ -21,6 +21,8 @@
 #include "TensorMath/Vector.h"
 
 struct HydroGPUApp : public GLApp {
+	bool useGPU;	//whether we want to request the GPU or CPU.  required prior to init()
+	
 	GLuint fluidTex;
 	GLuint gradientTex;
 	
@@ -33,12 +35,14 @@ struct HydroGPUApp : public GLApp {
 
 	Solver *solver;
 
-	size_t global_size[DIM];
+	Vector<size_t,DIM> local_size;
+	Vector<size_t,DIM> global_size;
 	cl_int2 size;
 	  
 	bool leftButtonDown;
 	bool leftShiftDown;
 	bool rightShiftDown;
+	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
 	float viewZoom;
 	float viewPosX;
 	float viewPosY;
@@ -48,6 +52,7 @@ struct HydroGPUApp : public GLApp {
 	cl_platform_id getPlatformID();
 	cl_device_id getDeviceID(cl_platform_id platformID);
 
+	virtual int main(int argc, char **argv);
 	virtual void init();
 	virtual void shutdown();
 	virtual void resize(int width, int height);
@@ -57,6 +62,7 @@ struct HydroGPUApp : public GLApp {
 
 HydroGPUApp::HydroGPUApp()
 : GLApp()
+, useGPU(true)
 , fluidTex(GLuint())
 , gradientTex(GLuint())
 , deviceID(cl_device_id())
@@ -67,6 +73,7 @@ HydroGPUApp::HydroGPUApp()
 , leftButtonDown(false)
 , leftShiftDown(false)
 , rightShiftDown(false)
+, doUpdate(1)
 , viewZoom(1.f)
 , viewPosX(0.f)
 , viewPosY(0.f)
@@ -74,10 +81,15 @@ HydroGPUApp::HydroGPUApp()
 	for (int i = 0; i < DIM; ++i) {
 		size.s[i] = 256;
 	}
-	
-	for (int n = 0; n < DIM; ++n) {
-		global_size[n] = size.s[n];
+}
+
+int HydroGPUApp::main(int argc, char **argv) {
+	for (int i = 0; i < argc; ++i) {
+		if (!strcmp(argv[i], "--cpu")) {
+			useGPU = false;
+		}
 	}
+	return GLApp::main(argc, argv);
 }
 
 cl_platform_id HydroGPUApp::getPlatformID() {
@@ -212,6 +224,8 @@ struct DeviceParameterQueryEnumType_cl_device_fp_config : public DeviceParameter
 			std::pair<cl_device_fp_config, const char *>(CL_FP_ROUND_TO_ZERO, "CL_FP_ROUND_TO_ZERO - round to zero rounding mode supported"),
 			std::pair<cl_device_fp_config, const char *>(CL_FP_ROUND_TO_INF, "CL_FP_ROUND_TO_INF - round to +ve and -ve infinity rounding modes supported"),
 			std::pair<cl_device_fp_config, const char *>(CL_FP_FMA, "CL_FP_FMA - IEEE754-20080 fused multiply-add is supported"),
+			std::pair<cl_device_fp_config, const char *>(CL_FP_SOFT_FLOAT, "CL_FP_SOFT_FLOAT"),
+			std::pair<cl_device_fp_config, const char *>(CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT, "CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT"),
 		};
 	}
 };
@@ -226,9 +240,7 @@ struct DeviceParameterQueryEnumType_cl_device_exec_capabilities : public DeviceP
 	}
 };
 
-cl_device_id HydroGPUApp::getDeviceID(cl_platform_id platformID) {
-	bool useGPU = true;	//whether we want to request the GPU or CPU
-	
+cl_device_id HydroGPUApp::getDeviceID(cl_platform_id platformID) {	
 	cl_uint numDevices = 0;
 	int err = clGetDeviceIDs(platformID, useGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 0, NULL, &numDevices);
 	if (err != CL_SUCCESS || numDevices == 0) throw Exception() << "failed to query number of CL devices.  got error " << err;
@@ -322,16 +334,16 @@ cl_device_id HydroGPUApp::getDeviceID(cl_platform_id platformID) {
 		std::vector<std::string>::iterator extension = 
 			std::find_if(extensions.begin(), extensions.end(), [&](const std::string &s)
 		{
-			return s == std::string("cl_khr_gl_sharing") 
-				|| s == std::string("cl_APPLE_gl_sharing");
+			return s == std::string("cl_khr_gl_sharing") 	//i don't have
+				|| s == std::string("cl_APPLE_gl_sharing");	//i do have!
 		});
 	 
 		return extension != extensions.end();
 	});
-	if (deviceIter == deviceIDs.end()) throw Exception() << "failed to find a device with cap cl_khr_gl_sharing";
+	if (deviceIter == deviceIDs.end()) throw Exception() << "failed to find a device capable of GL sharing";
 	return *deviceIter;
 }
-
+	
 void HydroGPUApp::init() {
 	GLApp::init();
 
@@ -394,6 +406,29 @@ void HydroGPUApp::init() {
 
 	cl_platform_id platformID = getPlatformID();
 	deviceID = getDeviceID(platformID);
+
+	//initialize global_size and local_size
+	size_t maxWorkGroupSize = 0;
+	err = clGetDeviceInfo(deviceID, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, NULL);
+	if (err != CL_SUCCESS) throw Exception() << "clGetDeviceInfo failed to query CL_DEVICE_MAX_WORK_GROUP_SIZE with error " << err;
+
+	Vector<size_t,3> maxWorkItemSizes;
+	err = clGetDeviceInfo(deviceID, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItemSizes), &maxWorkItemSizes, NULL);
+	if (err != CL_SUCCESS) throw Exception() << "clGetDeviceInfo failed to query CL_DEVICE_MAX_WORK_ITEM_SIZES with error " << err;
+
+	for (int n = 0; n < DIM; ++n) {
+		global_size(n) = size.s[n];
+		local_size(n) = std::min<size_t>(maxWorkItemSizes(n), size.s[n]);
+	}
+	while (local_size.volume() > maxWorkGroupSize) {
+		for (int n = 0; n < DIM; ++n) {
+			local_size(n) = (size_t)ceil((double)local_size(n) * .5);
+		}
+	}
+	//hmm...
+	if (!useGPU) local_size(0) >>= 1;
+	std::cout << "global_size\t" << global_size << std::endl;
+	std::cout << "local_size\t" << local_size << std::endl;
 
 #if PLATFORM_osx
 	CGLContextObj kCGLContext = CGLGetCurrentContext();	// GL Context
@@ -468,22 +503,7 @@ void HydroGPUApp::init() {
 	gradientTexMem = clCreateFromGLTexture(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex, &err);
 	if (!gradientTexMem) throw Exception() << "failed to create CL memory from GL texture.  got error " << err;
 
-	solver = new RoeSolver(deviceID, context, size, commands, cells, xmin, xmax, fluidTexMem, gradientTexMem);
-/*
-	why isn't this working?
-	// Get the maximum work group size for executing the kernel on the device
-	//
-	err = clGetKernelWorkGroupInfo(kernel, deviceID, CL_KERNEL_WORK_GROUP_SIZE, 2 * sizeof(local_size), local_size, NULL);
-	if (err != CL_SUCCESS) {
-		std::cout << "Error: Failed to retrieve kernel work group info! " << err << std::endl;
-		exit(1);
-	}
-*/	//manually provide it in the mean time: 
-
-#if 0
-	err = clEnqueueReadBuffer( commands, cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0], 0, NULL, NULL);  
-	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to read cellsMem array! " << err;
-#endif
+	solver = new RoeSolver(deviceID, context, size, commands, cells, xmin, xmax, fluidTexMem, gradientTexMem, useGPU);
 
 	std::cout << "Success!" << std::endl;
 }
@@ -501,22 +521,31 @@ void HydroGPUApp::shutdown() {
 void HydroGPUApp::resize(int width, int height) {
 	GLApp::resize(width, height);	//viewport
 	float aspectRatio = (float)width / (float)height;
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
 	glOrtho(-aspectRatio, aspectRatio, -1., 1., -1., 1.);
+	glMatrixMode(GL_MODELVIEW);
 }
 
 void HydroGPUApp::update() {
 	GLApp::update();	//glclear 
-
-	size_t local_size[2];
-	local_size[0] = local_size[1] = 16;
 	
-	solver->update(commands, fluidTexMem, global_size, local_size);
+	//CPU need to bind beforehand for roe/cpu to use it
+	//GPU needs it unbound until after the update
+	if (!useGPU) {
+		glBindTexture(GL_TEXTURE_2D, fluidTex);
+	}
+
+	if (doUpdate) {
+		solver->update(commands, fluidTexMem, global_size.v, local_size.v);
+		if (doUpdate == 2) doUpdate = 0;
+	}
 
 	glPushMatrix();
 	glTranslatef(-viewPosX, -viewPosY, 0);
 	glScalef(viewZoom, viewZoom, viewZoom);
-	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, fluidTex);
+	glEnable(GL_TEXTURE_2D);
 	glBegin(GL_QUADS);
 	glTexCoord2f(0,0); glVertex2f(-.5f,-.5f);
 	glTexCoord2f(1,0); glVertex2f(.5f,-.5f);
@@ -567,6 +596,16 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			leftShiftDown = true;
 		} else if (event.key.keysym.sym == SDLK_RSHIFT) {
 			rightShiftDown = true;
+		} else if (event.key.keysym.sym == SDLK_u) {
+			if (doUpdate) {
+				doUpdate = 0;
+			} else {
+				if (shiftDown) {
+					doUpdate = 2;
+				} else {
+					doUpdate = 1;
+				}
+			}
 		}
 		break;
 	case SDL_KEYUP:

@@ -16,7 +16,9 @@ struct Solver {
 		real2 xmin,
 		real2 xmax,
 		cl_mem fluidTexMem,
-		cl_mem gradientTexMem) {}
+		cl_mem gradientTexMem,
+		bool useGPU) {}
+
 	virtual ~Solver() {}
 
 	virtual void update(

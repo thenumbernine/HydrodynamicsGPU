@@ -2,7 +2,7 @@
 
 #if 0
 #ifdef __OPENCL_VERSION__
-#pragma OPENCL EXTENSION cl_APPLE_fp64_ops : enable
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #endif
 #endif
 

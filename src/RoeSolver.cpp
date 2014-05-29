@@ -1,6 +1,7 @@
 #include "HydroGPU/RoeSolver.h"
 #include "Common/Exception.h"
 #include "Common/Finally.h"
+#include "TensorMath/Vector.h"
 #include "Macros.h"
 #include <OpenGL/gl.h>
 #include <fstream>
@@ -19,14 +20,15 @@ std::string readFile(std::string filename) {
 RoeSolver::RoeSolver(
 	cl_device_id deviceID,
 	cl_context context,
-	cl_int2 size,
+	cl_int2 size_,
 	cl_command_queue commands,
 	std::vector<Cell> &cells,
 	real2 xmin,
 	real2 xmax,
 	cl_mem fluidTexMem,
-	cl_mem gradientTexMem)
-: Solver(deviceID, context, size, commands, cells, xmin, xmax, fluidTexMem, gradientTexMem)
+	cl_mem gradientTexMem,
+	bool useGPU_)
+: Solver(deviceID, context, size_, commands, cells, xmin, xmax, fluidTexMem, gradientTexMem, useGPU_)
 , program(cl_program())
 , cellsMem(cl_mem())
 , calcEigenDecompositionKernel(cl_kernel())
@@ -35,9 +37,12 @@ RoeSolver::RoeSolver(
 , calcFluxKernel(cl_kernel())
 , updateStateKernel(cl_kernel())
 , convertToTexKernel(cl_kernel())
+, useGPU(useGPU_)
 {
 	int err = 0;
-	
+
+	size = size_;
+
 	std::string kernelSource = readFile("res/roe_solver.cl");
 	const char *kernelSourcePtr = kernelSource.c_str();
 	cl_program program = clCreateProgramWithSource(context, 1, (const char **) &kernelSourcePtr, NULL, &err);
@@ -81,8 +86,11 @@ RoeSolver::RoeSolver(
 	updateStateKernel = clCreateKernel(program, "updateState", &err);
 	if (!updateStateKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
 
-	convertToTexKernel = clCreateKernel(program, "convertToTex", &err);
-	if (!convertToTexKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
+	//if (useGPU) 
+	{
+		convertToTexKernel = clCreateKernel(program, "convertToTex", &err);
+		if (!convertToTexKernel || err != CL_SUCCESS) throw Exception() << "failed to create kernel";
+	}
 
 	cl_kernel* kernels[] = {
 		&calcEigenDecompositionKernel,
@@ -113,12 +121,15 @@ RoeSolver::RoeSolver(
 	err = clSetKernelArg(updateStateKernel, 2, sizeof(real2), dt_dx.s);
 	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
 
-	err = 0;
-	err  = clSetKernelArg(convertToTexKernel, 0, sizeof(cl_mem), &cellsMem);
-	err |= clSetKernelArg(convertToTexKernel, 1, sizeof(cl_uint2), &size.s[0]);
-	err |= clSetKernelArg(convertToTexKernel, 2, sizeof(cl_mem), &fluidTexMem);
-	err |= clSetKernelArg(convertToTexKernel, 3, sizeof(cl_mem), &gradientTexMem);
-	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
+	//if (useGPU) 
+	{
+		err = 0;
+		err  = clSetKernelArg(convertToTexKernel, 0, sizeof(cl_mem), &cellsMem);
+		err |= clSetKernelArg(convertToTexKernel, 1, sizeof(cl_uint2), &size.s[0]);
+		err |= clSetKernelArg(convertToTexKernel, 2, sizeof(cl_mem), &fluidTexMem);
+		err |= clSetKernelArg(convertToTexKernel, 3, sizeof(cl_mem), &gradientTexMem);
+		if (err != CL_SUCCESS) throw Exception() << "Error: Failed to set kernel arguments! " << err;
+	}
 }
 
 RoeSolver::~RoeSolver() {
@@ -129,7 +140,7 @@ RoeSolver::~RoeSolver() {
 	clReleaseKernel(calcRTildeKernel);
 	clReleaseKernel(calcFluxKernel);
 	clReleaseKernel(updateStateKernel);
-	clReleaseKernel(convertToTexKernel);
+	if (convertToTexKernel) clReleaseKernel(convertToTexKernel);
 }
 
 void RoeSolver::update(
@@ -141,26 +152,38 @@ void RoeSolver::update(
 	int err = 0;
 
 	err = clEnqueueNDRangeKernel(commands, calcEigenDecompositionKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "failed to execute calcEigenDecompositionKernel";
+	if (err) throw Exception() << "failed to execute calcEigenDecompositionKernel with error " << err;
 	
 	err = clEnqueueNDRangeKernel(commands, calcDeltaQTildeKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "failed to execute calcDeltaQTildeKernel";
+	if (err) throw Exception() << "failed to execute calcDeltaQTildeKernel with error " << err;
 	
 	err = clEnqueueNDRangeKernel(commands, calcRTildeKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "failed to execute calcRTildeKernel";
+	if (err) throw Exception() << "failed to execute calcRTildeKernel with error " << err;
 	
 	err = clEnqueueNDRangeKernel(commands, calcFluxKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "failed to execute calcFluxKernel";
+	if (err) throw Exception() << "failed to execute calcFluxKernel with error " << err;
 	
 	err = clEnqueueNDRangeKernel(commands, updateStateKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "failed to execute updateStateKernel";
+	if (err) throw Exception() << "failed to execute updateStateKernel with error " << err;
 
 	glFlush();
 	glFinish();
 	clEnqueueAcquireGLObjects(commands, 1, &fluidTexMem, 0, 0, 0);
-	
-	err = clEnqueueNDRangeKernel(commands, convertToTexKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	if (err) throw Exception() << "failed to execute convertToTexKernel";
+
+	if (useGPU) {
+		err = clEnqueueNDRangeKernel(commands, convertToTexKernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
+		if (err) throw Exception() << "failed to execute convertToTexKernel";
+	} else {
+		int count = size.s[0] * size.s[1];
+		std::vector<Cell> cells(count);
+		err = clEnqueueReadBuffer(commands, cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0], 0, NULL, NULL);  
+		if (err != CL_SUCCESS) throw Exception() << "Error: Failed to read cellsMem array! " << err;
+		std::vector<Vector<char,4>> buffer(count);
+		for (int i = 0; i < count; ++i) {
+			buffer[i](0) = (char)(255.f * cells[i].q.s[0] * .9f);
+		}
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size.s[0], size.s[1], GL_RGBA, GL_UNSIGNED_BYTE, &buffer[0].v);
+	}
 
 	clEnqueueReleaseGLObjects(commands, 1, &fluidTexMem, 0, 0, 0);
 	clFlush(commands);

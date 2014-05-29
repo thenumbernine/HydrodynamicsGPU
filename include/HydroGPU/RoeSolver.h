@@ -11,6 +11,8 @@ struct RoeSolver : public Solver {
 	cl_kernel calcFluxKernel;
 	cl_kernel updateStateKernel;
 	cl_kernel convertToTexKernel;
+	cl_int2 size;
+	bool useGPU;
 
 	RoeSolver(
 		cl_device_id deviceID, 
@@ -21,7 +23,9 @@ struct RoeSolver : public Solver {
 		real2 xmin,
 		real2 xmax,
 		cl_mem fluidTexMem,
-		cl_mem gradientTexMem);
+		cl_mem gradientTexMem,
+		bool useGPU);
+
 	virtual ~RoeSolver();
 
 	virtual void update(
