@@ -3,10 +3,10 @@ DIST_TYPE=app
 
 include ../GLApp/Makefile.mk
 
-CFLAGS_BASE+= -I../GLApp/include
-CFLAGS_BASE+= -I../Profiler/include
-CFLAGS_BASE+= -I../TensorMath/include
-CFLAGS_BASE+= -Ires/include
+INCLUDE_BASE+=../GLApp/include
+INCLUDE_BASE+=../Profiler/include
+INCLUDE_BASE+=../TensorMath/include
+INCLUDE_BASE+=res/include
 LDFLAGS_BASE+= -lGLApp
 LDFLAGS_BASE+= -framework OpenCL
 LDFLAGS_BASE+= -L../Profiler/dist/$(PLATFORM)/$(BUILD) -lProfiler
