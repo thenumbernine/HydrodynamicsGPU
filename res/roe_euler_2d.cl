@@ -261,11 +261,15 @@ __kernel void calcRTilde(
 		__global Cell *cellR = cell;
 		__global Cell *cellR2 = cells + indexNext;
 
-		real4 deltaQTildeL = matmul(interfaceL->eigenvectorsInverse, cellL->q - cellL2->q);
-		real4 deltaQTilde = matmul(interface->eigenvectorsInverse, cellR->q - cellL->q);
-		
-		real4 deltaQTildeR = interfaceR->deltaQTilde;	//works
+		//these work
+		//real4 deltaQTildeL = matmul(interfaceL->eigenvectorsInverse, cellL->q - cellL2->q);
+		//real4 deltaQTilde = matmul(interface->eigenvectorsInverse, cellR->q - cellL->q);
+		//..but this one crashes	
 		//real4 deltaQTildeR = matmul(interfaceR->eigenvectorsInverse, cellR2->q - cellR->q);	//crashes
+		
+		real4 deltaQTildeL = interfaceL->deltaQTilde;	//works
+		real4 deltaQTilde = interface->deltaQTilde;	//works
+		real4 deltaQTildeR = interfaceR->deltaQTilde;	//works
 		
 		for (int state = 0; state < 4; ++state) {
 			if (fabs(deltaQTilde[state]) > 0.f) {

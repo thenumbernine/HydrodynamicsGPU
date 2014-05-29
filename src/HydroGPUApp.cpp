@@ -1,59 +1,15 @@
-#include "HydroGPU/Solver.h"
+#include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/RoeSolver.h"
-#include "GLApp/GLApp.h" 
 #include "Profiler/Profiler.h"
-#include "TensorMath/Vector.h"
 #include "Common/Exception.h"
 #include "Common/Macros.h"
 #include <SDL2/SDL.h>
-#include <OpenCL/opencl.h>
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h>
 #include <string>
-#include <fstream>
 #include <iostream>
 #include <vector>
 #include <algorithm>
-
-struct HydroGPUApp : public GLApp {
-	bool useGPU;	//whether we want to request the GPU or CPU.  required prior to init()
-	
-	GLuint fluidTex;
-	GLuint gradientTex;
-	
-	cl_device_id deviceID;
-	cl_context context;
-	
-	cl_command_queue commands;
-	cl_mem fluidTexMem;		//data is written to this buffer before rendering
-	cl_mem gradientTexMem;	//as it is written, data is read from this for mapping values to colors
-
-	Solver *solver;
-
-	Vector<size_t,DIM> local_size;
-	Vector<size_t,DIM> global_size;
-	cl_int2 size;
-	  
-	bool leftButtonDown;
-	bool leftShiftDown;
-	bool rightShiftDown;
-	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
-	float viewZoom;
-	float viewPosX;
-	float viewPosY;
-
-	HydroGPUApp();
-
-	cl_platform_id getPlatformID();
-	cl_device_id getDeviceID(cl_platform_id platformID);
-
-	virtual int main(int argc, char **argv);
-	virtual void init();
-	virtual void shutdown();
-	virtual void resize(int width, int height);
-	virtual void update();
-	virtual void sdlEvent(SDL_Event &event);
-};
 
 HydroGPUApp::HydroGPUApp()
 : GLApp()
@@ -70,33 +26,37 @@ HydroGPUApp::HydroGPUApp()
 , rightShiftDown(false)
 , doUpdate(1)
 , viewZoom(1.f)
-, viewPosX(0.f)
-, viewPosY(0.f)
 {
 }
 
-int HydroGPUApp::main(int argc, char **argv) {
+int HydroGPUApp::main(std::vector<std::string> args) {
 	for (int i = 0; i < DIM; ++i) {
 		size.s[i] = 256;
 	}
 
-	for (int i = 0; i < argc; ++i) {
-		if (!strcmp(argv[i], "--cpu")) {
+	for (int i = 0; i < args.size(); ++i) {
+		if (args[i] == "--cpu") {
 			useGPU = false;
 		}
-		if (i < argc-2) {
-			if (!strcmp(argv[i], "--size")) {
-				size.s[0] = atoi(argv[++i]);
-				size.s[1] = atoi(argv[++i]);
+		if (i < args.size()-2) {
+			if (args[i] == "--size") {
+				size.s[0] = std::stoi(args[++i]);
+				size.s[1] = std::stoi(args[++i]);
 			}
 		}
 	}
-	return GLApp::main(argc, argv);
+	return GLApp::main(args);
 }
 
 cl_platform_id HydroGPUApp::getPlatformID() {
+	cl_int err = 0;
+	
+	std::vector<cl::Platform> platforms;
+	err = cl::Platform::get(&platforms);
+	if (err != CL_SUCCESS) throw Exception() << "failed to get platforms";
+
 	cl_uint numPlatforms = 0;
-	int err = clGetPlatformIDs(0, NULL, &numPlatforms);
+	err = clGetPlatformIDs(0, NULL, &numPlatforms);
 	if (err != CL_SUCCESS || numPlatforms == 0) throw Exception() << "failed to query number of CL platforms.  got error " << err;
 	
 	std::vector<cl_platform_id> platformIDs(numPlatforms);
@@ -352,10 +312,9 @@ void HydroGPUApp::init() {
 	int err;
 	  
 	real noise = real(.01);
-	real2 xmin, xmax;
 	for (int n = 0; n < DIM; ++n) {
-		xmin.s[n] = -.5;
-		xmax.s[n] = .5;
+		xmin(n) = -.5;
+		xmax(n) = .5;
 	}
 	
 	std::vector<Cell> cells(size.s[0] * size.s[1]);
@@ -368,8 +327,8 @@ void HydroGPUApp::init() {
 				for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++cell) {
 					bool lhs = true;
 					for (int n = 0; n < DIM; ++n) {
-						cell->x.s[n] = real(xmax.s[n] - xmin.s[n]) * real(index[n]) / real(size.s[n]) + real(xmin.s[n]);
-						if (cell->x.s[n] > real(.3) * real(xmax.s[n]) + real(.7) * real(xmin.s[n])) {
+						cell->x.s[n] = real(xmax(n) - xmin(n)) * real(index[n]) / real(size.s[n]) + real(xmin(n));
+						if (cell->x.s[n] > real(.3) * real(xmax(n)) + real(.7) * real(xmin(n))) {
 							lhs = false;
 						}
 					}
@@ -379,7 +338,7 @@ void HydroGPUApp::init() {
 						for (int n = 0; n < DIM; ++n) {
 							cell->interfaces[m].x.s[n] = cell->x.s[n];
 							if (m == n) {
-								cell->interfaces[m].x.s[n] -= real(xmax.s[n] - xmin.s[n]) * real(.5) / real(size.s[n]);
+								cell->interfaces[m].x.s[n] -= real(xmax(n) - xmin(n)) * real(.5) / real(size.s[n]);
 							}
 						}
 					}
@@ -511,8 +470,8 @@ void HydroGPUApp::init() {
 		size, 
 		commands, 
 		cells, 
-		xmin, 
-		xmax, 
+		xmin.v,
+		xmax.v,
 		fluidTexMem, 
 		gradientTexMem, 
 		local_size.v,
@@ -533,17 +492,16 @@ void HydroGPUApp::shutdown() {
 
 void HydroGPUApp::resize(int width, int height) {
 	GLApp::resize(width, height);	//viewport
+	screenSize = Vector<int,2>(width, height);
 	float aspectRatio = (float)width / (float)height;
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glOrtho(-aspectRatio, aspectRatio, -1., 1., -1., 1.);
+	glOrtho(-aspectRatio *.5, aspectRatio * .5, -.5, .5, -1., 1.);
 	glMatrixMode(GL_MODELVIEW);
 }
 
 void HydroGPUApp::update() {
 PROFILE_BEGIN_FRAME()
-{
-PROFILE()
 	GLApp::update();	//glclear 
 	
 	//CPU need to bind beforehand for roe/cpu to use it
@@ -558,7 +516,7 @@ PROFILE()
 	}
 
 	glPushMatrix();
-	glTranslatef(-viewPosX, -viewPosY, 0);
+	glTranslatef(-viewPos(0), -viewPos(1), 0);
 	glScalef(viewZoom, viewZoom, viewZoom);
 	glBindTexture(GL_TEXTURE_2D, fluidTex);
 	glEnable(GL_TEXTURE_2D);
@@ -573,7 +531,6 @@ PROFILE()
 
 	int err = glGetError();
 	if (err) std::cout << "error " << err << std::endl;
-}
 PROFILE_END_FRAME();
 }
 
@@ -582,22 +539,36 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 
 	switch (event.type) {
 	case SDL_MOUSEMOTION:
+#if 0	//panning
 		{
 			int dx = event.motion.xrel;
 			int dy = event.motion.yrel;
 			if (leftButtonDown) {
 				if (shiftDown) {
 					if (dy) {
-						viewZoom *= exp((float)dy * -.03f); 
+						float scale = exp((float)dy * -.03f); 
+						viewPos *= scale;
+						viewZoom *= scale; 
 					} 
 				} else {
 					if (dx || dy) {
-						viewPosX -= (float)dx * 0.01f;
-						viewPosY += (float)dy * 0.01f;
+						viewPos += Vector<float,2>(-(float)dx * 0.01f, (float)dy * 0.01f);
 					}
 				}
 			}
 		}
+#endif
+#if 1	//introducing velocity/density/whatever
+		{
+			float x = (float)event.motion.x / (float)screenSize(0) * (xmax(0) - xmin(0)) + xmin(0);
+			float y = (float)event.motion.y / (float)screenSize(1) * (xmax(1) - xmin(1)) + xmin(1);
+			float dx = (float)event.motion.xrel / (float)screenSize(0);
+			float dy = (float)event.motion.yrel / (float)screenSize(1);
+			if (leftButtonDown) {
+				solver->addDrop(x,y,dx,dy);
+			}
+		}
+#endif
 		break;
 	case SDL_MOUSEBUTTONDOWN:
 		if (event.button.button == SDL_BUTTON_LEFT) {

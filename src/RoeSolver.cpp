@@ -23,8 +23,8 @@ RoeSolver::RoeSolver(
 	cl_int2 size_,
 	cl_command_queue commands,
 	std::vector<Cell> &cells,
-	real2 xmin,
-	real2 xmax,
+	real* xmin,
+	real* xmax,
 	cl_mem fluidTexMem,
 	cl_mem gradientTexMem,
 	size_t *local_size,
@@ -125,7 +125,7 @@ RoeSolver::RoeSolver(
 
 	real2 dx;
 	for (int i = 0; i < DIM; ++i) {
-		dx.s[i] = (xmax.s[i] - xmin.s[i]) / (float)size.s[i];
+		dx.s[i] = (xmax[i] - xmin[i]) / (float)size.s[i];
 	}
 	
 	err = clSetKernelArg(calcFluxKernel, 2, sizeof(real2), dx.s);
@@ -238,6 +238,9 @@ void RoeSolver::update(
 	clEnqueueReleaseGLObjects(commands, 1, &fluidTexMem, 0, 0, 0);
 	clFlush(commands);
 	clFinish(commands);
+}
+
+void RoeSolver::addDrop(float x, float y, float dx, float dy) {
 }
 
 

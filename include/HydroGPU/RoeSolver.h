@@ -26,8 +26,8 @@ struct RoeSolver : public Solver {
 		cl_int2 size, 
 		cl_command_queue commands,
 		std::vector<Cell> &cells,
-		real2 xmin,
-		real2 xmax,
+		real* xmin,
+		real* xmax,
 		cl_mem fluidTexMem,
 		cl_mem gradientTexMem,
 		size_t *local_size,
@@ -39,7 +39,9 @@ struct RoeSolver : public Solver {
 		cl_command_queue commands, 
 		cl_mem fluidTexMem, 
 		size_t *global_size,
-		size_t *local_size); 
+		size_t *local_size);
+
+	virtual void addDrop(float x, float y, float dx, float dy);
 };
 
 
