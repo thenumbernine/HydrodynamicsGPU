@@ -1,4 +1,12 @@
-#include "roe_cell.h"
+#include "roe_euler_2d.h"
+
+real4 matmul(real16 m, real4 v) {
+	return (real4)(
+		dot(m.s0123, v),
+		dot(m.s4567, v),
+		dot(m.s89AB, v),
+		dot(m.sCDEF, v));
+}
 
 __kernel void calcEigenDecomposition(
 	__global Cell* cells,
@@ -136,6 +144,10 @@ __kernel void calcCFLAndDeltaQTilde(
 		iNext[side] = (iNext[side] + 1) % size[side];
 		int indexR = iNext.x + size.x * iNext.y;
 
+		int2 iPrev = i;
+		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		int indexPrev = iPrev.x + size.x * iPrev.y;
+			
 		{
 			__global Interface *interfaceL = cell->interfaces + side;
 			__global Interface *interfaceR = &cells[indexR].interfaces[side];
@@ -160,20 +172,12 @@ __kernel void calcCFLAndDeltaQTilde(
 		}
 
 		{
-			int2 iPrev = i;
-			iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-			int indexPrev = iPrev.x + size.x * iPrev.y;
-			
 			__global Interface *interface = cell->interfaces + side;
 			__global Cell *cellL = cells + indexPrev;
 			__global Cell *cellR = cell;
 
 			real4 deltaQ = cellR->q - cellL->q;
-			interface->deltaQTilde = (real4)( 
-				dot(interface->eigenvectorsInverse.s0123, deltaQ),
-				dot(interface->eigenvectorsInverse.s4567, deltaQ),
-				dot(interface->eigenvectorsInverse.s89AB, deltaQ),
-				dot(interface->eigenvectorsInverse.sCDEF, deltaQ));
+			interface->deltaQTilde = matmul(interface->eigenvectorsInverse, deltaQ);
 		}
 	}
 }
@@ -250,9 +254,6 @@ __kernel void calcRTilde(
 
 		for (int state = 0; state < 4; ++state) {
 			if (fabs(interface->deltaQTilde[state]) > 0.f) {
-				//real eltz = step(0.f, -interface->eigenvalues[state]);	//1. for each eigenvalue less than zero
-				//interface->rTilde = (interfaceL->deltaQTilde[state] * (1.f - eltz)
-				//	+ interfaceR->deltaQTilde[state] * eltz) / interface->deltaQTilde[state];
 				if (interface->eigenvalues[state] > 0.f) {
 					interface->rTilde[state] = interfaceL->deltaQTilde[state] / interface->deltaQTilde[state];
 				} else {
@@ -295,11 +296,7 @@ __kernel void calcFlux(
 
 		real4 qAvg = (cellR->q + cellL->q) * .5f;
 	
-		real4 fluxAvgTilde = (real4)(
-			dot(interface->eigenvectorsInverse.s0123, qAvg),
-			dot(interface->eigenvectorsInverse.s4567, qAvg),
-			dot(interface->eigenvectorsInverse.s89AB, qAvg),
-			dot(interface->eigenvectorsInverse.sCDEF, qAvg));
+		real4 fluxAvgTilde = matmul(interface->eigenvectorsInverse, qAvg);
 		fluxAvgTilde *= interface->eigenvalues;
 
 		real4 theta = step(0.f, interface->eigenvalues) * 2.f - 1.f;
@@ -307,12 +304,8 @@ __kernel void calcFlux(
 		real4 epsilon = interface->eigenvalues * dt_dx[side];
 		real4 deltaFluxTilde = interface->eigenvalues * interface->deltaQTilde;
 		real4 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + phi * (epsilon - theta));
-
-		interface->flux = (real4)(
-			dot(interface->eigenvectors.s0123, fluxTilde),
-			dot(interface->eigenvectors.s4567, fluxTilde),
-			dot(interface->eigenvectors.s89AB, fluxTilde),
-			dot(interface->eigenvectors.sCDEF, fluxTilde));
+		
+		interface->flux = matmul(interface->eigenvectors, fluxTilde);
 	}
 }
 

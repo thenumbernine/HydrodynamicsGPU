@@ -490,6 +490,7 @@ void HydroGPUApp::init() {
 		for (int i = 0; i < width; ++i) {
 			float f = (float)i / (float)width * (float)numberof(colors);
 			int ci = (int)f;
+			int ci2 = (ci + 1) % numberof(colors);
 			float s = f - (float)ci;
 			if (ci >= numberof(colors)) {
 				ci = numberof(colors)-1;
@@ -497,7 +498,7 @@ void HydroGPUApp::init() {
 			}
 
 			for (int j = 0; j < 3; ++j) {
-				data[3 * i + j] = (unsigned char)(255. * (colors[ci][j] * (1.f - s) + colors[ci+1][j] * s));
+				data[3 * i + j] = (unsigned char)(255. * (colors[ci][j] * (1.f - s) + colors[ci2][j] * s));
 			}
 		}
 

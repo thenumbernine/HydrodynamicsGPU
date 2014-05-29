@@ -48,7 +48,7 @@ RoeSolver::RoeSolver(
 	int err = 0;
 	size = size_;
 
-	std::string kernelSource = readFile("res/roe_solver.cl");
+	std::string kernelSource = readFile("res/roe_euler_2d.cl");
 	const char *kernelSourcePtr = kernelSource.c_str();
 	cl_program program = clCreateProgramWithSource(context, 1, (const char **) &kernelSourcePtr, NULL, &err);
 	if (!program) throw Exception() << "Error: Failed to create compute program!";

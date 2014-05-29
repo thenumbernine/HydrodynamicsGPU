@@ -4,7 +4,7 @@
 #include <vector>
 
 //OpenCL shared header
-#include "roe_cell.h"
+#include "roe_euler_2d.h"
 
 struct Solver {
 	Solver(
