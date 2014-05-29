@@ -78,15 +78,22 @@ HydroGPUApp::HydroGPUApp()
 , viewPosX(0.f)
 , viewPosY(0.f)
 {
-	for (int i = 0; i < DIM; ++i) {
-		size.s[i] = 256;
-	}
 }
 
 int HydroGPUApp::main(int argc, char **argv) {
+	for (int i = 0; i < DIM; ++i) {
+		size.s[i] = 256;
+	}
+
 	for (int i = 0; i < argc; ++i) {
 		if (!strcmp(argv[i], "--cpu")) {
 			useGPU = false;
+		}
+		if (i < argc-2) {
+			if (!strcmp(argv[i], "--size")) {
+				size.s[0] = atoi(argv[++i]);
+				size.s[1] = atoi(argv[++i]);
+			}
 		}
 	}
 	return GLApp::main(argc, argv);
@@ -407,7 +414,6 @@ void HydroGPUApp::init() {
 	cl_platform_id platformID = getPlatformID();
 	deviceID = getDeviceID(platformID);
 
-	//initialize global_size and local_size
 	size_t maxWorkGroupSize = 0;
 	err = clGetDeviceInfo(deviceID, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, NULL);
 	if (err != CL_SUCCESS) throw Exception() << "clGetDeviceInfo failed to query CL_DEVICE_MAX_WORK_GROUP_SIZE with error " << err;
