@@ -16,9 +16,6 @@ HydroGPUApp::HydroGPUApp()
 , useGPU(true)
 , fluidTex(GLuint())
 , gradientTex(GLuint())
-, deviceID(cl_device_id())
-, context(cl_context())
-, commands(cl_command_queue())
 , fluidTexMem(cl_mem())
 , gradientTexMem(cl_mem())
 , leftButtonDown(false)
@@ -48,23 +45,12 @@ int HydroGPUApp::main(std::vector<std::string> args) {
 	return GLApp::main(args);
 }
 
-cl_platform_id HydroGPUApp::getPlatformID() {
-	cl_int err = 0;
-	
+cl::Platform HydroGPUApp::getPlatform() {
 	std::vector<cl::Platform> platforms;
-	err = cl::Platform::get(&platforms);
-	if (err != CL_SUCCESS) throw Exception() << "failed to get platforms";
+	cl::Platform::get(&platforms);
 
-	cl_uint numPlatforms = 0;
-	err = clGetPlatformIDs(0, NULL, &numPlatforms);
-	if (err != CL_SUCCESS || numPlatforms == 0) throw Exception() << "failed to query number of CL platforms.  got error " << err;
-	
-	std::vector<cl_platform_id> platformIDs(numPlatforms);
-	err = clGetPlatformIDs(numPlatforms, &platformIDs[0], NULL);
-	if (err != CL_SUCCESS) throw Exception() << "failed to query CL platforms.  got error " << err;
- 
-	std::for_each(platformIDs.begin(), platformIDs.end(), [&](cl_platform_id platformID) {
-		std::cout << "platform " << platformID << std::endl;
+	std::for_each(platforms.begin(), platforms.end(), [&](cl::Platform platform) {
+		std::cout << "platform " << platform() << std::endl;
 		std::pair<cl_uint, const char *> queries[] = {
 			std::pair<cl_uint, const char *>(CL_PLATFORM_NAME, "name"),
 			std::pair<cl_uint, const char *>(CL_PLATFORM_VENDOR, "vendor"),
@@ -73,20 +59,14 @@ cl_platform_id HydroGPUApp::getPlatformID() {
 			std::pair<cl_uint, const char *>(CL_PLATFORM_EXTENSIONS, "extensions"),
 		};
 		std::for_each(queries, queries + numberof(queries), [&](std::pair<cl_uint, const char *> query) {	
-			size_t param_value_size_ret = 0;
-			err = clGetPlatformInfo(platformID, query.first, 0, NULL, &param_value_size_ret);
-			if (err != CL_SUCCESS) throw Exception() << "clGetPlatformInfo failed to query " << query.second << " (" << query.first << ") for platform " << platformID << " with error " << err;		
-		
-			std::string param_value(param_value_size_ret, '\0');
-			err = clGetPlatformInfo(platformID, query.first, param_value_size_ret, (void*)param_value.c_str(), NULL);
-			if (err != CL_SUCCESS) throw Exception() << "clGetPlatformInfo failed for platform " << platformID << " with error " << err;
-			
-			std::cout << query.second << ":\t" << param_value << std::endl;
+			std::string param;
+			platform.getInfo(query.first, &param);
+			std::cout << query.second << ":\t" << param << std::endl;
 		});
 		std::cout << std::endl;
 	});
 
-	return platformIDs[0];
+	return platforms[0];
 }
 
 struct DeviceParameterQuery {
@@ -94,7 +74,7 @@ struct DeviceParameterQuery {
 	const char *name;
 	bool failed;
 	DeviceParameterQuery(cl_uint param_, const char *name_) : param(param_), name(name_), failed(false) {}
-	virtual void query(cl_device_id deviceID) = 0;
+	virtual void query(cl::Device device) = 0;
 	std::string tostring() {
 		if (failed) return "-failed-";
 		return toStringType();
@@ -106,12 +86,11 @@ template<typename Type>
 struct DeviceParameterQueryType : public DeviceParameterQuery {
 	Type value;
 	DeviceParameterQueryType(cl_uint param_, const char *name_) : DeviceParameterQuery(param_, name_), value(Type()) {}
-	virtual void query(cl_device_id deviceID) {
-		int err = clGetDeviceInfo(deviceID, param, sizeof(value), &value, NULL);
-		if (err != CL_SUCCESS) {
-			//throw Exception() << "clGetDeviceInfo failed to query " << name << " (" << param << ") for device " << deviceID << " with error " << err;
+	virtual void query(cl::Device device) {
+		try {
+			device.getInfo(param, &value);
+		} catch (cl::Error &) {
 			failed = true;
-			return;
 		}
 	}
 	virtual std::string toStringType() {
@@ -125,21 +104,11 @@ template<>
 struct DeviceParameterQueryType<char*> : public DeviceParameterQuery {
 	std::string value;
 	DeviceParameterQueryType(cl_uint param_, const char *name_) : DeviceParameterQuery(param_, name_) {}
-	virtual void query(cl_device_id deviceID) {
-		size_t size = 0;
-		int err = clGetDeviceInfo(deviceID, param, 0, NULL, &size);
-		if (err != CL_SUCCESS) {
-			//throw Exception() << "clGetDeviceInfo failed to query " << name << " (" << param << ") for device " << deviceID << " with error " << err;
+	virtual void query(cl::Device device) {
+		try {
+			device.getInfo(param, &value);
+		} catch (cl::Error &) {
 			failed = true;
-			return;
-		}
-	
-		value = std::string(size, '\0');
-		err = clGetDeviceInfo(deviceID, param, size, (void*)value.c_str(), NULL);
-		if (err != CL_SUCCESS) {
-			//throw Exception() << "clGetDeviceInfo failed to query " << name << " (" << param << ") for device " << deviceID << " with error " << err;
-			failed = true;
-			return;
 		}
 	}
 	virtual std::string toStringType() { return value; }
@@ -150,12 +119,11 @@ template<typename Type>
 struct DeviceParameterQueryEnumType : public DeviceParameterQuery {
 	Type value;
 	DeviceParameterQueryEnumType(cl_uint param_, const char *name_) : DeviceParameterQuery(param_, name_), value(Type()) {}
-	virtual void query(cl_device_id deviceID) {
-		int err = clGetDeviceInfo(deviceID, param, sizeof(value), &value, NULL);
-		if (err != CL_SUCCESS) {
-			//throw Exception() << "clGetDeviceInfo failed to query " << name << " (" << param << ") for device " << deviceID << " with error " << err;
+	virtual void query(cl::Device device) {
+		try {
+			device.getInfo(param, &value);
+		} catch (cl::Error &) {
 			failed = true;
-			return;
 		}
 	}
 	virtual std::vector<std::pair<Type, const char *>> getFlags() = 0;
@@ -202,16 +170,10 @@ struct DeviceParameterQueryEnumType_cl_device_exec_capabilities : public DeviceP
 	}
 };
 
-cl_device_id HydroGPUApp::getDeviceID(cl_platform_id platformID) {	
-	cl_uint numDevices = 0;
-	int err = clGetDeviceIDs(platformID, useGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 0, NULL, &numDevices);
-	if (err != CL_SUCCESS || numDevices == 0) throw Exception() << "failed to query number of CL devices.  got error " << err;
+cl::Device HydroGPUApp::getDevice(cl::Platform platform) {
+	std::vector<cl::Device> devices;
+	platform.getDevices(useGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, &devices);
 
-	std::vector<cl_device_id> deviceIDs(numDevices);
-
-	err = clGetDeviceIDs(platformID, useGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, numDevices, &deviceIDs[0], NULL);
-	if (err != CL_SUCCESS) throw Exception() << "Error: Failed to create a device group!";
-	
 	std::vector<std::shared_ptr<DeviceParameterQuery>> deviceParameters = {
 		std::make_shared<DeviceParameterQueryType<char*>>(CL_DEVICE_NAME, "name"),
 		std::make_shared<DeviceParameterQueryType<char*>>(CL_DEVICE_VENDOR, "vendor"),
@@ -266,25 +228,19 @@ cl_device_id HydroGPUApp::getDeviceID(cl_platform_id platformID) {
 		//std::make_shared<DeviceParameterQueryType<char*>>(CL_DEVICE_EXTENSIONS, "extensions"),
 	};
 
-	std::vector<cl_device_id>::iterator deviceIter =
-		std::find_if(deviceIDs.begin(), deviceIDs.end(), [&](cl_device_id deviceID)
+	std::vector<cl::Device>::iterator deviceIter =
+		std::find_if(devices.begin(), devices.end(), [&](cl::Device device)
 	{
-		std::cout << "device " << deviceID << std::endl;
+		std::cout << "device " << device() << std::endl;
 		std::for_each(deviceParameters.begin(), deviceParameters.end(), [&](std::shared_ptr<DeviceParameterQuery> &query) {
-			query->query(deviceID);
+			query->query(device);
 			std::cout << query->name << ":\t" << query->tostring() << std::endl;
 		});
 
-		size_t param_value_size_ret = 0;
-		err = clGetDeviceInfo(deviceID, CL_DEVICE_EXTENSIONS, 0, NULL, &param_value_size_ret);
-		if (err != CL_SUCCESS) throw Exception() << "clGetDeviceInfo failed for device " << deviceID << " with error " << err;		
-	
-		std::string param_value(param_value_size_ret, '\0');
-		err = clGetDeviceInfo(deviceID, CL_DEVICE_EXTENSIONS, param_value_size_ret, (void*)param_value.c_str(), NULL);
-		if (err != CL_SUCCESS) throw Exception() << "clGetDeivceInfo failed for device " << deviceID << " with error " << err;
-
+		std::string extensionStr = device.getInfo<CL_DEVICE_EXTENSIONS>();
+		std::istringstream iss(extensionStr);
+		
 		std::vector<std::string> extensions;
-		std::istringstream iss(param_value);
 		std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(), std::back_inserter<std::vector<std::string>>(extensions));
 
 		std::cout << "extensions:" << std::endl;
@@ -302,7 +258,7 @@ cl_device_id HydroGPUApp::getDeviceID(cl_platform_id platformID) {
 	 
 		return extension != extensions.end();
 	});
-	if (deviceIter == deviceIDs.end()) throw Exception() << "failed to find a device capable of GL sharing";
+	if (deviceIter == devices.end()) throw Exception() << "failed to find a device capable of GL sharing";
 	return *deviceIter;
 }
 	
@@ -365,20 +321,15 @@ void HydroGPUApp::init() {
 		//}
 	}
 
-	cl_platform_id platformID = getPlatformID();
-	deviceID = getDeviceID(platformID);
+	cl::Platform platform = getPlatform();
+	device = getDevice(platform);
 
-	size_t maxWorkGroupSize = 0;
-	err = clGetDeviceInfo(deviceID, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, NULL);
-	if (err != CL_SUCCESS) throw Exception() << "clGetDeviceInfo failed to query CL_DEVICE_MAX_WORK_GROUP_SIZE with error " << err;
-
-	Vector<size_t,3> maxWorkItemSizes;
-	err = clGetDeviceInfo(deviceID, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItemSizes), &maxWorkItemSizes, NULL);
-	if (err != CL_SUCCESS) throw Exception() << "clGetDeviceInfo failed to query CL_DEVICE_MAX_WORK_ITEM_SIZES with error " << err;
+	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
 
 	for (int n = 0; n < DIM; ++n) {
 		global_size(n) = size.s[n];
-		local_size(n) = std::min<size_t>(maxWorkItemSizes(n), size.s[n]);
+		local_size(n) = std::min<size_t>(maxWorkItemSizes[n], size.s[n]);
 	}
 	while (local_size.volume() > maxWorkGroupSize) {
 		for (int n = 0; n < DIM; ++n) {
@@ -395,24 +346,20 @@ void HydroGPUApp::init() {
 	CGLShareGroupObj kCGLShareGroup = CGLGetShareGroup(kCGLContext); // Share Group
 	cl_context_properties properties[] = {
 		CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE, (cl_context_properties)kCGLShareGroup,
-		CL_CONTEXT_PLATFORM, (cl_context_properties)platformID,
+		CL_CONTEXT_PLATFORM, (cl_context_properties)platform(),
 		0
 	};
 #endif
 #if PLATFORM_windows
 	cl_context_properties properties[] = {
-		CL_GL_CONTEXT_KHR, (cl_context_properties) wglGetCurrentContext(), // HGLRC handle
-		CL_WGL_HDC_KHR, (cl_context_properties) wglGetCurrentDC(), // HDC handle
+		CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(), // HGLRC handle
+		CL_WGL_HDC_KHR, (cl_context_properties)wglGetCurrentDC(), // HDC handle
 		CL_CONTEXT_PLATFORM, (cl_context_properties)cpPlatform, 
 		0
 	};	
 #endif
-
-	context = clCreateContext(properties, 1, &deviceID, NULL, NULL, &err);
-	if (!context) throw Exception() << "Error: Failed to create a compute context!";
- 
-	commands = clCreateCommandQueue(context, deviceID, 0, &err);
-	if (!commands) throw Exception() << "Error: Failed to create a command queue!";
+	context = cl::Context({device}, properties);
+	commands = cl::CommandQueue(context, device);
 
 	//get a texture going for visualizing the output
 	glGenTextures(1, &fluidTex);
@@ -422,8 +369,10 @@ void HydroGPUApp::init() {
 	glTexImage2D(GL_TEXTURE_2D, 0, 4, size.s[0], size.s[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	if ((err = glGetError()) != 0) throw Exception() << "failed to create GL texture.  got error " << err;
-	
-	fluidTexMem = clCreateFromGLTexture(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex, &err);
+
+	//hmm, my cl.hpp version only supports clCreateFromGLTexture2D, which is deprecated ... do I use the deprecated method, or do I stick with the C structures?
+	// ... or do I look for a more up-to-date version of cl.hpp
+	fluidTexMem = clCreateFromGLTexture(context(), CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex, &err);
 	if (!fluidTexMem) throw Exception() << "failed to create CL memory from GL texture.  got error " << err;
 
 	//gradient texture
@@ -461,11 +410,11 @@ void HydroGPUApp::init() {
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	gradientTexMem = clCreateFromGLTexture(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex, &err);
+	gradientTexMem = clCreateFromGLTexture(context(), CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex, &err);
 	if (!gradientTexMem) throw Exception() << "failed to create CL memory from GL texture.  got error " << err;
 
 	solver = new RoeSolver(
-		deviceID, 
+		device, 
 		context, 
 		size, 
 		commands, 
@@ -484,8 +433,6 @@ void HydroGPUApp::shutdown() {
 	delete solver; solver = NULL;
 	glDeleteTextures(1, &fluidTex);
 	glDeleteTextures(1, &gradientTex);
-	clReleaseContext(context);
-	clReleaseCommandQueue(commands);
 	clReleaseMemObject(fluidTexMem);
 	clReleaseMemObject(gradientTexMem);
 }

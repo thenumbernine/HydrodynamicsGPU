@@ -1,6 +1,6 @@
 #pragma once
 
-#include <OpenCL/OpenCL.h>
+#include <OpenCL/cl.hpp>
 #include <vector>
 
 //OpenCL shared header
@@ -8,10 +8,10 @@
 
 struct Solver {
 	Solver(
-		cl_device_id deviceID, 
-		cl_context context, 
-		cl_int2 size, 
-		cl_command_queue commands,
+		cl::Device device,
+		cl::Context context,
+		cl_int2 size,
+		cl::CommandQueue commands,
 		std::vector<Cell> &cells,
 		real *xmin,
 		real *xmax,
@@ -23,7 +23,7 @@ struct Solver {
 	virtual ~Solver() {}
 
 	virtual void update(
-		cl_command_queue commands, 
+		cl::CommandQueue commands,
 		cl_mem fluidTexMem, 
 		size_t *global_size,
 		size_t *local_size) = 0;

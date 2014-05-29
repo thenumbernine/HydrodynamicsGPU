@@ -3,28 +3,28 @@
 #include "HydroGPU/Solver.h"
 
 struct RoeSolver : public Solver {
-	cl_program program;
-	cl_mem cellsMem;		//our main OpenCL buffer for the simulation
-	cl_mem cflMem;
-	cl_mem cflTimestepMem;
-	cl_kernel calcEigenDecompositionKernel;
-	cl_kernel calcCFLAndDeltaQTildeKernel;
-	cl_kernel calcCFLMinReduceKernel;
-	cl_kernel calcCFLMinFinalKernel;
-	cl_kernel calcRTildeKernel;
-	cl_kernel calcFluxKernel;
-	cl_kernel updateStateKernel;
-	cl_kernel convertToTexKernel;
+	cl::Program program;
+	cl::Buffer cellsMem;		//our main OpenCL buffer for the simulation
+	cl::Buffer cflMem;
+	cl::Buffer cflTimestepMem;
+	cl::Kernel calcEigenDecompositionKernel;
+	cl::Kernel calcCFLAndDeltaQTildeKernel;
+	cl::Kernel calcCFLMinReduceKernel;
+	cl::Kernel calcCFLMinFinalKernel;
+	cl::Kernel calcRTildeKernel;
+	cl::Kernel calcFluxKernel;
+	cl::Kernel updateStateKernel;
+	cl::Kernel convertToTexKernel;
 	cl_int2 size;
 	bool useGPU;
 	
 	real cfl;
 
 	RoeSolver(
-		cl_device_id deviceID, 
-		cl_context context, 
-		cl_int2 size, 
-		cl_command_queue commands,
+		cl::Device device,
+		cl::Context context,
+		cl_int2 size,
+		cl::CommandQueue commands,
 		std::vector<Cell> &cells,
 		real* xmin,
 		real* xmax,
@@ -33,10 +33,8 @@ struct RoeSolver : public Solver {
 		size_t *local_size,
 		bool useGPU);
 
-	virtual ~RoeSolver();
-
 	virtual void update(
-		cl_command_queue commands, 
+		cl::CommandQueue commands, 
 		cl_mem fluidTexMem, 
 		size_t *global_size,
 		size_t *local_size);

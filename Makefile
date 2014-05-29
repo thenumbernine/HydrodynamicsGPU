@@ -3,6 +3,8 @@ DIST_TYPE=app
 
 include ../GLApp/Makefile.mk
 
+CFLAGS_BASE+=-D__CL_ENABLE_EXCEPTIONS
+CFLAGS_BASE+=-D__CL_OVERRIDE_ERROR_STRINGS
 INCLUDE_BASE+=../GLApp/include
 INCLUDE_BASE+=../Profiler/include
 INCLUDE_BASE+=../TensorMath/include
