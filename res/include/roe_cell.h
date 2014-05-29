@@ -10,9 +10,11 @@ typedef float real;
 #ifdef __OPENCL_VERSION__
 typedef float2 real2;
 typedef float4 real4;
+typedef float16 real16;
 #else
 typedef cl_float2 real2;
 typedef cl_float4 real4;
+typedef cl_float16 real16;
 #endif
 
 #define DIM	2
@@ -22,8 +24,8 @@ typedef cl_float4 real4;
 struct Interface {
 	//Roe-specific values
 	real4 eigenvalues;
-	real4 eigenvectors[NUM_STATES];			//stored row-major 
-	real4 eigenvectorsInverse[NUM_STATES];	// so math matches array index notation
+	real16 eigenvectors;			//stored row-major 
+	real16 eigenvectorsInverse;	// so math matches array index notation
 	real4 rTilde;
 	real4 deltaQTilde;
 	

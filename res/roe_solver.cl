@@ -66,48 +66,52 @@ __kernel void calcEigenDecomposition(
 			velocityN + speedOfSound);
 
 		//min col 
-		interface->eigenvectors[0][0] = 1.f;
-		interface->eigenvectors[1][0] = velocity.x - speedOfSound * normal.x;
-		interface->eigenvectors[2][0] = velocity.y - speedOfSound * normal.y;
-		interface->eigenvectors[3][0] = enthalpyTotal - speedOfSound * velocityN;
+		interface->eigenvectors.s048C = (real4)(
+			1.f,
+			velocity.x - speedOfSound * normal.x,
+			velocity.y - speedOfSound * normal.y,
+			enthalpyTotal - speedOfSound * velocityN);
 		//mid col (normal)
-		interface->eigenvectors[0][1] = 1.f;
-		interface->eigenvectors[1][1] = velocity.x;
-		interface->eigenvectors[2][1] = velocity.y;
-		interface->eigenvectors[3][1] = .5f * velocitySq;
+		interface->eigenvectors.s159D = (real4)(
+			1.f,
+			velocity.x,
+			velocity.y,
+			.5f * velocitySq);
 		//mid col (tangent)
-		interface->eigenvectors[0][2] = 0.f;
-		interface->eigenvectors[1][2] = tangent.x;
-		interface->eigenvectors[2][2] = tangent.y;
-		interface->eigenvectors[3][2] = velocityT;
+		interface->eigenvectors.s26AE = (real4)(
+			0.f,
+			tangent.x,
+			tangent.y,
+			velocityT);
 		//max col 
-		interface->eigenvectors[0][3] = 1.f;
-		interface->eigenvectors[1][3] = velocity.x + speedOfSound * normal.x;
-		interface->eigenvectors[2][3] = velocity.y + speedOfSound * normal.y;
-		interface->eigenvectors[3][3] = enthalpyTotal + speedOfSound * velocityN;
+		interface->eigenvectors.s37BF = (real4)(
+			1.f,
+			velocity.x + speedOfSound * normal.x,
+			velocity.y + speedOfSound * normal.y,
+			enthalpyTotal + speedOfSound * velocityN);
 		
 		//calculate eigenvector inverses ... 
-		//min row
 		real invDenom = .5f / (speedOfSound * speedOfSound);
-		interface->eigenvectorsInverse[0] = (real4)(
+		//min row
+		interface->eigenvectorsInverse.s0123 = (real4)(
 			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom,
 			-(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
 			-(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom,
 			(GAMMA - 1.f) * invDenom);
 		//mid normal row
-		interface->eigenvectorsInverse[1] = (real4)(
+		interface->eigenvectorsInverse.s4567 = (real4)(
 			1.f - (GAMMA - 1.f) * velocitySq * invDenom,
 			(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
 			(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
 			-(GAMMA - 1.f) * 2.f * invDenom);
 		//mid tangent row
-		interface->eigenvectorsInverse[2] = (real4)(
+		interface->eigenvectorsInverse.s89AB = (real4)(
 			-velocityT, 
 			tangent.x,
 			tangent.y,
 			0.f);
 		//max row
-		interface->eigenvectorsInverse[3] = (real4)(
+		interface->eigenvectorsInverse.sCDEF = (real4)(
 			(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom,
 			(normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
 			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
@@ -224,10 +228,10 @@ __kernel void calcDeltaQTilde(
 
 		real4 deltaQ = cellR->q - cellL->q;
 		interface->deltaQTilde = (real4)( 
-			dot(interface->eigenvectorsInverse[0], deltaQ),
-			dot(interface->eigenvectorsInverse[1], deltaQ),
-			dot(interface->eigenvectorsInverse[2], deltaQ),
-			dot(interface->eigenvectorsInverse[3], deltaQ));
+			dot(interface->eigenvectorsInverse.s0123, deltaQ),
+			dot(interface->eigenvectorsInverse.s4567, deltaQ),
+			dot(interface->eigenvectorsInverse.s89AB, deltaQ),
+			dot(interface->eigenvectorsInverse.sCDEF, deltaQ));
 	}
 }
 
@@ -300,10 +304,10 @@ __kernel void calcFlux(
 		real4 qAvg = (cellR->q + cellL->q) * .5f;
 	
 		real4 fluxAvgTilde = (real4)(
-			dot(interface->eigenvectorsInverse[0], qAvg),
-			dot(interface->eigenvectorsInverse[1], qAvg),
-			dot(interface->eigenvectorsInverse[2], qAvg),
-			dot(interface->eigenvectorsInverse[3], qAvg));
+			dot(interface->eigenvectorsInverse.s0123, qAvg),
+			dot(interface->eigenvectorsInverse.s4567, qAvg),
+			dot(interface->eigenvectorsInverse.s89AB, qAvg),
+			dot(interface->eigenvectorsInverse.sCDEF, qAvg));
 		fluxAvgTilde *= interface->eigenvalues;
 
 		real4 theta = step(0.f, interface->eigenvalues) * 2.f - 1.f;
@@ -313,10 +317,10 @@ __kernel void calcFlux(
 		real4 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + phi * (epsilon - theta));
 
 		interface->flux = (real4)(
-			dot(interface->eigenvectors[0], fluxTilde),
-			dot(interface->eigenvectors[1], fluxTilde),
-			dot(interface->eigenvectors[2], fluxTilde),
-			dot(interface->eigenvectors[3], fluxTilde));
+			dot(interface->eigenvectors.s0123, fluxTilde),
+			dot(interface->eigenvectors.s4567, fluxTilde),
+			dot(interface->eigenvectors.s89AB, fluxTilde),
+			dot(interface->eigenvectors.sCDEF, fluxTilde));
 	}
 }
 
