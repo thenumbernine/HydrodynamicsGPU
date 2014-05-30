@@ -20,8 +20,6 @@ struct HydroGPUApp : public GLApp {
 
 	Solver *solver;
 
-	Vector<size_t,DIM> local_size;
-	Vector<size_t,DIM> global_size;
 	cl_int2 size;
 	  
 	bool leftButtonDown;
@@ -32,6 +30,7 @@ struct HydroGPUApp : public GLApp {
 	Vector<int,2> screenSize;
 	float viewZoom;
 	Vector<float,2> viewPos;
+	float aspectRatio;
 
 	HydroGPUApp();
 

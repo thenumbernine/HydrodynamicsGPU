@@ -21,19 +21,38 @@ RoeSolver::RoeSolver(
 	cl::Device device,
 	cl::Context context,
 	cl_int2 size_,
-	cl::CommandQueue commands,
+	cl::CommandQueue commands_,
 	std::vector<Cell> &cells,
 	real* xmin,
 	real* xmax,
 	cl_mem fluidTexMem,
 	cl_mem gradientTexMem,
-	size_t *local_size,
 	bool useGPU_)
-: Solver(device, context, size_, commands, cells, xmin, xmax, fluidTexMem, gradientTexMem, local_size, useGPU_)
+: commands(commands_)
 , useGPU(useGPU_)
 , cfl(.5f)
 {
 	size = size_;
+
+	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
+	Vector<size_t,DIM> globalSizeVec, localSizeVec;
+	for (int n = 0; n < DIM; ++n) {
+		globalSizeVec(n) = size.s[n];
+		localSizeVec(n) = std::min<size_t>(maxWorkItemSizes[n], size.s[n]);
+	}
+	while (localSizeVec.volume() > maxWorkGroupSize) {
+		for (int n = 0; n < DIM; ++n) {
+			localSizeVec(n) = (size_t)ceil((double)localSizeVec(n) * .5);
+		}
+	}
+	//hmm...
+	if (!useGPU) localSizeVec(0) >>= 1;
+	std::cout << "global_size\t" << globalSizeVec << std::endl;
+	std::cout << "local_size\t" << localSizeVec << std::endl;
+
+	globalSize = cl::NDRange(globalSizeVec(0), globalSizeVec(1));
+	localSize = cl::NDRange(localSizeVec(0), localSizeVec(1));
 
 	std::string kernelSource = readFile("res/roe_euler_2d.cl");
 	std::vector<std::pair<const char *, size_t>> sources = {
@@ -66,6 +85,7 @@ RoeSolver::RoeSolver(
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
 	updateStateKernel = cl::Kernel(program, "updateState");
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
+	addDropKernel = cl::Kernel(program, "addDrop");
 
 	std::vector<cl::Kernel*> kernels = {
 		&calcEigenDecompositionKernel,
@@ -73,6 +93,7 @@ RoeSolver::RoeSolver(
 		&calcRTildeKernel,
 		&calcFluxKernel,
 		&updateStateKernel,
+		&addDropKernel,
 	};
 	std::for_each(kernels.begin(), kernels.end(), [&](cl::Kernel* kernel) {
 		kernel->setArg(0, cellsMem);
@@ -94,12 +115,14 @@ RoeSolver::RoeSolver(
 	calcCFLAndDeltaQTildeKernel.setArg(3, dx);
 
 	calcCFLMinReduceKernel.setArg(0, cflMem);
-	calcCFLMinReduceKernel.setArg(1, cl::__local(local_size[0] * sizeof(real)));
+	calcCFLMinReduceKernel.setArg(1, cl::__local(localSizeVec(0) * sizeof(real)));
 	
 	calcCFLMinFinalKernel.setArg(0, cflMem);
-	calcCFLMinFinalKernel.setArg(1, cl::__local(local_size[0] * sizeof(real)));
+	calcCFLMinFinalKernel.setArg(1, cl::__local(localSizeVec(0) * sizeof(real)));
 	calcCFLMinFinalKernel.setArg(2, cflTimestepMem);
 	calcCFLMinFinalKernel.setArg(3, cfl);
+
+	addDropKernel.setArg(2, cflTimestepMem);
 
 	//if (useGPU) 
 	{
@@ -110,30 +133,23 @@ RoeSolver::RoeSolver(
 	}
 }
 
-void RoeSolver::update(
-	cl::CommandQueue commands, 
-	cl_mem fluidTexMem, 
-	size_t *global_size,
-	size_t *local_size)
-{
+void RoeSolver::update(cl_mem fluidTexMem) {
 	cl::NDRange offset2d(0, 0);
-	cl::NDRange globalSize(global_size[0], global_size[1]);
-	cl::NDRange localSize(local_size[0], local_size[1]);
 
 	commands.enqueueNDRangeKernel(calcEigenDecompositionKernel, offset2d, globalSize, localSize);
 	commands.enqueueNDRangeKernel(calcCFLAndDeltaQTildeKernel, offset2d, globalSize, localSize);
 
 	{
 		cl::NDRange offset1d(0);
-		cl::NDRange reduceGlobalSize(global_size[0] * global_size[1] / 4);
-		cl::NDRange reduceLocalSize(local_size[0]);
+		cl::NDRange reduceGlobalSize(globalSize[0] * globalSize[1] / 4);
+		cl::NDRange reduceLocalSize(localSize[0]);
 		commands.enqueueNDRangeKernel(calcCFLMinReduceKernel, offset1d, reduceGlobalSize, reduceLocalSize);
 	
-		while (reduceGlobalSize[0] / local_size[0] > local_size[0]) {
-			reduceGlobalSize = cl::NDRange(reduceGlobalSize[0] / local_size[0]);
+		while (reduceGlobalSize[0] / localSize[0] > localSize[0]) {
+			reduceGlobalSize = cl::NDRange(reduceGlobalSize[0] / localSize[0]);
 			commands.enqueueNDRangeKernel(calcCFLMinReduceKernel, offset1d, reduceGlobalSize, reduceLocalSize);
 		}
-		reduceGlobalSize = cl::NDRange(reduceGlobalSize[0] / local_size[0]);
+		reduceGlobalSize = cl::NDRange(reduceGlobalSize[0] / localSize[0]);
 
 		calcCFLMinFinalKernel.setArg(4, reduceGlobalSize);
 		commands.enqueueNDRangeKernel(calcCFLMinFinalKernel, offset1d, reduceLocalSize, reduceLocalSize);
@@ -165,7 +181,13 @@ void RoeSolver::update(
 	commands.finish();
 }
 
-void RoeSolver::addDrop(float x, float y, float dx, float dy) {
+void RoeSolver::addDrop(Vector<float,2> pos, Vector<float,2> vel) {
+	addSourcePos.s[0] = pos(0);
+	addSourcePos.s[1] = pos(1);
+	addSourceVel.s[0] = vel(0);
+	addSourceVel.s[1] = vel(1);
+	addDropKernel.setArg(3, addSourcePos);
+	addDropKernel.setArg(4, addSourceVel);
+	commands.enqueueNDRangeKernel(addDropKernel, cl::NDRange(0,0), globalSize, localSize);
 }
-
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "TensorMath/Vector.h"
 #include <OpenCL/cl.hpp>
 #include <vector>
 
@@ -7,6 +8,7 @@
 #include "roe_euler_2d.h"
 
 struct Solver {
+	Solver() {}
 	Solver(
 		cl::Device device,
 		cl::Context context,
@@ -17,17 +19,11 @@ struct Solver {
 		real *xmax,
 		cl_mem fluidTexMem,
 		cl_mem gradientTexMem,
-		size_t *local_size,
 		bool useGPU) {}
 
 	virtual ~Solver() {}
 
-	virtual void update(
-		cl::CommandQueue commands,
-		cl_mem fluidTexMem, 
-		size_t *global_size,
-		size_t *local_size) = 0;
-	
-	virtual void addDrop(float x, float y, float dx, float dy) = 0;
+	virtual void update(cl_mem fluidTexMem) = 0;
+	virtual void addDrop(Vector<float,DIM> pos, Vector<float,DIM> vel) = 0;
 };
 

@@ -4,6 +4,7 @@
 
 struct RoeSolver : public Solver {
 	cl::Program program;
+	cl::CommandQueue commands;
 	cl::Buffer cellsMem;		//our main OpenCL buffer for the simulation
 	cl::Buffer cflMem;
 	cl::Buffer cflTimestepMem;
@@ -15,10 +16,16 @@ struct RoeSolver : public Solver {
 	cl::Kernel calcFluxKernel;
 	cl::Kernel updateStateKernel;
 	cl::Kernel convertToTexKernel;
-	cl_int2 size;
+	cl::Kernel addDropKernel;
+
+	cl::NDRange globalSize, localSize;
+
+	cl_float2 addSourcePos, addSourceVel;
+	
 	bool useGPU;
 	
 	real cfl;
+	cl_int2 size;
 
 	RoeSolver(
 		cl::Device device,
@@ -30,16 +37,10 @@ struct RoeSolver : public Solver {
 		real* xmax,
 		cl_mem fluidTexMem,
 		cl_mem gradientTexMem,
-		size_t *local_size,
 		bool useGPU);
 
-	virtual void update(
-		cl::CommandQueue commands, 
-		cl_mem fluidTexMem, 
-		size_t *global_size,
-		size_t *local_size);
-
-	virtual void addDrop(float x, float y, float dx, float dy);
+	virtual void update(cl_mem fluidTexMem);
+	virtual void addDrop(Vector<float,DIM> pos, Vector<float,DIM> vel);
 };
 
 

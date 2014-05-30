@@ -288,6 +288,7 @@ void HydroGPUApp::init() {
 							lhs = false;
 						}
 					}
+					lhs = false;
 
 					for (int m = 0; m < DIM; ++m) {
 						cell->interfaces[m].solid = false;
@@ -323,23 +324,6 @@ void HydroGPUApp::init() {
 
 	cl::Platform platform = getPlatform();
 	device = getDevice(platform);
-
-	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
-	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
-
-	for (int n = 0; n < DIM; ++n) {
-		global_size(n) = size.s[n];
-		local_size(n) = std::min<size_t>(maxWorkItemSizes[n], size.s[n]);
-	}
-	while (local_size.volume() > maxWorkGroupSize) {
-		for (int n = 0; n < DIM; ++n) {
-			local_size(n) = (size_t)ceil((double)local_size(n) * .5);
-		}
-	}
-	//hmm...
-	if (!useGPU) local_size(0) >>= 1;
-	std::cout << "global_size\t" << global_size << std::endl;
-	std::cout << "local_size\t" << local_size << std::endl;
 
 #if PLATFORM_osx
 	CGLContextObj kCGLContext = CGLGetCurrentContext();	// GL Context
@@ -423,7 +407,6 @@ void HydroGPUApp::init() {
 		xmax.v,
 		fluidTexMem, 
 		gradientTexMem, 
-		local_size.v,
 		useGPU);
 
 	std::cout << "Success!" << std::endl;
@@ -440,7 +423,7 @@ void HydroGPUApp::shutdown() {
 void HydroGPUApp::resize(int width, int height) {
 	GLApp::resize(width, height);	//viewport
 	screenSize = Vector<int,2>(width, height);
-	float aspectRatio = (float)width / (float)height;
+	aspectRatio = (float)width / (float)height;
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(-aspectRatio *.5, aspectRatio * .5, -.5, .5, -1., 1.);
@@ -458,7 +441,7 @@ PROFILE_BEGIN_FRAME()
 	}
 
 	if (doUpdate) {
-		solver->update(commands, fluidTexMem, global_size.v, local_size.v);
+		solver->update(fluidTexMem);
 		if (doUpdate == 2) doUpdate = 0;
 	}
 
@@ -508,11 +491,12 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 #if 1	//introducing velocity/density/whatever
 		{
 			float x = (float)event.motion.x / (float)screenSize(0) * (xmax(0) - xmin(0)) + xmin(0);
-			float y = (float)event.motion.y / (float)screenSize(1) * (xmax(1) - xmin(1)) + xmin(1);
+			x *= aspectRatio;	//only if xmin/xmax is symmetric. otehrwise more math required.
+			float y = (1.f - (float)event.motion.y / (float)screenSize(1)) * (xmax(1) - xmin(1)) + xmin(1);
 			float dx = (float)event.motion.xrel / (float)screenSize(0);
 			float dy = (float)event.motion.yrel / (float)screenSize(1);
 			if (leftButtonDown) {
-				solver->addDrop(x,y,dx,dy);
+				solver->addDrop(Vector<float,DIM>(x,y), Vector<float,DIM>(dx,dy));
 			}
 		}
 #endif
