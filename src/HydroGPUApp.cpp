@@ -19,6 +19,7 @@ HydroGPUApp::HydroGPUApp()
 , fluidTexMem(cl_mem())
 , gradientTexMem(cl_mem())
 , leftButtonDown(false)
+, rightButtonDown(false)
 , leftShiftDown(false)
 , rightShiftDown(false)
 , doUpdate(1)
@@ -433,7 +434,11 @@ void HydroGPUApp::resize(int width, int height) {
 void HydroGPUApp::update() {
 PROFILE_BEGIN_FRAME()
 	GLApp::update();	//glclear 
-	
+
+	if (leftButtonDown) {
+		solver->addDrop(mousePos, mouseVel);
+	}
+
 	//CPU need to bind beforehand for roe/cpu to use it
 	//GPU needs it unbound until after the update
 	if (!useGPU) {
@@ -469,11 +474,10 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 
 	switch (event.type) {
 	case SDL_MOUSEMOTION:
-#if 0	//panning
 		{
 			int dx = event.motion.xrel;
 			int dy = event.motion.yrel;
-			if (leftButtonDown) {
+			if (rightButtonDown) {
 				if (shiftDown) {
 					if (dy) {
 						float scale = exp((float)dy * -.03f); 
@@ -487,28 +491,28 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 				}
 			}
 		}
-#endif
-#if 1	//introducing velocity/density/whatever
 		{
-			float x = (float)event.motion.x / (float)screenSize(0) * (xmax(0) - xmin(0)) + xmin(0);
-			x *= aspectRatio;	//only if xmin/xmax is symmetric. otehrwise more math required.
-			float y = (1.f - (float)event.motion.y / (float)screenSize(1)) * (xmax(1) - xmin(1)) + xmin(1);
-			float dx = (float)event.motion.xrel / (float)screenSize(0);
-			float dy = (float)event.motion.yrel / (float)screenSize(1);
-			if (leftButtonDown) {
-				solver->addDrop(Vector<float,DIM>(x,y), Vector<float,DIM>(dx,dy));
-			}
+			mousePos(0) = (float)event.motion.x / (float)screenSize(0) * (xmax(0) - xmin(0)) + xmin(0);
+			mousePos(0) *= aspectRatio;	//only if xmin/xmax is symmetric. otehrwise more math required.
+			mousePos(1) = (1.f - (float)event.motion.y / (float)screenSize(1)) * (xmax(1) - xmin(1)) + xmin(1);
+			mouseVel(0) = (float)event.motion.xrel / (float)screenSize(0);
+			mouseVel(1) = (float)event.motion.yrel / (float)screenSize(1);
 		}
-#endif
 		break;
 	case SDL_MOUSEBUTTONDOWN:
 		if (event.button.button == SDL_BUTTON_LEFT) {
 			leftButtonDown = true;
 		}
+		if (event.button.button == SDL_BUTTON_RIGHT) {
+			rightButtonDown = true;
+		}
 		break;
 	case SDL_MOUSEBUTTONUP:
 		if (event.button.button == SDL_BUTTON_LEFT) {
 			leftButtonDown = false;
+		}
+		if (event.button.button == SDL_BUTTON_RIGHT) {
+			rightButtonDown = false;
 		}
 		break;
 	case SDL_KEYDOWN:

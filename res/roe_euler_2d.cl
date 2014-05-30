@@ -387,8 +387,8 @@ __kernel void addDrop(
 	__global Cell *cell = cells + index;
 
 	float dropRadius = .02;
-	float densityMagnitude = .1f;
-	float velocityMagnitude = 10.f;
+	float densityMagnitude = .05f;
+	float velocityMagnitude = 1.f;
 	float energyThermalMagnitude = 0.f;
 	
 	real2 dx = (cell->x - pos) / dropRadius;

@@ -23,8 +23,10 @@ struct HydroGPUApp : public GLApp {
 	cl_int2 size;
 	  
 	bool leftButtonDown;
+	bool rightButtonDown;
 	bool leftShiftDown;
 	bool rightShiftDown;
+	Vector<real,2> mousePos, mouseVel;
 	Vector<real,2> xmin, xmax;
 	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
 	Vector<int,2> screenSize;
