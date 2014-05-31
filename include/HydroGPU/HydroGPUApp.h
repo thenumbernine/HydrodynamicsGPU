@@ -1,11 +1,11 @@
 #pragma once
 
 #include "HydroGPU/RoeSolver.h"
-#include "HydroGPU/CLApp.h"
+#include "CLApp/CLApp.h"
 #include "TensorMath/Vector.h"
 
-struct HydroGPUApp : public CLApp {
-	typedef CLApp Super;
+struct HydroGPUApp : public ::CLApp::CLApp {
+	typedef ::CLApp::CLApp Super;
 
 	GLuint fluidTex;
 	GLuint gradientTex;

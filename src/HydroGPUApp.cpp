@@ -64,12 +64,12 @@ void HydroGPUApp::init() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, 4, size(0), size(1), 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	if ((err = glGetError()) != 0) throw Exception() << "failed to create GL texture.  got error " << err;
+	if ((err = glGetError()) != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
 
 	//hmm, my cl.hpp version only supports clCreateFromGLTexture2D, which is deprecated ... do I use the deprecated method, or do I stick with the C structures?
 	// ... or do I look for a more up-to-date version of cl.hpp
 	fluidTexMem = clCreateFromGLTexture(context(), CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex, &err);
-	if (!fluidTexMem) throw Exception() << "failed to create CL memory from GL texture.  got error " << err;
+	if (!fluidTexMem) throw Common::Exception() << "failed to create CL memory from GL texture.  got error " << err;
 
 	//gradient texture
 	{
@@ -107,7 +107,7 @@ void HydroGPUApp::init() {
 	}
 
 	gradientTexMem = clCreateFromGLTexture(context(), CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex, &err);
-	if (!gradientTexMem) throw Exception() << "failed to create CL memory from GL texture.  got error " << err;
+	if (!gradientTexMem) throw Common::Exception() << "failed to create CL memory from GL texture.  got error " << err;
 
 	solver = new RoeSolver(
 		device, 

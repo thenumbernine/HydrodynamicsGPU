@@ -1,21 +1,10 @@
 #include "HydroGPU/RoeSolver.h"
-#include "Common/Exception.h"
 #include "Common/Finally.h"
 #include "Common/Macros.h"
+#include "Common/File.h"
 #include "TensorMath/Vector.h"
 #include <OpenGL/gl.h>
 #include <fstream>
-
-std::string readFile(std::string filename) {
-	std::ifstream f(filename);
-	f.seekg(0, f.end);
-	size_t len = f.tellg();
-	f.seekg(0, f.beg);
-	char *buf = new char[len];
-	Finally finally([&](){ delete[] buf; });
-	f.read(buf, len);
-	return std::string(buf, len);
-}
 
 RoeSolver::RoeSolver(
 	cl::Device device,
@@ -65,7 +54,7 @@ RoeSolver::RoeSolver(
 	globalSize = cl::NDRange(globalSizeVec(0), globalSizeVec(1));
 	localSize = cl::NDRange(localSizeVec(0), localSizeVec(1));
 
-	std::string kernelSource = readFile("res/roe_euler_2d.cl");
+	std::string kernelSource = Common::File::read("res/roe_euler_2d.cl");
 	std::vector<std::pair<const char *, size_t>> sources = {
 		std::pair<const char *, size_t>(kernelSource.c_str(), kernelSource.length())
 	};
