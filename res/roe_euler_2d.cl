@@ -17,7 +17,7 @@ __kernel void calcEigenDecomposition(
 	
 	int index = i.x + size.x * i.y;
 	__global Cell *cell = cells + index;
-	
+
 	for (int side = 0; side < 2; ++side) {	
 		__global Interface *interface = cell->interfaces + side;
 		
@@ -272,24 +272,10 @@ __kernel void calcFlux(
 		real4 deltaQTilde = interface->deltaQTilde;
 		real4 deltaQTildeR = interfaceR->deltaQTilde;
 
-		real4 rTilde;
-		for (int state = 0; state < 4; ++state) {
-			if (fabs(deltaQTilde[state]) > 0.f) {
-				if (interface->eigenvalues[state] > 0.f) {
-					rTilde[state] = deltaQTildeL[state] / deltaQTilde[state];
-				} else {
-					rTilde[state] = deltaQTildeR[state] / deltaQTilde[state];
-				}
-			} else {
-				rTilde[state] = 0.f;
-			}
-		}
-
+		real4 egz = step(0.f, interface->eigenvalues);
+		real4 rTilde = mix(deltaQTildeR, deltaQTildeL, egz) / deltaQTilde;
 		real4 qAvg = (cellR->q + cellL->q) * .5f;
-	
-		real4 fluxAvgTilde = matmul(interface->eigenvectorsInverse, qAvg);
-		fluxAvgTilde *= interface->eigenvalues;
-
+		real4 fluxAvgTilde = matmul(interface->eigenvectorsInverse, qAvg) * interface->eigenvalues;
 		real4 theta = step(0.f, interface->eigenvalues) * 2.f - 1.f;
 		real4 phi = fluxMethod(rTilde);
 		real4 epsilon = interface->eigenvalues * dt_dx[side];

@@ -22,6 +22,8 @@ HydroGPUApp::HydroGPUApp()
 , rightButtonDown(false)
 , leftShiftDown(false)
 , rightShiftDown(false)
+, leftGuiDown(false)
+, rightGuiDown(false)
 , doUpdate(1)
 , viewZoom(1.f)
 {
@@ -29,7 +31,7 @@ HydroGPUApp::HydroGPUApp()
 
 int HydroGPUApp::main(std::vector<std::string> args) {
 	for (int i = 0; i < DIM; ++i) {
-		size.s[i] = 256;
+		size(i) = 256;
 	}
 
 	for (int i = 0; i < args.size(); ++i) {
@@ -38,8 +40,8 @@ int HydroGPUApp::main(std::vector<std::string> args) {
 		}
 		if (i < args.size()-2) {
 			if (args[i] == "--size") {
-				size.s[0] = std::stoi(args[++i]);
-				size.s[1] = std::stoi(args[++i]);
+				size(0) = std::stoi(args[++i]);
+				size(1) = std::stoi(args[++i]);
 			}
 		}
 	}
@@ -274,17 +276,17 @@ void HydroGPUApp::init() {
 		xmax(n) = .5;
 	}
 	
-	std::vector<Cell> cells(size.s[0] * size.s[1]);
+	std::vector<Cell> cells(size(0) * size(1));
 	{
 		int index[DIM];
 		
 		Cell *cell = &cells[0];
-		//for (index[2] = 0; index[2] < size.s[2]; ++index[2]) {
-			for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
-				for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++cell) {
+		//for (index[2] = 0; index[2] < size(2); ++index[2]) {
+			for (index[1] = 0; index[1] < size(1); ++index[1]) {
+				for (index[0] = 0; index[0] < size(0); ++index[0], ++cell) {
 					bool lhs = true;
 					for (int n = 0; n < DIM; ++n) {
-						cell->x.s[n] = real(xmax(n) - xmin(n)) * real(index[n]) / real(size.s[n]) + real(xmin(n));
+						cell->x.s[n] = real(xmax(n) - xmin(n)) * real(index[n]) / real(size(n)) + real(xmin(n));
 						if (cell->x.s[n] > real(.3) * real(xmax(n)) + real(.7) * real(xmin(n))) {
 							lhs = false;
 						}
@@ -294,7 +296,7 @@ void HydroGPUApp::init() {
 						for (int n = 0; n < DIM; ++n) {
 							cell->interfaces[m].x.s[n] = cell->x.s[n];
 							if (m == n) {
-								cell->interfaces[m].x.s[n] -= real(xmax(n) - xmin(n)) * real(.5) / real(size.s[n]);
+								cell->interfaces[m].x.s[n] -= real(xmax(n) - xmin(n)) * real(.5) / real(size(n));
 							}
 						}
 					}
@@ -342,14 +344,14 @@ void HydroGPUApp::init() {
 	};	
 #endif
 	context = cl::Context({device}, properties);
-	commands = cl::CommandQueue(context, device);
+	commands = cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE);
 
 	//get a texture going for visualizing the output
 	glGenTextures(1, &fluidTex);
 	glBindTexture(GL_TEXTURE_2D, fluidTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, 4, size.s[0], size.s[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, 4, size(0), size(1), 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	if ((err = glGetError()) != 0) throw Exception() << "failed to create GL texture.  got error " << err;
 
@@ -433,7 +435,8 @@ void HydroGPUApp::update() {
 PROFILE_BEGIN_FRAME()
 	GLApp::update();	//glclear 
 
-	if (leftButtonDown) {
+	bool guiDown = leftGuiDown || rightGuiDown;
+	if (leftButtonDown && !guiDown) {
 		solver->addDrop(mousePos, mouseVel);
 	}
 
@@ -468,14 +471,15 @@ PROFILE_END_FRAME();
 }
 
 void HydroGPUApp::sdlEvent(SDL_Event &event) {
-	bool shiftDown = leftShiftDown | rightShiftDown;
+	bool shiftDown = leftShiftDown || rightShiftDown;
+	bool guiDown = leftGuiDown || rightGuiDown;
 
 	switch (event.type) {
 	case SDL_MOUSEMOTION:
 		{
 			int dx = event.motion.xrel;
 			int dy = event.motion.yrel;
-			if (rightButtonDown) {
+			if (rightButtonDown || (leftButtonDown && guiDown)) {
 				if (shiftDown) {
 					if (dy) {
 						float scale = exp((float)dy * -.03f); 
@@ -518,6 +522,10 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			leftShiftDown = true;
 		} else if (event.key.keysym.sym == SDLK_RSHIFT) {
 			rightShiftDown = true;
+		} else if (event.key.keysym.sym == SDLK_LGUI) {
+			leftGuiDown = true;
+		} else if (event.key.keysym.sym == SDLK_RGUI) {
+			rightGuiDown = true;
 		} else if (event.key.keysym.sym == SDLK_u) {
 			if (doUpdate) {
 				doUpdate = 0;
@@ -535,6 +543,10 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			leftShiftDown = false;
 		} else if (event.key.keysym.sym == SDLK_RSHIFT) {
 			rightShiftDown = false;
+		} else if (event.key.keysym.sym == SDLK_LGUI) {
+			leftGuiDown = false;
+		} else if (event.key.keysym.sym == SDLK_RGUI) {
+			rightGuiDown = false;
 		}
 		break;
 	}

@@ -12,7 +12,7 @@ struct Solver {
 	Solver(
 		cl::Device device,
 		cl::Context context,
-		cl_int2 size,
+		Vector<int,3> size,
 		cl::CommandQueue commands,
 		std::vector<Cell> &cells,
 		real *xmin,

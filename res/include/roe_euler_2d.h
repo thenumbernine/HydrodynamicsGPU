@@ -23,14 +23,14 @@ typedef cl_float16 real16;
 
 struct Interface {
 	//Roe-specific values
-	real4 eigenvalues;
 	real16 eigenvectors;			//stored row-major 
 	real16 eigenvectorsInverse;	// so math matches array index notation
+	real4 eigenvalues;
 	real4 deltaQTilde;
 	
 	//base cell values
-	real2 x;
 	real4 flux;
+	real2 x;
 };
 typedef struct Interface Interface;
 

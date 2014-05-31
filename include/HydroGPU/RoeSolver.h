@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HydroGPU/Solver.h"
+#include "Profiler/Stat.h"
 
 struct RoeSolver : public Solver {
 	cl::Program program;
@@ -16,6 +17,21 @@ struct RoeSolver : public Solver {
 	cl::Kernel updateStateKernel;
 	cl::Kernel convertToTexKernel;
 	cl::Kernel addDropKernel;
+	
+	struct EventProfileEntry {
+		EventProfileEntry(std::string name_) : name(name_) {}
+		std::string name;
+		cl::Event clEvent;
+		Profiler::Stat stat;
+	};
+	
+	EventProfileEntry calcEigenDecompositionEvent;
+	EventProfileEntry calcCFLAndDeltaQTildeEvent;
+	EventProfileEntry calcCFLMinReduceEvent;
+	EventProfileEntry calcCFLMinFinalEvent;
+	EventProfileEntry calcFluxEvent;
+	EventProfileEntry updateStateEvent;
+	std::vector<EventProfileEntry*> entries;
 
 	cl::NDRange globalSize, localSize;
 
@@ -24,12 +40,12 @@ struct RoeSolver : public Solver {
 	bool useGPU;
 	
 	real cfl;
-	cl_int2 size;
+	Vector<int,2> size;
 
 	RoeSolver(
 		cl::Device device,
 		cl::Context context,
-		cl_int2 size,
+		Vector<int,3> size,
 		cl::CommandQueue commands,
 		std::vector<Cell> &cells,
 		real* xmin,
@@ -37,6 +53,8 @@ struct RoeSolver : public Solver {
 		cl_mem fluidTexMem,
 		cl_mem gradientTexMem,
 		bool useGPU);
+
+	virtual ~RoeSolver();
 
 	virtual void update(cl_mem fluidTexMem);
 	virtual void addDrop(Vector<float,DIM> pos, Vector<float,DIM> vel);

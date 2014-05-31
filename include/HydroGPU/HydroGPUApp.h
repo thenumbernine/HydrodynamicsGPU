@@ -20,12 +20,14 @@ struct HydroGPUApp : public GLApp {
 
 	Solver *solver;
 
-	cl_int2 size;
+	Vector<int,3> size;
 	  
 	bool leftButtonDown;
 	bool rightButtonDown;
 	bool leftShiftDown;
 	bool rightShiftDown;
+	bool leftGuiDown;
+	bool rightGuiDown;
 	Vector<real,2> mousePos, mouseVel;
 	Vector<real,2> xmin, xmax;
 	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
