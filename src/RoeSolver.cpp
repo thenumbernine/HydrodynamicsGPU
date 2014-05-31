@@ -22,7 +22,6 @@ RoeSolver::RoeSolver(
 	cl::Context context,
 	Vector<int,3> size_,
 	cl::CommandQueue commands_,
-	std::vector<Cell> &cells,
 	real* xmin,
 	real* xmax,
 	cl_mem fluidTexMem,
@@ -81,7 +80,55 @@ RoeSolver::RoeSolver(
 		std::cout << log << std::endl;
 		exit(1);
 	}
- 
+
+	std::vector<Cell> cells(size(0) * size(1));
+	{
+		const real noise = .01;
+		int index[DIM];
+		
+		Cell *cell = &cells[0];
+		//for (index[2] = 0; index[2] < size(2); ++index[2]) {
+			for (index[1] = 0; index[1] < size(1); ++index[1]) {
+				for (index[0] = 0; index[0] < size(0); ++index[0], ++cell) {
+					bool lhs = true;
+					for (int n = 0; n < DIM; ++n) {
+						cell->x.s[n] = real(xmax[n] - xmin[n]) * real(index[n]) / real(size(n)) + real(xmin[n]);
+						if (cell->x.s[n] > real(.3) * real(xmax[n]) + real(.7) * real(xmin[n])) {
+							lhs = false;
+						}
+					}
+
+					for (int m = 0; m < DIM; ++m) {
+						for (int n = 0; n < DIM; ++n) {
+							cell->interfaces[m].x.s[n] = cell->x.s[n];
+							if (m == n) {
+								cell->interfaces[m].x.s[n] -= real(xmax[n] - xmin[n]) * real(.5) / real(size(n));
+							}
+						}
+					}
+
+					//sod init
+					real density = lhs ? 1. : .1;
+					real velocity[DIM];
+					real energyKinetic = real();
+					for (int n = 0; n < DIM; ++n) {
+						velocity[n] = crand() * noise;
+						energyKinetic += velocity[n] * velocity[n];
+					}
+					energyKinetic *= real(.5);
+					real energyThermal = 1.;
+					real energyTotal = energyKinetic + energyThermal;
+
+					cell->q.s[0] = density;
+					for (int n = 0; n < DIM; ++n) {
+						cell->q.s[n+1] = density * velocity[n];
+					}
+					cell->q.s[DIM+1] = density * energyTotal;
+				}
+			}
+		//}
+	}
+
 	unsigned int count = size(0) * size(1);
 	cellsMem = cl::Buffer(context,  CL_MEM_READ_WRITE, sizeof(Cell) * count);
 	commands.enqueueWriteBuffer(cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0]);

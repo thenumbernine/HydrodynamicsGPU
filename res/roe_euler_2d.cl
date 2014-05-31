@@ -138,6 +138,7 @@ __kernel void calcCFLAndDeltaQTilde(
 	int index = i.x + size.x * i.y;
 	__global Cell *cell = cells + index;
 
+	real2 dum;
 	for (int side = 0; side < 2; ++side) {
 		int2 iNext = i;
 		iNext[side] = (iNext[side] + 1) % size[side];
@@ -166,8 +167,8 @@ __kernel void calcCFLAndDeltaQTilde(
 				min(
 					interfaceR->eigenvalues.z,
 					interfaceR->eigenvalues.w));
-		
-			cfl[index] = dx[side] / (maxLambda - minLambda);
+
+			dum[side] = dx[side] / (maxLambda - minLambda);
 		}
 
 		{
@@ -179,6 +180,8 @@ __kernel void calcCFLAndDeltaQTilde(
 			interface->deltaQTilde = matmul(interface->eigenvectorsInverse, deltaQ);
 		}
 	}
+		
+	cfl[index] = min(dum.x, dum.y);
 }
 
 __kernel void calcCFLMinReduce(

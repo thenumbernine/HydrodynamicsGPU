@@ -1,25 +1,21 @@
 #pragma once
 
 #include "HydroGPU/RoeSolver.h"
-#include "GLApp/GLApp.h" 
+#include "HydroGPU/CLApp.h"
 #include "TensorMath/Vector.h"
-#include <OpenCL/cl.hpp>
 
-struct HydroGPUApp : public GLApp {
-	bool useGPU;	//whether we want to request the GPU or CPU.  required prior to init()
-	
+struct HydroGPUApp : public CLApp {
+	typedef CLApp Super;
+
 	GLuint fluidTex;
 	GLuint gradientTex;
 	
-	cl::Device device;
-	cl::Context context;
-	
-	cl::CommandQueue commands;
 	cl_mem fluidTexMem;		//data is written to this buffer before rendering
 	cl_mem gradientTexMem;	//as it is written, data is read from this for mapping values to colors
 
 	Solver *solver;
 
+	int dim;	//1,2 or 3
 	Vector<int,3> size;
 	  
 	bool leftButtonDown;
@@ -37,9 +33,6 @@ struct HydroGPUApp : public GLApp {
 	float aspectRatio;
 
 	HydroGPUApp();
-
-	cl::Platform getPlatform();
-	cl::Device getDevice(cl::Platform platform);
 
 	virtual int main(std::vector<std::string> args);
 	virtual void init();

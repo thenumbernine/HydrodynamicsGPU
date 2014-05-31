@@ -47,13 +47,12 @@ struct RoeSolver : public Solver {
 		cl::Context context,
 		Vector<int,3> size,
 		cl::CommandQueue commands,
-		std::vector<Cell> &cells,
 		real* xmin,
 		real* xmax,
 		cl_mem fluidTexMem,
 		cl_mem gradientTexMem,
 		bool useGPU);
-
+	
 	virtual ~RoeSolver();
 
 	virtual void update(cl_mem fluidTexMem);

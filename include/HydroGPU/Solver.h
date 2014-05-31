@@ -14,7 +14,6 @@ struct Solver {
 		cl::Context context,
 		Vector<int,3> size,
 		cl::CommandQueue commands,
-		std::vector<Cell> &cells,
 		real *xmin,
 		real *xmax,
 		cl_mem fluidTexMem,
