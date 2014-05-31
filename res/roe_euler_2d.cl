@@ -20,7 +20,6 @@ __kernel void calcEigenDecomposition(
 	
 	for (int side = 0; side < 2; ++side) {	
 		__global Interface *interface = cell->interfaces + side;
-		if (interface->solid) continue;
 		
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
@@ -228,63 +227,6 @@ __kernel void calcCFLMinFinal(
 	}
 }
 
-__kernel void calcRTilde(
-	__global Cell* cells,
-	int2 size) 
-{
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	
-	int index = i.x + size.x * i.y;
-	__global Cell *cell = cells + index;
-	
-	for (int side = 0; side < 2; ++side) {	
-		
-		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
-
-		int2 iPrev2 = iPrev;
-		iPrev2[side] = (iPrev2[side] + size[side] - 1) % size[side];
-		int indexPrev2 = iPrev2.x + size.x * iPrev2.y;
-
-		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
-		
-		__global Interface *interfaceL = &cells[indexPrev].interfaces[side];
-		__global Interface *interface = &cells[index].interfaces[side];
-		__global Interface *interfaceR = &cells[indexNext].interfaces[side];
-
-		__global Cell *cellL2 = cells + indexPrev2;
-		__global Cell *cellL = cells + indexPrev;
-		__global Cell *cellR = cell;
-		__global Cell *cellR2 = cells + indexNext;
-
-		//these work
-		//real4 deltaQTildeL = matmul(interfaceL->eigenvectorsInverse, cellL->q - cellL2->q);
-		//real4 deltaQTilde = matmul(interface->eigenvectorsInverse, cellR->q - cellL->q);
-		//..but this one crashes	
-		//real4 deltaQTildeR = matmul(interfaceR->eigenvectorsInverse, cellR2->q - cellR->q);	//crashes
-		
-		real4 deltaQTildeL = interfaceL->deltaQTilde;	//works
-		real4 deltaQTilde = interface->deltaQTilde;	//works
-		real4 deltaQTildeR = interfaceR->deltaQTilde;	//works
-		
-		for (int state = 0; state < 4; ++state) {
-			if (fabs(deltaQTilde[state]) > 0.f) {
-				if (interface->eigenvalues[state] > 0.f) {
-					interface->rTilde[state] = deltaQTildeL[state] / deltaQTilde[state];
-				} else {
-					interface->rTilde[state] = deltaQTildeR[state] / deltaQTilde[state];
-				}
-			} else {
-				interface->rTilde[state] = 0.f;
-			}
-		}
-	}
-}
-
 real4 fluxMethod(real4 r) {
 	//superbee
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
@@ -308,10 +250,40 @@ __kernel void calcFlux(
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
-		
+	
+		int2 iPrev2 = iPrev;
+		iPrev2[side] = (iPrev2[side] + size[side] - 1) % size[side];
+		int indexPrev2 = iPrev2.x + size.x * iPrev2.y;
+
+		int2 iNext = i;
+		iNext[side] = (iNext[side] + 1) % size[side];
+		int indexNext = iNext.x + size.x * iNext.y;
+	
+		__global Cell *cellL2 = cells + indexPrev2;
 		__global Cell *cellL = cells + indexPrev;
 		__global Cell *cellR = cell;
-		__global Interface *interface = cell->interfaces + side;
+		__global Cell *cellR2 = cells + indexNext;
+
+		__global Interface *interfaceL = &cells[indexPrev].interfaces[side];
+		__global Interface *interface = &cells[index].interfaces[side];
+		__global Interface *interfaceR = &cells[indexNext].interfaces[side];
+
+		real4 deltaQTildeL = interfaceL->deltaQTilde;
+		real4 deltaQTilde = interface->deltaQTilde;
+		real4 deltaQTildeR = interfaceR->deltaQTilde;
+
+		real4 rTilde;
+		for (int state = 0; state < 4; ++state) {
+			if (fabs(deltaQTilde[state]) > 0.f) {
+				if (interface->eigenvalues[state] > 0.f) {
+					rTilde[state] = deltaQTildeL[state] / deltaQTilde[state];
+				} else {
+					rTilde[state] = deltaQTildeR[state] / deltaQTilde[state];
+				}
+			} else {
+				rTilde[state] = 0.f;
+			}
+		}
 
 		real4 qAvg = (cellR->q + cellL->q) * .5f;
 	
@@ -319,7 +291,7 @@ __kernel void calcFlux(
 		fluxAvgTilde *= interface->eigenvalues;
 
 		real4 theta = step(0.f, interface->eigenvalues) * 2.f - 1.f;
-		real4 phi = fluxMethod(interface->rTilde);
+		real4 phi = fluxMethod(rTilde);
 		real4 epsilon = interface->eigenvalues * dt_dx[side];
 		real4 deltaFluxTilde = interface->eigenvalues * interface->deltaQTilde;
 		real4 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + phi * (epsilon - theta));

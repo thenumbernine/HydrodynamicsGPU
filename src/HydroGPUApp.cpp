@@ -289,10 +289,8 @@ void HydroGPUApp::init() {
 							lhs = false;
 						}
 					}
-					lhs = false;
 
 					for (int m = 0; m < DIM; ++m) {
-						cell->interfaces[m].solid = false;
 						for (int n = 0; n < DIM; ++n) {
 							cell->interfaces[m].x.s[n] = cell->x.s[n];
 							if (m == n) {

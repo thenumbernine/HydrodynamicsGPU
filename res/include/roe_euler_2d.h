@@ -26,13 +26,11 @@ struct Interface {
 	real4 eigenvalues;
 	real16 eigenvectors;			//stored row-major 
 	real16 eigenvectorsInverse;	// so math matches array index notation
-	real4 rTilde;
 	real4 deltaQTilde;
 	
 	//base cell values
 	real2 x;
 	real4 flux;
-	bool solid;
 };
 typedef struct Interface Interface;
 

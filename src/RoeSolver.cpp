@@ -81,7 +81,6 @@ RoeSolver::RoeSolver(
 	calcCFLAndDeltaQTildeKernel = cl::Kernel(program, "calcCFLAndDeltaQTilde");
 	calcCFLMinReduceKernel = cl::Kernel(program, "calcCFLMinReduce");
 	calcCFLMinFinalKernel = cl::Kernel(program, "calcCFLMinFinal");
-	calcRTildeKernel = cl::Kernel(program, "calcRTilde");
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
 	updateStateKernel = cl::Kernel(program, "updateState");
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
@@ -90,7 +89,6 @@ RoeSolver::RoeSolver(
 	std::vector<cl::Kernel*> kernels = {
 		&calcEigenDecompositionKernel,
 		&calcCFLAndDeltaQTildeKernel,
-		&calcRTildeKernel,
 		&calcFluxKernel,
 		&updateStateKernel,
 		&addDropKernel,
@@ -155,7 +153,6 @@ void RoeSolver::update(cl_mem fluidTexMem) {
 		commands.enqueueNDRangeKernel(calcCFLMinFinalKernel, offset1d, reduceLocalSize, reduceLocalSize);
 	}
 
-	commands.enqueueNDRangeKernel(calcRTildeKernel, offset2d, globalSize, localSize);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offset2d, globalSize, localSize);
 	commands.enqueueNDRangeKernel(updateStateKernel, offset2d, globalSize, localSize);
 

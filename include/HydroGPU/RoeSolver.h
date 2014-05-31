@@ -12,7 +12,6 @@ struct RoeSolver : public Solver {
 	cl::Kernel calcCFLAndDeltaQTildeKernel;
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel calcCFLMinFinalKernel;
-	cl::Kernel calcRTildeKernel;
 	cl::Kernel calcFluxKernel;
 	cl::Kernel updateStateKernel;
 	cl::Kernel convertToTexKernel;
