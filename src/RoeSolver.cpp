@@ -54,14 +54,14 @@ RoeSolver::RoeSolver(
 	globalSize = cl::NDRange(globalSizeVec(0), globalSizeVec(1));
 	localSize = cl::NDRange(localSizeVec(0), localSizeVec(1));
 
-	std::string kernelSource = Common::File::read("res/roe_euler_2d.cl");
+	std::string kernelSource = Common::File::read("roe_euler_2d.cl");
 	std::vector<std::pair<const char *, size_t>> sources = {
 		std::pair<const char *, size_t>(kernelSource.c_str(), kernelSource.length())
 	};
 	program = cl::Program(context, sources);
  
 	try {
-		program.build({device}, "-I res/include");
+		program.build({device}, "-I include");
 	} catch (cl::Error &err) {
 		std::cout << "failed to build program executable!" << std::endl;
 		

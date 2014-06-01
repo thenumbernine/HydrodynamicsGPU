@@ -1,4 +1,4 @@
-DIST_FILENAME=hydro-gpu
+DIST_FILENAME=HydroGPU
 DIST_TYPE=app
 
 include ../Common/Base.mk
