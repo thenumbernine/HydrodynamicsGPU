@@ -2,14 +2,14 @@
 #include "Common/Finally.h"
 #include "Common/Macros.h"
 #include "Common/File.h"
-#include "TensorMath/Vector.h"
+#include "Tensor/Vector.h"
 #include <OpenGL/gl.h>
 #include <fstream>
 
 RoeSolver::RoeSolver(
 	cl::Device device,
 	cl::Context context,
-	Vector<int,3> size_,
+	Tensor::Vector<int,3> size_,
 	cl::CommandQueue commands_,
 	real* xmin,
 	real* xmax,
@@ -36,7 +36,7 @@ RoeSolver::RoeSolver(
 
 	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
 	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
-	Vector<size_t,DIM> globalSizeVec, localSizeVec;
+	Tensor::Vector<size_t,DIM> globalSizeVec, localSizeVec;
 	for (int n = 0; n < DIM; ++n) {
 		globalSizeVec(n) = size(n);
 		localSizeVec(n) = std::min<size_t>(maxWorkItemSizes[n], size(n));
@@ -223,7 +223,7 @@ void RoeSolver::update(cl_mem fluidTexMem) {
 		int count = size(0) * size(1);
 		std::vector<Cell> cells(count);
 		commands.enqueueReadBuffer(cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0]);  
-		std::vector<Vector<char,4>> buffer(count);
+		std::vector<Tensor::Vector<char,4>> buffer(count);
 		for (int i = 0; i < count; ++i) {
 			buffer[i](0) = (char)(255.f * cells[i].q.s[0] * .9f);
 		}
@@ -241,7 +241,7 @@ void RoeSolver::update(cl_mem fluidTexMem) {
 	}
 }
 
-void RoeSolver::addDrop(Vector<float,2> pos, Vector<float,2> vel) {
+void RoeSolver::addDrop(Tensor::Vector<float,2> pos, Tensor::Vector<float,2> vel) {
 	addSourcePos.s[0] = pos(0);
 	addSourcePos.s[1] = pos(1);
 	addSourceVel.s[0] = vel(0);

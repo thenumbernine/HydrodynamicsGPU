@@ -2,5 +2,5 @@ OpenCL Riemann solver for computational fluid dynamics
 
 depends on:
 GLApp
-TensorMath
+Tensor
 Profiler

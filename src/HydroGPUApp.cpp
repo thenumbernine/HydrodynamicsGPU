@@ -133,7 +133,7 @@ void HydroGPUApp::shutdown() {
 
 void HydroGPUApp::resize(int width, int height) {
 	Super::resize(width, height);	//viewport
-	screenSize = Vector<int,2>(width, height);
+	screenSize = Tensor::Vector<int,2>(width, height);
 	aspectRatio = (float)width / (float)height;
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -198,7 +198,7 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 					} 
 				} else {
 					if (dx || dy) {
-						viewPos += Vector<float,2>(-(float)dx * 0.01f, (float)dy * 0.01f);
+						viewPos += Tensor::Vector<float,2>(-(float)dx * 0.01f, (float)dy * 0.01f);
 					}
 				}
 			}

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "TensorMath/Vector.h"
+#include "Tensor/Vector.h"
 #include <OpenCL/cl.hpp>
 #include <vector>
 
@@ -12,7 +12,7 @@ struct Solver {
 	Solver(
 		cl::Device device,
 		cl::Context context,
-		Vector<int,3> size,
+		Tensor::Vector<int,3> size,
 		cl::CommandQueue commands,
 		real *xmin,
 		real *xmax,
@@ -23,6 +23,6 @@ struct Solver {
 	virtual ~Solver() {}
 
 	virtual void update(cl_mem fluidTexMem) = 0;
-	virtual void addDrop(Vector<float,DIM> pos, Vector<float,DIM> vel) = 0;
+	virtual void addDrop(Tensor::Vector<float,DIM> pos, Tensor::Vector<float,DIM> vel) = 0;
 };
 

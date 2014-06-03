@@ -40,12 +40,12 @@ struct RoeSolver : public Solver {
 	bool useGPU;
 	
 	real cfl;
-	Vector<int,2> size;
+	Tensor::Vector<int,2> size;
 
 	RoeSolver(
 		cl::Device device,
 		cl::Context context,
-		Vector<int,3> size,
+		Tensor::Vector<int,3> size,
 		cl::CommandQueue commands,
 		real* xmin,
 		real* xmax,
@@ -56,7 +56,7 @@ struct RoeSolver : public Solver {
 	virtual ~RoeSolver();
 
 	virtual void update(cl_mem fluidTexMem);
-	virtual void addDrop(Vector<float,DIM> pos, Vector<float,DIM> vel);
+	virtual void addDrop(Tensor::Vector<float,DIM> pos, Tensor::Vector<float,DIM> vel);
 };
 
 

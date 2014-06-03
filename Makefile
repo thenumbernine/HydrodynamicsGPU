@@ -5,7 +5,7 @@ include ../Common/Base.mk
 include ../Common/Include.mk
 include ../GLApp/Include.mk
 include ../CLApp/Include.mk
-include ../TensorMath/Include.mk
+include ../Tensor/Include.mk
 include ../Profiler/Include.mk
 
 INCLUDE+=res/include

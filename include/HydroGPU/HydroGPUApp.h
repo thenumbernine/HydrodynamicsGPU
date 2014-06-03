@@ -2,7 +2,7 @@
 
 #include "HydroGPU/RoeSolver.h"
 #include "CLApp/CLApp.h"
-#include "TensorMath/Vector.h"
+#include "Tensor/Vector.h"
 
 struct HydroGPUApp : public ::CLApp::CLApp {
 	typedef ::CLApp::CLApp Super;
@@ -16,7 +16,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	Solver *solver;
 
 	int dim;	//1,2 or 3
-	Vector<int,3> size;
+	Tensor::Vector<int,3> size;
 	  
 	bool leftButtonDown;
 	bool rightButtonDown;
@@ -24,12 +24,12 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	bool rightShiftDown;
 	bool leftGuiDown;
 	bool rightGuiDown;
-	Vector<real,2> mousePos, mouseVel;
-	Vector<real,2> xmin, xmax;
+	Tensor::Vector<real,2> mousePos, mouseVel;
+	Tensor::Vector<real,2> xmin, xmax;
 	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
-	Vector<int,2> screenSize;
+	Tensor::Vector<int,2> screenSize;
 	float viewZoom;
-	Vector<float,2> viewPos;
+	Tensor::Vector<float,2> viewPos;
 	float aspectRatio;
 
 	HydroGPUApp();
