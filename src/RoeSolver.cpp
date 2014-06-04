@@ -1,4 +1,5 @@
 #include "HydroGPU/RoeSolver.h"
+#include "HydroGPU/HydroGPUApp.h"
 #include "Common/Finally.h"
 #include "Common/Macros.h"
 #include "Common/File.h"
@@ -6,27 +7,26 @@
 #include <OpenGL/gl.h>
 #include <fstream>
 
-RoeSolver::RoeSolver(
-	cl::Device device,
-	cl::Context context,
-	Tensor::Vector<int,3> size_,
-	cl::CommandQueue commands_,
-	real* xmin,
-	real* xmax,
-	cl_mem fluidTexMem,
-	cl_mem gradientTexMem,
-	bool useGPU_)
-: commands(commands_)
+RoeSolver::RoeSolver(HydroGPUApp &app_)
+: app(app_)
 , calcEigenDecompositionEvent("calcEigenDecomposition")
 , calcCFLAndDeltaQTildeEvent("calcCFLAndDeltaQTilde")
 , calcCFLMinReduceEvent("calcCFLMinReduce")
 , calcCFLMinFinalEvent("calcCFLMinFinal")
 , calcFluxEvent("calcFlux")
 , updateStateEvent("updateState")
-, useGPU(useGPU_)
 , cfl(.5f)
-, size(size_(0), size_(1))
 {
+	cl::Device device = app.device;
+	cl::Context context = app.context;
+	cl::CommandQueue commands = app.commands;
+	cl_mem fluidTexMem = app.fluidTexMem;
+	cl_mem gradientTexMem = app.gradientTexMem;
+	Tensor::Vector<real,2> xmin = app.xmin;
+	Tensor::Vector<real,2> xmax = app.xmax;
+	cl_int2 size = app.size;
+	bool useGPU = app.useGPU;
+	
 	entries.push_back(&calcEigenDecompositionEvent);
 	entries.push_back(&calcCFLAndDeltaQTildeEvent);
 	entries.push_back(&calcCFLMinReduceEvent);
@@ -38,8 +38,8 @@ RoeSolver::RoeSolver(
 	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
 	Tensor::Vector<size_t,DIM> globalSizeVec, localSizeVec;
 	for (int n = 0; n < DIM; ++n) {
-		globalSizeVec(n) = size(n);
-		localSizeVec(n) = std::min<size_t>(maxWorkItemSizes[n], size(n));
+		globalSizeVec(n) = size.s[n];
+		localSizeVec(n) = std::min<size_t>(maxWorkItemSizes[n], size.s[n]);
 	}
 	while (localSizeVec.volume() > maxWorkGroupSize) {
 		for (int n = 0; n < DIM; ++n) {
@@ -70,19 +70,19 @@ RoeSolver::RoeSolver(
 		exit(1);
 	}
 
-	std::vector<Cell> cells(size(0) * size(1));
+	std::vector<Cell> cells(size.s[0] * size.s[1]);
 	{
 		const real noise = .01;
 		int index[DIM];
 		
 		Cell *cell = &cells[0];
-		//for (index[2] = 0; index[2] < size(2); ++index[2]) {
-			for (index[1] = 0; index[1] < size(1); ++index[1]) {
-				for (index[0] = 0; index[0] < size(0); ++index[0], ++cell) {
+		//for (index[2] = 0; index[2] < size.s[2]; ++index[2]) {
+			for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
+				for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++cell) {
 					bool lhs = true;
 					for (int n = 0; n < DIM; ++n) {
-						cell->x.s[n] = real(xmax[n] - xmin[n]) * real(index[n]) / real(size(n)) + real(xmin[n]);
-						if (cell->x.s[n] > real(.3) * real(xmax[n]) + real(.7) * real(xmin[n])) {
+						cell->x.s[n] = real(xmax(n) - xmin(n)) * real(index[n]) / real(size.s[n]) + real(xmin(n));
+						if (cell->x.s[n] > real(.3) * real(xmax(n)) + real(.7) * real(xmin(n))) {
 							lhs = false;
 						}
 					}
@@ -91,7 +91,7 @@ RoeSolver::RoeSolver(
 						for (int n = 0; n < DIM; ++n) {
 							cell->interfaces[m].x.s[n] = cell->x.s[n];
 							if (m == n) {
-								cell->interfaces[m].x.s[n] -= real(xmax[n] - xmin[n]) * real(.5) / real(size(n));
+								cell->interfaces[m].x.s[n] -= real(xmax(n) - xmin(n)) * real(.5) / real(size.s[n]);
 							}
 						}
 					}
@@ -118,7 +118,7 @@ RoeSolver::RoeSolver(
 		//}
 	}
 
-	unsigned int count = size(0) * size(1);
+	unsigned int count = size.s[0] * size.s[1];
 	cellsMem = cl::Buffer(context,  CL_MEM_READ_WRITE, sizeof(Cell) * count);
 	commands.enqueueWriteBuffer(cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0]);
 	
@@ -148,7 +148,7 @@ RoeSolver::RoeSolver(
 
 	real2 dx;
 	for (int i = 0; i < DIM; ++i) {
-		dx.s[i] = (xmax[i] - xmin[i]) / (float)size(i);
+		dx.s[i] = (xmax(i) - xmin(i)) / (float)size.s[i];
 	}
 	
 	calcFluxKernel.setArg(2, dx);
@@ -188,7 +188,12 @@ RoeSolver::~RoeSolver() {
 	}
 }
 
-void RoeSolver::update(cl_mem fluidTexMem) {
+void RoeSolver::update() {
+	cl::CommandQueue commands = app.commands;
+	cl_mem fluidTexMem = app.fluidTexMem;
+	cl_int2 size = app.size;
+	bool useGPU = app.useGPU;
+	
 	cl::NDRange offset2d(0, 0);
 
 	commands.enqueueNDRangeKernel(calcEigenDecompositionKernel, offset2d, globalSize, localSize, NULL, &calcEigenDecompositionEvent.clEvent);
@@ -220,14 +225,14 @@ void RoeSolver::update(cl_mem fluidTexMem) {
 	if (useGPU) {
 		commands.enqueueNDRangeKernel(convertToTexKernel, offset2d, globalSize, localSize);
 	} else {
-		int count = size(0) * size(1);
+		int count = size.s[0] * size.s[1];
 		std::vector<Cell> cells(count);
 		commands.enqueueReadBuffer(cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0]);  
 		std::vector<Tensor::Vector<char,4>> buffer(count);
 		for (int i = 0; i < count; ++i) {
 			buffer[i](0) = (char)(255.f * cells[i].q.s[0] * .9f);
 		}
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size(0), size(1), GL_RGBA, GL_UNSIGNED_BYTE, &buffer[0].v);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size.s[0], size.s[1], GL_RGBA, GL_UNSIGNED_BYTE, &buffer[0].v);
 	}
 
 	clEnqueueReleaseGLObjects(commands(), 1, &fluidTexMem, 0, 0, 0);

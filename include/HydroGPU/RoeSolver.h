@@ -1,9 +1,16 @@
 #pragma once
 
-#include "HydroGPU/Solver.h"
-#include "Profiler/Stat.h"
+//OpenCL shared header
+#include "roe_euler_2d.h"
 
-struct RoeSolver : public Solver {
+#include "Profiler/Stat.h"
+#include "Tensor/Vector.h"
+#include <OpenCL/cl.hpp>
+#include <vector>
+
+struct HydroGPUApp;
+
+struct RoeSolver {
 	cl::Program program;
 	cl::CommandQueue commands;
 	cl::Buffer cellsMem;		//our main OpenCL buffer for the simulation
@@ -24,7 +31,9 @@ struct RoeSolver : public Solver {
 		cl::Event clEvent;
 		Profiler::Stat stat;
 	};
-	
+
+	HydroGPUApp &app;
+
 	EventProfileEntry calcEigenDecompositionEvent;
 	EventProfileEntry calcCFLAndDeltaQTildeEvent;
 	EventProfileEntry calcCFLMinReduceEvent;
@@ -37,25 +46,12 @@ struct RoeSolver : public Solver {
 
 	cl_float2 addSourcePos, addSourceVel;
 	
-	bool useGPU;
-	
 	real cfl;
-	Tensor::Vector<int,2> size;
 
-	RoeSolver(
-		cl::Device device,
-		cl::Context context,
-		Tensor::Vector<int,3> size,
-		cl::CommandQueue commands,
-		real* xmin,
-		real* xmax,
-		cl_mem fluidTexMem,
-		cl_mem gradientTexMem,
-		bool useGPU);
-	
+	RoeSolver(HydroGPUApp &app);
 	virtual ~RoeSolver();
 
-	virtual void update(cl_mem fluidTexMem);
+	virtual void update();
 	virtual void addDrop(Tensor::Vector<float,DIM> pos, Tensor::Vector<float,DIM> vel);
 };
 

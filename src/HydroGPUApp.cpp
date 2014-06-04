@@ -15,8 +15,6 @@ HydroGPUApp::HydroGPUApp()
 , fluidTexMem(cl_mem())
 , gradientTexMem(cl_mem())
 , solver(NULL)
-, dim(2)
-, size(256, 256, 256)
 , leftButtonDown(false)
 , rightButtonDown(false)
 , leftShiftDown(false)
@@ -26,6 +24,9 @@ HydroGPUApp::HydroGPUApp()
 , doUpdate(1)
 , viewZoom(1.f)
 {
+	for (int i = 0; i < DIM; ++i) {
+		size.s[i] = 256;
+	}
 }
 
 int HydroGPUApp::main(std::vector<std::string> args) {
@@ -33,13 +34,10 @@ int HydroGPUApp::main(std::vector<std::string> args) {
 		if (args[i] == "--cpu") {
 			useGPU = false;
 		}
-		if (i < args.size()-1) {
-			dim = std::stoi(args[++i]);
-		}
-		if (i < args.size()-dim) {
+		if (i < args.size()-DIM) {
 			if (args[i] == "--size") {
-				for (int k = 0; k < dim; ++k) {
-					size(k) = std::stoi(args[++i]);
+				for (int k = 0; k < DIM; ++k) {
+					size.s[k] = std::stoi(args[++i]);
 				}
 			}
 		}
@@ -62,7 +60,7 @@ void HydroGPUApp::init() {
 	glBindTexture(GL_TEXTURE_2D, fluidTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, 4, size(0), size(1), 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, 4, size.s[0], size.s[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	if ((err = glGetError()) != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
 
@@ -109,22 +107,15 @@ void HydroGPUApp::init() {
 	gradientTexMem = clCreateFromGLTexture(context(), CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex, &err);
 	if (!gradientTexMem) throw Common::Exception() << "failed to create CL memory from GL texture.  got error " << err;
 
-	solver = new RoeSolver(
-		device, 
-		context, 
-		size, 
-		commands, 
-		xmin.v,
-		xmax.v,
-		fluidTexMem, 
-		gradientTexMem, 
-		useGPU);
-
+	solver = std::make_shared<RoeSolver>(*this);
+	
+	err = glGetError();
+	if (err) throw Common::Exception() << "GL error " << err;
+	
 	std::cout << "Success!" << std::endl;
 }
 
 void HydroGPUApp::shutdown() {
-	delete solver; solver = NULL;
 	glDeleteTextures(1, &fluidTex);
 	glDeleteTextures(1, &gradientTex);
 	clReleaseMemObject(fluidTexMem);
@@ -143,24 +134,25 @@ void HydroGPUApp::resize(int width, int height) {
 
 void HydroGPUApp::update() {
 PROFILE_BEGIN_FRAME()
+	
 	Super::update();	//glclear 
 
 	bool guiDown = leftGuiDown || rightGuiDown;
 	if (leftButtonDown && !guiDown) {
 		solver->addDrop(mousePos, mouseVel);
 	}
-
+	
 	//CPU need to bind beforehand for roe/cpu to use it
 	//GPU needs it unbound until after the update
 	if (!useGPU) {
 		glBindTexture(GL_TEXTURE_2D, fluidTex);
 	}
-
+	
 	if (doUpdate) {
-		solver->update(fluidTexMem);
+		solver->update();
 		if (doUpdate == 2) doUpdate = 0;
 	}
-
+	
 	glPushMatrix();
 	glTranslatef(-viewPos(0), -viewPos(1), 0);
 	glScalef(viewZoom, viewZoom, viewZoom);
@@ -175,8 +167,8 @@ PROFILE_BEGIN_FRAME()
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glPopMatrix();
 
-	int err = glGetError();
-	if (err) std::cout << "error " << err << std::endl;
+	{int err = glGetError();
+	if (err) std::cout << "GL error " << err << " at " << __LINE__ << std::endl;}
 PROFILE_END_FRAME();
 }
 

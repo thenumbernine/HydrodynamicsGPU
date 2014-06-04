@@ -13,10 +13,9 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	cl_mem fluidTexMem;		//data is written to this buffer before rendering
 	cl_mem gradientTexMem;	//as it is written, data is read from this for mapping values to colors
 
-	Solver *solver;
+	std::shared_ptr<RoeSolver> solver;
 
-	int dim;	//1,2 or 3
-	Tensor::Vector<int,3> size;
+	cl_int2 size;
 	  
 	bool leftButtonDown;
 	bool rightButtonDown;
