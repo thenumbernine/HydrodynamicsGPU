@@ -1,5 +1,8 @@
 #include "roe_euler_2d.h"
 
+real4 matmul(real16 m, real4 v);
+real4 fluxMethod(real4 r);
+
 real4 matmul(real16 m, real4 v) {
 	return (real4)(
 		dot(m.s0123, v),
@@ -253,19 +256,13 @@ __kernel void calcFlux(
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
-	
-		int2 iPrev2 = iPrev;
-		iPrev2[side] = (iPrev2[side] + size[side] - 1) % size[side];
-		int indexPrev2 = iPrev2.x + size.x * iPrev2.y;
 
 		int2 iNext = i;
 		iNext[side] = (iNext[side] + 1) % size[side];
 		int indexNext = iNext.x + size.x * iNext.y;
 	
-		__global Cell *cellL2 = cells + indexPrev2;
 		__global Cell *cellL = cells + indexPrev;
 		__global Cell *cellR = cell;
-		__global Cell *cellR2 = cells + indexNext;
 
 		__global Interface *interfaceL = &cells[indexPrev].interfaces[side];
 		__global Interface *interface = &cells[index].interfaces[side];
@@ -347,7 +344,7 @@ __kernel void addDrop(
 	int index = i.x + size.x * i.y;
 	__global Cell *cell = cells + index;
 
-	float dropRadius = .02;
+	float dropRadius = .02f;
 	float densityMagnitude = .05f;
 	float velocityMagnitude = 1.f;
 	float energyThermalMagnitude = 0.f;
@@ -359,14 +356,14 @@ __kernel void addDrop(
 	real density = cell->q.x;
 	real2 velocity = cell->q.yz / density;
 	real energyTotal = cell->q.w / density;
-	real energyKinetic = .5 * dot(velocity, velocity);
+	real energyKinetic = .5f * dot(velocity, velocity);
 	real energyThermal = energyTotal - energyKinetic;
 
 	density += densityMagnitude * falloff;
 	velocity += sourceVelocity * (falloff * velocityMagnitude);
 	energyThermal += energyThermalMagnitude * falloff;
 
-	energyKinetic = .5 * dot(velocity, velocity);
+	energyKinetic = .5f * dot(velocity, velocity);
 	energyTotal = energyThermal + energyKinetic;
 
 	cell->q.x = density;

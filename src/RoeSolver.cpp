@@ -1,6 +1,6 @@
 #include "HydroGPU/RoeSolver.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/Finally.h"
+#include "Common/Exception.h"
 #include "Common/Macros.h"
 #include "Common/File.h"
 #include "Tensor/Vector.h"
@@ -63,12 +63,13 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	try {
 		program.build({device}, "-I include");
 	} catch (cl::Error &err) {
-		std::cout << "failed to build program executable!" << std::endl;
-		
-		std::string log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
-		std::cout << log << std::endl;
-		exit(1);
+		throw Common::Exception() 
+			<< "failed to build program executable!\n"
+			<< program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
 	}
+
+	//warnings?
+	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
 
 	std::vector<Cell> cells(size.s[0] * size.s[1]);
 	{
