@@ -1,3 +1,4 @@
+#include "HydroGPU/Shared/Roe.h"	//OpenCL shared header
 #include "HydroGPU/RoeSolver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
@@ -84,22 +85,14 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 				for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++cell) {
 					
 					bool lhs = true;
+					Tensor::Vector<real, 2> x;
 					for (int n = 0; n < DIM; ++n) {
-						cell->x.s[n] = real(xmax.s[n] - xmin.s[n]) * real(index[n]) / real(size.s[n]) + real(xmin.s[n]);
+						x(n) = real(xmax.s[n] - xmin.s[n]) * real(index[n]) / real(size.s[n]) + real(xmin.s[n]);
 						//if (cell->x.s[n] > real(.3) * real(xmax.s[n]) + real(.7) * real(xmin.s[n]))
-						if (fabs(cell->x.s[n]) > real(.15))
+						if (fabs(x(n)) > real(.15))
 						{
 							lhs = false;
 							break;
-						}
-					}
-
-					for (int m = 0; m < DIM; ++m) {
-						for (int n = 0; n < DIM; ++n) {
-							cell->interfaces[m].x.s[n] = cell->x.s[n];
-							if (m == n) {
-								cell->interfaces[m].x.s[n] -= real(xmax.s[n] - xmin.s[n]) * real(.5) / real(size.s[n]);
-							}
 						}
 					}
 

@@ -1,8 +1,6 @@
 #pragma once
 
-//OpenCL shared header
-#include "roe_euler_2d.h"
-
+#include "HydroGPU/Shared/Types.h"	//cl shared header
 #include "Profiler/Stat.h"
 #include "Tensor/Vector.h"
 #include <OpenCL/cl.hpp>

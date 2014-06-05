@@ -24,25 +24,3 @@ typedef cl_float16 real16;
 #define NUM_STATES	2+DIM
 #define GAMMA 1.4f
 
-struct Interface {
-	//Roe-specific values
-	real16 eigenvectors;			//stored row-major 
-	real16 eigenvectorsInverse;	// so math matches array index notation
-	real4 eigenvalues;
-	real4 deltaQTilde;
-	
-	//base cell values
-	real4 flux;
-	real2 x;
-};
-typedef struct Interface Interface;
-
-struct Cell {
-	//base cell values
-	real4 q;
-	real2 x;
-
-	Interface interfaces[DIM];
-};
-typedef struct Cell Cell;
-

@@ -1,4 +1,4 @@
-#include "roe_euler_2d.h"
+#include "HydroGPU/Shared/Roe.h"
 
 real4 matmul(real16 m, real4 v);
 real4 fluxMethod(real4 r);
