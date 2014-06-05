@@ -371,3 +371,26 @@ __kernel void addDrop(
 	cell->q.w = density * energyTotal;
 }
 
+__kernel void addSource(
+	__global Cell* cells,
+	int2 size,
+	real2 dx,
+	real2 xmin,
+	real2 xmax,
+	__global real* dt)
+{
+return;// working on this
+#if 0
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	if (i.x >= size.x || i.y >= size.y) return;
+
+	int index = i.x + size.x * i.y;
+	__global Cell *cell = cells + index;
+
+	real2 x = (real2)i / (real2)size * (xmax - xmin) + xmin;
+	real dx2 = dot(x,x);
+	real infl = exp(-10000.f * dx2);
+
+	cell->q[1] += infl * *dt; 
+#endif
+}

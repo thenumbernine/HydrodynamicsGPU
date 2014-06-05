@@ -49,8 +49,8 @@ void HydroGPUApp::init() {
 	int err;
 	  
 	for (int n = 0; n < DIM; ++n) {
-		xmin(n) = -.5;
-		xmax(n) = .5;
+		xmin.s[n] = -.5f;
+		xmax.s[n] = .5f;
 	}
 	
 	//get a texture going for visualizing the output
@@ -107,7 +107,7 @@ void HydroGPUApp::init() {
 	
 	err = glGetError();
 	if (err) throw Common::Exception() << "GL error " << err;
-	
+
 	std::cout << "Success!" << std::endl;
 }
 
@@ -190,9 +190,9 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			}
 		}
 		{
-			mousePos(0) = (float)event.motion.x / (float)screenSize(0) * (xmax(0) - xmin(0)) + xmin(0);
+			mousePos(0) = (float)event.motion.x / (float)screenSize(0) * (xmax.s[0] - xmin.s[0]) + xmin.s[0];
 			mousePos(0) *= aspectRatio;	//only if xmin/xmax is symmetric. otehrwise more math required.
-			mousePos(1) = (1.f - (float)event.motion.y / (float)screenSize(1)) * (xmax(1) - xmin(1)) + xmin(1);
+			mousePos(1) = (1.f - (float)event.motion.y / (float)screenSize(1)) * (xmax.s[1] - xmin.s[1]) + xmin.s[1];
 			mouseVel(0) = (float)event.motion.xrel / (float)screenSize(0);
 			mouseVel(1) = (float)event.motion.yrel / (float)screenSize(1);
 		}
@@ -243,6 +243,8 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			leftGuiDown = false;
 		} else if (event.key.keysym.sym == SDLK_RGUI) {
 			rightGuiDown = false;
+		} else if (event.key.keysym.sym == SDLK_s) {
+			solver->screenshot();
 		}
 		break;
 	}

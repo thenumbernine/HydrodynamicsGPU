@@ -24,6 +24,7 @@ struct RoeSolver {
 	cl::Kernel updateStateKernel;
 	cl::Kernel convertToTexKernel;
 	cl::Kernel addDropKernel;
+	cl::Kernel addSourceKernel;
 	
 	struct EventProfileEntry {
 		EventProfileEntry(std::string name_) : name(name_) {}
@@ -40,6 +41,7 @@ struct RoeSolver {
 	EventProfileEntry calcCFLMinFinalEvent;
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry updateStateEvent;
+	EventProfileEntry addSourceEvent;
 	std::vector<EventProfileEntry*> entries;
 
 	cl::NDRange globalSize, localSize;
@@ -53,6 +55,7 @@ struct RoeSolver {
 
 	virtual void update();
 	virtual void addDrop(Tensor::Vector<float,DIM> pos, Tensor::Vector<float,DIM> vel);
+	virtual void screenshot();
 };
 
 

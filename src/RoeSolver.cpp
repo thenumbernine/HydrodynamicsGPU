@@ -1,5 +1,6 @@
 #include "HydroGPU/RoeSolver.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "Image/System.h"
 #include "Common/Exception.h"
 #include "Common/Macros.h"
 #include "Common/File.h"
@@ -15,6 +16,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 , calcCFLMinFinalEvent("calcCFLMinFinal")
 , calcFluxEvent("calcFlux")
 , updateStateEvent("updateState")
+, addSourceEvent("addSource")
 , cfl(.5f)
 {
 	cl::Device device = app.device;
@@ -22,8 +24,8 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	cl::CommandQueue commands = app.commands;
 	cl::ImageGL fluidTexMem = app.fluidTexMem;
 	cl::ImageGL gradientTexMem = app.gradientTexMem;
-	Tensor::Vector<real,2> xmin = app.xmin;
-	Tensor::Vector<real,2> xmax = app.xmax;
+	real2 xmin = app.xmin;
+	real2 xmax = app.xmax;
 	cl_int2 size = app.size;
 	bool useGPU = app.useGPU;
 	
@@ -80,11 +82,15 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 		//for (index[2] = 0; index[2] < size.s[2]; ++index[2]) {
 			for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
 				for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++cell) {
+					
 					bool lhs = true;
 					for (int n = 0; n < DIM; ++n) {
-						cell->x.s[n] = real(xmax(n) - xmin(n)) * real(index[n]) / real(size.s[n]) + real(xmin(n));
-						if (cell->x.s[n] > real(.3) * real(xmax(n)) + real(.7) * real(xmin(n))) {
+						cell->x.s[n] = real(xmax.s[n] - xmin.s[n]) * real(index[n]) / real(size.s[n]) + real(xmin.s[n]);
+						//if (cell->x.s[n] > real(.3) * real(xmax.s[n]) + real(.7) * real(xmin.s[n]))
+						if (fabs(cell->x.s[n]) > real(.15))
+						{
 							lhs = false;
+							break;
 						}
 					}
 
@@ -92,7 +98,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 						for (int n = 0; n < DIM; ++n) {
 							cell->interfaces[m].x.s[n] = cell->x.s[n];
 							if (m == n) {
-								cell->interfaces[m].x.s[n] -= real(xmax(n) - xmin(n)) * real(.5) / real(size.s[n]);
+								cell->interfaces[m].x.s[n] -= real(xmax.s[n] - xmin.s[n]) * real(.5) / real(size.s[n]);
 							}
 						}
 					}
@@ -134,6 +140,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	updateStateKernel = cl::Kernel(program, "updateState");
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	addDropKernel = cl::Kernel(program, "addDrop");
+	addSourceKernel = cl::Kernel(program, "addSource");
 
 	std::vector<cl::Kernel*> kernels = {
 		&calcEigenDecompositionKernel,
@@ -141,6 +148,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 		&calcFluxKernel,
 		&updateStateKernel,
 		&addDropKernel,
+		&addSourceKernel,
 	};
 	std::for_each(kernels.begin(), kernels.end(), [&](cl::Kernel* kernel) {
 		kernel->setArg(0, cellsMem);
@@ -149,7 +157,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 
 	real2 dx;
 	for (int i = 0; i < DIM; ++i) {
-		dx.s[i] = (xmax(i) - xmin(i)) / (float)size.s[i];
+		dx.s[i] = (xmax.s[i] - xmin.s[i]) / (float)size.s[i];
 	}
 	
 	calcFluxKernel.setArg(2, dx);
@@ -170,6 +178,11 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	calcCFLMinFinalKernel.setArg(3, cfl);
 
 	addDropKernel.setArg(2, cflTimestepMem);
+
+	addSourceKernel.setArg(2, dx);
+	addSourceKernel.setArg(3, xmin);
+	addSourceKernel.setArg(4, xmax);
+	addSourceKernel.setArg(5, cflTimestepMem);
 
 	//if (useGPU) 
 	{
@@ -197,6 +210,7 @@ void RoeSolver::update() {
 	
 	cl::NDRange offset2d(0, 0);
 
+	commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcEigenDecompositionKernel, offset2d, globalSize, localSize, NULL, &calcEigenDecompositionEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcCFLAndDeltaQTildeKernel, offset2d, globalSize, localSize, NULL, &calcCFLAndDeltaQTildeEvent.clEvent);
 
@@ -257,5 +271,30 @@ void RoeSolver::addDrop(Tensor::Vector<float,2> pos, Tensor::Vector<float,2> vel
 	addDropKernel.setArg(3, addSourcePos);
 	addDropKernel.setArg(4, addSourceVel);
 	commands.enqueueNDRangeKernel(addDropKernel, cl::NDRange(0,0), globalSize, localSize);
+}
+
+void RoeSolver::screenshot() {
+	for (int i = 0; i < 1000; ++i) {
+		std::string filename = std::string("screenshot") + std::to_string(i) + ".fits";
+		if (!Common::File::exists(filename)) {
+			Image::ImageType<float> image(
+				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
+				NULL, 1);
+			int count = app.size.s[0] * app.size.s[1];
+			std::vector<Cell> cells(count);
+			app.commands.enqueueReadBuffer(cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0]);
+			app.commands.flush();
+			app.commands.finish();
+			Cell *cell = &cells[0];
+			for (int j = 0; j < app.size.s[1]; ++j) {
+				for (int i = 0; i < app.size.s[0]; ++i, ++cell) {
+					image(i,j) = cell->q.s[0];
+				}
+			}
+			Image::sys->write(filename, &image);
+			return;
+		}
+	}
+	throw Common::Exception() << "couldn't find an available filename";
 }
 

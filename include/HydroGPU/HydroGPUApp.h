@@ -24,7 +24,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	bool leftGuiDown;
 	bool rightGuiDown;
 	Tensor::Vector<real,2> mousePos, mouseVel;
-	Tensor::Vector<real,2> xmin, xmax;
+	real2 xmin, xmax;
 	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
 	Tensor::Vector<int,2> screenSize;
 	float viewZoom;

@@ -7,6 +7,7 @@ include ../GLApp/Include.mk
 include ../CLApp/Include.mk
 include ../Tensor/Include.mk
 include ../Profiler/Include.mk
+include ../Image/Include.mk
 
 INCLUDE+=res/include
 
