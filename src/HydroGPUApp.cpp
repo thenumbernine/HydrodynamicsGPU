@@ -12,8 +12,6 @@ HydroGPUApp::HydroGPUApp()
 : Super()
 , fluidTex(GLuint())
 , gradientTex(GLuint())
-, fluidTexMem(cl_mem())
-, gradientTexMem(cl_mem())
 , solver(NULL)
 , leftButtonDown(false)
 , rightButtonDown(false)
@@ -66,8 +64,7 @@ void HydroGPUApp::init() {
 
 	//hmm, my cl.hpp version only supports clCreateFromGLTexture2D, which is deprecated ... do I use the deprecated method, or do I stick with the C structures?
 	// ... or do I look for a more up-to-date version of cl.hpp
-	fluidTexMem = clCreateFromGLTexture(context(), CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex, &err);
-	if (!fluidTexMem) throw Common::Exception() << "failed to create CL memory from GL texture.  got error " << err;
+	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex);
 
 	//gradient texture
 	{
@@ -104,8 +101,7 @@ void HydroGPUApp::init() {
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	gradientTexMem = clCreateFromGLTexture(context(), CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex, &err);
-	if (!gradientTexMem) throw Common::Exception() << "failed to create CL memory from GL texture.  got error " << err;
+	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex);
 
 	solver = std::make_shared<RoeSolver>(*this);
 	
@@ -118,8 +114,6 @@ void HydroGPUApp::init() {
 void HydroGPUApp::shutdown() {
 	glDeleteTextures(1, &fluidTex);
 	glDeleteTextures(1, &gradientTex);
-	clReleaseMemObject(fluidTexMem);
-	clReleaseMemObject(gradientTexMem);
 }
 
 void HydroGPUApp::resize(int width, int height) {

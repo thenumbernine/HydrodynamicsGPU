@@ -10,8 +10,8 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	GLuint fluidTex;
 	GLuint gradientTex;
 	
-	cl_mem fluidTexMem;		//data is written to this buffer before rendering
-	cl_mem gradientTexMem;	//as it is written, data is read from this for mapping values to colors
+	cl::ImageGL fluidTexMem;		//data is written to this buffer before rendering
+	cl::ImageGL gradientTexMem;	//as it is written, data is read from this for mapping values to colors
 
 	std::shared_ptr<RoeSolver> solver;
 

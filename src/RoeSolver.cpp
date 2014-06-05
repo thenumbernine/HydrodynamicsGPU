@@ -20,8 +20,8 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	cl::Device device = app.device;
 	cl::Context context = app.context;
 	cl::CommandQueue commands = app.commands;
-	cl_mem fluidTexMem = app.fluidTexMem;
-	cl_mem gradientTexMem = app.gradientTexMem;
+	cl::ImageGL fluidTexMem = app.fluidTexMem;
+	cl::ImageGL gradientTexMem = app.gradientTexMem;
 	Tensor::Vector<real,2> xmin = app.xmin;
 	Tensor::Vector<real,2> xmax = app.xmax;
 	cl_int2 size = app.size;
@@ -162,10 +162,10 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	calcCFLAndDeltaQTildeKernel.setArg(3, dx);
 
 	calcCFLMinReduceKernel.setArg(0, cflMem);
-	calcCFLMinReduceKernel.setArg(1, cl::__local(localSizeVec(0) * sizeof(real)));
+	calcCFLMinReduceKernel.setArg(1, cl::Local(localSizeVec(0) * sizeof(real)));
 	
 	calcCFLMinFinalKernel.setArg(0, cflMem);
-	calcCFLMinFinalKernel.setArg(1, cl::__local(localSizeVec(0) * sizeof(real)));
+	calcCFLMinFinalKernel.setArg(1, cl::Local(localSizeVec(0) * sizeof(real)));
 	calcCFLMinFinalKernel.setArg(2, cflTimestepMem);
 	calcCFLMinFinalKernel.setArg(3, cfl);
 
@@ -191,7 +191,7 @@ RoeSolver::~RoeSolver() {
 
 void RoeSolver::update() {
 	cl::CommandQueue commands = app.commands;
-	cl_mem fluidTexMem = app.fluidTexMem;
+	cl::ImageGL fluidTexMem = app.fluidTexMem;
 	cl_int2 size = app.size;
 	bool useGPU = app.useGPU;
 	
@@ -221,7 +221,9 @@ void RoeSolver::update() {
 
 	glFlush();
 	glFinish();
-	clEnqueueAcquireGLObjects(commands(), 1, &fluidTexMem, 0, 0, 0);
+	
+	std::vector<cl::Memory> acquireGLMems = {fluidTexMem};
+	commands.enqueueAcquireGLObjects(&acquireGLMems);
 
 	if (useGPU) {
 		commands.enqueueNDRangeKernel(convertToTexKernel, offset2d, globalSize, localSize);
@@ -236,7 +238,7 @@ void RoeSolver::update() {
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size.s[0], size.s[1], GL_RGBA, GL_UNSIGNED_BYTE, &buffer[0].v);
 	}
 
-	clEnqueueReleaseGLObjects(commands(), 1, &fluidTexMem, 0, 0, 0);
+	commands.enqueueReleaseGLObjects(&acquireGLMems);
 	commands.flush();
 	commands.finish();
 
