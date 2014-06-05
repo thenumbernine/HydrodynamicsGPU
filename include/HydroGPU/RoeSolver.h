@@ -22,7 +22,8 @@ struct RoeSolver {
 	cl::Buffer cflTimestepBuffer;
 	
 	cl::Kernel calcEigenBasisKernel;
-	cl::Kernel calcCFLAndDeltaQTildeKernel;
+	cl::Kernel calcCFLKernel;
+	cl::Kernel calcDeltaQTildeKernel;
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel calcCFLMinFinalKernel;
 	cl::Kernel calcFluxKernel;
@@ -41,7 +42,8 @@ struct RoeSolver {
 	HydroGPUApp &app;
 
 	EventProfileEntry calcEigenBasisEvent;
-	EventProfileEntry calcCFLAndDeltaQTildeEvent;
+	EventProfileEntry calcCFLEvent;
+	EventProfileEntry calcDeltaQTildeEvent;
 	EventProfileEntry calcCFLMinReduceEvent;
 	EventProfileEntry calcCFLMinFinalEvent;
 	EventProfileEntry calcFluxEvent;

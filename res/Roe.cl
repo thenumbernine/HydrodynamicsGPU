@@ -77,131 +77,135 @@ __kernel void calcEigenBasis(
 			velocityN + speedOfSound);
 
 		//eigenvectors
-		real16 eigenvectors;
 
+		//specify transposed
+		real16 eigenvectors = (real16)(
 		//min col 
-		eigenvectors.s048C = (real4)(
 			1.f,
 			velocity.x - speedOfSound * normal.x,
 			velocity.y - speedOfSound * normal.y,
-			enthalpyTotal - speedOfSound * velocityN);
+			enthalpyTotal - speedOfSound * velocityN,
 		//mid col (normal)
-		eigenvectors.s159D = (real4)(
 			1.f,
 			velocity.x,
 			velocity.y,
-			.5f * velocitySq);
+			.5f * velocitySq,
 		//mid col (tangent)
-		eigenvectors.s26AE = (real4)(
 			0.f,
 			tangent.x,
 			tangent.y,
-			velocityT);
+			velocityT,
 		//max col 
-		eigenvectors.s37BF = (real4)(
 			1.f,
 			velocity.x + speedOfSound * normal.x,
 			velocity.y + speedOfSound * normal.y,
 			enthalpyTotal + speedOfSound * velocityN);
 
-		eigenvectorsBuffer[interfaceIndex] = eigenvectors;
+		//transpose and store
+		eigenvectorsBuffer[interfaceIndex] = (real16)(
+			eigenvectors.s048C,
+			eigenvectors.s159D,
+			eigenvectors.s26AE,
+			eigenvectors.s37BF);
 	
 		//calculate eigenvector inverses ... 
-		real16 eigenvectorsInverse;
 		real invDenom = .5f / (speedOfSound * speedOfSound);
+		eigenvectorsInverseBuffer[interfaceIndex] = (real16)( 
 		//min row
-		eigenvectorsInverse.s0123 = (real4)(
 			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom,
 			-(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
 			-(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom,
-			(GAMMA - 1.f) * invDenom);
+			(GAMMA - 1.f) * invDenom,
 		//mid normal row
-		eigenvectorsInverse.s4567 = (real4)(
 			1.f - (GAMMA - 1.f) * velocitySq * invDenom,
 			(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
 			(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
-			-(GAMMA - 1.f) * 2.f * invDenom);
+			-(GAMMA - 1.f) * 2.f * invDenom,
 		//mid tangent row
-		eigenvectorsInverse.s89AB = (real4)(
 			-velocityT, 
 			tangent.x,
 			tangent.y,
-			0.f);
+			0.f,
 		//max row
-		eigenvectorsInverse.sCDEF = (real4)(
 			(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom,
 			(normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
 			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
 			(GAMMA - 1.f) * invDenom);
 	
-		eigenvectorsInverseBuffer[interfaceIndex] = eigenvectorsInverse;
 	}
 }
 
-__kernel void calcCFLAndDeltaQTilde(
-	__global real* cflBuffer,						//used by cfl
-	__global real4* deltaQTildeBuffer,				//used by delta q tilde
-	const __global real4* eigenvaluesBuffer,			//used by cfl
-	const __global real16* eigenvectorsInverseBuffer,	//used by delta q tilde
-	const __global real4* stateBuffer,				//used by delta q tilde
+__kernel void calcCFL(
+	__global real* cflBuffer,
+	const __global real4* eigenvaluesBuffer,
 	int2 size,
 	real2 dx)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
-
 	int index = i.x + size.x * i.y;
 
 	real2 dum;
 	for (int side = 0; side < 2; ++side) {
-		{
-			int2 iNext = i;
-			iNext[side] = (iNext[side] + 1) % size[side];
-			int indexNext = iNext.x + size.x * iNext.y;
-			
-			real4 eigenvaluesL = eigenvaluesBuffer[side + 2 * index];
-			real4 eigenvaluesR = eigenvaluesBuffer[side + 2 * indexNext];
-			
-			real maxLambda = max(
-				0.f,
+		int2 iNext = i;
+		iNext[side] = (iNext[side] + 1) % size[side];
+		int indexNext = iNext.x + size.x * iNext.y;
+		
+		real4 eigenvaluesL = eigenvaluesBuffer[side + 2 * index];
+		real4 eigenvaluesR = eigenvaluesBuffer[side + 2 * indexNext];
+		
+		real maxLambda = max(
+			0.f,
+			max(
 				max(
-					max(
-						eigenvaluesL.x,
-						eigenvaluesL.y), 
-					max(
-						eigenvaluesL.z,
-						eigenvaluesL.w)));
+					eigenvaluesL.x,
+					eigenvaluesL.y), 
+				max(
+					eigenvaluesL.z,
+					eigenvaluesL.w)));
 
-			real minLambda = min(
-				0.f,
+		real minLambda = min(
+			0.f,
+			min(
 				min(
-					min(
-						eigenvaluesR.x,
-						eigenvaluesR.y),
-					min(
-						eigenvaluesR.z,
-						eigenvaluesR.w)));
+					eigenvaluesR.x,
+					eigenvaluesR.y),
+				min(
+					eigenvaluesR.z,
+					eigenvaluesR.w)));
 
-			dum[side] = dx[side] / (maxLambda - minLambda);
-		}
-
-		{
-			int2 iPrev = i;
-			iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-			int indexPrev = iPrev.x + size.x * iPrev.y;
-					
-			real4 stateL = stateBuffer[indexPrev];
-			real4 stateR = stateBuffer[index];
-
-			int interfaceIndex = side + 2 * index;
-			
-			real4 deltaQ = stateR - stateL;
-			deltaQTildeBuffer[interfaceIndex] = matmul(eigenvectorsInverseBuffer[interfaceIndex], deltaQ);
-		}
+		dum[side] = dx[side] / (maxLambda - minLambda);
 	}
 		
 	cflBuffer[index] = min(dum.x, dum.y);
 }
+
+__kernel void calcDeltaQTilde(
+	__global real4* deltaQTildeBuffer,
+	const __global real16* eigenvectorsInverseBuffer,
+	const __global real4* stateBuffer,
+	int2 size,
+	real2 dx)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	if (i.x >= size.x || i.y >= size.y) return;
+	int index = i.x + size.x * i.y;
+
+	for (int side = 0; side < 2; ++side) {
+		int2 iPrev = i;
+		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		int indexPrev = iPrev.x + size.x * iPrev.y;
+				
+		real4 stateL = stateBuffer[indexPrev];
+		real4 stateR = stateBuffer[index];
+
+		int interfaceIndex = side + 2 * index;
+		
+		real4 deltaQ = stateR - stateL;
+		deltaQTildeBuffer[interfaceIndex] = matmul(eigenvectorsInverseBuffer[interfaceIndex], deltaQ);
+	}
+}
+
 
 __kernel void calcCFLMinReduce(
 	__global real *cflDst, 

@@ -12,7 +12,8 @@
 RoeSolver::RoeSolver(HydroGPUApp &app_)
 : app(app_)
 , calcEigenBasisEvent("calcEigenBasis")
-, calcCFLAndDeltaQTildeEvent("calcCFLAndDeltaQTilde")
+, calcCFLEvent("calcCFL")
+, calcDeltaQTildeEvent("calcDeltaQTilde")
 , calcCFLMinReduceEvent("calcCFLMinReduce")
 , calcCFLMinFinalEvent("calcCFLMinFinal")
 , calcFluxEvent("calcFlux")
@@ -31,7 +32,8 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	bool useGPU = app.useGPU;
 	
 	entries.push_back(&calcEigenBasisEvent);
-	entries.push_back(&calcCFLAndDeltaQTildeEvent);
+	entries.push_back(&calcCFLEvent);
+	entries.push_back(&calcDeltaQTildeEvent);
 	entries.push_back(&calcCFLMinReduceEvent);
 	entries.push_back(&calcCFLMinFinalEvent);
 	entries.push_back(&calcFluxEvent);
@@ -145,14 +147,18 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	calcEigenBasisKernel.setArg(3, stateBuffer);
 	calcEigenBasisKernel.setArg(4, size);
 	
-	calcCFLAndDeltaQTildeKernel = cl::Kernel(program, "calcCFLAndDeltaQTilde");
-	calcCFLAndDeltaQTildeKernel.setArg(0, cflBuffer);
-	calcCFLAndDeltaQTildeKernel.setArg(1, deltaQTildeBuffer);
-	calcCFLAndDeltaQTildeKernel.setArg(2, eigenvaluesBuffer);
-	calcCFLAndDeltaQTildeKernel.setArg(3, eigenvectorsInverseBuffer);
-	calcCFLAndDeltaQTildeKernel.setArg(4, stateBuffer);
-	calcCFLAndDeltaQTildeKernel.setArg(5, size);
-	calcCFLAndDeltaQTildeKernel.setArg(6, dx);
+	calcCFLKernel = cl::Kernel(program, "calcCFL");
+	calcCFLKernel.setArg(0, cflBuffer);
+	calcCFLKernel.setArg(1, eigenvaluesBuffer);
+	calcCFLKernel.setArg(2, size);
+	calcCFLKernel.setArg(3, dx);
+	
+	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
+	calcDeltaQTildeKernel.setArg(0, deltaQTildeBuffer);
+	calcDeltaQTildeKernel.setArg(1, eigenvectorsInverseBuffer);
+	calcDeltaQTildeKernel.setArg(2, stateBuffer);
+	calcDeltaQTildeKernel.setArg(3, size);
+	calcDeltaQTildeKernel.setArg(4, dx);
 
 	calcCFLMinReduceKernel = cl::Kernel(program, "calcCFLMinReduce");
 	calcCFLMinReduceKernel.setArg(0, cflBuffer);
@@ -222,7 +228,8 @@ void RoeSolver::update() {
 
 	commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset2d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcCFLAndDeltaQTildeKernel, offset2d, globalSize, localSize, NULL, &calcCFLAndDeltaQTildeEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcCFLKernel, offset2d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offset2d, globalSize, localSize, NULL, &calcDeltaQTildeEvent.clEvent);
 
 	{
 		cl::NDRange offset1d(0);
