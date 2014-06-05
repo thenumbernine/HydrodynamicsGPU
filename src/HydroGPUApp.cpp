@@ -23,7 +23,7 @@ HydroGPUApp::HydroGPUApp()
 , viewZoom(1.f)
 {
 	for (int i = 0; i < DIM; ++i) {
-		size.s[i] = 256;
+		size.s[i] = 512;
 	}
 }
 

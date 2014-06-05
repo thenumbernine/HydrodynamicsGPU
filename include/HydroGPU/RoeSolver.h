@@ -11,9 +11,16 @@ struct HydroGPUApp;
 struct RoeSolver {
 	cl::Program program;
 	cl::CommandQueue commands;
-	cl::Buffer cellsMem;		//our main OpenCL buffer for the simulation
-	cl::Buffer cflMem;
-	cl::Buffer cflTimestepMem;
+	
+	cl::Buffer stateBuffer;
+	cl::Buffer eigenvaluesBuffer;
+	cl::Buffer eigenvectorsBuffer;
+	cl::Buffer eigenvectorsInverseBuffer;
+	cl::Buffer deltaQTildeBuffer;
+	cl::Buffer fluxBuffer;
+	cl::Buffer cflBuffer;
+	cl::Buffer cflTimestepBuffer;
+	
 	cl::Kernel calcEigenBasisKernel;
 	cl::Kernel calcCFLAndDeltaQTildeKernel;
 	cl::Kernel calcCFLMinReduceKernel;

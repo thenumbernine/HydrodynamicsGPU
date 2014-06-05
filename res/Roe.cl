@@ -1,4 +1,4 @@
-#include "HydroGPU/Shared/Roe.h"
+#include "HydroGPU/Shared/Types.h"
 
 real4 matmul(real16 m, real4 v);
 real4 fluxMethod(real4 r);
@@ -12,37 +12,38 @@ real4 matmul(real16 m, real4 v) {
 }
 
 __kernel void calcEigenBasis(
-	__global Cell* cells,
+	__global real4* eigenvaluesBuffer,
+	__global real16* eigenvectorsBuffer,
+	__global real16* eigenvectorsInverseBuffer,
+	const __global real4* stateBuffer,
 	int2 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
-	
 	int index = i.x + size.x * i.y;
-	__global Cell *cell = cells + index;
 
 	for (int side = 0; side < 2; ++side) {	
-		__global Interface *interface = cell->interfaces + side;
-		
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
-		
-		__global Cell *cellL = cells + indexPrev;
-		__global Cell *cellR = cell;
+
+		int interfaceIndex = side + 2 * index;
+
+		real4 stateL = stateBuffer[indexPrev];
+		real4 stateR = stateBuffer[index];
 		
 		real2 normal = (real2)(0.f, 0.f);
 		normal[side] = 1;
 
-		real densityL = cellL->q[0];
+		real densityL = stateL.x;
 		real invDensityL = 1.f / densityL;
-		real2 velocityL = (real2)(cellL->q[1], cellL->q[2]) * invDensityL;
-		real energyTotalL = cellL->q[3] * invDensityL;
+		real2 velocityL = stateL.yz * invDensityL;
+		real energyTotalL = stateL.w * invDensityL;
 
-		real densityR = cellR->q[0];
+		real densityR = stateR.x;
 		real invDensityR = 1.f / densityR;
-		real2 velocityR = (real2)(cellR->q[1], cellR->q[2]) * invDensityR;
-		real energyTotalR = cellR->q[3] * invDensityR;
+		real2 velocityR = stateR.yz * invDensityR;
+		real energyTotalR = stateR.w * invDensityR;
 
 		real energyKineticL = .5f * dot(velocityL, velocityL);
 		real energyThermalL = energyTotalL - energyKineticL;
@@ -69,122 +70,137 @@ __kernel void calcEigenBasis(
 	
 		//eigenvalues
 
-		interface->eigenvalues = (real4)(
+		eigenvaluesBuffer[interfaceIndex] =  (real4)(
 			velocityN - speedOfSound,
 			velocityN,
 			velocityN,
 			velocityN + speedOfSound);
 
+		//eigenvectors
+		real16 eigenvectors;
+
 		//min col 
-		interface->eigenvectors.s048C = (real4)(
+		eigenvectors.s048C = (real4)(
 			1.f,
 			velocity.x - speedOfSound * normal.x,
 			velocity.y - speedOfSound * normal.y,
 			enthalpyTotal - speedOfSound * velocityN);
 		//mid col (normal)
-		interface->eigenvectors.s159D = (real4)(
+		eigenvectors.s159D = (real4)(
 			1.f,
 			velocity.x,
 			velocity.y,
 			.5f * velocitySq);
 		//mid col (tangent)
-		interface->eigenvectors.s26AE = (real4)(
+		eigenvectors.s26AE = (real4)(
 			0.f,
 			tangent.x,
 			tangent.y,
 			velocityT);
 		//max col 
-		interface->eigenvectors.s37BF = (real4)(
+		eigenvectors.s37BF = (real4)(
 			1.f,
 			velocity.x + speedOfSound * normal.x,
 			velocity.y + speedOfSound * normal.y,
 			enthalpyTotal + speedOfSound * velocityN);
-		
+
+		eigenvectorsBuffer[interfaceIndex] = eigenvectors;
+	
 		//calculate eigenvector inverses ... 
+		real16 eigenvectorsInverse;
 		real invDenom = .5f / (speedOfSound * speedOfSound);
 		//min row
-		interface->eigenvectorsInverse.s0123 = (real4)(
+		eigenvectorsInverse.s0123 = (real4)(
 			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom,
 			-(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
 			-(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom,
 			(GAMMA - 1.f) * invDenom);
 		//mid normal row
-		interface->eigenvectorsInverse.s4567 = (real4)(
+		eigenvectorsInverse.s4567 = (real4)(
 			1.f - (GAMMA - 1.f) * velocitySq * invDenom,
 			(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
 			(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
 			-(GAMMA - 1.f) * 2.f * invDenom);
 		//mid tangent row
-		interface->eigenvectorsInverse.s89AB = (real4)(
+		eigenvectorsInverse.s89AB = (real4)(
 			-velocityT, 
 			tangent.x,
 			tangent.y,
 			0.f);
 		//max row
-		interface->eigenvectorsInverse.sCDEF = (real4)(
+		eigenvectorsInverse.sCDEF = (real4)(
 			(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom,
 			(normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
 			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
 			(GAMMA - 1.f) * invDenom);
+	
+		eigenvectorsInverseBuffer[interfaceIndex] = eigenvectorsInverse;
 	}
 }
 
 __kernel void calcCFLAndDeltaQTilde(
-	__global Cell *cells,
+	__global real* cflBuffer,						//used by cfl
+	__global real4* deltaQTildeBuffer,				//used by delta q tilde
+	const __global real4* eigenvaluesBuffer,			//used by cfl
+	const __global real16* eigenvectorsInverseBuffer,	//used by delta q tilde
+	const __global real4* stateBuffer,				//used by delta q tilde
 	int2 size,
-	__global real *cfl,
 	real2 dx)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 
 	int index = i.x + size.x * i.y;
-	__global Cell *cell = cells + index;
 
 	real2 dum;
 	for (int side = 0; side < 2; ++side) {
-		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
-
-		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
-			
 		{
-			__global Interface *interfaceL = cell->interfaces + side;
-			__global Interface *interfaceR = &cells[indexNext].interfaces[side];
-		
+			int2 iNext = i;
+			iNext[side] = (iNext[side] + 1) % size[side];
+			int indexNext = iNext.x + size.x * iNext.y;
+			
+			real4 eigenvaluesL = eigenvaluesBuffer[side + 2 * index];
+			real4 eigenvaluesR = eigenvaluesBuffer[side + 2 * indexNext];
+			
 			real maxLambda = max(
+				0.f,
 				max(
-					interfaceL->eigenvalues.x,
-					interfaceL->eigenvalues.y), 
-				max(
-					interfaceL->eigenvalues.z,
-					interfaceL->eigenvalues.w));
+					max(
+						eigenvaluesL.x,
+						eigenvaluesL.y), 
+					max(
+						eigenvaluesL.z,
+						eigenvaluesL.w)));
 
 			real minLambda = min(
+				0.f,
 				min(
-					interfaceR->eigenvalues.x,
-					interfaceR->eigenvalues.y),
-				min(
-					interfaceR->eigenvalues.z,
-					interfaceR->eigenvalues.w));
+					min(
+						eigenvaluesR.x,
+						eigenvaluesR.y),
+					min(
+						eigenvaluesR.z,
+						eigenvaluesR.w)));
 
 			dum[side] = dx[side] / (maxLambda - minLambda);
 		}
 
 		{
-			__global Interface *interface = cell->interfaces + side;
-			__global Cell *cellL = cells + indexPrev;
-			__global Cell *cellR = cell;
+			int2 iPrev = i;
+			iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+			int indexPrev = iPrev.x + size.x * iPrev.y;
+					
+			real4 stateL = stateBuffer[indexPrev];
+			real4 stateR = stateBuffer[index];
 
-			real4 deltaQ = cellR->q - cellL->q;
-			interface->deltaQTilde = matmul(interface->eigenvectorsInverse, deltaQ);
+			int interfaceIndex = side + 2 * index;
+			
+			real4 deltaQ = stateR - stateL;
+			deltaQTildeBuffer[interfaceIndex] = matmul(eigenvectorsInverseBuffer[interfaceIndex], deltaQ);
 		}
 	}
 		
-	cfl[index] = min(dum.x, dum.y);
+	cflBuffer[index] = min(dum.x, dum.y);
 }
 
 __kernel void calcCFLMinReduce(
@@ -239,7 +255,12 @@ real4 fluxMethod(real4 r) {
 }
 
 __kernel void calcFlux(
-	__global Cell* cells,
+	__global real4* fluxBuffer,
+	const __global real4* stateBuffer,
+	const __global real4* eigenvaluesBuffer,
+	const __global real16* eigenvectorsBuffer,
+	const __global real16* eigenvectorsInverseBuffer,
+	const __global real4* deltaQTildeBuffer,
 	int2 size,
 	real2 dx,
 	__global real *dt)
@@ -250,7 +271,6 @@ __kernel void calcFlux(
 	if (i.x >= size.x || i.y >= size.y) return;
 
 	int index = i.x + size.x * i.y;
-	__global Cell *cell = cells + index;
 	
 	for (int side = 0; side < 2; ++side) {	
 		int2 iPrev = i;
@@ -261,33 +281,38 @@ __kernel void calcFlux(
 		iNext[side] = (iNext[side] + 1) % size[side];
 		int indexNext = iNext.x + size.x * iNext.y;
 	
-		__global Cell *cellL = cells + indexPrev;
-		__global Cell *cellR = cell;
+		real4 stateL = stateBuffer[indexPrev];
+		real4 stateR = stateBuffer[index];
 
-		__global Interface *interfaceL = &cells[indexPrev].interfaces[side];
-		__global Interface *interface = &cells[index].interfaces[side];
-		__global Interface *interfaceR = &cells[indexNext].interfaces[side];
+		int interfaceLIndex = side + 2 * indexPrev;
+		int interfaceIndex = side + 2 * index;
+		int interfaceRIndex = side + 2 * indexNext;
 
-		real4 deltaQTildeL = interfaceL->deltaQTilde;
-		real4 deltaQTilde = interface->deltaQTilde;
-		real4 deltaQTildeR = interfaceR->deltaQTilde;
+		real4 deltaQTildeL = deltaQTildeBuffer[interfaceLIndex];
+		real4 deltaQTilde = deltaQTildeBuffer[interfaceIndex];
+		real4 deltaQTildeR = deltaQTildeBuffer[interfaceRIndex];
 
-		real4 egz = step(0.f, interface->eigenvalues);
+		real4 eigenvalues = eigenvaluesBuffer[interfaceIndex];
+		real16 eigenvectors = eigenvectorsBuffer[interfaceIndex];
+		real16 eigenvectorsInverse = eigenvectorsInverseBuffer[interfaceIndex];
+
+		real4 egz = step(0.f, eigenvalues);
 		real4 rTilde = mix(deltaQTildeR, deltaQTildeL, egz) / deltaQTilde;
-		real4 qAvg = (cellR->q + cellL->q) * .5f;
-		real4 fluxAvgTilde = matmul(interface->eigenvectorsInverse, qAvg) * interface->eigenvalues;
-		real4 theta = step(0.f, interface->eigenvalues) * 2.f - 1.f;
+		real4 qAvg = (stateR + stateL) * .5f;
+		real4 fluxAvgTilde = matmul(eigenvectorsInverse, qAvg) * eigenvalues;
+		real4 theta = step(0.f, eigenvalues) * 2.f - 1.f;
 		real4 phi = fluxMethod(rTilde);
-		real4 epsilon = interface->eigenvalues * dt_dx[side];
-		real4 deltaFluxTilde = interface->eigenvalues * interface->deltaQTilde;
+		real4 epsilon = eigenvalues * dt_dx[side];
+		real4 deltaFluxTilde = eigenvalues * deltaQTilde;
 		real4 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + phi * (epsilon - theta));
 		
-		interface->flux = matmul(interface->eigenvectors, fluxTilde);
+		fluxBuffer[side + 2 * index] = matmul(eigenvectors, fluxTilde);
 	}
 }
 
 __kernel void updateState(
-	__global Cell* cells,
+	__global real4* stateBuffer,
+	const __global real4* fluxBuffer,
 	int2 size,
 	real2 dx,
 	__global real* dt)
@@ -298,23 +323,22 @@ __kernel void updateState(
 	if (i.x >= size.x || i.y >= size.y) return;
 
 	int index = i.x + size.x * i.y;
-	__global Cell *cell = cells + index;
 	
 	for (int side = 0; side < 2; ++side) {	
 		int2 iNext = i;
 		iNext[side] = (iNext[side] + 1) % size[side];
 		int indexNext = iNext.x + size.x * iNext.y;
 		
-		__global Interface *interfaceL = &cells[index].interfaces[side];
-		__global Interface *interfaceR = &cells[indexNext].interfaces[side];
+		real4 fluxL = fluxBuffer[side + 2 * index];
+		real4 fluxR = fluxBuffer[side + 2 * indexNext];
 
-		real4 df = interfaceR->flux - interfaceL->flux;
-		cell->q -= df * dt_dx[side];
+		real4 df = fluxR - fluxL;
+		stateBuffer[index] -= df * dt_dx[side];
 	}
 }
 
 __kernel void convertToTex(
-	__global Cell* cells,
+	__global real4* stateBuffer,
 	int2 size,
 	__write_only image2d_t fluidTex,
 	__read_only image2d_t gradientTex)
@@ -323,16 +347,16 @@ __kernel void convertToTex(
 	if (i.x >= size.x || i.y >= size.y) return;
 	
 	int index = i.x + size.x * i.y;
-	__global Cell *cell = cells + index;
+	real4 state = stateBuffer[index];
 
 	float4 color = read_imagef(gradientTex, 
 		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_NONE | CLK_FILTER_LINEAR,
-		(float2)(cell->q[0] * 2.f, .5f));
+		(float2)(state.w * 2.f, .5f));
 	write_imagef(fluidTex, i, color.bgra);
 }
 
 __kernel void addDrop(
-	__global Cell *cells,
+	__global real4* stateBuffer,
 	int2 size,
 	real2 xmin,
 	real2 xmax,
@@ -344,7 +368,7 @@ __kernel void addDrop(
 	if (i.x >= size.x || i.y >= size.y) return;
 
 	int index = i.x + size.x * i.y;
-	__global Cell *cell = cells + index;
+	real4 state = stateBuffer[index];
 
 	float dropRadius = .02f;
 	float densityMagnitude = .05f;
@@ -356,9 +380,9 @@ __kernel void addDrop(
 	float rSq = dot(dx, dx);
 	float falloff = exp(-rSq);
 
-	real density = cell->q.x;
-	real2 velocity = cell->q.yz / density;
-	real energyTotal = cell->q.w / density;
+	real density = state.x;
+	real2 velocity = state.yz / density;
+	real energyTotal = state.w / density;
 	real energyKinetic = .5f * dot(velocity, velocity);
 	real energyThermal = energyTotal - energyKinetic;
 
@@ -369,13 +393,11 @@ __kernel void addDrop(
 	energyKinetic = .5f * dot(velocity, velocity);
 	energyTotal = energyThermal + energyKinetic;
 
-	cell->q.x = density;
-	cell->q.yz = density * velocity;
-	cell->q.w = density * energyTotal;
+	stateBuffer[index] = (real4)(1.f, velocity.x, velocity.y, energyTotal) * density;
 }
 
 __kernel void addSource(
-	__global Cell* cells,
+	__global real4* stateBuffer,
 	int2 size,
 	real2 xmin,
 	real2 xmax,

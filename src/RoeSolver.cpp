@@ -1,4 +1,4 @@
-#include "HydroGPU/Shared/Roe.h"	//OpenCL shared header
+#include "HydroGPU/Shared/Types.h"	//OpenCL shared header
 #include "HydroGPU/RoeSolver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
@@ -74,15 +74,28 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	//warnings?
 	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
 
-	std::vector<Cell> cells(size.s[0] * size.s[1]);
+	//memory
+
+	int volume = size.s[0] * size.s[1];
+
+	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume);
+	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
+	eigenvectorsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * 2);
+	eigenvectorsInverseBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * 2);
+	deltaQTildeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
+	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
+	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
+	cflTimestepBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
+
 	{
 		const real noise = .01;
 		int index[DIM];
-		
-		Cell *cell = &cells[0];
+
+		std::vector<real4> stateVec(volume);
+		real4* state = &stateVec[0];	
 		//for (index[2] = 0; index[2] < size.s[2]; ++index[2]) {
 			for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
-				for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++cell) {
+				for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++state) {
 					
 					bool lhs = true;
 					Tensor::Vector<real, 2> x;
@@ -108,83 +121,86 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 					real energyThermal = 1.;
 					real energyTotal = energyKinetic + energyThermal;
 
-					cell->q.s[0] = density;
+					state->s[0] = density;
 					for (int n = 0; n < DIM; ++n) {
-						cell->q.s[n+1] = density * velocity[n];
+						state->s[n+1] = density * velocity[n];
 					}
-					cell->q.s[DIM+1] = density * energyTotal;
+					state->s[DIM+1] = density * energyTotal;
 				}
 			}
 		//}
-	}
-
-	unsigned int count = size.s[0] * size.s[1];
-	cellsMem = cl::Buffer(context,  CL_MEM_READ_WRITE, sizeof(Cell) * count);
-	commands.enqueueWriteBuffer(cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0]);
 	
-	cflMem = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * count);
-	cflTimestepMem = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
-
-	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
-	calcCFLAndDeltaQTildeKernel = cl::Kernel(program, "calcCFLAndDeltaQTilde");
-	calcCFLMinReduceKernel = cl::Kernel(program, "calcCFLMinReduce");
-	calcCFLMinFinalKernel = cl::Kernel(program, "calcCFLMinFinal");
-	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	updateStateKernel = cl::Kernel(program, "updateState");
-	convertToTexKernel = cl::Kernel(program, "convertToTex");
-	addDropKernel = cl::Kernel(program, "addDrop");
-	addSourceKernel = cl::Kernel(program, "addSource");
-
-	std::vector<cl::Kernel*> kernels = {
-		&calcEigenBasisKernel,
-		&calcCFLAndDeltaQTildeKernel,
-		&calcFluxKernel,
-		&updateStateKernel,
-		&addDropKernel,
-		&addSourceKernel,
-	};
-	std::for_each(kernels.begin(), kernels.end(), [&](cl::Kernel* kernel) {
-		kernel->setArg(0, cellsMem);
-		kernel->setArg(1, size);
-	});
-
+		commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
+	}
+	
 	real2 dx;
 	for (int i = 0; i < DIM; ++i) {
 		dx.s[i] = (xmax.s[i] - xmin.s[i]) / (float)size.s[i];
 	}
-	
-	calcFluxKernel.setArg(2, dx);
-	calcFluxKernel.setArg(3, cflTimestepMem);
 
-	updateStateKernel.setArg(2, dx);
-	updateStateKernel.setArg(3, cflTimestepMem);
+	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
+	calcEigenBasisKernel.setArg(0, eigenvaluesBuffer);
+	calcEigenBasisKernel.setArg(1, eigenvectorsBuffer);
+	calcEigenBasisKernel.setArg(2, eigenvectorsInverseBuffer);
+	calcEigenBasisKernel.setArg(3, stateBuffer);
+	calcEigenBasisKernel.setArg(4, size);
 	
-	calcCFLAndDeltaQTildeKernel.setArg(2, cflMem);
-	calcCFLAndDeltaQTildeKernel.setArg(3, dx);
+	calcCFLAndDeltaQTildeKernel = cl::Kernel(program, "calcCFLAndDeltaQTilde");
+	calcCFLAndDeltaQTildeKernel.setArg(0, cflBuffer);
+	calcCFLAndDeltaQTildeKernel.setArg(1, deltaQTildeBuffer);
+	calcCFLAndDeltaQTildeKernel.setArg(2, eigenvaluesBuffer);
+	calcCFLAndDeltaQTildeKernel.setArg(3, eigenvectorsInverseBuffer);
+	calcCFLAndDeltaQTildeKernel.setArg(4, stateBuffer);
+	calcCFLAndDeltaQTildeKernel.setArg(5, size);
+	calcCFLAndDeltaQTildeKernel.setArg(6, dx);
 
-	calcCFLMinReduceKernel.setArg(0, cflMem);
+	calcCFLMinReduceKernel = cl::Kernel(program, "calcCFLMinReduce");
+	calcCFLMinReduceKernel.setArg(0, cflBuffer);
 	calcCFLMinReduceKernel.setArg(1, cl::Local(localSizeVec(0) * sizeof(real)));
 	
-	calcCFLMinFinalKernel.setArg(0, cflMem);
+	calcCFLMinFinalKernel = cl::Kernel(program, "calcCFLMinFinal");
+	calcCFLMinFinalKernel.setArg(0, cflBuffer);
 	calcCFLMinFinalKernel.setArg(1, cl::Local(localSizeVec(0) * sizeof(real)));
-	calcCFLMinFinalKernel.setArg(2, cflTimestepMem);
+	calcCFLMinFinalKernel.setArg(2, cflTimestepBuffer);
 	calcCFLMinFinalKernel.setArg(3, cfl);
 
+	calcFluxKernel = cl::Kernel(program, "calcFlux");
+	calcFluxKernel.setArg(0, fluxBuffer);
+	calcFluxKernel.setArg(1, stateBuffer);
+	calcFluxKernel.setArg(2, eigenvaluesBuffer);
+	calcFluxKernel.setArg(3, eigenvectorsBuffer);
+	calcFluxKernel.setArg(4, eigenvectorsInverseBuffer);
+	calcFluxKernel.setArg(5, deltaQTildeBuffer);
+	calcFluxKernel.setArg(6, size);
+	calcFluxKernel.setArg(7, dx);
+	calcFluxKernel.setArg(8, cflTimestepBuffer);
+	
+	updateStateKernel = cl::Kernel(program, "updateState");
+	updateStateKernel.setArg(0, stateBuffer); 
+	updateStateKernel.setArg(1, fluxBuffer); 
+	updateStateKernel.setArg(2, size); 
+	updateStateKernel.setArg(3, dx);
+	updateStateKernel.setArg(4, cflTimestepBuffer);
+	
+	convertToTexKernel = cl::Kernel(program, "convertToTex");
+	convertToTexKernel.setArg(0, stateBuffer);
+	convertToTexKernel.setArg(1, size);
+	convertToTexKernel.setArg(2, fluidTexMem);
+	convertToTexKernel.setArg(3, gradientTexMem);
+
+	addDropKernel = cl::Kernel(program, "addDrop");
+	addDropKernel.setArg(0, stateBuffer);
+	addDropKernel.setArg(1, size);
 	addDropKernel.setArg(2, xmin);
 	addDropKernel.setArg(3, xmax);
-	addDropKernel.setArg(4, cflTimestepMem);
+	addDropKernel.setArg(4, cflTimestepBuffer);
 
+	addSourceKernel = cl::Kernel(program, "addSource");
+	addSourceKernel.setArg(0, stateBuffer);
+	addSourceKernel.setArg(1, size);
 	addSourceKernel.setArg(2, xmin);
 	addSourceKernel.setArg(3, xmax);
-	addSourceKernel.setArg(4, cflTimestepMem);
-
-	//if (useGPU) 
-	{
-		convertToTexKernel.setArg(0, cellsMem);
-		convertToTexKernel.setArg(1, size);
-		convertToTexKernel.setArg(2, fluidTexMem);
-		convertToTexKernel.setArg(3, gradientTexMem);
-	}
+	addSourceKernel.setArg(4, cflTimestepBuffer);
 }
 
 RoeSolver::~RoeSolver() {
@@ -236,14 +252,14 @@ void RoeSolver::update() {
 	if (useGPU) {
 		commands.enqueueNDRangeKernel(convertToTexKernel, offset2d, globalSize, localSize);
 	} else {
-		int count = size.s[0] * size.s[1];
-		std::vector<Cell> cells(count);
-		commands.enqueueReadBuffer(cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0]);  
-		std::vector<Tensor::Vector<char,4>> buffer(count);
-		for (int i = 0; i < count; ++i) {
-			buffer[i](0) = (char)(255.f * cells[i].q.s[0] * .9f);
+		int volume = size.s[0] * size.s[1];
+		std::vector<real4> stateVec(volume);
+		commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);  
+		std::vector<Tensor::Vector<char,4>> texVec(volume);
+		for (int i = 0; i < volume; ++i) {
+			texVec[i](0) = (char)(255.f * stateVec[i].s[0] * .9f);
 		}
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size.s[0], size.s[1], GL_RGBA, GL_UNSIGNED_BYTE, &buffer[0].v);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size.s[0], size.s[1], GL_RGBA, GL_UNSIGNED_BYTE, &texVec[0].v);
 	}
 
 	commands.enqueueReleaseGLObjects(&acquireGLMems);
@@ -275,15 +291,15 @@ void RoeSolver::screenshot() {
 			Image::ImageType<float> image(
 				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
 				NULL, 1);
-			int count = app.size.s[0] * app.size.s[1];
-			std::vector<Cell> cells(count);
-			app.commands.enqueueReadBuffer(cellsMem, CL_TRUE, 0, sizeof(Cell) * count, &cells[0]);
+			int volume = app.size.s[0] * app.size.s[1];
+			std::vector<real4> stateVec(volume);
+			app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
 			app.commands.flush();
 			app.commands.finish();
-			Cell *cell = &cells[0];
+			real4* state = &stateVec[0];
 			for (int j = 0; j < app.size.s[1]; ++j) {
-				for (int i = 0; i < app.size.s[0]; ++i, ++cell) {
-					image(i,j) = cell->q.s[0];
+				for (int i = 0; i < app.size.s[0]; ++i, ++state) {
+					image(i,j) = state->s[0];
 				}
 			}
 			Image::sys->write(filename, &image);
