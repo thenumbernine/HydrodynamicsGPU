@@ -1,5 +1,5 @@
 #include "HydroGPU/Shared/Types.h"	//OpenCL shared header
-#include "HydroGPU/RoeSolver.h"
+#include "HydroGPU/BurgersSolver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
 #include "Common/Exception.h"
@@ -9,7 +9,7 @@
 #include <OpenGL/gl.h>
 #include <fstream>
 
-RoeSolver::RoeSolver(HydroGPUApp &app_)
+BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 : app(app_)
 , calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
@@ -20,7 +20,6 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 , updateStateEvent("updateState")
 , addSourceEvent("addSource")
 , cfl(.5f)
-, drop(false)
 {
 	cl::Device device = app.device;
 	cl::Context context = app.context;
@@ -60,7 +59,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	globalSize = cl::NDRange(globalSizeVec(0), globalSizeVec(1));
 	localSize = cl::NDRange(localSizeVec(0), localSizeVec(1));
 
-	std::string kernelSource = Common::File::read("Roe.cl");
+	std::string kernelSource = Common::File::read("Burgers.cl");
 	std::vector<std::pair<const char *, size_t>> sources = {
 		std::pair<const char *, size_t>(kernelSource.c_str(), kernelSource.length())
 	};
@@ -210,7 +209,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	addSourceKernel.setArg(4, cflTimestepBuffer);
 }
 
-RoeSolver::~RoeSolver() {
+BurgersSolver::~BurgersSolver() {
 	std::cout << "OpenCL profiling info:" << std::endl;
 	for (EventProfileEntry *entry : entries) {
 		std::cout << entry->name << "\t" 
@@ -219,7 +218,7 @@ RoeSolver::~RoeSolver() {
 	}
 }
 
-void RoeSolver::update() {
+void BurgersSolver::update() {
 	cl::CommandQueue commands = app.commands;
 	cl::ImageGL fluidTexMem = app.fluidTexMem;
 	cl_int2 size = app.size;
@@ -227,14 +226,7 @@ void RoeSolver::update() {
 	
 	cl::NDRange offset2d(0, 0);
 
-	if (drop) {
-		addDropKernel.setArg(5, dropPos);
-		addDropKernel.setArg(6, dropVel);
-		commands.enqueueNDRangeKernel(addDropKernel, offset2d, globalSize, localSize);
-		drop = false;
-	}
-
-	//commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
+	commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset2d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcCFLKernel, offset2d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offset2d, globalSize, localSize, NULL, &calcDeltaQTildeEvent.clEvent);
@@ -288,15 +280,18 @@ void RoeSolver::update() {
 	}
 }
 
-void RoeSolver::addDrop(Tensor::Vector<float,2> pos, Tensor::Vector<float,2> vel) {
-	dropPos.s[0] = pos(0);
-	dropPos.s[1] = pos(1);
-	dropVel.s[0] = vel(0);
-	dropVel.s[1] = vel(1);
-	drop = true;
+void BurgersSolver::addDrop(Tensor::Vector<float,2> pos, Tensor::Vector<float,2> vel) {
+	cl::NDRange offset2d(0, 0);
+	addSourcePos.s[0] = pos(0);
+	addSourcePos.s[1] = pos(1);
+	addSourceVel.s[0] = vel(0);
+	addSourceVel.s[1] = vel(1);
+	addDropKernel.setArg(5, addSourcePos);
+	addDropKernel.setArg(6, addSourceVel);
+	commands.enqueueNDRangeKernel(addDropKernel, offset2d, globalSize, localSize);
 }
 
-void RoeSolver::screenshot() {
+void BurgersSolver::screenshot() {
 	for (int i = 0; i < 1000; ++i) {
 		std::string filename = std::string("screenshot") + std::to_string(i) + ".fits";
 		if (!Common::File::exists(filename)) {

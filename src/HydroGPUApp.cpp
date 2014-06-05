@@ -1,5 +1,6 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/RoeSolver.h"
+#include "HydroGPU/BurgersSolver.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/Macros.h"
@@ -132,7 +133,7 @@ PROFILE_BEGIN_FRAME()
 	Super::update();	//glclear 
 
 	bool guiDown = leftGuiDown || rightGuiDown;
-	if (leftButtonDown && !guiDown) {
+	if (rightButtonDown || (leftButtonDown && guiDown)) {
 		solver->addDrop(mousePos, mouseVel);
 	}
 	
@@ -175,7 +176,7 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 		{
 			int dx = event.motion.xrel;
 			int dy = event.motion.yrel;
-			if (rightButtonDown || (leftButtonDown && guiDown)) {
+			if (leftButtonDown && !guiDown) {
 				if (shiftDown) {
 					if (dy) {
 						float scale = exp((float)dy * -.03f); 
@@ -193,6 +194,8 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			mousePos(0) = (float)event.motion.x / (float)screenSize(0) * (xmax.s[0] - xmin.s[0]) + xmin.s[0];
 			mousePos(0) *= aspectRatio;	//only if xmin/xmax is symmetric. otehrwise more math required.
 			mousePos(1) = (1.f - (float)event.motion.y / (float)screenSize(1)) * (xmax.s[1] - xmin.s[1]) + xmin.s[1];
+			mousePos += viewPos;
+			mousePos /= viewZoom;
 			mouseVel(0) = (float)event.motion.xrel / (float)screenSize(0);
 			mouseVel(1) = (float)event.motion.yrel / (float)screenSize(1);
 		}

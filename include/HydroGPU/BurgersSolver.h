@@ -8,7 +8,7 @@
 
 struct HydroGPUApp;
 
-struct RoeSolver : public Solver {
+struct BurgersSolver : public Solver {
 	cl::Program program;
 	cl::CommandQueue commands;
 	
@@ -53,16 +53,16 @@ struct RoeSolver : public Solver {
 
 	cl::NDRange globalSize, localSize;
 
-	cl_float2 dropPos, dropVel;
+	cl_float2 addSourcePos, addSourceVel;
 	
 	real cfl;
-	bool drop;
 
-	RoeSolver(HydroGPUApp &app);
-	virtual ~RoeSolver();
+	BurgersSolver(HydroGPUApp &app);
+	virtual ~BurgersSolver();
 
 	virtual void update();
 	virtual void addDrop(Tensor::Vector<float,DIM> pos, Tensor::Vector<float,DIM> vel);
 	virtual void screenshot();
 };
+
 

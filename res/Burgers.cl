@@ -46,14 +46,14 @@ __kernel void calcEigenBasis(
 		real energyTotalR = stateR.w * invDensityR;
 
 		real energyKineticL = .5f * dot(velocityL, velocityL);
-		real energyInternalL = energyTotalL - energyKineticL;
-		real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
+		real energyThermalL = energyTotalL - energyKineticL;
+		real pressureL = (GAMMA - 1.f) * densityL * energyThermalL;
 		real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
 		real weightL = sqrt(densityL);
 
 		real energyKineticR = .5f * dot(velocityR, velocityR);
-		real energyInternalR = energyTotalR - energyKineticR;
-		real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
+		real energyThermalR = energyTotalR - energyKineticR;
+		real pressureR = (GAMMA - 1.f) * densityR * energyThermalR;
 		real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
 		real weightR = sqrt(densityR);
 
@@ -319,7 +319,7 @@ __kernel void updateState(
 	const __global real4* fluxBuffer,
 	int2 size,
 	real2 dx,
-	const __global real* dt)
+	__global real* dt)
 {
 	real2 dt_dx = *dt / dx;
 	
@@ -352,17 +352,10 @@ __kernel void convertToTex(
 	
 	int index = i.x + size.x * i.y;
 	real4 state = stateBuffer[index];
-	
-	//density coloring
-	real value = state.x;
-
-	//velocity coloring
-	//real2 velocity = state.yz / state.x;
-	//real value = log(dot(velocity, velocity) + 1.f);
 
 	float4 color = read_imagef(gradientTex, 
 		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_NONE | CLK_FILTER_LINEAR,
-		(float2)(value * 2.f, .5f));
+		(float2)(state.w * 2.f, .5f));
 	write_imagef(fluidTex, i, color.bgra);
 }
 
@@ -371,7 +364,7 @@ __kernel void addDrop(
 	int2 size,
 	real2 xmin,
 	real2 xmax,
-	const __global real* dt,
+	__global real* dt,
 	real2 pos,
 	real2 sourceVelocity)
 {
@@ -381,30 +374,28 @@ __kernel void addDrop(
 	int index = i.x + size.x * i.y;
 	real4 state = stateBuffer[index];
 
-	const float dropRadius = .02f;
-	const float densityMagnitude = 50.f;
-	const float velocityMagnitude = 10000.f;
-	const float energyInternalMagnitude = 0.f;
-	
-	real cellPosX = (real)i.x / (real)size.x * (xmax.x - xmin.x) + xmin.x;
-	real cellPosY = (real)i.y / (real)size.y * (xmax.y - xmin.y) + xmin.y;
-	real2 cellPos = (real2)(cellPosX, cellPosY);
-	real2 dx = (cellPos - pos) / dropRadius;
+	float dropRadius = .02f;
+	float densityMagnitude = .05f;
+	float velocityMagnitude = 1.f;
+	float energyThermalMagnitude = 0.f;
+
+	real2 x = (real2)(i.x, i.y) / (real2)(size.x, size.y) * (xmax - xmin) + xmin;
+	real2 dx = (x - pos) / dropRadius;
 	float rSq = dot(dx, dx);
 	float falloff = exp(-rSq);
-	
+
 	real density = state.x;
 	real2 velocity = state.yz / density;
 	real energyTotal = state.w / density;
 	real energyKinetic = .5f * dot(velocity, velocity);
-	real energyInternal = energyTotal - energyKinetic;
+	real energyThermal = energyTotal - energyKinetic;
 
-	density += *dt * densityMagnitude * falloff;
-	velocity += *dt * sourceVelocity * (falloff * velocityMagnitude);
-	energyInternal += *dt * energyInternalMagnitude * falloff;
+	density += densityMagnitude * falloff;
+	velocity += sourceVelocity * (falloff * velocityMagnitude);
+	energyThermal += energyThermalMagnitude * falloff;
 
 	energyKinetic = .5f * dot(velocity, velocity);
-	energyTotal = energyInternal + energyKinetic;
+	energyTotal = energyThermal + energyKinetic;
 
 	stateBuffer[index] = (real4)(1.f, velocity.x, velocity.y, energyTotal) * density;
 }
@@ -414,35 +405,20 @@ __kernel void addSource(
 	int2 size,
 	real2 xmin,
 	real2 xmax,
-	const __global real* dt)
+	__global real* dt)
 {
+return;// working on this
+#if 0
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 
-	const float radius = .05f;
-
-	real cellPosX = (real)i.x / (real)size.x * (xmax.x - xmin.x) + xmin.x;
-	real cellPosY = (real)i.y / (real)size.y * (xmax.y - xmin.y) + xmin.y;
-	real2 cellPos = (real2)(cellPosX, cellPosY);
-	real2 sourcePos = (real2)(xmin.x, .5f * (xmax.y + xmin.y));
-	real2 dx = (cellPos - sourcePos) / radius;
-	real rSq = dot(dx,dx);
-	real falloff = exp(-rSq);
-
 	int index = i.x + size.x * i.y;
-	real4 state = stateBuffer[index];
-	real density = state.x;
-	real2 velocity = state.yz / density;
-	real energyTotal = state.w / density;
-	real energyKinetic = .5f * dot(velocity, velocity);
-	real energyInternal = energyTotal - energyKinetic;
+	__global Cell *cell = cells + index;
 
-	const float velocityMagnitude = 10.f;
-	velocity.x += velocityMagnitude * falloff * *dt;
+	real2 x = (real2)i / (real2)size * (xmax - xmin) + xmin;
+	real dx2 = dot(x,x);
+	real infl = exp(-10000.f * dx2);
 
-	energyKinetic = .5f * dot(velocity, velocity);
-	energyTotal = energyInternal + energyKinetic;
-
-	stateBuffer[index] = (real4)(1.f, velocity.x, velocity.y, energyTotal) * density;
+	cell->q[1] += infl * *dt; 
+#endif
 }
-
