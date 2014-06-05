@@ -11,7 +11,7 @@ real4 matmul(real16 m, real4 v) {
 		dot(m.sCDEF, v));
 }
 
-__kernel void calcEigenDecomposition(
+__kernel void calcEigenBasis(
 	__global Cell* cells,
 	int2 size)
 {
@@ -334,6 +334,8 @@ __kernel void convertToTex(
 __kernel void addDrop(
 	__global Cell *cells,
 	int2 size,
+	real2 xmin,
+	real2 xmax,
 	__global real* dt,
 	real2 pos,
 	real2 sourceVelocity)
@@ -348,8 +350,9 @@ __kernel void addDrop(
 	float densityMagnitude = .05f;
 	float velocityMagnitude = 1.f;
 	float energyThermalMagnitude = 0.f;
-	
-	real2 dx = (cell->x - pos) / dropRadius;
+
+	real2 x = (real2)(i.x, i.y) / (real2)(size.x, size.y) * (xmax - xmin) + xmin;
+	real2 dx = (x - pos) / dropRadius;
 	float rSq = dot(dx, dx);
 	float falloff = exp(-rSq);
 
@@ -374,7 +377,6 @@ __kernel void addDrop(
 __kernel void addSource(
 	__global Cell* cells,
 	int2 size,
-	real2 dx,
 	real2 xmin,
 	real2 xmax,
 	__global real* dt)

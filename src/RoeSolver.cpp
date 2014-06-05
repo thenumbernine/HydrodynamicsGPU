@@ -11,7 +11,7 @@
 
 RoeSolver::RoeSolver(HydroGPUApp &app_)
 : app(app_)
-, calcEigenDecompositionEvent("calcEigenDecomposition")
+, calcEigenBasisEvent("calcEigenBasis")
 , calcCFLAndDeltaQTildeEvent("calcCFLAndDeltaQTilde")
 , calcCFLMinReduceEvent("calcCFLMinReduce")
 , calcCFLMinFinalEvent("calcCFLMinFinal")
@@ -30,7 +30,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	cl_int2 size = app.size;
 	bool useGPU = app.useGPU;
 	
-	entries.push_back(&calcEigenDecompositionEvent);
+	entries.push_back(&calcEigenBasisEvent);
 	entries.push_back(&calcCFLAndDeltaQTildeEvent);
 	entries.push_back(&calcCFLMinReduceEvent);
 	entries.push_back(&calcCFLMinFinalEvent);
@@ -57,7 +57,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	globalSize = cl::NDRange(globalSizeVec(0), globalSizeVec(1));
 	localSize = cl::NDRange(localSizeVec(0), localSizeVec(1));
 
-	std::string kernelSource = Common::File::read("roe_euler_2d.cl");
+	std::string kernelSource = Common::File::read("Roe.cl");
 	std::vector<std::pair<const char *, size_t>> sources = {
 		std::pair<const char *, size_t>(kernelSource.c_str(), kernelSource.length())
 	};
@@ -125,7 +125,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	cflMem = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * count);
 	cflTimestepMem = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
 
-	calcEigenDecompositionKernel = cl::Kernel(program, "calcEigenDecomposition");
+	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
 	calcCFLAndDeltaQTildeKernel = cl::Kernel(program, "calcCFLAndDeltaQTilde");
 	calcCFLMinReduceKernel = cl::Kernel(program, "calcCFLMinReduce");
 	calcCFLMinFinalKernel = cl::Kernel(program, "calcCFLMinFinal");
@@ -136,7 +136,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	addSourceKernel = cl::Kernel(program, "addSource");
 
 	std::vector<cl::Kernel*> kernels = {
-		&calcEigenDecompositionKernel,
+		&calcEigenBasisKernel,
 		&calcCFLAndDeltaQTildeKernel,
 		&calcFluxKernel,
 		&updateStateKernel,
@@ -170,12 +170,13 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	calcCFLMinFinalKernel.setArg(2, cflTimestepMem);
 	calcCFLMinFinalKernel.setArg(3, cfl);
 
-	addDropKernel.setArg(2, cflTimestepMem);
+	addDropKernel.setArg(2, xmin);
+	addDropKernel.setArg(3, xmax);
+	addDropKernel.setArg(4, cflTimestepMem);
 
-	addSourceKernel.setArg(2, dx);
-	addSourceKernel.setArg(3, xmin);
-	addSourceKernel.setArg(4, xmax);
-	addSourceKernel.setArg(5, cflTimestepMem);
+	addSourceKernel.setArg(2, xmin);
+	addSourceKernel.setArg(3, xmax);
+	addSourceKernel.setArg(4, cflTimestepMem);
 
 	//if (useGPU) 
 	{
@@ -204,7 +205,7 @@ void RoeSolver::update() {
 	cl::NDRange offset2d(0, 0);
 
 	commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcEigenDecompositionKernel, offset2d, globalSize, localSize, NULL, &calcEigenDecompositionEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset2d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcCFLAndDeltaQTildeKernel, offset2d, globalSize, localSize, NULL, &calcCFLAndDeltaQTildeEvent.clEvent);
 
 	{
@@ -257,13 +258,14 @@ void RoeSolver::update() {
 }
 
 void RoeSolver::addDrop(Tensor::Vector<float,2> pos, Tensor::Vector<float,2> vel) {
+	cl::NDRange offset2d(0, 0);
 	addSourcePos.s[0] = pos(0);
 	addSourcePos.s[1] = pos(1);
 	addSourceVel.s[0] = vel(0);
 	addSourceVel.s[1] = vel(1);
-	addDropKernel.setArg(3, addSourcePos);
-	addDropKernel.setArg(4, addSourceVel);
-	commands.enqueueNDRangeKernel(addDropKernel, cl::NDRange(0,0), globalSize, localSize);
+	addDropKernel.setArg(5, addSourcePos);
+	addDropKernel.setArg(6, addSourceVel);
+	commands.enqueueNDRangeKernel(addDropKernel, offset2d, globalSize, localSize);
 }
 
 void RoeSolver::screenshot() {

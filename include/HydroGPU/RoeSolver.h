@@ -14,7 +14,7 @@ struct RoeSolver {
 	cl::Buffer cellsMem;		//our main OpenCL buffer for the simulation
 	cl::Buffer cflMem;
 	cl::Buffer cflTimestepMem;
-	cl::Kernel calcEigenDecompositionKernel;
+	cl::Kernel calcEigenBasisKernel;
 	cl::Kernel calcCFLAndDeltaQTildeKernel;
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel calcCFLMinFinalKernel;
@@ -33,7 +33,7 @@ struct RoeSolver {
 
 	HydroGPUApp &app;
 
-	EventProfileEntry calcEigenDecompositionEvent;
+	EventProfileEntry calcEigenBasisEvent;
 	EventProfileEntry calcCFLAndDeltaQTildeEvent;
 	EventProfileEntry calcCFLMinReduceEvent;
 	EventProfileEntry calcCFLMinFinalEvent;
