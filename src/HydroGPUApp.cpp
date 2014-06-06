@@ -13,14 +13,15 @@ HydroGPUApp::HydroGPUApp()
 : Super()
 , fluidTex(GLuint())
 , gradientTex(GLuint())
-, solver(NULL)
+, doUpdate(1)
+, maxFrames(-1)
+, currentFrame(0)
 , leftButtonDown(false)
 , rightButtonDown(false)
 , leftShiftDown(false)
 , rightShiftDown(false)
 , leftGuiDown(false)
 , rightGuiDown(false)
-, doUpdate(1)
 , viewZoom(1.f)
 {
 	for (int i = 0; i < DIM; ++i) {
@@ -32,6 +33,11 @@ int HydroGPUApp::main(std::vector<std::string> args) {
 	for (int i = 0; i < args.size(); ++i) {
 		if (args[i] == "--cpu") {
 			useGPU = false;
+		}
+		if (i < args.size()-1) {
+			if (args[i] == "--frames") {
+				maxFrames = std::stoi(args[++i]);
+			}
 		}
 		if (i < args.size()-DIM) {
 			if (args[i] == "--size") {
@@ -129,7 +135,12 @@ void HydroGPUApp::resize(int width, int height) {
 
 void HydroGPUApp::update() {
 PROFILE_BEGIN_FRAME()
-	
+
+	++currentFrame;
+	if (currentFrame == maxFrames) {
+		doUpdate = 0;
+	}
+
 	Super::update();	//glclear 
 
 	bool guiDown = leftGuiDown || rightGuiDown;

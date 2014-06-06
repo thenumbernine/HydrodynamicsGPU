@@ -16,7 +16,10 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	std::shared_ptr<RoeSolver> solver;
 
 	cl_int2 size;
-	  
+	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
+	int maxFrames;	//run this far and pause.  -1 = forever = default
+	int currentFrame;
+
 	bool leftButtonDown;
 	bool rightButtonDown;
 	bool leftShiftDown;
@@ -25,7 +28,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	bool rightGuiDown;
 	Tensor::Vector<real,2> mousePos, mouseVel;
 	real2 xmin, xmax;
-	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
+	
 	Tensor::Vector<int,2> screenSize;
 	float viewZoom;
 	Tensor::Vector<float,2> viewPos;

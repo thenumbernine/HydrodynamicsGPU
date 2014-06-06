@@ -295,9 +295,9 @@ void BurgersSolver::screenshot() {
 	for (int i = 0; i < 1000; ++i) {
 		std::string filename = std::string("screenshot") + std::to_string(i) + ".fits";
 		if (!Common::File::exists(filename)) {
-			Image::ImageType<float> image(
+			std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(
 				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
-				NULL, 1);
+				nullptr, 1);
 			int volume = app.size.s[0] * app.size.s[1];
 			std::vector<real4> stateVec(volume);
 			app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
@@ -306,10 +306,10 @@ void BurgersSolver::screenshot() {
 			real4* state = &stateVec[0];
 			for (int j = 0; j < app.size.s[1]; ++j) {
 				for (int i = 0; i < app.size.s[0]; ++i, ++state) {
-					image(i,j) = state->s[0];
+					(*image)(i,j) = state->s[0];
 				}
 			}
-			Image::sys->write(filename, &image);
+			Image::system->write(filename, image);
 			return;
 		}
 	}
