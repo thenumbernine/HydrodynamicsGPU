@@ -40,7 +40,7 @@ real16 mat44inv(real16 m) {
 	r[3+4*1] = m[0+4*1]*m[2+4*2]*m[3+4*0] - m[0+4*2]*m[2+4*1]*m[3+4*0] + m[0+4*2]*m[2+4*0]*m[3+4*1] - m[0+4*0]*m[2+4*2]*m[3+4*1] - m[0+4*1]*m[2+4*0]*m[3+4*2] + m[0+4*0]*m[2+4*1]*m[3+4*2];
 	r[3+4*2] = m[0+4*2]*m[1+4*1]*m[3+4*0] - m[0+4*1]*m[1+4*2]*m[3+4*0] - m[0+4*2]*m[1+4*0]*m[3+4*1] + m[0+4*0]*m[1+4*2]*m[3+4*1] + m[0+4*1]*m[1+4*0]*m[3+4*2] - m[0+4*0]*m[1+4*1]*m[3+4*2];
 	r[3+4*3] = m[0+4*1]*m[1+4*2]*m[2+4*0] - m[0+4*2]*m[1+4*1]*m[2+4*0] + m[0+4*2]*m[1+4*0]*m[2+4*1] - m[0+4*0]*m[1+4*2]*m[2+4*1] - m[0+4*1]*m[1+4*0]*m[2+4*2] + m[0+4*0]*m[1+4*1]*m[2+4*2];
-	return r * (1. / mat44det(m));
+	return r * (1.f / mat44det(m));
 }
 
 __kernel void calcEigenBasis(
@@ -63,7 +63,9 @@ __kernel void calcEigenBasis(
 
 		real4 stateL = stateBuffer[indexPrev];
 		real4 stateR = stateBuffer[index];
-		
+	
+#if 0	//calculate flux based on normal
+
 		real2 normal = (real2)(0.f, 0.f);
 		normal[side] = 1;
 
@@ -140,7 +142,7 @@ __kernel void calcEigenBasis(
 			eigenvectors.s26AE,
 			eigenvectors.s37BF);
 
-#if 0
+#if 0	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
 		//calculate eigenvector inverses ... 
 		real invDenom = .5f / (speedOfSound * speedOfSound);
 		eigenvectorsInverseBuffer[interfaceIndex] = (real16)( 
@@ -164,11 +166,137 @@ __kernel void calcEigenBasis(
 			(normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
 			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
 			(GAMMA - 1.f) * invDenom);
-
-#else	//numerically solve for the inverse
-
+#endif
+#if 1 //numerically solve for the inverse
 		eigenvectorsInverseBuffer[interfaceIndex] = mat44inv(eigenvectorsBuffer[interfaceIndex]);
+#endif
+#endif
 
+
+
+
+
+#if 1	//calculate flux in x-axis and rotate into normal
+
+		real densityL = stateL.x;
+		real invDensityL = 1.f / densityL;
+		real2 velocityL = stateL.yz * invDensityL;
+		real energyTotalL = stateL.w * invDensityL;
+
+		real densityR = stateR.x;
+		real invDensityR = 1.f / densityR;
+		real2 velocityR = stateR.yz * invDensityR;
+		real energyTotalR = stateR.w * invDensityR;
+
+		real energyKineticL = .5f * dot(velocityL, velocityL);
+		real energyInternalL = energyTotalL - energyKineticL;
+		real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
+		real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
+		real weightL = sqrt(densityL);
+
+		real energyKineticR = .5f * dot(velocityR, velocityR);
+		real energyInternalR = energyTotalR - energyKineticR;
+		real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
+		real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
+		real weightR = sqrt(densityR);
+
+		real roeWeightNormalization = 1.f / (weightL + weightR);
+		real2 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
+		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
+		
+		real velocitySq = dot(velocity, velocity);
+		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
+
+		if (side == 1) {
+			velocity.xy = (real2)(velocity.y, -velocity.x);	// -90' rotation to put the y axis contents into the x axis
+		}
+
+		//eigenvalues
+
+		eigenvaluesBuffer[interfaceIndex] =  (real4)(
+			velocity.x - speedOfSound,
+			velocity.x,
+			velocity.x,
+			velocity.x + speedOfSound);
+
+		//eigenvectors
+
+		//specify transposed
+		real16 eigenvectors = (real16)(
+		//min col 
+			1.f,
+			velocity.x - speedOfSound,
+			velocity.y,
+			enthalpyTotal - speedOfSound * velocity.x,
+		//mid col (normal)
+			1.f,
+			velocity.x,
+			velocity.y,
+			.5f * velocitySq,
+		//mid col (tangent)
+			0.f,
+			0.f,
+			1.f,
+			velocity.y,
+		//max col 
+			1.f,
+			velocity.x + speedOfSound,
+			velocity.y,
+			enthalpyTotal + speedOfSound * velocity.x);
+
+		//transpose and store
+		eigenvectors = (real16)(
+			eigenvectors.s048C,
+			eigenvectors.s159D,
+			eigenvectors.s26AE,
+			eigenvectors.s37BF);
+
+#if 1	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
+		//calculate eigenvector inverses ... 
+		real invDenom = .5f / (speedOfSound * speedOfSound);
+		real16 eigenvectorsInverse = (real16)( 
+		//min row
+			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocity.x) * invDenom,
+			-(speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
+			-((GAMMA - 1.f) * velocity.y) * invDenom,
+			(GAMMA - 1.f) * invDenom,
+		//mid normal row
+			1.f - (GAMMA - 1.f) * velocitySq * invDenom,
+			(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
+			(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
+			-(GAMMA - 1.f) * 2.f * invDenom,
+		//mid tangent row
+			-velocity.y, 
+			0.f,
+			1.f,
+			0.f,
+		//max row
+			(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocity.x) * invDenom,
+			(speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
+			-(GAMMA - 1.f) * velocity.y * invDenom,
+			(GAMMA - 1.f) * invDenom);
+#endif
+#if 0 //numerically solve for the inverse
+		real16 eigenvectorsInverse = mat44inv(eigenvectors);
+#endif
+
+		if (side == 1) {
+			//-90' rotation applied to the LHS of incoming velocity vectors, to move their y axis into the x axis
+			// is equivalent of a -90' rotation applied to the RHS of the flux jacobian A
+			// and A = Q V Q-1 for Q = the right eigenvectors and Q-1 the left eigenvectors
+			// so a -90' rotation applied to the RHS of A is a +90' rotation applied to the RHS of Q-1 the left eigenvectors
+			//and while a rotation applied to the LHS of a vector rotates the elements of its column vectors, a rotation applied to the RHS rotates the elements of its row vectors 
+			//each row's y <- x, x <- -y
+			eigenvectorsInverse.s159D26AE = (real8)(-eigenvectorsInverse.s26AE, eigenvectorsInverse.s159D);
+	
+			//a -90' rotation applied to the RHS of A must be corrected with a 90' rotation on the LHS of A
+			//this rotates the elements of the column vectors by 90'
+			//each column's x <- y, y <- -x
+			eigenvectors.s456789AB = (real8)(-eigenvectors.s89AB, eigenvectors.s4567);
+		}
+		
+		eigenvectorsBuffer[interfaceIndex] = eigenvectors;
+		eigenvectorsInverseBuffer[interfaceIndex] = eigenvectorsInverse;
 #endif
 	}
 }
