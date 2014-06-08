@@ -152,6 +152,8 @@ __kernel void calcStateSlope(
 				} else {
 					stateSlope[j] = (stateR2[j] - stateR1[j]) / deltaState[j];
 				}
+			} else {
+				stateSlope[j] = 0.f;
 			}
 		}
 		stateSlopeBuffer[side + 2 * index] = stateSlope;
@@ -160,7 +162,9 @@ __kernel void calcStateSlope(
 
 real4 fluxMethod(real4 r) {
 	//superbee
-	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
+	//return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
+	//donor cell
+	return (real4)(0.f, 0.f, 0.f, 0.f);
 }
 
 __kernel void calcFlux(
@@ -204,7 +208,7 @@ __kernel void calcFlux(
 	}
 }
 
-__kernel void updateState(
+__kernel void integrateFlux(
 	__global real4* stateBuffer,
 	const __global real4* fluxBuffer,
 	int2 size,
@@ -229,6 +233,90 @@ __kernel void updateState(
 		real4 df = fluxR - fluxL;
 		stateBuffer[index] -= df * dt_dx[side];
 	}
+}
+
+__kernel void computePressure(
+	__global real* pressureBuffer,
+	const __global real4* stateBuffer,
+	int2 size,
+	real2 dx)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	if (i.x >= size.x || i.y >= size.y) return;
+	int index = i.x + size.x * i.y;
+	
+	real4 state = stateBuffer[index];
+	
+	real density = state.x;
+	real2 velocity = state.yz / density;
+	real energyTotal = state.w / density;
+	
+	real energyKinetic = .5f * dot(velocity, velocity);
+	real energyInternal = energyTotal - energyKinetic;
+	
+	pressureBuffer[index] = (GAMMA - 1.f) * density * energyInternal;
+}
+
+__kernel void diffuseMomentum(
+	__global real4* stateBuffer,
+	const __global real* pressureBuffer,
+	int2 size,
+	real2 dx,
+	const __global real* dt)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	if (i.x >= size.x || i.y >= size.y) return;
+	int index = i.x + size.x * i.y;
+
+	real2 deltaMomentum = (real2)(0.f, 0.f);
+	for (int side = 0; side < 2; ++side) {
+		int2 iPrev = i;
+		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		int indexPrev = iPrev.x + size.x * iPrev.y;
+		
+		int2 iNext = i;
+		iNext[side] = (iNext[side] + 1) % size[side];
+		int indexNext = iNext.x + size.x * iNext.y;
+
+		real deltaPressure = pressureBuffer[indexNext] - pressureBuffer[indexPrev];
+		deltaMomentum[side] = -deltaPressure / (2.f * dx[side]);
+	}
+	stateBuffer[index].yz += *dt * deltaMomentum;
+}
+
+__kernel void diffuseWork(
+	__global real4* stateBuffer,
+	const __global real* pressureBuffer,
+	int2 size,
+	real2 dx,
+	const __global real* dt)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	if (i.x >= size.x || i.y >= size.y) return;
+	int index = i.x + size.x * i.y;
+
+	real deltaWork = 0.f;
+	for (int side = 0; side < 2; ++side) {
+		int2 iPrev = i;
+		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		int indexPrev = iPrev.x + size.x * iPrev.y;
+		
+		int2 iNext = i;
+		iNext[side] = (iNext[side] + 1) % size[side];
+		int indexNext = iNext.x + size.x * iNext.y;
+
+		real4 stateL = stateBuffer[indexPrev];
+		real4 stateR = stateBuffer[indexNext];
+
+		real velocityL = stateL.yz[side] / stateL.x;
+		real velocityR = stateR.yz[side] / stateR.x;
+		
+		real pressureL = pressureBuffer[indexPrev];
+		real pressureR = pressureBuffer[indexNext];
+
+		deltaWork -= (pressureR * velocityR - pressureL * velocityL) / (2.f * dx[side]);
+	}
+	stateBuffer[index].w += *dt * deltaWork;
 }
 
 __kernel void convertToTex(

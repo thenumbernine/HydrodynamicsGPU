@@ -17,7 +17,10 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 , calcInterfaceVelocityEvent("calcInterfaceVelocity")
 , calcStateSlopeEvent("calcStateSlope")
 , calcFluxEvent("calcFlux")
-, updateStateEvent("updateState")
+, integrateFluxEvent("integrateFlux")
+, computePressureEvent("computePressure")
+, diffuseMomentumEvent("diffuseMomentum")
+, diffuseWorkEvent("diffuseWork")
 , addSourceEvent("addSource")
 , cfl(.5f)
 {
@@ -37,7 +40,10 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	entries.push_back(&calcInterfaceVelocityEvent);
 	entries.push_back(&calcStateSlopeEvent);
 	entries.push_back(&calcFluxEvent);
-	entries.push_back(&updateStateEvent);
+	entries.push_back(&integrateFluxEvent);
+	entries.push_back(&computePressureEvent);
+	entries.push_back(&diffuseMomentumEvent);
+	entries.push_back(&diffuseWorkEvent);
 
 	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
 	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
@@ -84,6 +90,7 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real2) * volume);
 	stateSlopeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
+	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 	cflTimestepBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
 
@@ -156,8 +163,17 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
 	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, stateSlopeBuffer, size, dx, cflTimestepBuffer);
 	
-	updateStateKernel = cl::Kernel(program, "updateState");
-	app.setArgs(updateStateKernel, stateBuffer, fluxBuffer, size, dx, cflTimestepBuffer);
+	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
+	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, size, dx, cflTimestepBuffer);
+	
+	computePressureKernel = cl::Kernel(program, "computePressure");
+	app.setArgs(computePressureKernel, pressureBuffer, stateBuffer, size, dx);
+	
+	diffuseMomentumKernel = cl::Kernel(program, "diffuseMomentum");
+	app.setArgs(diffuseMomentumKernel, stateBuffer, pressureBuffer, size, dx, cflTimestepBuffer);
+	
+	diffuseWorkKernel = cl::Kernel(program, "diffuseWork");
+	app.setArgs(diffuseWorkKernel, stateBuffer, pressureBuffer, size, dx, cflTimestepBuffer);
 	
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, size, fluidTexMem, gradientTexMem);
@@ -208,7 +224,10 @@ void BurgersSolver::update() {
 	}
 
 	commands.enqueueNDRangeKernel(calcFluxKernel, offset2d, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
-	commands.enqueueNDRangeKernel(updateStateKernel, offset2d, globalSize, localSize, NULL, &updateStateEvent.clEvent);
+	commands.enqueueNDRangeKernel(integrateFluxKernel, offset2d, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(computePressureKernel, offset2d, globalSize, localSize, NULL, &computePressureEvent.clEvent);
+	commands.enqueueNDRangeKernel(diffuseMomentumKernel, offset2d, globalSize, localSize, NULL, &diffuseMomentumEvent.clEvent);
+	commands.enqueueNDRangeKernel(diffuseWorkKernel, offset2d, globalSize, localSize, NULL, &diffuseWorkEvent.clEvent);
 
 	glFlush();
 	glFinish();
