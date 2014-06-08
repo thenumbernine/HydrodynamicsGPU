@@ -124,7 +124,7 @@ __kernel void calcStateSlope(
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
 	
-		int2 iPrev2 = i;
+		int2 iPrev2 = iPrev;
 		iPrev2[side] = (iPrev2[side] + size[side] - 1) % size[side];
 		int indexPrev2 = iPrev2.x + size.x * iPrev2.y;
 		
