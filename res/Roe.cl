@@ -466,8 +466,8 @@ __kernel void calcFlux(
 		real16 eigenvectors = eigenvectorsBuffer[interfaceIndex];
 		real16 eigenvectorsInverse = eigenvectorsInverseBuffer[interfaceIndex];
 
-		real4 egz = step(0.f, eigenvalues);
-		real4 rTilde = mix(deltaQTildeR, deltaQTildeL, egz) / deltaQTilde;
+		real4 eigenvaluesGreaterThanZero = step(0.f, eigenvalues);
+		real4 rTilde = mix(deltaQTildeR, deltaQTildeL, eigenvaluesGreaterThanZero) / deltaQTilde;
 		real4 qAvg = (stateR + stateL) * .5f;
 		real4 fluxAvgTilde = matmul(eigenvectorsInverse, qAvg) * eigenvalues;
 		real4 theta = step(0.f, eigenvalues) * 2.f - 1.f;

@@ -142,20 +142,12 @@ __kernel void calcStateSlope(
 		real4 stateR1 = stateBuffer[indexR1];
 		real4 stateR2 = stateBuffer[indexR2];
 
+		real4 deltaStateL = stateL1 - stateL2;
 		real4 deltaState = stateR1 - stateL1;
+		real4 deltaStateR = stateR2 - stateR1;
 		
-		real4 stateSlope;
-		for (int j = 0; j < 4; ++j) {
-			if (fabs(deltaState[j]) > 0.f) {
-				if (interfaceVelocityBuffer[index][side] >= 0.f) {
-					stateSlope[j] = (stateL1[j] - stateL2[j]) / deltaState[j];
-				} else {
-					stateSlope[j] = (stateR2[j] - stateR1[j]) / deltaState[j];
-				}
-			} else {
-				stateSlope[j] = 0.f;
-			}
-		}
+		real interfaceVelocityGreaterThanZero = step(0.f, interfaceVelocityBuffer[index][side]);
+		real4 stateSlope = mix(deltaStateR, deltaStateL, interfaceVelocityGreaterThanZero) / deltaState;
 		stateSlopeBuffer[side + 2 * index] = stateSlope;
 	}
 }
@@ -180,7 +172,6 @@ __kernel void calcFlux(
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
-
 	int index = i.x + size.x * i.y;
 	
 	for (int side = 0; side < 2; ++side) {	
