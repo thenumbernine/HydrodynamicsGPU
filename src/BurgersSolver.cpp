@@ -11,11 +11,10 @@
 
 BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 : app(app_)
-, calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
-, calcDeltaQTildeEvent("calcDeltaQTilde")
 , calcCFLMinReduceEvent("calcCFLMinReduce")
 , calcCFLMinFinalEvent("calcCFLMinFinal")
+, calcInterfaceVelocityEvent("calcInterfaceVelocity")
 , calcFluxEvent("calcFlux")
 , updateStateEvent("updateState")
 , addSourceEvent("addSource")
@@ -31,9 +30,8 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	cl_int2 size = app.size;
 	bool useGPU = app.useGPU;
 	
-	entries.push_back(&calcEigenBasisEvent);
 	entries.push_back(&calcCFLEvent);
-	entries.push_back(&calcDeltaQTildeEvent);
+	entries.push_back(&calcInterfaceVelocityEvent);
 	entries.push_back(&calcCFLMinReduceEvent);
 	entries.push_back(&calcCFLMinFinalEvent);
 	entries.push_back(&calcFluxEvent);
@@ -81,10 +79,7 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	int volume = size.s[0] * size.s[1];
 
 	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume);
-	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
-	eigenvectorsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * 2);
-	eigenvectorsInverseBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * 2);
-	deltaQTildeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
+	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real2) * volume);
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
 	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 	cflTimestepBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
@@ -140,47 +135,22 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 		dx.s[i] = (xmax.s[i] - xmin.s[i]) / (float)size.s[i];
 	}
 
-	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
-	calcEigenBasisKernel.setArg(0, eigenvaluesBuffer);
-	calcEigenBasisKernel.setArg(1, eigenvectorsBuffer);
-	calcEigenBasisKernel.setArg(2, eigenvectorsInverseBuffer);
-	calcEigenBasisKernel.setArg(3, stateBuffer);
-	calcEigenBasisKernel.setArg(4, size);
-	
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	calcCFLKernel.setArg(0, cflBuffer);
-	calcCFLKernel.setArg(1, eigenvaluesBuffer);
-	calcCFLKernel.setArg(2, size);
-	calcCFLKernel.setArg(3, dx);
-	
-	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
-	calcDeltaQTildeKernel.setArg(0, deltaQTildeBuffer);
-	calcDeltaQTildeKernel.setArg(1, eigenvectorsInverseBuffer);
-	calcDeltaQTildeKernel.setArg(2, stateBuffer);
-	calcDeltaQTildeKernel.setArg(3, size);
-	calcDeltaQTildeKernel.setArg(4, dx);
+	app.setArgs(calcCFLKernel, cflBuffer, stateBuffer, size, dx);
 
 	calcCFLMinReduceKernel = cl::Kernel(program, "calcCFLMinReduce");
-	calcCFLMinReduceKernel.setArg(0, cflBuffer);
-	calcCFLMinReduceKernel.setArg(1, cl::Local(localSizeVec(0) * sizeof(real)));
+	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)));
 	
 	calcCFLMinFinalKernel = cl::Kernel(program, "calcCFLMinFinal");
-	calcCFLMinFinalKernel.setArg(0, cflBuffer);
-	calcCFLMinFinalKernel.setArg(1, cl::Local(localSizeVec(0) * sizeof(real)));
-	calcCFLMinFinalKernel.setArg(2, cflTimestepBuffer);
-	calcCFLMinFinalKernel.setArg(3, cfl);
+	app.setArgs(calcCFLMinFinalKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)), cflTimestepBuffer, cfl);
+
+	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
+	app.setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer, size, dx);
 
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	calcFluxKernel.setArg(0, fluxBuffer);
-	calcFluxKernel.setArg(1, stateBuffer);
-	calcFluxKernel.setArg(2, eigenvaluesBuffer);
-	calcFluxKernel.setArg(3, eigenvectorsBuffer);
-	calcFluxKernel.setArg(4, eigenvectorsInverseBuffer);
-	calcFluxKernel.setArg(5, deltaQTildeBuffer);
-	calcFluxKernel.setArg(6, size);
-	calcFluxKernel.setArg(7, dx);
-	calcFluxKernel.setArg(8, cflTimestepBuffer);
+	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, size, dx, cflTimestepBuffer);
 	
+/*
 	updateStateKernel = cl::Kernel(program, "updateState");
 	updateStateKernel.setArg(0, stateBuffer); 
 	updateStateKernel.setArg(1, fluxBuffer); 
@@ -207,6 +177,7 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	addSourceKernel.setArg(2, xmin);
 	addSourceKernel.setArg(3, xmax);
 	addSourceKernel.setArg(4, cflTimestepBuffer);
+*/
 }
 
 BurgersSolver::~BurgersSolver() {
@@ -227,9 +198,8 @@ void BurgersSolver::update() {
 	cl::NDRange offset2d(0, 0);
 
 	commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset2d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcCFLKernel, offset2d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offset2d, globalSize, localSize, NULL, &calcDeltaQTildeEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offset2d, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
 
 	{
 		cl::NDRange offset1d(0);

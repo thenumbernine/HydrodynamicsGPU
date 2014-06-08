@@ -13,19 +13,15 @@ struct BurgersSolver : public Solver {
 	cl::CommandQueue commands;
 	
 	cl::Buffer stateBuffer;
-	cl::Buffer eigenvaluesBuffer;
-	cl::Buffer eigenvectorsBuffer;
-	cl::Buffer eigenvectorsInverseBuffer;
-	cl::Buffer deltaQTildeBuffer;
+	cl::Buffer interfaceVelocityBuffer;
 	cl::Buffer fluxBuffer;
 	cl::Buffer cflBuffer;
 	cl::Buffer cflTimestepBuffer;
 	
-	cl::Kernel calcEigenBasisKernel;
 	cl::Kernel calcCFLKernel;
-	cl::Kernel calcDeltaQTildeKernel;
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel calcCFLMinFinalKernel;
+	cl::Kernel calcInterfaceVelocityKernel;
 	cl::Kernel calcFluxKernel;
 	cl::Kernel updateStateKernel;
 	cl::Kernel convertToTexKernel;
@@ -41,11 +37,10 @@ struct BurgersSolver : public Solver {
 
 	HydroGPUApp &app;
 
-	EventProfileEntry calcEigenBasisEvent;
 	EventProfileEntry calcCFLEvent;
-	EventProfileEntry calcDeltaQTildeEvent;
 	EventProfileEntry calcCFLMinReduceEvent;
 	EventProfileEntry calcCFLMinFinalEvent;
+	EventProfileEntry calcInterfaceVelocityEvent;
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry updateStateEvent;
 	EventProfileEntry addSourceEvent;

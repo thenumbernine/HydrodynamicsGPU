@@ -11,178 +11,8 @@ real4 matmul(real16 m, real4 v) {
 		dot(m.sCDEF, v));
 }
 
-__kernel void calcEigenBasis(
-	__global real4* eigenvaluesBuffer,
-	__global real16* eigenvectorsBuffer,
-	__global real16* eigenvectorsInverseBuffer,
-	const __global real4* stateBuffer,
-	int2 size)
-{
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
-
-	for (int side = 0; side < 2; ++side) {	
-		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
-
-		int interfaceIndex = side + 2 * index;
-
-		real4 stateL = stateBuffer[indexPrev];
-		real4 stateR = stateBuffer[index];
-		
-		real2 normal = (real2)(0.f, 0.f);
-		normal[side] = 1;
-
-		real densityL = stateL.x;
-		real invDensityL = 1.f / densityL;
-		real2 velocityL = stateL.yz * invDensityL;
-		real energyTotalL = stateL.w * invDensityL;
-
-		real densityR = stateR.x;
-		real invDensityR = 1.f / densityR;
-		real2 velocityR = stateR.yz * invDensityR;
-		real energyTotalR = stateR.w * invDensityR;
-
-		real energyKineticL = .5f * dot(velocityL, velocityL);
-		real energyThermalL = energyTotalL - energyKineticL;
-		real pressureL = (GAMMA - 1.f) * densityL * energyThermalL;
-		real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
-		real weightL = sqrt(densityL);
-
-		real energyKineticR = .5f * dot(velocityR, velocityR);
-		real energyThermalR = energyTotalR - energyKineticR;
-		real pressureR = (GAMMA - 1.f) * densityR * energyThermalR;
-		real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
-		real weightR = sqrt(densityR);
-
-		real roeWeightNormalization = 1.f / (weightL + weightR);
-		real2 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
-		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
-		
-		real velocitySq = dot(velocity, velocity);
-		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
-		
-		real2 tangent = (real2)(-normal.y, normal.x);
-		real velocityN = dot(velocity, normal);
-		real velocityT = dot(velocity, tangent);
-	
-		//eigenvalues
-
-		eigenvaluesBuffer[interfaceIndex] =  (real4)(
-			velocityN - speedOfSound,
-			velocityN,
-			velocityN,
-			velocityN + speedOfSound);
-
-		//eigenvectors
-
-		//specify transposed
-		real16 eigenvectors = (real16)(
-		//min col 
-			1.f,
-			velocity.x - speedOfSound * normal.x,
-			velocity.y - speedOfSound * normal.y,
-			enthalpyTotal - speedOfSound * velocityN,
-		//mid col (normal)
-			1.f,
-			velocity.x,
-			velocity.y,
-			.5f * velocitySq,
-		//mid col (tangent)
-			0.f,
-			tangent.x,
-			tangent.y,
-			velocityT,
-		//max col 
-			1.f,
-			velocity.x + speedOfSound * normal.x,
-			velocity.y + speedOfSound * normal.y,
-			enthalpyTotal + speedOfSound * velocityN);
-
-		//transpose and store
-		eigenvectorsBuffer[interfaceIndex] = (real16)(
-			eigenvectors.s048C,
-			eigenvectors.s159D,
-			eigenvectors.s26AE,
-			eigenvectors.s37BF);
-	
-		//calculate eigenvector inverses ... 
-		real invDenom = .5f / (speedOfSound * speedOfSound);
-		eigenvectorsInverseBuffer[interfaceIndex] = (real16)( 
-		//min row
-			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom,
-			-(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
-			-(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom,
-			(GAMMA - 1.f) * invDenom,
-		//mid normal row
-			1.f - (GAMMA - 1.f) * velocitySq * invDenom,
-			(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
-			(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
-			-(GAMMA - 1.f) * 2.f * invDenom,
-		//mid tangent row
-			-velocityT, 
-			tangent.x,
-			tangent.y,
-			0.f,
-		//max row
-			(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom,
-			(normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
-			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
-			(GAMMA - 1.f) * invDenom);
-	
-	}
-}
-
 __kernel void calcCFL(
 	__global real* cflBuffer,
-	const __global real4* eigenvaluesBuffer,
-	int2 size,
-	real2 dx)
-{
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
-
-	real2 dum;
-	for (int side = 0; side < 2; ++side) {
-		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
-		
-		real4 eigenvaluesL = eigenvaluesBuffer[side + 2 * index];
-		real4 eigenvaluesR = eigenvaluesBuffer[side + 2 * indexNext];
-		
-		real maxLambda = max(
-			0.f,
-			max(
-				max(
-					eigenvaluesL.x,
-					eigenvaluesL.y), 
-				max(
-					eigenvaluesL.z,
-					eigenvaluesL.w)));
-
-		real minLambda = min(
-			0.f,
-			min(
-				min(
-					eigenvaluesR.x,
-					eigenvaluesR.y),
-				min(
-					eigenvaluesR.z,
-					eigenvaluesR.w)));
-
-		dum[side] = dx[side] / (maxLambda - minLambda);
-	}
-		
-	cflBuffer[index] = min(dum.x, dum.y);
-}
-
-__kernel void calcDeltaQTilde(
-	__global real4* deltaQTildeBuffer,
-	const __global real16* eigenvectorsInverseBuffer,
 	const __global real4* stateBuffer,
 	int2 size,
 	real2 dx)
@@ -191,21 +21,17 @@ __kernel void calcDeltaQTilde(
 	if (i.x >= size.x || i.y >= size.y) return;
 	int index = i.x + size.x * i.y;
 
-	for (int side = 0; side < 2; ++side) {
-		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
-				
-		real4 stateL = stateBuffer[indexPrev];
-		real4 stateR = stateBuffer[index];
-
-		int interfaceIndex = side + 2 * index;
-		
-		real4 deltaQ = stateR - stateL;
-		deltaQTildeBuffer[interfaceIndex] = matmul(eigenvectorsInverseBuffer[interfaceIndex], deltaQ);
-	}
+	real4 state = stateBuffer[index];
+	real density = state.x;
+	real2 velocity = state.yz / density;
+	real specificTotalEnergy = state.w / density;
+	real specificKineticEnergy = .5 * dot(velocity, velocity);
+	real specificInternalEnergy = specificTotalEnergy - specificKineticEnergy;
+	real speedOfSound = sqrt(GAMMA * (GAMMA - 1.) * specificInternalEnergy);
+	dum.x = dx.x / (speedOfSound + Math.abs(velocity.x));
+	dum.y = dx.y / (speedOfSound + Math.abs(velocity.y));
+	cflBuffer[index] = min(dum.x, dum.y);
 }
-
 
 __kernel void calcCFLMinReduce(
 	__global real *cflDst, 
@@ -253,6 +79,35 @@ __kernel void calcCFLMinFinal(
 	}
 }
 
+__kernel void calcInterfaceVelocity(
+	__global real4* interfaceVelocityBuffer,
+	const __global real4* stateBuffer,
+	int2 size,
+	real2 dx)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	if (i.x >= size.x || i.y >= size.y) return;
+	int index = i.x + size.x * i.y;
+
+	real2 interfaceVelocity;
+	for (int side = 0; side < 2; ++side) {
+		int2 iPrev = i;
+		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		int indexPrev = iPrev.x + size.x * iPrev.y;
+				
+		real4 stateL = stateBuffer[indexPrev];
+		real densityL = stateL.x;
+		real velocityL = stateL.yz[side] / densityL;
+
+		real4 stateR = stateBuffer[index];
+		real densityR = stateR.x;
+		real velocityR = stateR.yz[side] / densityR;
+
+		interfaceVelocity[side] = .5 * (velocityL + velocityR);
+	}
+	interfaceVelocityBuffer[index] = interfaceVelocity;
+}
+
 real4 fluxMethod(real4 r) {
 	//superbee
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
@@ -261,10 +116,7 @@ real4 fluxMethod(real4 r) {
 __kernel void calcFlux(
 	__global real4* fluxBuffer,
 	const __global real4* stateBuffer,
-	const __global real4* eigenvaluesBuffer,
-	const __global real16* eigenvectorsBuffer,
-	const __global real16* eigenvectorsInverseBuffer,
-	const __global real4* deltaQTildeBuffer,
+	const __global real4* interfaceVelocityBuffer,
 	int2 size,
 	real2 dx,
 	__global real *dt)
