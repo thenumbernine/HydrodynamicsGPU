@@ -1,6 +1,6 @@
 #pragma once
 
-#include "HydroGPU/RoeSolver.h"
+#include "HydroGPU/Solver.h"
 #include "CLApp/CLApp.h"
 #include "Tensor/Vector.h"
 
@@ -13,7 +13,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	cl::ImageGL fluidTexMem;		//data is written to this buffer before rendering
 	cl::ImageGL gradientTexMem;	//as it is written, data is read from this for mapping values to colors
 
-	std::shared_ptr<RoeSolver> solver;
+	std::shared_ptr<Solver> solver;
 
 	cl_int2 size;
 	int doUpdate;	//0 = no, 1 = continuous, 2 = single step

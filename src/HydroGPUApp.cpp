@@ -110,7 +110,7 @@ void HydroGPUApp::init() {
 
 	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex);
 
-	solver = std::make_shared<RoeSolver>(*this);
+	solver = std::make_shared<BurgersSolver>(*this);
 	
 	err = glGetError();
 	if (err) throw Common::Exception() << "GL error " << err;

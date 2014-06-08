@@ -14,6 +14,7 @@ struct BurgersSolver : public Solver {
 	
 	cl::Buffer stateBuffer;
 	cl::Buffer interfaceVelocityBuffer;
+	cl::Buffer stateSlopeBuffer;
 	cl::Buffer fluxBuffer;
 	cl::Buffer cflBuffer;
 	cl::Buffer cflTimestepBuffer;
@@ -22,6 +23,7 @@ struct BurgersSolver : public Solver {
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel calcCFLMinFinalKernel;
 	cl::Kernel calcInterfaceVelocityKernel;
+	cl::Kernel calcStateSlopeKernel;
 	cl::Kernel calcFluxKernel;
 	cl::Kernel updateStateKernel;
 	cl::Kernel convertToTexKernel;
@@ -41,6 +43,7 @@ struct BurgersSolver : public Solver {
 	EventProfileEntry calcCFLMinReduceEvent;
 	EventProfileEntry calcCFLMinFinalEvent;
 	EventProfileEntry calcInterfaceVelocityEvent;
+	EventProfileEntry calcStateSlopeEvent;
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry updateStateEvent;
 	EventProfileEntry addSourceEvent;
