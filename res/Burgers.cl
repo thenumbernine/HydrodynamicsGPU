@@ -1,7 +1,7 @@
 #include "HydroGPU/Shared/Types.h"
 
 real4 matmul(real16 m, real4 v);
-real4 fluxMethod(real4 r);
+real slopeLimiter(real r);
 
 real4 matmul(real16 m, real4 v) {
 	return (real4)(
@@ -56,9 +56,9 @@ __kernel void calcCFLMinReduce(
 }
 
 __kernel void calcCFLMinFinal(
-	__global real *cflDst, 
-	__local real *cflSrc, 
-	__global real *result,
+	__global real* cflDst, 
+	__local real* cflSrc, 
+	__global real* dtBuffer,
 	real cfl,
 	size_t group_size)
 {
@@ -75,7 +75,7 @@ __kernel void calcCFLMinFinal(
 	}
 
 	if(lid == 0) {
-		*result = cflSrc[0] * cfl;
+		dtBuffer[0] = cflSrc[0] * cfl;
 	}
 }
 
@@ -88,21 +88,21 @@ __kernel void calcInterfaceVelocity(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 	int index = i.x + size.x * i.y;
-
+	
 	real2 interfaceVelocity;
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
-				
+		
 		real4 stateL = stateBuffer[indexPrev];
 		real densityL = stateL.x;
-		real velocityL = stateL.yz[side] / densityL;
-
+		real velocityL = stateL[side+1] / densityL;
+		
 		real4 stateR = stateBuffer[index];
 		real densityR = stateR.x;
-		real velocityR = stateR.yz[side] / densityR;
-
+		real velocityR = stateR[side+1] / densityR;
+		
 		interfaceVelocity[side] = .5f * (velocityL + velocityR);
 	}
 	interfaceVelocityBuffer[index] = interfaceVelocity;
@@ -142,24 +142,40 @@ __kernel void calcStateSlopeRatio(
 		real4 stateR1 = stateBuffer[indexR1];
 		real4 stateR2 = stateBuffer[indexR2];
 
+#if 0
 		real4 deltaStateL = stateL1 - stateL2;
 		real4 deltaState = stateR1 - stateL1;
 		real4 deltaStateR = stateR2 - stateR1;
-		
+
 		real interfaceVelocityGreaterThanZero = step(0.f, interfaceVelocityBuffer[index][side]);
 		real4 stateSlopeRatio = mix(deltaStateR, deltaStateL, interfaceVelocityGreaterThanZero) / deltaState;
+		for (int i = 0; i < 4; ++i) {
+			if (fabs(deltaState[i]) < 1e-9f) {
+				stateSlopeRatio[i] = 0.f;
+			}
+		}
+#else
+		real4 stateSlopeRatio;
+		for (int i = 0; i < 4; ++i) {
+			real dq = stateR1[i] - stateL1[i];
+			if (fabs(dq) > 1e-9f) {
+				if (interfaceVelocityBuffer[index][side] >= 0.f) {
+					stateSlopeRatio[i] = (stateL1[i] - stateL2[i]) / dq;
+				} else {
+					stateSlopeRatio[i] = (stateR2[i] - stateR1[i]) / dq;
+				}
+			} else {
+				stateSlopeRatio[i] = 0.f;
+			}
+		}
+#endif
 		stateSlopeRatioBuffer[side + 2 * index] = stateSlopeRatio;
 	}
 }
 
-real4 fluxMethod(real4 r) {
-	//donor cell
-	return (real4)(0.f, 0.f, 0.f, 0.f);
-//errors occur with anything involving a non-zero flux limiter...
-	//Lax-Wendroff
-	//return (real4)(1.f, 1.f, 1.f, 1.f);
+real slopeLimiter(real r) {
 	//superbee
-	//return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
+	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
 __kernel void calcFlux(
@@ -169,9 +185,9 @@ __kernel void calcFlux(
 	const __global real4* stateSlopeRatioBuffer,
 	int2 size,
 	real2 dx,
-	__global real *dt)
+	const __global real* dtBuffer)
 {
-	real2 dt_dx = *dt / dx;
+	real2 dt_dx = dtBuffer[0] / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
@@ -182,7 +198,8 @@ __kernel void calcFlux(
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
 
-		real4 phi = fluxMethod(stateSlopeRatioBuffer[side + 2 * index]);
+#if 0
+		real4 phi = slopeLimiter(stateSlopeRatioBuffer[side + 2 * index]);
 		real interfaceVelocity = interfaceVelocityBuffer[index][side];
 		
 		real4 stateL = stateBuffer[indexPrev];
@@ -195,6 +212,26 @@ __kernel void calcFlux(
 		flux += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side]));
 
 		fluxBuffer[side + 2 * index] = flux;
+#else
+		real4 flux;
+		for (int i = 0; i < 4; ++i) {
+			real phi = slopeLimiter(stateSlopeRatioBuffer[side + 2 * index][i]);
+			real interfaceVelocity = interfaceVelocityBuffer[index][side];
+			real stateL = stateBuffer[indexPrev][i];
+			real stateR = stateBuffer[index][i];
+			if (interfaceVelocity >= 0.f) {
+				flux[i] = interfaceVelocity * stateL;
+			} else {
+				flux[i] = interfaceVelocity * stateR;
+			}
+			//when flux limiter is added, things diverge
+			real delta = phi * (stateR - stateL);
+			flux[i] += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side]));
+			//without flux limiter things are stable, but they don't look like my other sims ...
+			// as if things are advecting too fast?
+		}
+		fluxBuffer[side + 2 * index] = flux;
+#endif
 	}
 }
 
@@ -203,9 +240,9 @@ __kernel void integrateFlux(
 	const __global real4* fluxBuffer,
 	int2 size,
 	real2 dx,
-	__global real* dt)
+	const __global real* dtBuffer)
 {
-	real2 dt_dx = *dt / dx;
+	real2 dt_dx = dtBuffer[0] / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
@@ -219,7 +256,10 @@ __kernel void integrateFlux(
 		
 		real4 fluxL = fluxBuffer[side + 2 * index];
 		real4 fluxR = fluxBuffer[side + 2 * indexNext];
-
+	
+		//toning down the flux keeps things stable
+		//which means pressure is diffusing much faster than it should be
+		//which means ... ?
 		real4 df = fluxR - fluxL;
 		stateBuffer[index] -= df * dt_dx[side];
 	}
@@ -228,8 +268,7 @@ __kernel void integrateFlux(
 __kernel void computePressure(
 	__global real* pressureBuffer,
 	const __global real4* stateBuffer,
-	int2 size,
-	real2 dx)
+	int2 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
@@ -252,13 +291,14 @@ __kernel void diffuseMomentum(
 	const __global real* pressureBuffer,
 	int2 size,
 	real2 dx,
-	const __global real* dt)
+	const __global real* dtBuffer)
 {
+	real2 dt_dx = dtBuffer[0] / dx;
+	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 	int index = i.x + size.x * i.y;
 
-	real2 deltaMomentum = (real2)(0.f, 0.f);
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
@@ -268,10 +308,12 @@ __kernel void diffuseMomentum(
 		iNext[side] = (iNext[side] + 1) % size[side];
 		int indexNext = iNext.x + size.x * iNext.y;
 
-		real deltaPressure = pressureBuffer[indexNext] - pressureBuffer[indexPrev];
-		deltaMomentum[side] = -deltaPressure / (2.f * dx[side]);
+		real pressureL = pressureBuffer[indexPrev];
+		real pressureR = pressureBuffer[indexNext];
+
+		real deltaPressure = .5f * (pressureR - pressureL);
+		stateBuffer[index][side+1] -= deltaPressure * dt_dx[side];
 	}
-	stateBuffer[index].yz += *dt * deltaMomentum;
 }
 
 __kernel void diffuseWork(
@@ -279,13 +321,14 @@ __kernel void diffuseWork(
 	const __global real* pressureBuffer,
 	int2 size,
 	real2 dx,
-	const __global real* dt)
+	const __global real* dtBuffer)
 {
+	real2 dt_dx = dtBuffer[0] / dx;
+	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 	int index = i.x + size.x * i.y;
 
-	real deltaWork = 0.f;
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
@@ -298,15 +341,16 @@ __kernel void diffuseWork(
 		real4 stateL = stateBuffer[indexPrev];
 		real4 stateR = stateBuffer[indexNext];
 
-		real velocityL = stateL.yz[side] / stateL.x;
-		real velocityR = stateR.yz[side] / stateR.x;
+		real velocityL = stateL[side+1] / stateL.x;
+		real velocityR = stateR[side+1] / stateR.x;
 		
 		real pressureL = pressureBuffer[indexPrev];
 		real pressureR = pressureBuffer[indexNext];
 
-		deltaWork -= (pressureR * velocityR - pressureL * velocityL) / (2.f * dx[side]);
+		real deltaWork = .5f * (pressureR * velocityR - pressureL * velocityL);
+
+		stateBuffer[index].w -= deltaWork * dt_dx[side];
 	}
-	stateBuffer[index].w += *dt * deltaWork;
 }
 
 __kernel void convertToTex(
@@ -317,8 +361,8 @@ __kernel void convertToTex(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
-	
 	int index = i.x + size.x * i.y;
+	
 	real4 state = stateBuffer[index];
 
 	float4 color = read_imagef(gradientTex, 
@@ -332,7 +376,6 @@ __kernel void addDrop(
 	int2 size,
 	real2 xmin,
 	real2 xmax,
-	__global real* dt,
 	real2 pos,
 	real2 sourceVelocity)
 {
@@ -373,7 +416,7 @@ __kernel void addSource(
 	int2 size,
 	real2 xmin,
 	real2 xmax,
-	__global real* dt)
+	const __global real* dtBuffer)
 {
 return;// working on this
 #if 0

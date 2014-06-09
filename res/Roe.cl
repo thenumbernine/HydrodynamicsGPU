@@ -527,7 +527,7 @@ __kernel void convertToTex(
 	//real value = log(dot(velocity, velocity) + 1.f);
 
 	float4 color = read_imagef(gradientTex, 
-		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_NONE | CLK_FILTER_LINEAR,
+		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR,
 		(float2)(value * 2.f, .5f));
 	write_imagef(fluidTex, i, color.bgra);
 }

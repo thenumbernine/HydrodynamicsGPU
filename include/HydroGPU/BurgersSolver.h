@@ -18,7 +18,7 @@ struct BurgersSolver : public Solver {
 	cl::Buffer fluxBuffer;
 	cl::Buffer pressureBuffer;
 	cl::Buffer cflBuffer;
-	cl::Buffer cflTimestepBuffer;
+	cl::Buffer dtBuffer;
 	
 	cl::Kernel calcCFLKernel;
 	cl::Kernel calcCFLMinReduceKernel;
@@ -59,7 +59,9 @@ struct BurgersSolver : public Solver {
 	cl::NDRange globalSize, localSize;
 
 	cl_float2 addSourcePos, addSourceVel;
-	
+
+	bool useFixedDT;
+	real fixedDT;
 	real cfl;
 
 	BurgersSolver(HydroGPUApp &app);
@@ -68,6 +70,7 @@ struct BurgersSolver : public Solver {
 	virtual void update();
 	virtual void addDrop(Tensor::Vector<float,DIM> pos, Tensor::Vector<float,DIM> vel);
 	virtual void screenshot();
+	virtual void save();
 };
 
 

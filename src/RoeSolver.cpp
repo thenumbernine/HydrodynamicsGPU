@@ -88,7 +88,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	deltaQTildeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
 	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
-	cflTimestepBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
+	dtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
 
 	{
 		const real noise = .01;
@@ -104,8 +104,9 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 					Tensor::Vector<real, 2> x;
 					for (int n = 0; n < DIM; ++n) {
 						x(n) = real(xmax.s[n] - xmin.s[n]) * real(index[n]) / real(size.s[n]) + real(xmin.s[n]);
-						//if (cell->x.s[n] > real(.3) * real(xmax.s[n]) + real(.7) * real(xmin.s[n]))
+						//if (x(n) > real(.3) * real(xmax.s[n]) + real(.7) * real(xmin.s[n]))
 						if (fabs(x(n)) > real(.15))
+						//if (n == 0 && x(0) < 0)
 						{
 							lhs = false;
 							break;
@@ -154,22 +155,22 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)));
 	
 	calcCFLMinFinalKernel = cl::Kernel(program, "calcCFLMinFinal");
-	app.setArgs(calcCFLMinFinalKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)), cflTimestepBuffer, cfl);
+	app.setArgs(calcCFLMinFinalKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)), dtBuffer, cfl);
 
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app.setArgs(calcFluxKernel,fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, size, dx, cflTimestepBuffer);
+	app.setArgs(calcFluxKernel,fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, size, dx, dtBuffer);
 	
 	updateStateKernel = cl::Kernel(program, "updateState");
-	app.setArgs(updateStateKernel, stateBuffer, fluxBuffer, size, dx, cflTimestepBuffer);
+	app.setArgs(updateStateKernel, stateBuffer, fluxBuffer, size, dx, dtBuffer);
 	
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, size, fluidTexMem, gradientTexMem);
 
 	addDropKernel = cl::Kernel(program, "addDrop");
-	app.setArgs(addDropKernel, stateBuffer, size, xmin, xmax, cflTimestepBuffer);
+	app.setArgs(addDropKernel, stateBuffer, size, xmin, xmax, dtBuffer);
 
 	addSourceKernel = cl::Kernel(program, "addSource");
-	app.setArgs(addSourceKernel, stateBuffer, size, xmin, xmax, cflTimestepBuffer);
+	app.setArgs(addSourceKernel, stateBuffer, size, xmin, xmax, dtBuffer);
 }
 
 RoeSolver::~RoeSolver() {
@@ -242,6 +243,14 @@ void RoeSolver::update() {
 	commands.flush();
 	commands.finish();
 
+	{
+		real dt = real();
+		commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);  
+		commands.flush();
+		commands.finish();
+		std::cout << "dt " << dt << std::endl;
+	}
+
 	for (EventProfileEntry *entry : entries) {
 		cl_ulong start = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_START>();
 		cl_ulong end = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>();
@@ -259,7 +268,26 @@ void RoeSolver::addDrop(Tensor::Vector<float,2> pos, Tensor::Vector<float,2> vel
 
 void RoeSolver::screenshot() {
 	for (int i = 0; i < 1000; ++i) {
-		std::string filename = std::string("screenshot") + std::to_string(i) + ".fits";
+		std::string filename = std::string("screenshot") + std::to_string(i) + ".png";
+		if (!Common::File::exists(filename)) {
+			std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(
+				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
+				nullptr, 4);
+			
+			glBindTexture(GL_TEXTURE_2D, app.fluidTex);
+			glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, image->getData());
+			glBindTexture(GL_TEXTURE_2D, 0);
+			
+			Image::system->write(filename, image);
+			return;
+		}
+	}
+	throw Common::Exception() << "couldn't find an available filename";
+}
+
+void RoeSolver::save() {
+	for (int i = 0; i < 1000; ++i) {
+		std::string filename = std::string("save") + std::to_string(i) + ".fits";
 		if (!Common::File::exists(filename)) {
 			std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(
 				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),

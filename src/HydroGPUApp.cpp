@@ -258,7 +258,11 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 		} else if (event.key.keysym.sym == SDLK_RGUI) {
 			rightGuiDown = false;
 		} else if (event.key.keysym.sym == SDLK_s) {
-			solver->screenshot();
+			if (shiftDown) {
+				solver->save();
+			} else {
+				solver->screenshot();
+			}
 		}
 		break;
 	}

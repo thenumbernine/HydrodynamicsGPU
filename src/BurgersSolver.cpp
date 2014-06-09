@@ -22,6 +22,8 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 , diffuseMomentumEvent("diffuseMomentum")
 , diffuseWorkEvent("diffuseWork")
 , addSourceEvent("addSource")
+, useFixedDT(false)
+, fixedDT(.0001f)
 , cfl(.5f)
 {
 	cl::Device device = app.device;
@@ -34,9 +36,11 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	cl_int2 size = app.size;
 	bool useGPU = app.useGPU;
 	
-	entries.push_back(&calcCFLEvent);
-	entries.push_back(&calcCFLMinReduceEvent);
-	entries.push_back(&calcCFLMinFinalEvent);
+	if (!useFixedDT) {
+		entries.push_back(&calcCFLEvent);
+		entries.push_back(&calcCFLMinReduceEvent);
+		entries.push_back(&calcCFLMinFinalEvent);
+	}
 	entries.push_back(&calcInterfaceVelocityEvent);
 	entries.push_back(&calcStateSlopeRatioEvent);
 	entries.push_back(&calcFluxEvent);
@@ -92,10 +96,10 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
 	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
-	cflTimestepBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
+	dtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
 
 	{
-		const real noise = .01;
+		const real noise = 0;//.01;
 		int index[DIM];
 
 		std::vector<real4> stateVec(volume);
@@ -105,11 +109,12 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 				for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++state) {
 					
 					bool lhs = true;
-					Tensor::Vector<real, 2> x;
+					Tensor::Vector<real, DIM> x;
 					for (int n = 0; n < DIM; ++n) {
 						x(n) = real(xmax.s[n] - xmin.s[n]) * real(index[n]) / real(size.s[n]) + real(xmin.s[n]);
-						//if (cell->x.s[n] > real(.3) * real(xmax.s[n]) + real(.7) * real(xmin.s[n]))
-						if (fabs(x(n)) > real(.15))
+						//if (x(n) > real(.3) * real(xmax.s[n]) + real(.7) * real(xmin.s[n]))
+						if (fabs(x(n)) > real(.05))
+						//if (n == 0 && x(n) < 0)
 						{
 							lhs = false;
 							break;
@@ -118,32 +123,40 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 
 					//sod init
 					real density = lhs ? 1. : .1;
-					real velocity[DIM];
-					real energyKinetic = real();
+					Tensor::Vector<real, DIM> velocity;
+					real specificKineticEnergy = real();
 					for (int n = 0; n < DIM; ++n) {
-						velocity[n] = crand() * noise;
-						energyKinetic += velocity[n] * velocity[n];
+						velocity(n) = crand() * noise;
+						specificKineticEnergy += velocity(n) * velocity(n);
 					}
-					energyKinetic *= real(.5);
-					real energyThermal = 1.;
-					real energyTotal = energyKinetic + energyThermal;
+					specificKineticEnergy *= real(.5);
+					real specificInternalEnergy = 1.;
+					real specificTotalEnergy = specificKineticEnergy + specificInternalEnergy;
 
 					state->s[0] = density;
 					for (int n = 0; n < DIM; ++n) {
-						state->s[n+1] = density * velocity[n];
+						state->s[n+1] = density * velocity(n);
 					}
-					state->s[DIM+1] = density * energyTotal;
+					state->s[DIM+1] = density * specificTotalEnergy;
 				}
 			}
 		//}
 	
 		commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
 	}
-	
+
+	if (useFixedDT) {
+		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &fixedDT);
+	}
+
 	real2 dx;
 	for (int i = 0; i < DIM; ++i) {
 		dx.s[i] = (xmax.s[i] - xmin.s[i]) / (float)size.s[i];
 	}
+	std::cout << "xmin " << xmin.s[0] << ", " << xmin.s[1] << std::endl;
+	std::cout << "xmax " << xmax.s[0] << ", " << xmax.s[1] << std::endl;
+	std::cout << "size " << size.s[0] << ", " << size.s[1] << std::endl;
+	std::cout << "dx " << dx.s[0] << ", " << dx.s[1] << std::endl;
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
 	app.setArgs(calcCFLKernel, cflBuffer, stateBuffer, size, dx);
@@ -152,7 +165,7 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)));
 	
 	calcCFLMinFinalKernel = cl::Kernel(program, "calcCFLMinFinal");
-	app.setArgs(calcCFLMinFinalKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)), cflTimestepBuffer, cfl);
+	app.setArgs(calcCFLMinFinalKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)), dtBuffer, cfl);
 
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
 	app.setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer, size, dx);
@@ -161,28 +174,28 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	app.setArgs(calcStateSlopeRatioKernel, stateSlopeRatioBuffer, stateBuffer, interfaceVelocityBuffer, size, dx);
 
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, stateSlopeRatioBuffer, size, dx, cflTimestepBuffer);
+	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, stateSlopeRatioBuffer, size, dx, dtBuffer);
 	
 	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
-	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, size, dx, cflTimestepBuffer);
+	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, size, dx, dtBuffer);
 	
 	computePressureKernel = cl::Kernel(program, "computePressure");
-	app.setArgs(computePressureKernel, pressureBuffer, stateBuffer, size, dx);
+	app.setArgs(computePressureKernel, pressureBuffer, stateBuffer, size);
 	
 	diffuseMomentumKernel = cl::Kernel(program, "diffuseMomentum");
-	app.setArgs(diffuseMomentumKernel, stateBuffer, pressureBuffer, size, dx, cflTimestepBuffer);
+	app.setArgs(diffuseMomentumKernel, stateBuffer, pressureBuffer, size, dx, dtBuffer);
 	
 	diffuseWorkKernel = cl::Kernel(program, "diffuseWork");
-	app.setArgs(diffuseWorkKernel, stateBuffer, pressureBuffer, size, dx, cflTimestepBuffer);
+	app.setArgs(diffuseWorkKernel, stateBuffer, pressureBuffer, size, dx, dtBuffer);
 	
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, size, fluidTexMem, gradientTexMem);
 
 	addDropKernel = cl::Kernel(program, "addDrop");
-	app.setArgs(addDropKernel, stateBuffer, size, xmin, xmax, cflTimestepBuffer);
+	app.setArgs(addDropKernel, stateBuffer, size, xmin, xmax);
 
 	addSourceKernel = cl::Kernel(program, "addSource");
-	app.setArgs(addSourceKernel, stateBuffer, size, xmin, xmax, cflTimestepBuffer);
+	app.setArgs(addSourceKernel, stateBuffer, size, xmin, xmax, dtBuffer);
 }
 
 BurgersSolver::~BurgersSolver() {
@@ -202,12 +215,10 @@ void BurgersSolver::update() {
 	
 	cl::NDRange offset2d(0, 0);
 
-	commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcCFLKernel, offset2d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offset2d, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcStateSlopeRatioKernel, offset2d, globalSize, localSize, NULL, &calcStateSlopeRatioEvent.clEvent);
-
-	{
+	//commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
+	if (!useFixedDT) {
+		commands.enqueueNDRangeKernel(calcCFLKernel, offset2d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
+		
 		cl::NDRange offset1d(0);
 		cl::NDRange reduceGlobalSize(globalSize[0] * globalSize[1] / 4);
 		cl::NDRange reduceLocalSize(localSize[0]);
@@ -223,6 +234,8 @@ void BurgersSolver::update() {
 		commands.enqueueNDRangeKernel(calcCFLMinFinalKernel, offset1d, reduceLocalSize, reduceLocalSize, NULL, &calcCFLMinFinalEvent.clEvent);
 	}
 
+	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offset2d, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcStateSlopeRatioKernel, offset2d, globalSize, localSize, NULL, &calcStateSlopeRatioEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offset2d, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
 	commands.enqueueNDRangeKernel(integrateFluxKernel, offset2d, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
 	commands.enqueueNDRangeKernel(computePressureKernel, offset2d, globalSize, localSize, NULL, &computePressureEvent.clEvent);
@@ -252,6 +265,14 @@ void BurgersSolver::update() {
 	commands.flush();
 	commands.finish();
 
+	{
+		real dt = real();
+		commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);  
+		commands.flush();
+		commands.finish();
+		std::cout << "dt " << dt << std::endl;
+	}
+
 	for (EventProfileEntry *entry : entries) {
 		cl_ulong start = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_START>();
 		cl_ulong end = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>();
@@ -265,14 +286,33 @@ void BurgersSolver::addDrop(Tensor::Vector<float,2> pos, Tensor::Vector<float,2>
 	addSourcePos.s[1] = pos(1);
 	addSourceVel.s[0] = vel(0);
 	addSourceVel.s[1] = vel(1);
-	addDropKernel.setArg(5, addSourcePos);
-	addDropKernel.setArg(6, addSourceVel);
+	addDropKernel.setArg(4, addSourcePos);
+	addDropKernel.setArg(5, addSourceVel);
 	commands.enqueueNDRangeKernel(addDropKernel, offset2d, globalSize, localSize);
 }
 
 void BurgersSolver::screenshot() {
 	for (int i = 0; i < 1000; ++i) {
-		std::string filename = std::string("screenshot") + std::to_string(i) + ".fits";
+		std::string filename = std::string("screenshot") + std::to_string(i) + ".png";
+		if (!Common::File::exists(filename)) {
+			std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(
+				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
+				nullptr, 3);
+			
+			glBindTexture(GL_TEXTURE_2D, app.fluidTex);
+			glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, image->getData());
+			glBindTexture(GL_TEXTURE_2D, 0);
+			
+			Image::system->write(filename, image);
+			return;
+		}
+	}
+	throw Common::Exception() << "couldn't find an available filename";
+}
+
+void BurgersSolver::save() {
+	for (int i = 0; i < 1000; ++i) {
+		std::string filename = std::string("save") + std::to_string(i) + ".fits";
 		if (!Common::File::exists(filename)) {
 			std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(
 				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),

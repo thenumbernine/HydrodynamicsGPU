@@ -19,7 +19,7 @@ struct RoeSolver : public Solver {
 	cl::Buffer deltaQTildeBuffer;
 	cl::Buffer fluxBuffer;
 	cl::Buffer cflBuffer;
-	cl::Buffer cflTimestepBuffer;
+	cl::Buffer dtBuffer;
 	
 	cl::Kernel calcEigenBasisKernel;
 	cl::Kernel calcCFLKernel;
@@ -64,5 +64,6 @@ struct RoeSolver : public Solver {
 	virtual void update();
 	virtual void addDrop(Tensor::Vector<float,DIM> pos, Tensor::Vector<float,DIM> vel);
 	virtual void screenshot();
+	virtual void save();
 };
 
