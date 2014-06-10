@@ -96,18 +96,30 @@ __kernel void calcInterfaceVelocity(
 	interfaceVelocityBuffer[index] = interfaceVelocity;
 }
 
-__kernel void calcStateSlopeRatio(
-	__global real4* stateSlopeRatioBuffer,
+real4 slopeLimiter(real4 r) {
+	//donor cell
+	//return (real4)(0.f, 0.f, 0.f, 0.f);
+	//Lax-Wendroff
+	//return (real4)(1.f, 1.f, 1.f, 1.f);
+	//superbee
+	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
+}
+
+__kernel void calcFlux(
+	__global real4* fluxBuffer,
 	const __global real4* stateBuffer,
 	const __global real2* interfaceVelocityBuffer,
 	int2 size,
-	real2 dx)
+	real2 dx,
+	const __global real* dtBuffer)
 {
+	real2 dt_dx = dtBuffer[0] / dx;
+	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 	int index = i.x + size.x * i.y;
-
-	for (int side = 0; side < 2; ++side) {
+	
+	for (int side = 0; side < 2; ++side) {	
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
@@ -126,56 +138,20 @@ __kernel void calcStateSlopeRatio(
 		int indexR2 = indexNext;
 
 		real4 stateL2 = stateBuffer[indexL2];
-		real4 stateL1 = stateBuffer[indexL1];
-		real4 stateR1 = stateBuffer[indexR1];
+		real4 stateL = stateBuffer[indexL1];
+		real4 stateR = stateBuffer[indexR1];
 		real4 stateR2 = stateBuffer[indexR2];
 
-		real4 deltaStateL = stateL1 - stateL2;
-		real4 deltaState = stateR1 - stateL1;
-		real4 deltaStateR = stateR2 - stateR1;
+		real4 deltaStateL = stateL - stateL2;
+		real4 deltaState = stateR - stateL;
+		real4 deltaStateR = stateR2 - stateR;
 
-		real interfaceVelocityGreaterThanZero = step(0.f, interfaceVelocityBuffer[index][side]);
-		real4 stateSlopeRatio = mix(deltaStateR, deltaStateL, interfaceVelocityGreaterThanZero) / deltaState;
-		stateSlopeRatioBuffer[side + 2 * index] = stateSlopeRatio;
-	}
-}
-
-real4 slopeLimiter(real4 r) {
-	//donor cell
-	//return (real4)(0.f, 0.f, 0.f, 0.f);
-	//Lax-Wendroff
-	//return (real4)(1.f, 1.f, 1.f, 1.f);
-	//superbee
-	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
-}
-
-__kernel void calcFlux(
-	__global real4* fluxBuffer,
-	const __global real4* stateBuffer,
-	const __global real2* interfaceVelocityBuffer,
-	const __global real4* stateSlopeRatioBuffer,
-	int2 size,
-	real2 dx,
-	const __global real* dtBuffer)
-{
-	real2 dt_dx = dtBuffer[0] / dx;
-	
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
-	
-	for (int side = 0; side < 2; ++side) {	
-		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
-
-		real4 phi = slopeLimiter(stateSlopeRatioBuffer[side + 2 * index]);
 		real interfaceVelocity = interfaceVelocityBuffer[index][side];
-		
-		real4 stateL = stateBuffer[indexPrev];
-		real4 stateR = stateBuffer[index];
+		real interfaceVelocityGreaterThanZero = step(0.f, interfaceVelocity);
+		real4 stateSlopeRatio = mix(deltaStateR, deltaStateL, interfaceVelocityGreaterThanZero) / deltaState;
 
-		real interfaceVelocityGreaterThanZero = step(0.f, interfaceVelocityBuffer[index][side]);
+		real4 phi = slopeLimiter(stateSlopeRatio);
+
 		real4 flux = mix(stateR, stateL, interfaceVelocityGreaterThanZero) * interfaceVelocity;
 
 		real4 delta = phi * (stateR - stateL);

@@ -14,7 +14,6 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 , calcCFLEvent("calcCFL")
 , calcCFLMinReduceEvent("calcCFLMinReduce")
 , calcInterfaceVelocityEvent("calcInterfaceVelocity")
-, calcStateSlopeRatioEvent("calcStateSlopeRatio")
 , calcFluxEvent("calcFlux")
 , integrateFluxEvent("integrateFlux")
 , computePressureEvent("computePressure")
@@ -37,7 +36,6 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 		//entries.push_back(&calcCFLMinReduceEvent);
 	}
 	entries.push_back(&calcInterfaceVelocityEvent);
-	entries.push_back(&calcStateSlopeRatioEvent);
 	entries.push_back(&calcFluxEvent);
 	entries.push_back(&integrateFluxEvent);
 	entries.push_back(&computePressureEvent);
@@ -87,7 +85,6 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 
 	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume);
 	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real2) * volume);
-	stateSlopeRatioBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
 	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
@@ -163,11 +160,8 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
 	app.setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer, size, dx);
 
-	calcStateSlopeRatioKernel = cl::Kernel(program, "calcStateSlopeRatio");
-	app.setArgs(calcStateSlopeRatioKernel, stateSlopeRatioBuffer, stateBuffer, interfaceVelocityBuffer, size, dx);
-
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, stateSlopeRatioBuffer, size, dx, dtBuffer);
+	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, size, dx, dtBuffer);
 	
 	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
 	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, size, dx, dtBuffer);
@@ -232,7 +226,6 @@ void BurgersSolver::update() {
 	}
 
 	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offset2d, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcStateSlopeRatioKernel, offset2d, globalSize, localSize, NULL, &calcStateSlopeRatioEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offset2d, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
 	commands.enqueueNDRangeKernel(integrateFluxKernel, offset2d, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
 	commands.enqueueNDRangeKernel(computePressureKernel, offset2d, globalSize, localSize, NULL, &computePressureEvent.clEvent);
