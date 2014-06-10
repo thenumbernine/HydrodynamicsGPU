@@ -13,7 +13,6 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 : app(app_)
 , calcCFLEvent("calcCFL")
 , calcCFLMinReduceEvent("calcCFLMinReduce")
-, calcCFLMinFinalEvent("calcCFLMinFinal")
 , calcInterfaceVelocityEvent("calcInterfaceVelocity")
 , calcStateSlopeRatioEvent("calcStateSlopeRatio")
 , calcFluxEvent("calcFlux")
@@ -22,9 +21,6 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 , diffuseMomentumEvent("diffuseMomentum")
 , diffuseWorkEvent("diffuseWork")
 , addSourceEvent("addSource")
-, useFixedDT(false)
-, fixedDT(.0001f)
-, cfl(.5f)
 {
 	cl::Device device = app.device;
 	cl::Context context = app.context;
@@ -36,10 +32,9 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	cl_int2 size = app.size;
 	bool useGPU = app.useGPU;
 	
-	if (!useFixedDT) {
+	if (!app.useFixedDT) {
 		entries.push_back(&calcCFLEvent);
-		entries.push_back(&calcCFLMinReduceEvent);
-		entries.push_back(&calcCFLMinFinalEvent);
+		//entries.push_back(&calcCFLMinReduceEvent);
 	}
 	entries.push_back(&calcInterfaceVelocityEvent);
 	entries.push_back(&calcStateSlopeRatioEvent);
@@ -96,6 +91,7 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
 	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
+	cflSwapBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume / localSize[0]);
 	dtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
 
 	{
@@ -113,7 +109,7 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 					for (int n = 0; n < DIM; ++n) {
 						x(n) = real(xmax.s[n] - xmin.s[n]) * real(index[n]) / real(size.s[n]) + real(xmin.s[n]);
 						//if (x(n) > real(.3) * real(xmax.s[n]) + real(.7) * real(xmin.s[n]))
-						if (fabs(x(n)) > real(.05))
+						if (fabs(x(n)) > real(.15))
 						//if (n == 0 && x(n) < 0)
 						{
 							lhs = false;
@@ -145,8 +141,8 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 		commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
 	}
 
-	if (useFixedDT) {
-		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &fixedDT);
+	if (app.useFixedDT) {
+		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app.fixedDT);
 	}
 
 	real2 dx;
@@ -159,14 +155,11 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 	std::cout << "dx " << dx.s[0] << ", " << dx.s[1] << std::endl;
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app.setArgs(calcCFLKernel, cflBuffer, stateBuffer, size, dx);
+	app.setArgs(calcCFLKernel, cflBuffer, stateBuffer, size, dx, app.cfl);
 
 	calcCFLMinReduceKernel = cl::Kernel(program, "calcCFLMinReduce");
-	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)));
+	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)), volume, cflSwapBuffer);
 	
-	calcCFLMinFinalKernel = cl::Kernel(program, "calcCFLMinFinal");
-	app.setArgs(calcCFLMinFinalKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)), dtBuffer, cfl);
-
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
 	app.setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer, size, dx);
 
@@ -214,24 +207,28 @@ void BurgersSolver::update() {
 	bool useGPU = app.useGPU;
 	
 	cl::NDRange offset2d(0, 0);
-
+	
 	//commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
-	if (!useFixedDT) {
+	if (!app.useFixedDT) {
 		commands.enqueueNDRangeKernel(calcCFLKernel, offset2d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 		
-		cl::NDRange offset1d(0);
-		cl::NDRange reduceGlobalSize(globalSize[0] * globalSize[1] / 4);
-		cl::NDRange reduceLocalSize(localSize[0]);
-		commands.enqueueNDRangeKernel(calcCFLMinReduceKernel, offset1d, reduceGlobalSize, reduceLocalSize, NULL, &calcCFLMinReduceEvent.clEvent);
-	
-		while (reduceGlobalSize[0] / localSize[0] > localSize[0]) {
-			reduceGlobalSize = cl::NDRange(reduceGlobalSize[0] / localSize[0]);
-			commands.enqueueNDRangeKernel(calcCFLMinReduceKernel, offset1d, reduceGlobalSize, reduceLocalSize);
+		int reduceSize = globalSize[0] * globalSize[1];
+		cl::Buffer dst = cflSwapBuffer;
+		cl::Buffer src = cflBuffer;
+		while (reduceSize > 1) {
+			int nextSize = (reduceSize >> 4) + !!(reduceSize & ((1 << 4) - 1));
+			cl::NDRange offset1d(0);
+			cl::NDRange reduceGlobalSize(std::max<int>(reduceSize, localSize[0]));
+			cl::NDRange reduceLocalSize(localSize[0]);
+			calcCFLMinReduceKernel.setArg(0, src);
+			calcCFLMinReduceKernel.setArg(2, reduceSize);
+			calcCFLMinReduceKernel.setArg(3, nextSize == 1 ? dtBuffer : dst);
+			commands.enqueueNDRangeKernel(calcCFLMinReduceKernel, offset1d, reduceGlobalSize, reduceLocalSize, NULL, NULL);
+			commands.flush();
+			commands.finish();
+			std::swap(dst, src);
+			reduceSize = nextSize;
 		}
-		reduceGlobalSize = cl::NDRange(reduceGlobalSize[0] / localSize[0]);
-
-		calcCFLMinFinalKernel.setArg(4, reduceGlobalSize);
-		commands.enqueueNDRangeKernel(calcCFLMinFinalKernel, offset1d, reduceLocalSize, reduceLocalSize, NULL, &calcCFLMinFinalEvent.clEvent);
 	}
 
 	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offset2d, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
@@ -264,14 +261,6 @@ void BurgersSolver::update() {
 	commands.enqueueReleaseGLObjects(&acquireGLMems);
 	commands.flush();
 	commands.finish();
-
-	{
-		real dt = real();
-		commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);  
-		commands.flush();
-		commands.finish();
-		std::cout << "dt " << dt << std::endl;
-	}
 
 	for (EventProfileEntry *entry : entries) {
 		cl_ulong start = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_START>();

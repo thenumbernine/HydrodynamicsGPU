@@ -1,7 +1,7 @@
 #include "HydroGPU/Shared/Types.h"
 
 real4 matmul(real16 m, real4 v);
-real slopeLimiter(real r);
+real4 slopeLimiter(real4 r);
 
 real4 matmul(real16 m, real4 v) {
 	return (real4)(
@@ -15,7 +15,8 @@ __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real4* stateBuffer,
 	int2 size,
-	real2 dx)
+	real2 dx,
+	real cfl)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
@@ -30,52 +31,39 @@ __kernel void calcCFL(
 	real speedOfSound = sqrt(GAMMA * (GAMMA - 1.f) * specificInternalEnergy);
 	real dumx = dx.x / (speedOfSound + fabs(velocity.x));
 	real dumy = dx.y / (speedOfSound + fabs(velocity.y));
-	cflBuffer[index] = min(dumx, dumy);
+	cflBuffer[index] = cfl * min(dumx, dumy);
 }
 
+//http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 __kernel void calcCFLMinReduce(
-	__global real *cflDst, 
-	__local real *cflSrc) 
+	const __global real* buffer,
+	__local real* scratch,
+	__const int length,
+	__global real* result)
 {
-	int lid = get_local_id(0);
-	int group_size = get_local_size(0);
+	int global_index = get_global_id(0);
+	real accumulator = INFINITY;
+	// Loop sequentially over chunks of input vector
+	while (global_index < length) {
+		real element = buffer[global_index];
+		accumulator = (accumulator < element) ? accumulator : element;
+		global_index += get_global_size(0);
+	}
 
-	cflSrc[lid] = cflDst[get_global_id(0)];
+	// Perform parallel reduction
+	int local_index = get_local_id(0);
+	scratch[local_index] = accumulator;
 	barrier(CLK_LOCAL_MEM_FENCE);
-
-	for(int i = group_size/2; i>0; i >>= 1) {
-		if(lid < i) {
-			 cflSrc[lid] = min(cflSrc[lid], cflSrc[lid + i]);
+	for(int offset = get_local_size(0) / 2; offset > 0; offset = offset / 2) {
+		if (local_index < offset) {
+			real other = scratch[local_index + offset];
+			real mine = scratch[local_index];
+			scratch[local_index] = (mine < other) ? mine : other;
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
-
-	if(lid == 0) {
-		cflDst[get_group_id(0)] = cflSrc[0];
-	}
-}
-
-__kernel void calcCFLMinFinal(
-	__global real* cflDst, 
-	__local real* cflSrc, 
-	__global real* dtBuffer,
-	real cfl,
-	size_t group_size)
-{
-	int lid = get_local_id(0);
-
-	cflSrc[lid] = cflDst[get_local_id(0)];
-	barrier(CLK_LOCAL_MEM_FENCE);
-
-	for(int i = group_size/2; i>0; i >>= 1) {
-		if(lid < i) {
-			cflSrc[lid] = min(cflSrc[lid], cflSrc[lid + i]);
-		}
-		barrier(CLK_LOCAL_MEM_FENCE);
-	}
-
-	if(lid == 0) {
-		dtBuffer[0] = cflSrc[0] * cfl;
+	if (local_index == 0) {
+		result[get_group_id(0)] = scratch[0];
 	}
 }
 
@@ -142,38 +130,21 @@ __kernel void calcStateSlopeRatio(
 		real4 stateR1 = stateBuffer[indexR1];
 		real4 stateR2 = stateBuffer[indexR2];
 
-#if 0
 		real4 deltaStateL = stateL1 - stateL2;
 		real4 deltaState = stateR1 - stateL1;
 		real4 deltaStateR = stateR2 - stateR1;
 
 		real interfaceVelocityGreaterThanZero = step(0.f, interfaceVelocityBuffer[index][side]);
 		real4 stateSlopeRatio = mix(deltaStateR, deltaStateL, interfaceVelocityGreaterThanZero) / deltaState;
-		for (int i = 0; i < 4; ++i) {
-			if (fabs(deltaState[i]) < 1e-9f) {
-				stateSlopeRatio[i] = 0.f;
-			}
-		}
-#else
-		real4 stateSlopeRatio;
-		for (int i = 0; i < 4; ++i) {
-			real dq = stateR1[i] - stateL1[i];
-			if (fabs(dq) > 1e-9f) {
-				if (interfaceVelocityBuffer[index][side] >= 0.f) {
-					stateSlopeRatio[i] = (stateL1[i] - stateL2[i]) / dq;
-				} else {
-					stateSlopeRatio[i] = (stateR2[i] - stateR1[i]) / dq;
-				}
-			} else {
-				stateSlopeRatio[i] = 0.f;
-			}
-		}
-#endif
 		stateSlopeRatioBuffer[side + 2 * index] = stateSlopeRatio;
 	}
 }
 
-real slopeLimiter(real r) {
+real4 slopeLimiter(real4 r) {
+	//donor cell
+	//return (real4)(0.f, 0.f, 0.f, 0.f);
+	//Lax-Wendroff
+	//return (real4)(1.f, 1.f, 1.f, 1.f);
 	//superbee
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
@@ -198,7 +169,6 @@ __kernel void calcFlux(
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
 
-#if 0
 		real4 phi = slopeLimiter(stateSlopeRatioBuffer[side + 2 * index]);
 		real interfaceVelocity = interfaceVelocityBuffer[index][side];
 		
@@ -212,26 +182,6 @@ __kernel void calcFlux(
 		flux += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side]));
 
 		fluxBuffer[side + 2 * index] = flux;
-#else
-		real4 flux;
-		for (int i = 0; i < 4; ++i) {
-			real phi = slopeLimiter(stateSlopeRatioBuffer[side + 2 * index][i]);
-			real interfaceVelocity = interfaceVelocityBuffer[index][side];
-			real stateL = stateBuffer[indexPrev][i];
-			real stateR = stateBuffer[index][i];
-			if (interfaceVelocity >= 0.f) {
-				flux[i] = interfaceVelocity * stateL;
-			} else {
-				flux[i] = interfaceVelocity * stateR;
-			}
-			//when flux limiter is added, things diverge
-			real delta = phi * (stateR - stateL);
-			flux[i] += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side]));
-			//without flux limiter things are stable, but they don't look like my other sims ...
-			// as if things are advecting too fast?
-		}
-		fluxBuffer[side + 2 * index] = flux;
-#endif
 	}
 }
 
@@ -257,9 +207,6 @@ __kernel void integrateFlux(
 		real4 fluxL = fluxBuffer[side + 2 * index];
 		real4 fluxR = fluxBuffer[side + 2 * indexNext];
 	
-		//toning down the flux keeps things stable
-		//which means pressure is diffusing much faster than it should be
-		//which means ... ?
 		real4 df = fluxR - fluxL;
 		stateBuffer[index] -= df * dt_dx[side];
 	}
@@ -366,7 +313,7 @@ __kernel void convertToTex(
 	real4 state = stateBuffer[index];
 
 	float4 color = read_imagef(gradientTex, 
-		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_NONE | CLK_FILTER_LINEAR,
+		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR,
 		(float2)(state.w * 2.f, .5f));
 	write_imagef(fluidTex, i, color.bgra);
 }
@@ -418,18 +365,34 @@ __kernel void addSource(
 	real2 xmax,
 	const __global real* dtBuffer)
 {
-return;// working on this
-#if 0
+return;
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 
+	const float radius = .05f;
+
+	real cellPosX = (real)i.x / (real)size.x * (xmax.x - xmin.x) + xmin.x;
+	real cellPosY = (real)i.y / (real)size.y * (xmax.y - xmin.y) + xmin.y;
+	real2 cellPos = (real2)(cellPosX, cellPosY);
+	real2 sourcePos = (real2)(xmin.x, .5f * (xmax.y + xmin.y));
+	real2 dx = (cellPos - sourcePos) / radius;
+	real rSq = dot(dx,dx);
+	real falloff = exp(-rSq);
+
 	int index = i.x + size.x * i.y;
-	__global Cell *cell = cells + index;
+	real4 state = stateBuffer[index];
+	real density = state.x;
+	real2 velocity = state.yz / density;
+	real energyTotal = state.w / density;
+	real energyKinetic = .5f * dot(velocity, velocity);
+	real energyInternal = energyTotal - energyKinetic;
 
-	real2 x = (real2)i / (real2)size * (xmax - xmin) + xmin;
-	real dx2 = dot(x,x);
-	real infl = exp(-10000.f * dx2);
+	const float velocityMagnitude = 10.f;
+	velocity.x += velocityMagnitude * falloff * dtBuffer[0];
 
-	cell->q[1] += infl * *dt; 
-#endif
+	energyKinetic = .5f * dot(velocity, velocity);
+	energyTotal = energyInternal + energyKinetic;
+
+	stateBuffer[index] = (real4)(1.f, velocity.x, velocity.y, energyTotal) * density;
 }
+

@@ -18,11 +18,11 @@ struct BurgersSolver : public Solver {
 	cl::Buffer fluxBuffer;
 	cl::Buffer pressureBuffer;
 	cl::Buffer cflBuffer;
+	cl::Buffer cflSwapBuffer;
 	cl::Buffer dtBuffer;
 	
 	cl::Kernel calcCFLKernel;
 	cl::Kernel calcCFLMinReduceKernel;
-	cl::Kernel calcCFLMinFinalKernel;
 	cl::Kernel calcInterfaceVelocityKernel;
 	cl::Kernel calcStateSlopeRatioKernel;
 	cl::Kernel calcFluxKernel;
@@ -45,7 +45,6 @@ struct BurgersSolver : public Solver {
 
 	EventProfileEntry calcCFLEvent;
 	EventProfileEntry calcCFLMinReduceEvent;
-	EventProfileEntry calcCFLMinFinalEvent;
 	EventProfileEntry calcInterfaceVelocityEvent;
 	EventProfileEntry calcStateSlopeRatioEvent;
 	EventProfileEntry calcFluxEvent;
@@ -59,10 +58,6 @@ struct BurgersSolver : public Solver {
 	cl::NDRange globalSize, localSize;
 
 	cl_float2 addSourcePos, addSourceVel;
-
-	bool useFixedDT;
-	real fixedDT;
-	real cfl;
 
 	BurgersSolver(HydroGPUApp &app);
 	virtual ~BurgersSolver();

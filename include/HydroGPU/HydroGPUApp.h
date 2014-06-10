@@ -27,13 +27,16 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	bool leftGuiDown;
 	bool rightGuiDown;
 	Tensor::Vector<real,2> mousePos, mouseVel;
-	real2 xmin, xmax;
-	
 	Tensor::Vector<int,2> screenSize;
 	float viewZoom;
 	Tensor::Vector<float,2> viewPos;
 	float aspectRatio;
-
+	
+	real2 xmin, xmax;
+	bool useFixedDT;
+	real fixedDT;
+	real cfl;
+	
 	HydroGPUApp();
 
 	virtual int main(std::vector<std::string> args);

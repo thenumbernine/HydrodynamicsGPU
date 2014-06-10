@@ -23,6 +23,9 @@ HydroGPUApp::HydroGPUApp()
 , leftGuiDown(false)
 , rightGuiDown(false)
 , viewZoom(1.f)
+, useFixedDT(false)
+, fixedDT(.001f)
+, cfl(.5f)
 {
 	for (int i = 0; i < DIM; ++i) {
 		size.s[i] = 512;

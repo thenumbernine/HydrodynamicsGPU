@@ -3,7 +3,7 @@
 real4 matmul(real16 m, real4 v);
 real mat44det(real16 m);
 real16 mat44inv(real16 m);
-real4 fluxMethod(real4 r);
+real4 slopeLimiter(real4 r);
 
 real4 matmul(real16 m, real4 v) {
 	return (real4)(
@@ -64,7 +64,7 @@ __kernel void calcEigenBasis(
 		real4 stateL = stateBuffer[indexPrev];
 		real4 stateR = stateBuffer[index];
 	
-#if 0	//calculate flux based on normal
+#if 1	//calculate flux based on normal
 
 		real2 normal = (real2)(0.f, 0.f);
 		normal[side] = 1;
@@ -142,7 +142,7 @@ __kernel void calcEigenBasis(
 			eigenvectors.s26AE,
 			eigenvectors.s37BF);
 
-#if 0	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
+#if 1	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
 		//calculate eigenvector inverses ... 
 		real invDenom = .5f / (speedOfSound * speedOfSound);
 		eigenvectorsInverseBuffer[interfaceIndex] = (real16)( 
@@ -167,7 +167,7 @@ __kernel void calcEigenBasis(
 			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
 			(GAMMA - 1.f) * invDenom);
 #endif
-#if 1 //numerically solve for the inverse
+#if 0 //numerically solve for the inverse
 		eigenvectorsInverseBuffer[interfaceIndex] = mat44inv(eigenvectorsBuffer[interfaceIndex]);
 #endif
 #endif
@@ -176,7 +176,7 @@ __kernel void calcEigenBasis(
 
 
 
-#if 1	//calculate flux in x-axis and rotate into normal
+#if 0	//calculate flux in x-axis and rotate into normal
 
 		real densityL = stateL.x;
 		real invDensityL = 1.f / densityL;
@@ -305,7 +305,8 @@ __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real4* eigenvaluesBuffer,
 	int2 size,
-	real2 dx)
+	real2 dx,
+	real cfl)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
@@ -343,7 +344,7 @@ __kernel void calcCFL(
 		dum[side] = dx[side] / (maxLambda - minLambda);
 	}
 		
-	cflBuffer[index] = min(dum.x, dum.y);
+	cflBuffer[index] = cfl * min(dum.x, dum.y);
 }
 
 __kernel void calcDeltaQTilde(
@@ -372,54 +373,40 @@ __kernel void calcDeltaQTilde(
 	}
 }
 
-
+//http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 __kernel void calcCFLMinReduce(
-	__global real *cflDst, 
-	__local real *cflSrc) 
+	const __global float* buffer,
+	__local float* scratch,
+	__const int length,
+	__global float* result)
 {
-	int lid = get_local_id(0);
-	int group_size = get_local_size(0);
+	int global_index = get_global_id(0);
+	float accumulator = INFINITY;
+	// Loop sequentially over chunks of input vector
+	while (global_index < length) {
+		float element = buffer[global_index];
+		accumulator = (accumulator < element) ? accumulator : element;
+		global_index += get_global_size(0);
+	}
 
-	cflSrc[lid] = cflDst[get_global_id(0)];
+	// Perform parallel reduction
+	int local_index = get_local_id(0);
+	scratch[local_index] = accumulator;
 	barrier(CLK_LOCAL_MEM_FENCE);
-
-	for(int i = group_size/2; i>0; i >>= 1) {
-		if(lid < i) {
-			 cflSrc[lid] = min(cflSrc[lid], cflSrc[lid + i]);
+	for(int offset = get_local_size(0) / 2; offset > 0; offset = offset / 2) {
+		if (local_index < offset) {
+			float other = scratch[local_index + offset];
+			float mine = scratch[local_index];
+			scratch[local_index] = (mine < other) ? mine : other;
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
-
-	if(lid == 0) {
-		cflDst[get_group_id(0)] = cflSrc[0];
+	if (local_index == 0) {
+		result[get_group_id(0)] = scratch[0];
 	}
 }
 
-__kernel void calcCFLMinFinal(
-	__global real *cflDst, 
-	__local real *cflSrc, 
-	__global real *result,
-	real cfl,
-	size_t group_size)
-{
-	int lid = get_local_id(0);
-
-	cflSrc[lid] = cflDst[get_local_id(0)];
-	barrier(CLK_LOCAL_MEM_FENCE);
-
-	for(int i = group_size/2; i>0; i >>= 1) {
-		if(lid < i) {
-			cflSrc[lid] = min(cflSrc[lid], cflSrc[lid + i]);
-		}
-		barrier(CLK_LOCAL_MEM_FENCE);
-	}
-
-	if(lid == 0) {
-		*result = cflSrc[0] * cfl;
-	}
-}
-
-real4 fluxMethod(real4 r) {
+real4 slopeLimiter(real4 r) {
 	//superbee
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
@@ -471,7 +458,7 @@ __kernel void calcFlux(
 		real4 qAvg = (stateR + stateL) * .5f;
 		real4 fluxAvgTilde = matmul(eigenvectorsInverse, qAvg) * eigenvalues;
 		real4 theta = step(0.f, eigenvalues) * 2.f - 1.f;
-		real4 phi = fluxMethod(rTilde);
+		real4 phi = slopeLimiter(rTilde);
 		real4 epsilon = eigenvalues * dt_dx[side];
 		real4 deltaFluxTilde = eigenvalues * deltaQTilde;
 		real4 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + phi * (epsilon - theta));
@@ -582,6 +569,7 @@ __kernel void addSource(
 	real2 xmax,
 	const __global real* dt)
 {
+return;
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 
