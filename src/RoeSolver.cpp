@@ -13,8 +13,8 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 : app(app_)
 , calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
-, calcDeltaQTildeEvent("calcDeltaQTilde")
 , calcCFLMinReduceEvent("calcCFLMinReduce")
+, calcDeltaQTildeEvent("calcDeltaQTilde")
 , calcFluxEvent("calcFlux")
 , updateStateEvent("updateState")
 , addSourceEvent("addSource")
@@ -32,11 +32,11 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	bool useGPU = app.useGPU;
 
 	entries.push_back(&calcEigenBasisEvent);
-	entries.push_back(&calcDeltaQTildeEvent);
 	if (!app.useFixedDT) {
 		entries.push_back(&calcCFLEvent);
 		entries.push_back(&calcCFLMinReduceEvent);
 	}
+	entries.push_back(&calcDeltaQTildeEvent);
 	entries.push_back(&calcFluxEvent);
 	entries.push_back(&updateStateEvent);
 
@@ -155,11 +155,11 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
 	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, size, dx, cfl);
 	
-	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
-	app.setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer, size, dx);
-
 	calcCFLMinReduceKernel = cl::Kernel(program, "calcCFLMinReduce");
 	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)), volume, cflSwapBuffer);
+	
+	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
+	app.setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer, size, dx);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
 	app.setArgs(calcFluxKernel,fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, size, dx, dtBuffer);
@@ -203,7 +203,6 @@ void RoeSolver::update() {
 	commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset2d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);	//cpu dies here
 	commands.enqueueNDRangeKernel(calcCFLKernel, offset2d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offset2d, globalSize, localSize, NULL, &calcDeltaQTildeEvent.clEvent);
 
 	if (!app.useFixedDT) {
 		int reduceSize = globalSize[0] * globalSize[1];
@@ -225,6 +224,7 @@ void RoeSolver::update() {
 		}
 	}
 
+	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offset2d, globalSize, localSize, NULL, &calcDeltaQTildeEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offset2d, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
 	commands.enqueueNDRangeKernel(updateStateKernel, offset2d, globalSize, localSize, NULL, &updateStateEvent.clEvent);
 

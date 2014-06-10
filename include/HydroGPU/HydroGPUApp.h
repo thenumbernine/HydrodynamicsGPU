@@ -7,9 +7,7 @@
 //passing from cmd-line to app
 struct HydroGPUArgs {
 	std::string solverName;
-	HydroGPUArgs() 
-	: solverName("Burgers")
-	{}
+	HydroGPUArgs();
 };
 
 struct HydroGPUApp : public ::CLApp::CLApp {

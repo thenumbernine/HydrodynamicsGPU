@@ -104,7 +104,8 @@ __kernel void calcFlux(
 	real2 dx,
 	const __global real* dtBuffer)
 {
-	real2 dt_dx = dtBuffer[0] / dx;
+	real dt = dtBuffer[0];
+	real2 dt_dx = dt / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
@@ -142,7 +143,7 @@ __kernel void calcFlux(
 		
 		real4 stateSlopeRatio = mix(deltaStateR, deltaStateL, theta) / deltaState;
 		real4 phi = slopeLimiter(stateSlopeRatio);
-		real4 delta = phi * (stateR - stateL);
+		real4 delta = phi * deltaState;
 
 		real4 flux = mix(stateR, stateL, theta) * interfaceVelocity
 			+ delta * (.5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])));

@@ -24,8 +24,8 @@ struct RoeSolver : public Solver {
 	
 	cl::Kernel calcEigenBasisKernel;
 	cl::Kernel calcCFLKernel;
-	cl::Kernel calcDeltaQTildeKernel;
 	cl::Kernel calcCFLMinReduceKernel;
+	cl::Kernel calcDeltaQTildeKernel;
 	cl::Kernel calcFluxKernel;
 	cl::Kernel updateStateKernel;
 	cl::Kernel convertToTexKernel;
@@ -43,8 +43,8 @@ struct RoeSolver : public Solver {
 
 	EventProfileEntry calcEigenBasisEvent;
 	EventProfileEntry calcCFLEvent;
-	EventProfileEntry calcDeltaQTildeEvent;
 	EventProfileEntry calcCFLMinReduceEvent;
+	EventProfileEntry calcDeltaQTildeEvent;
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry updateStateEvent;
 	EventProfileEntry addSourceEvent;

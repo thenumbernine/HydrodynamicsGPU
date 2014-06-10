@@ -9,6 +9,10 @@
 #include <OpenGL/OpenGL.h>
 #include <iostream>
 
+HydroGPUArgs::HydroGPUArgs()
+: solverName("Burgers")
+{}
+
 HydroGPUApp::HydroGPUApp()
 : Super()
 , fluidTex(GLuint())
@@ -43,7 +47,7 @@ int HydroGPUApp::main(std::vector<std::string> args) {
 				maxFrames = std::stoi(args[++i]);
 				continue;
 			} else if (args[i] == "--solver") {
-				hydroArgs.solverName = args[i];
+				hydroArgs.solverName = args[++i];
 				continue;
 			}
 		}
@@ -212,7 +216,7 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 					} 
 				} else {
 					if (dx || dy) {
-						viewPos += Tensor::Vector<float,2>(-(float)dx * 0.01f, (float)dy * 0.01f);
+						viewPos += Tensor::Vector<float,2>(-(float)dx * aspectRatio / (float)screenSize(0), (float)dy / (float)screenSize(1));
 					}
 				}
 			}

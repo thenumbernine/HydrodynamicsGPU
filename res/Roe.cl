@@ -142,7 +142,7 @@ __kernel void calcEigenBasis(
 			eigenvectors.s26AE,
 			eigenvectors.s37BF);
 
-#if 1	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
+#if 0	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
 		//calculate eigenvector inverses ... 
 		real invDenom = .5f / (speedOfSound * speedOfSound);
 		eigenvectorsInverseBuffer[interfaceIndex] = (real16)( 
@@ -167,7 +167,7 @@ __kernel void calcEigenBasis(
 			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
 			(GAMMA - 1.f) * invDenom);
 #endif
-#if 0 //numerically solve for the inverse
+#if 1 //numerically solve for the inverse
 		eigenvectorsInverseBuffer[interfaceIndex] = mat44inv(eigenvectorsBuffer[interfaceIndex]);
 #endif
 #endif
@@ -347,32 +347,6 @@ __kernel void calcCFL(
 	cflBuffer[index] = cfl * min(dum.x, dum.y);
 }
 
-__kernel void calcDeltaQTilde(
-	__global real4* deltaQTildeBuffer,
-	const __global real16* eigenvectorsInverseBuffer,
-	const __global real4* stateBuffer,
-	int2 size,
-	real2 dx)
-{
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
-
-	for (int side = 0; side < 2; ++side) {
-		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
-				
-		real4 stateL = stateBuffer[indexPrev];
-		real4 stateR = stateBuffer[index];
-
-		int interfaceIndex = side + 2 * index;
-		
-		real4 deltaQ = stateR - stateL;
-		deltaQTildeBuffer[interfaceIndex] = matmul(eigenvectorsInverseBuffer[interfaceIndex], deltaQ);
-	}
-}
-
 //http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 __kernel void calcCFLMinReduce(
 	const __global float* buffer,
@@ -406,9 +380,37 @@ __kernel void calcCFLMinReduce(
 	}
 }
 
+__kernel void calcDeltaQTilde(
+	__global real4* deltaQTildeBuffer,
+	const __global real16* eigenvectorsInverseBuffer,
+	const __global real4* stateBuffer,
+	int2 size,
+	real2 dx)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	if (i.x >= size.x || i.y >= size.y) return;
+	int index = i.x + size.x * i.y;
+
+	for (int side = 0; side < 2; ++side) {
+		int2 iPrev = i;
+		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		int indexPrev = iPrev.x + size.x * iPrev.y;
+				
+		real4 stateL = stateBuffer[indexPrev];
+		real4 stateR = stateBuffer[index];
+
+		int interfaceIndex = side + 2 * index;
+		
+		real4 deltaQ = stateR - stateL;
+		deltaQTildeBuffer[interfaceIndex] = matmul(eigenvectorsInverseBuffer[interfaceIndex], deltaQ);
+	}
+}
+
 real4 slopeLimiter(real4 r) {
+	//donor cell
+	return (real4)(0.f, 0.f, 0.f, 0.f);
 	//superbee
-	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
+	//return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
 __kernel void calcFlux(
@@ -506,12 +508,9 @@ __kernel void convertToTex(
 	int index = i.x + size.x * i.y;
 	real4 state = stateBuffer[index];
 	
-	//density coloring
-	real value = state.x;
-
-	//velocity coloring
-	//real2 velocity = state.yz / state.x;
-	//real value = log(dot(velocity, velocity) + 1.f);
+	real value = state.x;	//density
+	//real2 velocity = state.yz / state.x;	//velocity
+	//real value = (GAMMA - 1.f) * state.w * state.x;	//pressure
 
 	float4 color = read_imagef(gradientTex, 
 		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR,
