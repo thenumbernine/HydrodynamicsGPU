@@ -1,15 +1,6 @@
 #include "HydroGPU/Shared/Types.h"
 
-real4 matmul(real16 m, real4 v);
 real4 slopeLimiter(real4 r);
-
-real4 matmul(real16 m, real4 v) {
-	return (real4)(
-		dot(m.s0123, v),
-		dot(m.s4567, v),
-		dot(m.s89AB, v),
-		dot(m.sCDEF, v));
-}
 
 __kernel void calcCFL(
 	__global real* cflBuffer,
@@ -147,15 +138,14 @@ __kernel void calcFlux(
 		real4 deltaStateR = stateR2 - stateR;
 
 		real interfaceVelocity = interfaceVelocityBuffer[index][side];
-		real interfaceVelocityGreaterThanZero = step(0.f, interfaceVelocity);
-		real4 stateSlopeRatio = mix(deltaStateR, deltaStateL, interfaceVelocityGreaterThanZero) / deltaState;
-
+		real theta = step(0.f, interfaceVelocity);
+		
+		real4 stateSlopeRatio = mix(deltaStateR, deltaStateL, theta) / deltaState;
 		real4 phi = slopeLimiter(stateSlopeRatio);
-
-		real4 flux = mix(stateR, stateL, interfaceVelocityGreaterThanZero) * interfaceVelocity;
-
 		real4 delta = phi * (stateR - stateL);
-		flux += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side]));
+
+		real4 flux = mix(stateR, stateL, theta) * interfaceVelocity
+			+ delta * (.5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])));
 
 		fluxBuffer[side + 2 * index] = flux;
 	}
@@ -206,7 +196,28 @@ __kernel void computePressure(
 	real energyKinetic = .5f * dot(velocity, velocity);
 	real energyInternal = energyTotal - energyKinetic;
 	
-	pressureBuffer[index] = (GAMMA - 1.f) * density * energyInternal;
+	real pressure = (GAMMA - 1.f) * density * energyInternal;
+
+	//von Neumann-Richtmyer artiﬁcial viscosity
+	real deltaVelocitySq = 0.f;
+	for (int side = 0; side < 2; ++side) {
+		int2 iPrev = i;
+		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		int indexPrev = iPrev.x + size.x * iPrev.y;
+		
+		int2 iNext = i;
+		iNext[side] = (iNext[side] + 1) % size[side];
+		int indexNext = iNext.x + size.x * iNext.y;
+
+		real velocityL = stateBuffer[indexPrev][side+1];
+		real velocityR = stateBuffer[indexNext][side+1];
+		const float ZETA = 2.f;
+		real deltaVelocity = ZETA * .5f * (velocityR - velocityL);
+		deltaVelocitySq += deltaVelocity * deltaVelocity; 
+	}
+	pressure += deltaVelocitySq * density;
+
+	pressureBuffer[index] = pressure;
 }
 
 __kernel void diffuseMomentum(
@@ -287,10 +298,13 @@ __kernel void convertToTex(
 	int index = i.x + size.x * i.y;
 	
 	real4 state = stateBuffer[index];
+	real value = state.x;	//density
+	//real value = length(state.yz) / state.x;	//velocity
+	//real value = (GAMMA - 1.f) * state.x * state.w;	//pressure
 
 	float4 color = read_imagef(gradientTex, 
 		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR,
-		(float2)(state.w * 2.f, .5f));
+		(float2)(value * 2.f, .5f));
 	write_imagef(fluidTex, i, color.bgra);
 }
 

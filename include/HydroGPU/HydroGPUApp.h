@@ -4,8 +4,18 @@
 #include "CLApp/CLApp.h"
 #include "Tensor/Vector.h"
 
+//passing from cmd-line to app
+struct HydroGPUArgs {
+	std::string solverName;
+	HydroGPUArgs() 
+	: solverName("Burgers")
+	{}
+};
+
 struct HydroGPUApp : public ::CLApp::CLApp {
 	typedef ::CLApp::CLApp Super;
+
+	HydroGPUArgs hydroArgs;
 
 	GLuint fluidTex;
 	GLuint gradientTex;

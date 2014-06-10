@@ -101,21 +101,17 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 			for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
 				for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++state) {
 					
-					bool lhs = true;
 					Tensor::Vector<real, DIM> x;
+					real rSq = real();
 					for (int n = 0; n < DIM; ++n) {
 						x(n) = real(xmax.s[n] - xmin.s[n]) * real(index[n]) / real(size.s[n]) + real(xmin.s[n]);
-						//if (x(n) > real(.3) * real(xmax.s[n]) + real(.7) * real(xmin.s[n]))
-						if (fabs(x(n)) > real(.15))
-						//if (n == 0 && x(n) < 0)
-						{
-							lhs = false;
-							break;
-						}
+						rSq += x(n) * x(n);
 					}
-
-					//sod init
-					real density = lhs ? 1. : .1;
+			
+#if 0
+					//http://www.cfd-online.com/Wiki/Explosion_test_in_2-D
+					bool inside = rSq <= .2*.2;
+					real density = inside ? 1. : .125;
 					Tensor::Vector<real, DIM> velocity;
 					real specificKineticEnergy = real();
 					for (int n = 0; n < DIM; ++n) {
@@ -123,9 +119,23 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 						specificKineticEnergy += velocity(n) * velocity(n);
 					}
 					specificKineticEnergy *= real(.5);
+					real pressure = inside ? 1. : .1;
+					real specificInternalEnergy = pressure / ((GAMMA - 1.) * density);
+					real specificTotalEnergy = specificKineticEnergy + specificInternalEnergy;
+#endif
+#if 1				//square shock wave
+					bool inside = fabs(x(0)) < .15 && fabs(x(1)) < .15;
+					real density = inside ? 1. : .1;
+					Tensor::Vector<real, 2> velocity;
+					real specificKineticEnergy = 0.;
+					for (int n = 0; n < DIM; ++n) {
+						velocity(n) = crand() * noise;
+						specificKineticEnergy += velocity(n) * velocity(n);
+					}
+					specificKineticEnergy *= .5;
 					real specificInternalEnergy = 1.;
 					real specificTotalEnergy = specificKineticEnergy + specificInternalEnergy;
-
+#endif
 					state->s[0] = density;
 					for (int n = 0; n < DIM; ++n) {
 						state->s[n+1] = density * velocity(n);
@@ -246,7 +256,7 @@ void BurgersSolver::update() {
 		commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);  
 		std::vector<Tensor::Vector<char,4>> texVec(volume);
 		for (int i = 0; i < volume; ++i) {
-			texVec[i](0) = (char)(255.f * stateVec[i].s[0] * .9f);
+			texVec[i](0) = (char)(255.f * stateVec[i].s[0] * 2.f);
 		}
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size.s[0], size.s[1], GL_RGBA, GL_UNSIGNED_BYTE, &texVec[0].v);
 	}

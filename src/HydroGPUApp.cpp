@@ -33,13 +33,18 @@ HydroGPUApp::HydroGPUApp()
 }
 
 int HydroGPUApp::main(std::vector<std::string> args) {
-	for (int i = 0; i < args.size(); ++i) {
+	for (int i = 1; i < args.size(); ++i) {
 		if (args[i] == "--cpu") {
 			useGPU = false;
+			continue;
 		}
 		if (i < args.size()-1) {
 			if (args[i] == "--frames") {
 				maxFrames = std::stoi(args[++i]);
+				continue;
+			} else if (args[i] == "--solver") {
+				hydroArgs.solverName = args[i];
+				continue;
 			}
 		}
 		if (i < args.size()-DIM) {
@@ -47,8 +52,10 @@ int HydroGPUApp::main(std::vector<std::string> args) {
 				for (int k = 0; k < DIM; ++k) {
 					size.s[k] = std::stoi(args[++i]);
 				}
+				continue;
 			}
 		}
+		throw Common::Exception() << "got unknown cmdline argument: " << args[i];
 	}
 	return Super::main(args);
 }
@@ -113,7 +120,13 @@ void HydroGPUApp::init() {
 
 	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex);
 
-	solver = std::make_shared<BurgersSolver>(*this);
+	if (hydroArgs.solverName == "Burgers") {
+		solver = std::make_shared<BurgersSolver>(*this);
+	} else if (hydroArgs.solverName == "Roe") {
+		solver = std::make_shared<RoeSolver>(*this);
+	} else {
+		throw Common::Exception() << "unknown solver " << hydroArgs.solverName;
+	}
 	
 	err = glGetError();
 	if (err) throw Common::Exception() << "GL error " << err;
