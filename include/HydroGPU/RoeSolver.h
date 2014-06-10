@@ -27,7 +27,7 @@ struct RoeSolver : public Solver {
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel calcDeltaQTildeKernel;
 	cl::Kernel calcFluxKernel;
-	cl::Kernel updateStateKernel;
+	cl::Kernel integrateFluxKernel;
 	cl::Kernel convertToTexKernel;
 	cl::Kernel addDropKernel;
 	cl::Kernel addSourceKernel;
@@ -46,7 +46,7 @@ struct RoeSolver : public Solver {
 	EventProfileEntry calcCFLMinReduceEvent;
 	EventProfileEntry calcDeltaQTildeEvent;
 	EventProfileEntry calcFluxEvent;
-	EventProfileEntry updateStateEvent;
+	EventProfileEntry integrateFluxEvent;
 	EventProfileEntry addSourceEvent;
 	std::vector<EventProfileEntry*> entries;
 

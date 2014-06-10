@@ -16,7 +16,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 , calcCFLMinReduceEvent("calcCFLMinReduce")
 , calcDeltaQTildeEvent("calcDeltaQTilde")
 , calcFluxEvent("calcFlux")
-, updateStateEvent("updateState")
+, integrateFluxEvent("integrateFlux")
 , addSourceEvent("addSource")
 , cfl(.5f)
 , drop(false)
@@ -38,7 +38,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	}
 	entries.push_back(&calcDeltaQTildeEvent);
 	entries.push_back(&calcFluxEvent);
-	entries.push_back(&updateStateEvent);
+	entries.push_back(&integrateFluxEvent);
 
 	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
 	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
@@ -164,8 +164,8 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
 	app.setArgs(calcFluxKernel,fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, size, dx, dtBuffer);
 	
-	updateStateKernel = cl::Kernel(program, "updateState");
-	app.setArgs(updateStateKernel, stateBuffer, fluxBuffer, size, dx, dtBuffer);
+	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
+	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, size, dx, dtBuffer);
 	
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, size, fluidTexMem, gradientTexMem);
@@ -226,7 +226,7 @@ void RoeSolver::update() {
 
 	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offset2d, globalSize, localSize, NULL, &calcDeltaQTildeEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offset2d, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
-	commands.enqueueNDRangeKernel(updateStateKernel, offset2d, globalSize, localSize, NULL, &updateStateEvent.clEvent);
+	commands.enqueueNDRangeKernel(integrateFluxKernel, offset2d, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
 
 	glFlush();
 	glFinish();

@@ -142,7 +142,7 @@ __kernel void calcEigenBasis(
 			eigenvectors.s26AE,
 			eigenvectors.s37BF);
 
-#if 0	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
+#if 1	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
 		//calculate eigenvector inverses ... 
 		real invDenom = .5f / (speedOfSound * speedOfSound);
 		eigenvectorsInverseBuffer[interfaceIndex] = (real16)( 
@@ -167,7 +167,7 @@ __kernel void calcEigenBasis(
 			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
 			(GAMMA - 1.f) * invDenom);
 #endif
-#if 1 //numerically solve for the inverse
+#if 0 //numerically solve for the inverse
 		eigenvectorsInverseBuffer[interfaceIndex] = mat44inv(eigenvectorsBuffer[interfaceIndex]);
 #endif
 #endif
@@ -408,9 +408,9 @@ __kernel void calcDeltaQTilde(
 
 real4 slopeLimiter(real4 r) {
 	//donor cell
-	return (real4)(0.f, 0.f, 0.f, 0.f);
+	//return (real4)(0.f, 0.f, 0.f, 0.f);
 	//superbee
-	//return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
+	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
 __kernel void calcFlux(
@@ -455,21 +455,20 @@ __kernel void calcFlux(
 		real16 eigenvectors = eigenvectorsBuffer[interfaceIndex];
 		real16 eigenvectorsInverse = eigenvectorsInverseBuffer[interfaceIndex];
 
-		real4 eigenvaluesGreaterThanZero = step(0.f, eigenvalues);
-		real4 rTilde = mix(deltaQTildeR, deltaQTildeL, eigenvaluesGreaterThanZero) / deltaQTilde;
+		real4 theta = step(0.f, eigenvalues) * 2.f - 1.f;
+		real4 rTilde = mix(deltaQTildeR, deltaQTildeL, theta * .5f + .5f) / deltaQTilde;
 		real4 qAvg = (stateR + stateL) * .5f;
 		real4 fluxAvgTilde = matmul(eigenvectorsInverse, qAvg) * eigenvalues;
-		real4 theta = step(0.f, eigenvalues) * 2.f - 1.f;
 		real4 phi = slopeLimiter(rTilde);
 		real4 epsilon = eigenvalues * dt_dx[side];
 		real4 deltaFluxTilde = eigenvalues * deltaQTilde;
-		real4 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + phi * (epsilon - theta));
+		real4 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + .5f * phi * (epsilon - theta));
 		
 		fluxBuffer[side + 2 * index] = matmul(eigenvectors, fluxTilde);
 	}
 }
 
-__kernel void updateState(
+__kernel void integrateFlux(
 	__global real4* stateBuffer,
 	const __global real4* fluxBuffer,
 	int2 size,

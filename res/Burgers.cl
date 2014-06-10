@@ -146,7 +146,7 @@ __kernel void calcFlux(
 		real4 delta = phi * deltaState;
 
 		real4 flux = mix(stateR, stateL, theta) * interfaceVelocity
-			+ delta * (.5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])));
+			+ delta * .5f * (.5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])));
 
 		fluxBuffer[side + 2 * index] = flux;
 	}
@@ -166,7 +166,7 @@ __kernel void integrateFlux(
 
 	int index = i.x + size.x * i.y;
 	
-	for (int side = 0; side < 2; ++side) {	
+	for (int side = 0; side < 2; ++side) {
 		int2 iNext = i;
 		iNext[side] = (iNext[side] + 1) % size[side];
 		int indexNext = iNext.x + size.x * iNext.y;
