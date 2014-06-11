@@ -1,5 +1,5 @@
 OpenCL Riemann solver for computational fluid dynamics.
-Check out the Makefile for a list of its dependencies.
+Check out the Makefile for a list of its dependent projects.
 
 Burgers or Roe implementation with superbee slope limiter.
 

@@ -1,32 +1,25 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/RoeSolver.h"
 #include "HydroGPU/BurgersSolver.h"
+#include "Config/Config.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
+#include "Common/File.h"
 #include "Common/Macros.h"
 #include <SDL2/SDL.h>
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h>
 #include <iostream>
 
-HydroGPUArgs::HydroGPUArgs()
-: solverName("Burgers")
-{}
-
 HydroGPUApp::HydroGPUApp()
 : Super()
 , fluidTex(GLuint())
 , gradientTex(GLuint())
+, configFilename("config.lua")
+, solverName("Burgers")
 , doUpdate(1)
 , maxFrames(-1)
 , currentFrame(0)
-, leftButtonDown(false)
-, rightButtonDown(false)
-, leftShiftDown(false)
-, rightShiftDown(false)
-, leftGuiDown(false)
-, rightGuiDown(false)
-, viewZoom(1.f)
 , useFixedDT(false)
 , fixedDT(.001f)
 , cfl(.5f)
@@ -34,6 +27,13 @@ HydroGPUApp::HydroGPUApp()
 , displayScale(2.f)
 , boundaryMethod(BOUNDARY_REPEAT)
 , useGravity(true)
+, leftButtonDown(false)
+, rightButtonDown(false)
+, leftShiftDown(false)
+, rightShiftDown(false)
+, leftGuiDown(false)
+, rightGuiDown(false)
+, viewZoom(1.f)
 {
 	for (int i = 0; i < DIM; ++i) {
 		size.s[i] = 512;
@@ -41,35 +41,37 @@ HydroGPUApp::HydroGPUApp()
 }
 
 int HydroGPUApp::main(std::vector<std::string> args) {
-	for (int i = 1; i < args.size(); ++i) {
-		if (args[i] == "--cpu") {
-			useGPU = false;
-			continue;
-		}
-		if (i < args.size()-1) {
-			if (args[i] == "--frames") {
-				maxFrames = std::stoi(args[++i]);
-				continue;
-			} else if (args[i] == "--solver") {
-				hydroArgs.solverName = args[++i];
-				continue;
-			}
-		}
-		if (i < args.size()-DIM) {
-			if (args[i] == "--size") {
-				for (int k = 0; k < DIM; ++k) {
-					size.s[k] = std::stoi(args[++i]);
-				}
-				continue;
-			}
-		}
-		throw Common::Exception() << "got unknown cmdline argument: " << args[i];
-	}
+	if (args.size() > 1) configFilename = args[1];
 	return Super::main(args);
 }
 
 void HydroGPUApp::init() {
+	//config before Super::init so we can provide it 'useGPU'
+	std::cout << "pwd " << getcwd(NULL, 0) << std::endl;
+	std::cout << "filename " << configFilename << std::endl;
+	std::cout << "cfg " << Common::File::read(configFilename) << std::endl;
+	Config::Config config(configFilename);
+	{
+		config.get("useGPU", useGPU);
+		config.get("sizeX", size.s[0]);
+		config.get("sizeY", size.s[1]);
+		config.get("maxFrames", maxFrames);
+		config.get("solverName", solverName);
+		config.get("xmin", xmin.s[0]);
+		config.get("ymin", xmin.s[1]);
+		config.get("xmax", xmax.s[0]);
+		config.get("ymax", xmax.s[1]);
+		config.get("useFixedDT", useFixedDT);
+		config.get("cfl", cfl);
+		config.get("displayMethod", displayMethod);
+		config.get("displayScale", displayScale);
+		config.get("boundaryMethod", boundaryMethod);
+		config.get("useGravity", useGravity);
+	}
+
+
 	Super::init();
+
 
 	int err;
 	  
@@ -128,12 +130,12 @@ void HydroGPUApp::init() {
 
 	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex);
 
-	if (hydroArgs.solverName == "Burgers") {
+	if (solverName == "Burgers") {
 		solver = std::make_shared<BurgersSolver>(*this);
-	} else if (hydroArgs.solverName == "Roe") {
+	} else if (solverName == "Roe") {
 		solver = std::make_shared<RoeSolver>(*this);
 	} else {
-		throw Common::Exception() << "unknown solver " << hydroArgs.solverName;
+		throw Common::Exception() << "unknown solver " << solverName;
 	}
 	
 	err = glGetError();

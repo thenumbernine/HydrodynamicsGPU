@@ -1,0 +1,14 @@
+useGPU = true
+sizeX = 512
+sizeY = 512
+--maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions
+xmin = -.5
+xmax = .5
+ymin = -.5
+ymax = .5
+useFixedDT = false
+cfl = .5
+displayMethod = 0	--density
+displayScale = 2
+boundaryMethod = 0	--mirror
+useGravity = false
