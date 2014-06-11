@@ -21,7 +21,7 @@ const char *displayMethodNames[NUM_DISPLAY_METHODS] = {
 };
 
 const char *boundaryMethodNames[NUM_BOUNDARY_METHODS] = {
-	"repeat",
+	"periodic",
 	"mirror",
 	"freeflow",
 };
@@ -42,6 +42,8 @@ HydroGPUApp::HydroGPUApp()
 , displayScale(2.f)
 , boundaryMethod(BOUNDARY_REPEAT)
 , useGravity(true)
+, noise(0)
+, gamma(1.4)
 , leftButtonDown(false)
 , rightButtonDown(false)
 , leftShiftDown(false)
@@ -66,7 +68,7 @@ void HydroGPUApp::init() {
 	config = std::make_shared<Config::Config>();
 	{	//I could either interpret strings for enum names, or I could provide tables of enum values..
 		std::ostringstream s;
-		s << "boundryMethods = {\n";
+		s << "boundaryMethods = {\n";
 		for (int i = 0; i < NUM_BOUNDARY_METHODS; ++i) {
 			s << "\t['" << boundaryMethodNames[i] << "'] = " << i << ",\n";
 		}
@@ -90,6 +92,8 @@ void HydroGPUApp::init() {
 	config->get("ymax", xmax.s[1]);
 	config->get("useFixedDT", useFixedDT);
 	config->get("cfl", cfl);
+	config->get("noise", noise);
+	config->get("gamma", gamma);
 	config->get("displayMethod", displayMethod);
 	config->get("displayScale", displayScale);
 	config->get("boundaryMethod", boundaryMethod);

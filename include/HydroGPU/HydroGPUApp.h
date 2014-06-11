@@ -31,6 +31,8 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	float displayScale;
 	int boundaryMethod;
 	bool useGravity;
+	double noise;	//use this to init noise if using the default initState
+	double gamma;
 	std::shared_ptr<Config::Config> config;
 
 	//input

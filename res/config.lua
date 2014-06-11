@@ -1,6 +1,7 @@
+solverName = 'Burgers'
 useGPU = true
-sizeX = 512
-sizeY = 512
+-- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
+sizeX, sizeY = 1024, 1024
 --maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions
 xmin = -.5
 xmax = .5
@@ -10,7 +11,7 @@ useFixedDT = false
 cfl = .5
 displayMethod = displayMethods.density
 displayScale = 2
-boundaryMethod = boundaryMethods.repeat
+boundaryMethod = boundaryMethods.periodic
 useGravity = false
 noise = 0
 gamma = 1.4
@@ -60,7 +61,7 @@ function initState(x,y)
 end
 --]]	
 
---[[ square shock wave
+-- [[ square shock wave
 boundaryMethod = boundaryMethods.mirror
 function initState(x,y)
 	local inside = x < -.2 and y < -.2
@@ -71,7 +72,7 @@ function initState(x,y)
 end
 --]]
 
--- [[ gravity potential test - equilibrium
+--[[ gravity potential test - equilibrium
 useGravity = true
 boundaryMethod = boundaryMethods.freeflow
 local sources = {{0,0}}
