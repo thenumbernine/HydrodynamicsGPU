@@ -8,9 +8,9 @@ ymin = -.5
 ymax = .5
 useFixedDT = false
 cfl = .5
-displayMethod = 0	--density
+displayMethod = displayMethods.density
 displayScale = 2
-boundaryMethod = 0	--mirror
+boundaryMethod = boundaryMethods.repeat
 useGravity = false
 noise = 0
 gamma = 1.4
@@ -61,7 +61,7 @@ end
 --]]	
 
 --[[ square shock wave
-boundaryMethod = 1
+boundaryMethod = boundaryMethods.mirror
 function initState(x,y)
 	local inside = x < -.2 and y < -.2
 	return buildState{
@@ -73,7 +73,7 @@ end
 
 -- [[ gravity potential test - equilibrium
 useGravity = true
-boundaryMethod = 2
+boundaryMethod = boundaryMethods.freeflow
 local sources = {{0,0}}
 function initState(x,y)
 	local minDistSq = math.huge

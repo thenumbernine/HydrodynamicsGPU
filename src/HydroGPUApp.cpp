@@ -11,6 +11,21 @@
 #include <OpenGL/OpenGL.h>
 #include <iostream>
 
+//have to keep these updated with HydroGPU/Shared/Common.h
+
+const char *displayMethodNames[NUM_DISPLAY_METHODS] = {
+	"density",
+	"velocity",
+	"pressure",
+	"gravity potential",
+};
+
+const char *boundaryMethodNames[NUM_BOUNDARY_METHODS] = {
+	"repeat",
+	"mirror",
+	"freeflow",
+};
+
 HydroGPUApp::HydroGPUApp()
 : Super()
 , fluidTex(GLuint())
@@ -48,7 +63,22 @@ int HydroGPUApp::main(std::vector<std::string> args) {
 void HydroGPUApp::init() {
 	//config before Super::init so we can provide it 'useGPU'
 	std::cout << "loading config file " << configFilename << std::endl;
-	config = std::make_shared<Config::Config>(configFilename);
+	config = std::make_shared<Config::Config>();
+	{	//I could either interpret strings for enum names, or I could provide tables of enum values..
+		std::ostringstream s;
+		s << "boundryMethods = {\n";
+		for (int i = 0; i < NUM_BOUNDARY_METHODS; ++i) {
+			s << "\t['" << boundaryMethodNames[i] << "'] = " << i << ",\n";
+		}
+		s << "}\n";
+		s << "displayMethods = {\n";
+		for (int i = 0; i < NUM_DISPLAY_METHODS; ++i) {
+			s << "\t['" << displayMethodNames[i] << "'] = " << i << ",\n";
+		}
+		s << "}\n";
+		config->loadString(s.str());
+	}
+	config->loadFile(configFilename);
 	config->get("useGPU", useGPU);
 	config->get("sizeX", size.s[0]);
 	config->get("sizeY", size.s[1]);
@@ -286,25 +316,14 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			} else {
 				displayMethod = (displayMethod + 1) % NUM_DISPLAY_METHODS;
 			}
-			switch (displayMethod) {
-			case DISPLAY_DENSITY:	std::cout << "display density" << std::endl; break;
-			case DISPLAY_VELOCITY:	std::cout << "display velocity" << std::endl; break;
-			case DISPLAY_PRESSURE:	std::cout << "display pressure" << std::endl; break;
-			case DISPLAY_GRAVITY_POTENTIAL:	std::cout << "display gravity potential" << std::endl; break;
-			default: std::cout << "unknown display" << std::endl; break;
-			}
+			std::cout << "display " << displayMethodNames[displayMethod] << std::endl;
 		} else if (event.key.keysym.sym == SDLK_b) {
 			if (shiftDown) {
 				boundaryMethod = (boundaryMethod + NUM_BOUNDARY_METHODS - 1) % NUM_BOUNDARY_METHODS;
 			} else {
 				boundaryMethod = (boundaryMethod + 1) % NUM_BOUNDARY_METHODS;
 			}
-			switch (boundaryMethod) {
-			case BOUNDARY_REPEAT:	std::cout << "boundary repeat" << std::endl; break;
-			case BOUNDARY_MIRROR:	std::cout << "boundary mirror" << std::endl; break;
-			case BOUNDARY_FREEFLOW:	std::cout << "boundary freeflow" << std::endl; break;
-			default: std::cout << "unknown boundary" << std::endl; break;
-			}		
+			std::cout << "boundary " << boundaryMethodNames[boundaryMethod] << std::endl;
 		} else if (event.key.keysym.sym == SDLK_u) {
 			if (doUpdate) {
 				doUpdate = 0;
