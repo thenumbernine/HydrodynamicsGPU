@@ -2,6 +2,7 @@
 
 #include "HydroGPU/Solver.h"
 #include "CLApp/CLApp.h"
+#include "Config/Config.h"
 #include "Tensor/Vector.h"
 
 struct HydroGPUApp : public ::CLApp::CLApp {
@@ -30,7 +31,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	float displayScale;
 	int boundaryMethod;
 	bool useGravity;
-
+	std::shared_ptr<Config::Config> config;
 
 	//input
 	bool leftButtonDown;

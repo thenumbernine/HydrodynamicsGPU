@@ -47,28 +47,23 @@ int HydroGPUApp::main(std::vector<std::string> args) {
 
 void HydroGPUApp::init() {
 	//config before Super::init so we can provide it 'useGPU'
-	std::cout << "pwd " << getcwd(NULL, 0) << std::endl;
-	std::cout << "filename " << configFilename << std::endl;
-	std::cout << "cfg " << Common::File::read(configFilename) << std::endl;
-	Config::Config config(configFilename);
-	{
-		config.get("useGPU", useGPU);
-		config.get("sizeX", size.s[0]);
-		config.get("sizeY", size.s[1]);
-		config.get("maxFrames", maxFrames);
-		config.get("solverName", solverName);
-		config.get("xmin", xmin.s[0]);
-		config.get("ymin", xmin.s[1]);
-		config.get("xmax", xmax.s[0]);
-		config.get("ymax", xmax.s[1]);
-		config.get("useFixedDT", useFixedDT);
-		config.get("cfl", cfl);
-		config.get("displayMethod", displayMethod);
-		config.get("displayScale", displayScale);
-		config.get("boundaryMethod", boundaryMethod);
-		config.get("useGravity", useGravity);
-	}
-
+	std::cout << "loading config file " << configFilename << std::endl;
+	config = std::make_shared<Config::Config>(configFilename);
+	config->get("useGPU", useGPU);
+	config->get("sizeX", size.s[0]);
+	config->get("sizeY", size.s[1]);
+	config->get("maxFrames", maxFrames);
+	config->get("solverName", solverName);
+	config->get("xmin", xmin.s[0]);
+	config->get("ymin", xmin.s[1]);
+	config->get("xmax", xmax.s[0]);
+	config->get("ymax", xmax.s[1]);
+	config->get("useFixedDT", useFixedDT);
+	config->get("cfl", cfl);
+	config->get("displayMethod", displayMethod);
+	config->get("displayScale", displayScale);
+	config->get("boundaryMethod", boundaryMethod);
+	config->get("useGravity", useGravity);
 
 	Super::init();
 
