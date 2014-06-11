@@ -1,10 +1,14 @@
-#include "HydroGPU/Shared/Types.h"
+#include "HydroGPU/Shared/Common.h"
 
 real4 slopeLimiter(real4 r);
+
+#define M_PI 3.141592653589793115997963468544185161590576171875f
+#define GRAVITY_CONSTANT 1e+5f		//6.67384e-11 m^3 / (kg s^2)
 
 __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real4* stateBuffer,
+	const __global real* gravityPotentialBuffer,
 	int2 size,
 	real2 dx,
 	real cfl)
@@ -18,7 +22,8 @@ __kernel void calcCFL(
 	real2 velocity = state.yz / density;
 	real specificTotalEnergy = state.w / density;
 	real specificKineticEnergy = .5f * dot(velocity, velocity);
-	real specificInternalEnergy = specificTotalEnergy - specificKineticEnergy;
+	real specificPotentialEnergy = gravityPotentialBuffer[index]; 
+	real specificInternalEnergy = specificTotalEnergy - specificKineticEnergy - specificPotentialEnergy;
 	real speedOfSound = sqrt(GAMMA * (GAMMA - 1.f) * specificInternalEnergy);
 	real dumx = dx.x / (speedOfSound + fabs(velocity.x));
 	real dumy = dx.y / (speedOfSound + fabs(velocity.y));
@@ -179,9 +184,53 @@ __kernel void integrateFlux(
 	}
 }
 
+__kernel void poissonRelax(
+	__global real* gravityPotentialBuffer,
+	const __global real4* stateBuffer,
+	int2 size,
+	real2 dx)
+{
+	real scale = 1.f / (-4.f * M_PI * GRAVITY_CONSTANT * dx.x * dx.y);
+	
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	if (i.x >= size.x || i.y >= size.y) return;
+	int index = i.x + size.x * i.y;
+
+	int ixp = (i.x + size.x - 1) % size.x;
+	int ixn = (i.x + 1) % size.x;
+	int iyp = (i.y + size.y - 1) % size.y;
+	int iyn = (i.y + 1) % size.y;
+
+	int xp = ixp + size.x * i.y;
+	int xn = ixn + size.x * i.y;
+	int yp = i.x + size.x * iyp;
+	int yn = i.x + size.x * iyn;
+	int xpyp = ixp + size.x * iyp;
+	int xnyp = ixn + size.x * iyp;
+	int xpyn = ixp + size.x * iyn;
+	int xnyn = ixn + size.x * iyn;
+	
+	//D_i,i = -6 / (-4 pi G dx^2)
+	//D_i,i+1 = D_i,i-i = D_i,i+width = D_i,i-width = 1 / (-4 pi G dx^2)
+	//D_i,i+1+width = D_i,i+1-width = D_i,i-1+width = D_i-1-width = -.5 / (-4 pi G dx^2)
+
+	real sum = scale *
+				((gravityPotentialBuffer[xp] 
+				+ gravityPotentialBuffer[xn] 
+				+ gravityPotentialBuffer[yp] 
+				+ gravityPotentialBuffer[yn])
+		-.5f * (gravityPotentialBuffer[xnyn] 
+				+ gravityPotentialBuffer[xpyn] 
+				+ gravityPotentialBuffer[xnyp] 
+				+ gravityPotentialBuffer[xpyp]));
+
+	gravityPotentialBuffer[index] = (stateBuffer[index].x - sum) / (-6.f * scale);
+}
+
 __kernel void computePressure(
 	__global real* pressureBuffer,
 	const __global real4* stateBuffer,
+	const __global real* gravityPotentialBuffer,
 	int2 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
@@ -195,7 +244,8 @@ __kernel void computePressure(
 	real energyTotal = state.w / density;
 	
 	real energyKinetic = .5f * dot(velocity, velocity);
-	real energyInternal = energyTotal - energyKinetic;
+	real energyPotential = gravityPotentialBuffer[index];
+	real energyInternal = energyTotal - energyKinetic - energyPotential;
 	
 	real pressure = (GAMMA - 1.f) * density * energyInternal;
 
@@ -219,6 +269,41 @@ __kernel void computePressure(
 	pressure += deltaVelocitySq * density;
 
 	pressureBuffer[index] = pressure;
+}
+
+__kernel void addGravity(
+	__global real4* stateBuffer,
+	const __global real* gravityPotentialBuffer,
+	int2 size,
+	real2 dx,
+	const __global real* dtBuffer)
+{
+	real dt = dtBuffer[0];
+	real2 dt_dx = dt / dx;
+
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	if (i.x >= size.x || i.y >= size.y) return;
+	int index = i.x + size.x * i.y;
+
+	real4 state = stateBuffer[index];
+	real density = state.x;
+
+	for (int side = 0; side < 2; ++side) {
+		int2 iPrev = i;
+		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		int indexPrev = iPrev.x + size.x * iPrev.y;
+		
+		int2 iNext = i;
+		iNext[side] = (iNext[side] + 1) % size[side];
+		int indexNext = iNext.x + size.x * iNext.y;	
+	
+		real gravityGrad = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
+		
+		state[side+1] -= dt_dx[side] * density * gravityGrad;
+		state.w -= dt * density * gravityGrad * state[side+1];
+	}
+
+	stateBuffer[index] = state;
 }
 
 __kernel void diffuseMomentum(

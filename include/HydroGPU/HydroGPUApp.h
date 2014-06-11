@@ -46,7 +46,9 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	real cfl;
 	int displayMethod;
 	float displayScale;
-	
+	int boundaryMethod;
+	bool useGravity;
+
 	HydroGPUApp();
 
 	virtual int main(std::vector<std::string> args);

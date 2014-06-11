@@ -30,8 +30,10 @@ HydroGPUApp::HydroGPUApp()
 , useFixedDT(false)
 , fixedDT(.001f)
 , cfl(.5f)
-, displayMethod(0)
+, displayMethod(DISPLAY_DENSITY)
 , displayScale(2.f)
+, boundaryMethod(BOUNDARY_REPEAT)
+, useGravity(true)
 {
 	for (int i = 0; i < DIM; ++i) {
 		size.s[i] = 512;
@@ -291,7 +293,21 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			case DISPLAY_DENSITY:	std::cout << "display density" << std::endl; break;
 			case DISPLAY_VELOCITY:	std::cout << "display velocity" << std::endl; break;
 			case DISPLAY_PRESSURE:	std::cout << "display pressure" << std::endl; break;
+			case DISPLAY_GRAVITY_POTENTIAL:	std::cout << "display gravity potential" << std::endl; break;
+			default: std::cout << "unknown display" << std::endl; break;
 			}
+		} else if (event.key.keysym.sym == SDLK_b) {
+			if (shiftDown) {
+				boundaryMethod = (boundaryMethod + NUM_BOUNDARY_METHODS - 1) % NUM_BOUNDARY_METHODS;
+			} else {
+				boundaryMethod = (boundaryMethod + 1) % NUM_BOUNDARY_METHODS;
+			}
+			switch (boundaryMethod) {
+			case BOUNDARY_REPEAT:	std::cout << "boundary repeat" << std::endl; break;
+			case BOUNDARY_MIRROR:	std::cout << "boundary mirror" << std::endl; break;
+			case BOUNDARY_FREEFLOW:	std::cout << "boundary freeflow" << std::endl; break;
+			default: std::cout << "unknown boundary" << std::endl; break;
+			}		
 		} else if (event.key.keysym.sym == SDLK_u) {
 			if (doUpdate) {
 				doUpdate = 0;

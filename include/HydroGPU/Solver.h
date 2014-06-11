@@ -1,6 +1,6 @@
 #pragma once
 
-#include "HydroGPU/Shared/Types.h"	//cl shared header
+#include "HydroGPU/Shared/Common.h"	//cl shared header
 #include "Tensor/Vector.h"
 
 struct HydroGPUApp;

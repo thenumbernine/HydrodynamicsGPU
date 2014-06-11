@@ -1,4 +1,4 @@
-#include "HydroGPU/Shared/Types.h"	//OpenCL shared header
+#include "HydroGPU/Shared/Common.h"	//OpenCL shared header
 #include "HydroGPU/RoeSolver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
@@ -173,7 +173,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, size, dx, dtBuffer);
 	
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
-	app.setArgs(convertToTexKernel, stateBuffer, size, fluidTexMem, gradientTexMem);
+	app.setArgs(convertToTexKernel, stateBuffer, cflBuffer, size, fluidTexMem, gradientTexMem);
 
 	addDropKernel = cl::Kernel(program, "addDrop");
 	app.setArgs(addDropKernel, stateBuffer, size, xmin, xmax, dtBuffer);
@@ -240,8 +240,8 @@ void RoeSolver::update() {
 	commands.enqueueAcquireGLObjects(&acquireGLMems);
 
 	if (useGPU) {
-		convertToTexKernel.setArg(4, app.displayMethod);
-		convertToTexKernel.setArg(5, app.displayScale);
+		convertToTexKernel.setArg(5, app.displayMethod);
+		convertToTexKernel.setArg(6, app.displayScale);
 		commands.enqueueNDRangeKernel(convertToTexKernel, offset2d, globalSize, localSize);
 	} else {
 		int volume = size.s[0] * size.s[1];

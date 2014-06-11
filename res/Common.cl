@@ -1,7 +1,65 @@
-#include "HydroGPU/Shared/Types.h"
+#include "HydroGPU/Shared/Common.h"
 
-__kernel void convertToTex(
+__kernel void applyBoundaryHorizontal(
 	__global real4* stateBuffer,
+	int2 size,
+	int boundaryMethod)
+{
+	int i = get_global_id(0);
+	if (i >= size.x) return;
+	
+	switch (boundaryMethod) {
+	case BOUNDARY_REPEAT:
+		break;
+	case BOUNDARY_MIRROR:
+		stateBuffer[i].xw = stateBuffer[i + size.x * 3].xw;
+		stateBuffer[i].yz = -stateBuffer[i + size.x * 3].yz;
+		stateBuffer[i + size.x].xw = stateBuffer[i + size.x * 2].xw;
+		stateBuffer[i + size.x].yz = -stateBuffer[i + size.x * 2].yz;
+		
+		stateBuffer[i + size.x * (size.y - 1)].xw = stateBuffer[i + size.x * (size.y - 4)].xw;
+		stateBuffer[i + size.x * (size.y - 1)].yz = -stateBuffer[i + size.x * (size.y - 4)].yz;
+		stateBuffer[i + size.x * (size.y - 2)].xw = stateBuffer[i + size.x * (size.y - 3)].xw;
+		stateBuffer[i + size.x * (size.y - 2)].yz = -stateBuffer[i + size.x * (size.y - 3)].yz;
+		break;
+	case BOUNDARY_FREEFLOW:
+		stateBuffer[i] = stateBuffer[i + size.x] = stateBuffer[i + size.x * 2];
+		stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * (size.y - 2)] = stateBuffer[i + size.x * (size.y - 3)];
+		break;
+	}
+}
+
+__kernel void applyBoundaryVertical(
+	__global real4* stateBuffer,
+	int2 size,
+	int boundaryMethod)
+{
+	int i = get_global_id(0);
+	if (i >= size.y) return;
+
+	switch (boundaryMethod) {
+	case BOUNDARY_REPEAT:
+		break;
+	case BOUNDARY_MIRROR:
+		stateBuffer[size.x * i].xw = stateBuffer[3 + size.x * i].xw;
+		stateBuffer[size.x * i].yz = -stateBuffer[3 + size.x * i].yz;
+		stateBuffer[1 + size.x * i].xw = stateBuffer[2 + size.x * i].xw;
+		stateBuffer[1 + size.x * i].yz = -stateBuffer[2 + size.x * i].yz;
+		
+		stateBuffer[(size.x - 1) + size.x * i].xw = stateBuffer[(size.x - 4) + size.x * i].xw;
+		stateBuffer[(size.x - 1) + size.x * i].yz = -stateBuffer[(size.x - 4) + size.x * i].yz;
+		stateBuffer[(size.x - 2) + size.x * i].xw = stateBuffer[(size.x - 3) + size.x * i].xw;
+		stateBuffer[(size.x - 2) + size.x * i].yz = -stateBuffer[(size.x - 3) + size.x * i].yz;	
+		break;
+	case BOUNDARY_FREEFLOW:
+		stateBuffer[size.x * i] = stateBuffer[1 + size.x * i] = stateBuffer[2 + size.x * i];
+		stateBuffer[(size.x - 1) + size.x * i] = stateBuffer[(size.x - 2) + size.x * i] = stateBuffer[(size.x - 3) + size.x * i];
+		break;
+	}
+}
+__kernel void convertToTex(
+	const __global real4* stateBuffer,
+	const __global real* gravityPotentialBuffer,
 	int2 size,
 	__write_only image2d_t fluidTex,
 	__read_only image2d_t gradientTex,
@@ -23,7 +81,17 @@ __kernel void convertToTex(
 		value = length(state.yz) / state.x;
 		break;
 	case DISPLAY_PRESSURE:	//pressure
-		value = (GAMMA - 1.f) * state.w * state.x;
+		{
+			real density = state.x;
+			real energyTotal = state.w / density;
+			real energyKinetic = .5f * dot(state.yz, state.yz) / (density * density);
+			real energyPotential = gravityPotentialBuffer[index];
+			real energyInternal = energyTotal - energyKinetic - energyPotential;
+			value = (GAMMA - 1.f) * energyInternal * density;
+		}
+		break;
+	case DISPLAY_GRAVITY_POTENTIAL:
+		value = gravityPotentialBuffer[index];
 		break;
 	default:
 		value = .5f;

@@ -1,4 +1,6 @@
 OpenCL Riemann solver for computational fluid dynamics.
 Check out the Makefile for a list of its dependencies.
-Right now just runs Roe scheme with superbee limiter, Euler integration.
-I need to add more to this.
+
+Burgers or Roe implementation with superbee slope limiter.
+
+Adding various boundary methods, coloring schemes, and self-gravity.

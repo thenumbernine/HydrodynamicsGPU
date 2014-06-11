@@ -19,9 +19,12 @@ struct BurgersSolver : public Solver {
 	cl::Buffer cflBuffer;
 	cl::Buffer cflSwapBuffer;
 	cl::Buffer dtBuffer;
-	
+	cl::Buffer gravityPotentialBuffer;
+
 	cl::Kernel calcCFLKernel;
 	cl::Kernel calcCFLMinReduceKernel;
+	cl::Kernel applyBoundaryHorizontalKernel;
+	cl::Kernel applyBoundaryVerticalKernel;
 	cl::Kernel calcInterfaceVelocityKernel;
 	cl::Kernel calcFluxKernel;
 	cl::Kernel integrateFluxKernel;
@@ -31,6 +34,8 @@ struct BurgersSolver : public Solver {
 	cl::Kernel convertToTexKernel;
 	cl::Kernel addDropKernel;
 	cl::Kernel addSourceKernel;
+	cl::Kernel poissonRelaxKernel;
+	cl::Kernel addGravityKernel;
 	
 	struct EventProfileEntry {
 		EventProfileEntry(std::string name_) : name(name_) {}
@@ -43,6 +48,8 @@ struct BurgersSolver : public Solver {
 
 	EventProfileEntry calcCFLEvent;
 	EventProfileEntry calcCFLMinReduceEvent;
+	EventProfileEntry applyBoundaryHorizontalEvent;
+	EventProfileEntry applyBoundaryVerticalEvent;
 	EventProfileEntry calcInterfaceVelocityEvent;
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry integrateFluxEvent;
@@ -50,10 +57,14 @@ struct BurgersSolver : public Solver {
 	EventProfileEntry diffuseMomentumEvent;
 	EventProfileEntry diffuseWorkEvent;
 	EventProfileEntry addSourceEvent;
+	EventProfileEntry poissonRelaxEvent;
+	EventProfileEntry addGravityEvent;
+	
 	std::vector<EventProfileEntry*> entries;
 
 	cl::NDRange globalSize, localSize;
 
+	//for mouse input
 	cl_float2 addSourcePos, addSourceVel;
 
 	BurgersSolver(HydroGPUApp &app);
