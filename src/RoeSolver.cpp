@@ -60,10 +60,15 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	globalSize = cl::NDRange(globalSizeVec(0), globalSizeVec(1));
 	localSize = cl::NDRange(localSizeVec(0), localSizeVec(1));
 
-	std::string kernelSource = Common::File::read("Roe.cl");
-	std::vector<std::pair<const char *, size_t>> sources = {
-		std::pair<const char *, size_t>(kernelSource.c_str(), kernelSource.length())
+	std::vector<std::string> kernelSources = std::vector<std::string>{
+		Common::File::read("Common.cl"),
+		Common::File::read("Roe.cl")
 	};
+	std::vector<std::pair<const char *, size_t>> sources;
+	for (const std::string &s : kernelSources) {
+		sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));
+	}
+
 	program = cl::Program(context, sources);
  
 	try {
@@ -235,6 +240,8 @@ void RoeSolver::update() {
 	commands.enqueueAcquireGLObjects(&acquireGLMems);
 
 	if (useGPU) {
+		convertToTexKernel.setArg(4, app.displayMethod);
+		convertToTexKernel.setArg(5, app.displayScale);
 		commands.enqueueNDRangeKernel(convertToTexKernel, offset2d, globalSize, localSize);
 	} else {
 		int volume = size.s[0] * size.s[1];
@@ -242,7 +249,22 @@ void RoeSolver::update() {
 		commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);  
 		std::vector<Tensor::Vector<char,4>> texVec(volume);
 		for (int i = 0; i < volume; ++i) {
-			texVec[i](0) = (char)(255.f * stateVec[i].s[0] * .9f);
+			real value;
+			switch (app.displayMethod) {
+			case DISPLAY_DENSITY:	//density
+				value = stateVec[i].s[0];
+				break;
+			case DISPLAY_VELOCITY:	//velocity
+				value = sqrt(stateVec[i].s[1] * stateVec[i].s[1] + stateVec[i].s[2] * stateVec[i].s[2]) / stateVec[i].s[0];
+				break;
+			case DISPLAY_PRESSURE:	//pressure
+				value = (GAMMA - 1.f) * stateVec[i].s[3] * stateVec[i].s[0];
+				break;
+			default:
+				value = .5f;
+				break;
+			}
+			texVec[i](0) = (char)(255.f * value * app.displayScale);
 		}
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size.s[0], size.s[1], GL_RGBA, GL_UNSIGNED_BYTE, &texVec[0].v);
 	}

@@ -24,3 +24,10 @@ typedef cl_float16 real16;
 #define NUM_STATES	2+DIM
 #define GAMMA 1.4f
 
+enum {
+	DISPLAY_DENSITY,
+	DISPLAY_VELOCITY,
+	DISPLAY_PRESSURE,
+	NUM_DISPLAY_METHODS
+};
+

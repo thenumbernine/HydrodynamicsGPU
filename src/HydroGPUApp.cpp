@@ -30,6 +30,8 @@ HydroGPUApp::HydroGPUApp()
 , useFixedDT(false)
 , fixedDT(.001f)
 , cfl(.5f)
+, displayMethod(0)
+, displayScale(2.f)
 {
 	for (int i = 0; i < DIM; ++i) {
 		size.s[i] = 512;
@@ -256,16 +258,6 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			leftGuiDown = true;
 		} else if (event.key.keysym.sym == SDLK_RGUI) {
 			rightGuiDown = true;
-		} else if (event.key.keysym.sym == SDLK_u) {
-			if (doUpdate) {
-				doUpdate = 0;
-			} else {
-				if (shiftDown) {
-					doUpdate = 2;
-				} else {
-					doUpdate = 1;
-				}
-			}
 		}
 		break;
 	case SDL_KEYUP:
@@ -282,6 +274,33 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 				solver->save();
 			} else {
 				solver->screenshot();
+			}
+		} else if (event.key.keysym.sym == SDLK_f) {
+			if (shiftDown) {
+				displayScale *= .5;
+			} else {
+				displayScale *= 2.;
+			}
+		} else if (event.key.keysym.sym == SDLK_d) {
+			if (shiftDown) {
+				displayMethod = (displayMethod + NUM_DISPLAY_METHODS - 1) % NUM_DISPLAY_METHODS;
+			} else {
+				displayMethod = (displayMethod + 1) % NUM_DISPLAY_METHODS;
+			}
+			switch (displayMethod) {
+			case DISPLAY_DENSITY:	std::cout << "display density" << std::endl; break;
+			case DISPLAY_VELOCITY:	std::cout << "display velocity" << std::endl; break;
+			case DISPLAY_PRESSURE:	std::cout << "display pressure" << std::endl; break;
+			}
+		} else if (event.key.keysym.sym == SDLK_u) {
+			if (doUpdate) {
+				doUpdate = 0;
+			} else {
+				if (shiftDown) {
+					doUpdate = 2;
+				} else {
+					doUpdate = 1;
+				}
 			}
 		}
 		break;

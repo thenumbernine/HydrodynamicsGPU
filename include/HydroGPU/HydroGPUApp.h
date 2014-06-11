@@ -44,6 +44,8 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	bool useFixedDT;
 	real fixedDT;
 	real cfl;
+	int displayMethod;
+	float displayScale;
 	
 	HydroGPUApp();
 
