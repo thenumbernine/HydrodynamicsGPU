@@ -1,7 +1,12 @@
+
+
+	-- solver variables
+
+
 solverName = 'Burgers'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
-sizeX, sizeY = 1024, 1024--512, 512
+sizeX, sizeY = 1024, 1024
 --maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions
 xmin = -.5
 xmax = .5
@@ -16,7 +21,9 @@ useGravity = false
 noise = .01
 gamma = 1.4
 
--- some helper functions
+
+	-- helper functions
+
 
 local function crand() return math.random() * 2 - 1 end
 
@@ -50,6 +57,10 @@ local function buildState(args)
 	return primsToState(density, vx, vy, energyTotal)
 end
 
+
+	-- initial state descriptions
+
+
 --[[ circle -- http://www.cfd-online.com/Wiki/Explosion_test_in_2-D
 function initState(x,y)
 	local rSq = x * x + y * y
@@ -61,10 +72,10 @@ function initState(x,y)
 end
 --]]	
 
---[[ square shock wave
+--[[ square shock wave / 2D Sod test
 boundaryMethod = boundaryMethods.mirror
 function initState(x,y)
-	local inside = x < -.2 and y < -.2
+	local inside = x < 0 and y < 0
 	return buildState{
 		density = inside and 1 or .1,
 		energyInternal = 1,
@@ -72,9 +83,24 @@ function initState(x,y)
 end
 --]]
 
--- [[ gravity potential test - equilibrium
+--[[ Kelvin-Hemholtz
+noise = sizeX*2e-5
+solverName = 'Roe'	--Burgers is having trouble... hmm...
+function initState(x,y)
+	local inside = y > -.25 and y < .25
+	local theta = (x - xmin) / (xmax - xmin) * 2 * math.pi
+	return buildState{
+		density = inside and 2 or 1,
+		vx = math.cos(theta) * noise + (inside and -.5 or .5),
+		vy = math.sin(theta) * noise,
+		pressure = 2.5,
+	}
+end
+--]]
+
+-- [[ gravity potential test - equilibrium - some Rayleigh-Taylor
 useGravity = true
---boundaryMethod = boundaryMethods.freeflow
+boundaryMethod = boundaryMethods.freeflow
 local sources = {
 -- [=[ single source
 	{0,0, radius=.2},
@@ -114,4 +140,5 @@ function initState(x,y)
 	}
 end
 --]]
+
 

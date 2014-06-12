@@ -10,12 +10,19 @@ __kernel void applyBoundaryHorizontal(
 	
 	switch (boundaryMethod) {
 	case BOUNDARY_REPEAT:
+#if 0
+		stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * (size.y - 4)];
+		stateBuffer[i + size.x * 1] = stateBuffer[i + size.x * (size.y - 3)];
+		
+		stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * 3];
+		stateBuffer[i + size.x * (size.y - 2)] = stateBuffer[i + size.x * 2];
+#endif
 		break;
 	case BOUNDARY_MIRROR:
-		stateBuffer[i].xw = stateBuffer[i + size.x * 3].xw;
-		stateBuffer[i].yz = -stateBuffer[i + size.x * 3].yz;
-		stateBuffer[i + size.x].xw = stateBuffer[i + size.x * 2].xw;
-		stateBuffer[i + size.x].yz = -stateBuffer[i + size.x * 2].yz;
+		stateBuffer[i + size.x * 0].xw = stateBuffer[i + size.x * 3].xw;
+		stateBuffer[i + size.x * 0].yz = -stateBuffer[i + size.x * 3].yz;
+		stateBuffer[i + size.x * 1].xw = stateBuffer[i + size.x * 2].xw;
+		stateBuffer[i + size.x * 1].yz = -stateBuffer[i + size.x * 2].yz;
 		
 		stateBuffer[i + size.x * (size.y - 1)].xw = stateBuffer[i + size.x * (size.y - 4)].xw;
 		stateBuffer[i + size.x * (size.y - 1)].yz = -stateBuffer[i + size.x * (size.y - 4)].yz;
@@ -39,10 +46,17 @@ __kernel void applyBoundaryVertical(
 
 	switch (boundaryMethod) {
 	case BOUNDARY_REPEAT:
+#if 0
+		stateBuffer[0 + size.x * i] = stateBuffer[(size.x - 4) + size.x * i];
+		stateBuffer[1 + size.x * i] = stateBuffer[(size.x - 3) + size.x * i];
+		
+		stateBuffer[(size.x - 1) + size.x * i] = stateBuffer[3 + size.x * i];
+		stateBuffer[(size.x - 2) + size.x * i] = stateBuffer[2 + size.x * i];
+#endif
 		break;
 	case BOUNDARY_MIRROR:
-		stateBuffer[size.x * i].xw = stateBuffer[3 + size.x * i].xw;
-		stateBuffer[size.x * i].yz = -stateBuffer[3 + size.x * i].yz;
+		stateBuffer[0 + size.x * i].xw = stateBuffer[3 + size.x * i].xw;
+		stateBuffer[0 + size.x * i].yz = -stateBuffer[3 + size.x * i].yz;
 		stateBuffer[1 + size.x * i].xw = stateBuffer[2 + size.x * i].xw;
 		stateBuffer[1 + size.x * i].yz = -stateBuffer[2 + size.x * i].yz;
 		

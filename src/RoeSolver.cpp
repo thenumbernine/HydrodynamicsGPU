@@ -65,6 +65,7 @@ RoeSolver::RoeSolver(HydroGPUApp &app_)
 	localSize = cl::NDRange(localSizeVec(0), localSizeVec(1));
 
 	std::vector<std::string> kernelSources = std::vector<std::string>{
+		std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
 		Common::File::read("Common.cl"),
 		Common::File::read("Roe.cl")
 	};
@@ -296,7 +297,7 @@ void RoeSolver::update() {
 				value = sqrt(stateVec[i].s[1] * stateVec[i].s[1] + stateVec[i].s[2] * stateVec[i].s[2]) / stateVec[i].s[0];
 				break;
 			case DISPLAY_PRESSURE:	//pressure
-				value = (GAMMA - 1.f) * stateVec[i].s[3] * stateVec[i].s[0];
+				value = (app.gamma - 1.f) * stateVec[i].s[3] * stateVec[i].s[0];
 				break;
 			default:
 				value = .5f;

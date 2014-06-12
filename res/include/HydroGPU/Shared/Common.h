@@ -22,7 +22,6 @@ typedef cl_float16 real16;
 
 #define DIM	2
 #define NUM_STATES	2+DIM
-#define GAMMA 1.4f
 
 enum {
 	DISPLAY_DENSITY,
