@@ -2,9 +2,6 @@
 
 real4 slopeLimiter(real4 r);
 
-#define M_PI 3.141592653589793115997963468544185161590576171875f
-#define GRAVITY_CONSTANT 1e+5f		//6.67384e-11 m^3 / (kg s^2)
-
 __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real4* stateBuffer,
@@ -190,8 +187,6 @@ __kernel void poissonRelax(
 	int2 size,
 	real2 dx)
 {
-	real scale = 1.f / (-4.f * M_PI * GRAVITY_CONSTANT * dx.x * dx.y);
-	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 	int index = i.x + size.x * i.y;
@@ -205,26 +200,17 @@ __kernel void poissonRelax(
 	int xn = ixn + size.x * i.y;
 	int yp = i.x + size.x * iyp;
 	int yn = i.x + size.x * iyn;
-	int xpyp = ixp + size.x * iyp;
-	int xnyp = ixn + size.x * iyp;
-	int xpyn = ixp + size.x * iyn;
-	int xnyn = ixn + size.x * iyn;
-	
-	//D_i,i = -6 / (-4 pi G dx^2)
-	//D_i,i+1 = D_i,i-i = D_i,i+width = D_i,i-width = 1 / (-4 pi G dx^2)
-	//D_i,i+1+width = D_i,i+1-width = D_i,i-1+width = D_i-1-width = -.5 / (-4 pi G dx^2)
 
-	real sum = scale *
-				((gravityPotentialBuffer[xp] 
+	real sum = gravityPotentialBuffer[xp] 
 				+ gravityPotentialBuffer[xn] 
 				+ gravityPotentialBuffer[yp] 
-				+ gravityPotentialBuffer[yn])
-		-.5f * (gravityPotentialBuffer[xnyn] 
-				+ gravityPotentialBuffer[xpyn] 
-				+ gravityPotentialBuffer[xnyp] 
-				+ gravityPotentialBuffer[xpyp]));
+				+ gravityPotentialBuffer[yn];
+	
+#define M_PI 3.141592653589793115997963468544185161590576171875f
+#define GRAVITY_CONSTANT 1.f		//6.67384e-11 m^3 / (kg s^2)
+	real scale = M_PI * GRAVITY_CONSTANT * dx.x * dx.y;
 
-	gravityPotentialBuffer[index] = (stateBuffer[index].x - sum) / (-6.f * scale);
+	gravityPotentialBuffer[index] = .25f * sum + scale * stateBuffer[index].x;
 }
 
 __kernel void computePressure(

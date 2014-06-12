@@ -314,6 +314,7 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			} else {
 				displayScale *= 2.;
 			}
+			std::cout << "displayScale " << displayScale << std::endl;
 		} else if (event.key.keysym.sym == SDLK_d) {
 			if (shiftDown) {
 				displayMethod = (displayMethod + NUM_DISPLAY_METHODS - 1) % NUM_DISPLAY_METHODS;

@@ -110,7 +110,7 @@ BurgersSolver::BurgersSolver(HydroGPUApp &app_)
 		int index[DIM];
 
 		//ideal: config.get<real4(real2)>("initState", callback);
-		//or even in the loop: *state = config.get("initState")(x,y)
+		//or even in the loop: *state = config.get<real4(real2)>("initState")(x,y)
 		// then use template specialization to provide conversion to/from real2 and real4 ... be it nested in tables or not?
 		std::function<real4(real2)> callback = [&](real2 x) -> real4 {
 			//default callback
@@ -407,23 +407,51 @@ void BurgersSolver::screenshot() {
 
 void BurgersSolver::save() {
 	for (int i = 0; i < 1000; ++i) {
-		std::string filename = std::string("save") + std::to_string(i) + ".fits";
+		std::string filename = std::string("density") + std::to_string(i) + ".fits";
 		if (!Common::File::exists(filename)) {
-			std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(
-				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
-				nullptr, 1);
+			//density, gravity potential 			
 			int volume = app.size.s[0] * app.size.s[1];
-			std::vector<real4> stateVec(volume);
-			app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
-			app.commands.flush();
-			app.commands.finish();
-			real4* state = &stateVec[0];
-			for (int j = 0; j < app.size.s[1]; ++j) {
-				for (int i = 0; i < app.size.s[0]; ++i, ++state) {
-					(*image)(i,j) = state->s[0];
+		
+			{
+				std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(
+					Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
+					nullptr, 1);
+			
+				std::vector<real4> stateVec(volume);
+				
+				app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
+				app.commands.flush();
+				app.commands.finish();
+				
+				real4* state = &stateVec[0];
+				for (int j = 0; j < app.size.s[1]; ++j) {
+					for (int i = 0; i < app.size.s[0]; ++i, ++state) {
+						(*image)(i,j) = state->s[0];
+					}
 				}
+				Image::system->write(filename, image);
 			}
-			Image::system->write(filename, image);
+
+			{
+				std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(
+					Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
+					nullptr, 1);
+			
+				std::vector<real> gravVec(volume);
+				
+				app.commands.enqueueReadBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &gravVec[0]);
+				app.commands.flush();
+				app.commands.finish();
+				
+				real* grav = &gravVec[0];
+				for (int j = 0; j < app.size.s[1]; ++j) {
+					for (int i = 0; i < app.size.s[0]; ++i, ++grav) {
+						(*image)(i,j) = *grav;
+					}
+				}
+				Image::system->write(std::string("gravityPotential") + std::to_string(i) + ".fits", image);
+			}
+
 			return;
 		}
 	}
