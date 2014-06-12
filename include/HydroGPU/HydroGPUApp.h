@@ -18,6 +18,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 
 	//config
 	std::string configFilename;
+	std::string configString;
 	std::string solverName;
 	cl_int2 size;
 	int doUpdate;	//0 = no, 1 = continuous, 2 = single step

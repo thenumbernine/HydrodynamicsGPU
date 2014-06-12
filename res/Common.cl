@@ -30,8 +30,10 @@ __kernel void applyBoundaryHorizontal(
 		stateBuffer[i + size.x * (size.y - 2)].yz = -stateBuffer[i + size.x * (size.y - 3)].yz;
 		break;
 	case BOUNDARY_FREEFLOW:
+#if 0
 		stateBuffer[i] = stateBuffer[i + size.x] = stateBuffer[i + size.x * 2];
 		stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * (size.y - 2)] = stateBuffer[i + size.x * (size.y - 3)];
+#endif
 		break;
 	}
 }
@@ -66,8 +68,10 @@ __kernel void applyBoundaryVertical(
 		stateBuffer[(size.x - 2) + size.x * i].yz = -stateBuffer[(size.x - 3) + size.x * i].yz;	
 		break;
 	case BOUNDARY_FREEFLOW:
+#if 0
 		stateBuffer[size.x * i] = stateBuffer[1 + size.x * i] = stateBuffer[2 + size.x * i];
 		stateBuffer[(size.x - 1) + size.x * i] = stateBuffer[(size.x - 2) + size.x * i] = stateBuffer[(size.x - 3) + size.x * i];
+#endif
 		break;
 	}
 }

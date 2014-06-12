@@ -58,13 +58,18 @@ HydroGPUApp::HydroGPUApp()
 }
 
 int HydroGPUApp::main(std::vector<std::string> args) {
-	if (args.size() > 1) configFilename = args[1];
+	for (int i = 1; i < args.size(); ++i) {
+		if (i < args.size()-1 && args[i] == "-e") {
+			configString = args[++i];
+		} else {
+			configFilename = args[++i];
+		}
+	}
 	return Super::main(args);
 }
 
 void HydroGPUApp::init() {
 	//config before Super::init so we can provide it 'useGPU'
-	std::cout << "loading config file " << configFilename << std::endl;
 	config = std::make_shared<Config::Config>();
 	{	//I could either interpret strings for enum names, or I could provide tables of enum values..
 		std::ostringstream s;
@@ -80,7 +85,12 @@ void HydroGPUApp::init() {
 		s << "}\n";
 		config->loadString(s.str());
 	}
+	std::cout << "loading config file " << configFilename << std::endl;
 	config->loadFile(configFilename);
+	if (!configString.empty()) {
+		std::cout << "loading config string " << configString << std::endl;
+		config->loadString(configString);
+	}
 	config->get("useGPU", useGPU);
 	config->get("sizeX", size.s[0]);
 	config->get("sizeY", size.s[1]);
