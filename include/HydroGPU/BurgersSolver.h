@@ -67,7 +67,7 @@ struct BurgersSolver : public Solver {
 	//for mouse input
 	cl_float2 addSourcePos, addSourceVel;
 
-	BurgersSolver(HydroGPUApp &app);
+	BurgersSolver(HydroGPUApp &app, std::vector<real4> stateVec);
 	virtual ~BurgersSolver();
 
 	virtual void update();

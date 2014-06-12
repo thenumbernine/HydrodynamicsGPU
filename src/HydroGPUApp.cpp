@@ -159,10 +159,76 @@ void HydroGPUApp::init() {
 
 	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex);
 
+	//read in the initial state
+	std::vector<real4> stateVec(size.s[0] * size.s[1]);
+	{
+		int index[DIM];
+
+		//ideal: config.get<real4(real2)>("initState", callback);
+		//or even in the loop: *state = config.get("initState")(x,y)
+		// then use template specialization to provide conversion to/from real2 and real4 ... be it nested in tables or not?
+		std::function<real4(real2)> callback = [&](real2 x) -> real4 {
+			//default callback
+			bool inside = fabs(x.s[0]) < .15 && fabs(x.s[1]) < .15;
+			//bool inside = x.s[0] < -.2 && x.s[1] < -.2;
+			real density = inside ? 1. : .1;
+			Tensor::Vector<real, 2> velocity;
+			real specificKineticEnergy = 0.;
+			for (int n = 0; n < DIM; ++n) {
+				velocity(n) = crand() * noise;
+				specificKineticEnergy += velocity(n) * velocity(n);
+			}
+			specificKineticEnergy *= .5;
+			real specificInternalEnergy = 1.;
+			real specificTotalEnergy = specificKineticEnergy + specificInternalEnergy;
+		
+			real4 state;
+			state.s[0] = density;
+			for (int n = 0; n < DIM; ++n) {
+				state.s[n+1] = density * velocity(n);
+			}
+			state.s[DIM+1] = density * specificTotalEnergy;
+			
+			return state;
+		};
+		
+		lua_State *L = config->getState();
+		lua_getglobal(L, "initState");
+		if (lua_isfunction(L, -1)) {
+			callback = [&](real2 x) -> real4 {
+				lua_getglobal(L, "initState");
+				for (int i = 0; i < 2; ++i) {
+					lua_pushnumber(L, x.s[i]);
+				}
+				config->call(2, 4);	//use our own error handler
+				real4 result;
+				for (int i = 0; i < 4; ++i) {
+					result.s[i] = lua_tonumber(L, i-4);
+				}
+				lua_pop(L,4);
+				return result;
+			};
+		}
+		lua_pop(L, 1);
+
+		std::cout << "initializing..." << std::endl;
+		real4* state = &stateVec[0];	
+		for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
+			for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++state) {
+				real2 x;
+				x.s[0] = real(xmax.s[0] - xmin.s[0]) * real(index[0]) / real(size.s[0]) + real(xmin.s[0]);
+				x.s[1] = real(xmax.s[1] - xmin.s[1]) * real(index[1]) / real(size.s[1]) + real(xmin.s[1]);
+				*state = callback(x);
+			}
+		}
+		std::cout << "...done" << std::endl;
+	}
+
+	//construct the solver
 	if (solverName == "Burgers") {
-		solver = std::make_shared<BurgersSolver>(*this);
+		solver = std::make_shared<BurgersSolver>(*this, stateVec);
 	} else if (solverName == "Roe") {
-		solver = std::make_shared<RoeSolver>(*this);
+		solver = std::make_shared<RoeSolver>(*this, stateVec);
 	} else {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}

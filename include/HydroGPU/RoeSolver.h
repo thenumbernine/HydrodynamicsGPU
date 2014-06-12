@@ -61,7 +61,7 @@ struct RoeSolver : public Solver {
 	real cfl;
 	bool drop;
 
-	RoeSolver(HydroGPUApp &app);
+	RoeSolver(HydroGPUApp &app, std::vector<real4> stateVec);
 	virtual ~RoeSolver();
 
 	virtual void update();

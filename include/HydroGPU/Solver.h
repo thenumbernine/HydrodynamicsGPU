@@ -2,11 +2,12 @@
 
 #include "HydroGPU/Shared/Common.h"	//cl shared header
 #include "Tensor/Vector.h"
+#include <vector>
 
 struct HydroGPUApp;
 struct Solver {
 	Solver() {}
-	Solver(HydroGPUApp &app) {}
+	Solver(HydroGPUApp &app, std::vector<real4> stateVec) {}
 	virtual ~Solver() {}
 
 	virtual void update() = 0;
