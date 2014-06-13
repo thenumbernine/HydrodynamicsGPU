@@ -2,6 +2,7 @@
 #include "HydroGPU/BurgersSolver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
+#include "Image/FITS_IO.h"
 #include "Common/Exception.h"
 #include "Common/Macros.h"
 #include "Common/File.h"
@@ -355,51 +356,31 @@ void BurgersSolver::screenshot() {
 
 void BurgersSolver::save() {
 	for (int i = 0; i < 1000; ++i) {
-		std::string filename = std::string("density") + std::to_string(i) + ".fits";
+		std::string filename = std::string("save") + std::to_string(i) + ".fits";
 		if (!Common::File::exists(filename)) {
-			//density, gravity potential 			
-			int volume = app.size.s[0] * app.size.s[1];
-		
-			{
-				std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(
-					Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
-					nullptr, 1);
+			std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]), nullptr, 1, 5);
 			
-				std::vector<real4> stateVec(volume);
+			std::vector<real4> stateVec(app.size.s[0] * app.size.s[1]);
+			app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * stateVec.size(), &stateVec[0]);
 				
-				app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
-				app.commands.flush();
-				app.commands.finish();
-				
-				real4* state = &stateVec[0];
-				for (int j = 0; j < app.size.s[1]; ++j) {
-					for (int i = 0; i < app.size.s[0]; ++i, ++state) {
-						(*image)(i,j) = state->s[0];
-					}
-				}
-				Image::system->write(filename, image);
-			}
-
-			{
-				std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(
-					Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
-					nullptr, 1);
+			std::vector<real> gravVec(app.size.s[0] * app.size.s[1]);
+			app.commands.enqueueReadBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * gravVec.size(), &gravVec[0]);
 			
-				std::vector<real> gravVec(volume);
+			app.commands.flush();
+			app.commands.finish();
 				
-				app.commands.enqueueReadBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &gravVec[0]);
-				app.commands.flush();
-				app.commands.finish();
-				
-				real* grav = &gravVec[0];
-				for (int j = 0; j < app.size.s[1]; ++j) {
-					for (int i = 0; i < app.size.s[0]; ++i, ++grav) {
-						(*image)(i,j) = *grav;
-					}
+			for (int j = 0; j < app.size.s[1]; ++j) {
+				for (int i = 0; i < app.size.s[0]; ++i) {
+					real4 *state = &stateVec[i + app.size.s[0] * j];
+					real grav = gravVec[i + app.size.s[0] * j];
+					(*image)(i,j,0,0) = state->s[0];
+					(*image)(i,j,0,1) = state->s[1] / state->s[0];
+					(*image)(i,j,0,2) = state->s[2] / state->s[0];
+					(*image)(i,j,0,3) = state->s[3] / state->s[0];
+					(*image)(i,j,0,4) = grav;
 				}
-				Image::system->write(std::string("gravityPotential") + std::to_string(i) + ".fits", image);
 			}
-
+			Image::system->write(filename, image); 
 			return;
 		}
 	}
