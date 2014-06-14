@@ -6,17 +6,18 @@
 solverName = 'Burgers'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
-sizeX, sizeY = 1024, 1024
+sizeX, sizeY = 512, 512	--1024, 1024
 --maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions
 xmin = -.5
 xmax = .5
 ymin = -.5
 ymax = .5
-useFixedDT = false
+useFixedDT = false 
+fixedDT = .01
 cfl = .5
-displayMethod = displayMethods.density
+displayMethod = assert(displayMethods.density)
 displayScale = 2
-boundaryMethod = boundaryMethods.periodic
+boundaryMethod = assert(boundaryMethods.mirror)	-- periodic and freeflow aren't working
 useGravity = false
 noise = .01
 gamma = 1.4
@@ -67,12 +68,12 @@ function initState(x,y)
 	local inside = rSq <= .2*.2
 	return buildState{
 		density = inside and 1 or .1,
-		pressure = inside and 1 or .1
+		pressure = inside and 1 or .1,
 	}
 end
 --]]	
 
---[[ square shock wave / 2D Sod test
+-- [[ square shock wave / 2D Sod test
 boundaryMethod = boundaryMethods.mirror
 function initState(x,y)
 	local inside = x < 0 and y < 0
@@ -98,7 +99,7 @@ function initState(x,y)
 end
 --]]
 
--- [[ gravity potential test - equilibrium - some Rayleigh-Taylor
+--[[ gravity potential test - equilibrium - some Rayleigh-Taylor
 useGravity = true
 boundaryMethod = boundaryMethods.freeflow
 local sources = {

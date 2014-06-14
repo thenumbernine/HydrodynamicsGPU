@@ -1,19 +1,45 @@
 #include "HydroGPU/Shared/Common.h"
 
+//prototypes
+
+void calcInterfaceVelocityAt(
+	__global real2* interfaceVelocityBuffer,	//uses ghost
+	const __global real4* stateBuffer,	//uses ghost
+	int2 size,
+	real2 dx,
+	int2 i);
+
 real4 slopeLimiter(real4 r);
+
+void calcFluxAt(
+	__global real4* fluxBuffer,	//ghost
+	const __global real4* stateBuffer,	//ghost
+	const __global real2* interfaceVelocityBuffer,	//ghost
+	int2 size,
+	real2 dt_dx,
+	int2 i);
+
+void computePressureAt(
+	__global real* pressureBuffer,	//ghost
+	const __global real4* stateBuffer,	//ghost
+	const __global real* gravityPotentialBuffer,	//ghost
+	int2 size,
+	int2 i);
+
+//calc cfl
 
 __kernel void calcCFL(
 	__global real* cflBuffer,
-	const __global real4* stateBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real4* stateBuffer,	//uses ghost
+	const __global real* gravityPotentialBuffer,	//uses ghost
 	int2 size,
 	real2 dx,
 	real cfl)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
-
+	int cflIndex = INDEXV(i);
+	int index = INDEXGHOSTV(i);
+	
 	real4 state = stateBuffer[index];
 	real density = state.x;
 	real2 velocity = state.yz / density;
@@ -24,8 +50,10 @@ __kernel void calcCFL(
 	real speedOfSound = sqrt(GAMMA * (GAMMA - 1.f) * specificInternalEnergy);
 	real dumx = dx.x / (speedOfSound + fabs(velocity.x));
 	real dumy = dx.y / (speedOfSound + fabs(velocity.y));
-	cflBuffer[index] = cfl * min(dumx, dumy);
+	cflBuffer[cflIndex] = cfl * min(dumx, dumy);
 }
+
+//reduce cfl to find minimum
 
 //http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 __kernel void calcCFLMinReduce(
@@ -60,21 +88,22 @@ __kernel void calcCFLMinReduce(
 	}
 }
 
-__kernel void calcInterfaceVelocity(
-	__global real2* interfaceVelocityBuffer,
-	const __global real4* stateBuffer,
+//compute interface velocity
+
+void calcInterfaceVelocityAt(
+	__global real2* interfaceVelocityBuffer,	//uses ghost
+	const __global real4* stateBuffer,	//uses ghost
 	int2 size,
-	real2 dx)
+	real2 dx,
+	int2 i)
 {
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXGHOSTV(i);
 	
 	real2 interfaceVelocity;
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		--iPrev[side];
+		int indexPrev = INDEXGHOSTV(iPrev);
 		
 		real4 stateL = stateBuffer[indexPrev];
 		real densityL = stateL.x;
@@ -89,6 +118,40 @@ __kernel void calcInterfaceVelocity(
 	interfaceVelocityBuffer[index] = interfaceVelocity;
 }
 
+__kernel void calcInterfaceVelocity(
+	__global real2* interfaceVelocityBuffer,
+	const __global real4* stateBuffer,
+	int2 size,
+	real2 dx)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	calcInterfaceVelocityAt(interfaceVelocityBuffer, stateBuffer, size, dx, i);
+}
+
+__kernel void calcInterfaceVelocityHorizontal(
+	__global real2* interfaceVelocityBuffer,
+	const __global real4* stateBuffer,
+	int2 size,
+	real2 dx,
+	int y)
+{
+	int2 i = (int2)(get_global_id(0), y);
+	calcInterfaceVelocityAt(interfaceVelocityBuffer, stateBuffer, size, dx, i);
+}
+
+__kernel void calcInterfaceVelocityVertical(
+	__global real2* interfaceVelocityBuffer,
+	const __global real4* stateBuffer,
+	int2 size,
+	real2 dx,
+	int x)
+{
+	int2 i = (int2)(x, get_global_id(0));
+	calcInterfaceVelocityAt(interfaceVelocityBuffer, stateBuffer, size, dx, i);
+}
+
+//calc flux
+
 real4 slopeLimiter(real4 r) {
 	//donor cell
 	//return (real4)(0.f, 0.f, 0.f, 0.f);
@@ -98,33 +161,28 @@ real4 slopeLimiter(real4 r) {
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
-__kernel void calcFlux(
-	__global real4* fluxBuffer,
-	const __global real4* stateBuffer,
-	const __global real2* interfaceVelocityBuffer,
+void calcFluxAt(
+	__global real4* fluxBuffer,	//ghost
+	const __global real4* stateBuffer,	//ghost
+	const __global real2* interfaceVelocityBuffer,	//ghost
 	int2 size,
-	real2 dx,
-	const __global real* dtBuffer)
+	real2 dt_dx,
+	int2 i)
 {
-	real dt = dtBuffer[0];
-	real2 dt_dx = dt / dx;
-	
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXGHOSTV(i);
 	
 	for (int side = 0; side < 2; ++side) {	
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		--iPrev[side];
+		int indexPrev = INDEXGHOSTV(iPrev);
 	
 		int2 iPrev2 = iPrev;
-		iPrev2[side] = (iPrev2[side] + size[side] - 1) % size[side];
-		int indexPrev2 = iPrev2.x + size.x * iPrev2.y;
+		--iPrev2[side];
+		int indexPrev2 = INDEXGHOSTV(iPrev2);
 		
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		++iNext[side];
+		int indexNext = INDEXGHOSTV(iNext);
 
 		int indexL2 = indexPrev2;
 		int indexL1 = indexPrev;
@@ -154,9 +212,52 @@ __kernel void calcFlux(
 	}
 }
 
+__kernel void calcFlux(
+	__global real4* fluxBuffer,	//ghost
+	const __global real4* stateBuffer,	//ghost
+	const __global real2* interfaceVelocityBuffer,	//ghost
+	int2 size,
+	real2 dx,
+	const __global real* dtBuffer)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	real2 dt_dx = dtBuffer[0] / dx;
+	calcFluxAt(fluxBuffer, stateBuffer, interfaceVelocityBuffer, size, dt_dx, i);
+}
+
+__kernel void calcFluxHorizontal(
+	__global real4* fluxBuffer,	//ghost
+	const __global real4* stateBuffer,	//ghost
+	const __global real2* interfaceVelocityBuffer,	//ghost
+	int2 size,
+	real2 dx,
+	const __global real* dtBuffer,
+	int y)
+{
+	int2 i = (int2)(get_global_id(0), y);
+	real2 dt_dx = dtBuffer[0] / dx;
+	calcFluxAt(fluxBuffer, stateBuffer, interfaceVelocityBuffer, size, dt_dx, i);
+}
+
+__kernel void calcFluxVertical(
+	__global real4* fluxBuffer,	//ghost
+	const __global real4* stateBuffer,	//ghost
+	const __global real2* interfaceVelocityBuffer,	//ghost
+	int2 size,
+	real2 dx,
+	const __global real* dtBuffer,
+	int x)
+{
+	int2 i = (int2)(x, get_global_id(0));
+	real2 dt_dx = dtBuffer[0] / dx;
+	calcFluxAt(fluxBuffer, stateBuffer, interfaceVelocityBuffer, size, dt_dx, i);
+}
+
+//integrate flux
+
 __kernel void integrateFlux(
-	__global real4* stateBuffer,
-	const __global real4* fluxBuffer,
+	__global real4* stateBuffer,	//ghost
+	const __global real4* fluxBuffer,	//ghost
 	int2 size,
 	real2 dx,
 	const __global real* dtBuffer)
@@ -164,14 +265,12 @@ __kernel void integrateFlux(
 	real2 dt_dx = dtBuffer[0] / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-
-	int index = i.x + size.x * i.y;
+	int index = INDEXGHOSTV(i);
 	
 	for (int side = 0; side < 2; ++side) {
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		++iNext[side];
+		int indexNext = INDEXGHOSTV(iNext);
 		
 		real4 fluxL = fluxBuffer[side + 2 * index];
 		real4 fluxR = fluxBuffer[side + 2 * indexNext];
@@ -182,24 +281,18 @@ __kernel void integrateFlux(
 }
 
 __kernel void poissonRelax(
-	__global real* gravityPotentialBuffer,
-	const __global real4* stateBuffer,
+	__global real* gravityPotentialBuffer,	//ghost
+	const __global real4* stateBuffer,	//ghost
 	int2 size,
 	real2 dx)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXGHOSTV(i);
 
-	int ixp = (i.x + size.x - 1) % size.x;
-	int ixn = (i.x + 1) % size.x;
-	int iyp = (i.y + size.y - 1) % size.y;
-	int iyn = (i.y + 1) % size.y;
-
-	int xp = ixp + size.x * i.y;
-	int xn = ixn + size.x * i.y;
-	int yp = i.x + size.x * iyp;
-	int yn = i.x + size.x * iyn;
+	int xp = INDEXGHOST(i.x - 1, i.y);
+	int xn = INDEXGHOST(i.x + 1, i.y);
+	int yp = INDEXGHOST(i.x, i.y - 1);
+	int yn = INDEXGHOST(i.x, i.y + 1);
 
 	real sum = gravityPotentialBuffer[xp] 
 				+ gravityPotentialBuffer[xn] 
@@ -213,15 +306,14 @@ __kernel void poissonRelax(
 	gravityPotentialBuffer[index] = .25f * sum + scale * stateBuffer[index].x;
 }
 
-__kernel void computePressure(
-	__global real* pressureBuffer,
-	const __global real4* stateBuffer,
-	const __global real* gravityPotentialBuffer,
-	int2 size)
+void computePressureAt(
+	__global real* pressureBuffer,	//ghost
+	const __global real4* stateBuffer,	//ghost
+	const __global real* gravityPotentialBuffer,	//ghost
+	int2 size,
+	int2 i)
 {
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXGHOSTV(i);
 	
 	real4 state = stateBuffer[index];
 	
@@ -239,12 +331,12 @@ __kernel void computePressure(
 	real deltaVelocitySq = 0.f;
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		--iPrev[side];
+		int indexPrev = INDEXGHOSTV(iPrev);
 		
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		++iNext[side];
+		int indexNext = INDEXGHOSTV(iNext);
 
 		real velocityL = stateBuffer[indexPrev][side+1];
 		real velocityR = stateBuffer[indexNext][side+1];
@@ -257,9 +349,42 @@ __kernel void computePressure(
 	pressureBuffer[index] = pressure;
 }
 
-__kernel void addGravity(
-	__global real4* stateBuffer,
+__kernel void computePressure(
+	__global real* pressureBuffer,	//ghost
+	const __global real4* stateBuffer,	//ghost
+	const __global real* gravityPotentialBuffer,	//ghost
+	int2 size)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	computePressureAt(pressureBuffer, stateBuffer, gravityPotentialBuffer, size, i);
+}
+
+__kernel void computePressureHorizontal(
+	__global real* pressureBuffer,
+	const __global real4* stateBuffer,
 	const __global real* gravityPotentialBuffer,
+	int2 size,
+	int y)
+{
+	int2 i = (int2)(get_global_id(0), y);
+	computePressureAt(pressureBuffer, stateBuffer, gravityPotentialBuffer, size, i);
+}
+
+__kernel void computePressureVertical(
+	__global real* pressureBuffer,
+	const __global real4* stateBuffer,
+	const __global real* gravityPotentialBuffer,
+	int2 size,
+	int x)
+{
+	int2 i = (int2)(x, get_global_id(0));
+	computePressureAt(pressureBuffer, stateBuffer, gravityPotentialBuffer, size, i);
+}
+
+
+__kernel void addGravity(
+	__global real4* stateBuffer,	//ghost
+	const __global real* gravityPotentialBuffer,	//ghost
 	int2 size,
 	real2 dx,
 	const __global real* dtBuffer)
@@ -268,20 +393,19 @@ __kernel void addGravity(
 	real2 dt_dx = dt / dx;
 
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXGHOSTV(i);
 
 	real4 state = stateBuffer[index];
 	real density = state.x;
 
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		--iPrev[side];
+		int indexPrev = INDEXGHOSTV(iPrev);
 		
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;	
+		++iNext[side];
+		int indexNext = INDEXGHOSTV(iNext);
 	
 		real gravityGrad = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
 		
@@ -293,8 +417,8 @@ __kernel void addGravity(
 }
 
 __kernel void diffuseMomentum(
-	__global real4* stateBuffer,
-	const __global real* pressureBuffer,
+	__global real4* stateBuffer,	//ghost
+	const __global real* pressureBuffer,	//ghost
 	int2 size,
 	real2 dx,
 	const __global real* dtBuffer)
@@ -302,17 +426,16 @@ __kernel void diffuseMomentum(
 	real2 dt_dx = dtBuffer[0] / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXGHOSTV(i);
 
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		--iPrev[side];
+		int indexPrev = INDEXGHOSTV(iPrev);
 		
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		++iNext[side];
+		int indexNext = INDEXGHOSTV(iNext);
 
 		real pressureL = pressureBuffer[indexPrev];
 		real pressureR = pressureBuffer[indexNext];
@@ -323,8 +446,8 @@ __kernel void diffuseMomentum(
 }
 
 __kernel void diffuseWork(
-	__global real4* stateBuffer,
-	const __global real* pressureBuffer,
+	__global real4* stateBuffer,	//ghost
+	const __global real* pressureBuffer,	//ghost
 	int2 size,
 	real2 dx,
 	const __global real* dtBuffer)
@@ -332,17 +455,16 @@ __kernel void diffuseWork(
 	real2 dt_dx = dtBuffer[0] / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXGHOSTV(i);
 
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		--iPrev[side];
+		int indexPrev = INDEXGHOSTV(iPrev);
 		
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		++iNext[side];
+		int indexNext = INDEXGHOSTV(iNext);
 
 		real4 stateL = stateBuffer[indexPrev];
 		real4 stateR = stateBuffer[indexNext];
@@ -358,5 +480,4 @@ __kernel void diffuseWork(
 		stateBuffer[index].w -= deltaWork * dt_dx[side];
 	}
 }
-
 

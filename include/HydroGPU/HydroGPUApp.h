@@ -20,7 +20,8 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	std::string configFilename;
 	std::string configString;
 	std::string solverName;
-	cl_int2 size;
+	Tensor::Vector<int,2> size;
+	Tensor::Vector<int,2> sizeWithGhost;
 	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
 	int maxFrames;	//run this far and pause.  -1 = forever = default
 	int currentFrame;

@@ -23,12 +23,20 @@ struct BurgersSolver : public Solver {
 
 	cl::Kernel calcCFLKernel;
 	cl::Kernel calcCFLMinReduceKernel;
-	cl::Kernel applyBoundaryHorizontalKernel;
-	cl::Kernel applyBoundaryVerticalKernel;
+	std::vector<std::vector<cl::Kernel>> stateBoundaryKernels;//[NUM_BOUNDARY_METHODS][DIM];
+	
 	cl::Kernel calcInterfaceVelocityKernel;
+	cl::Kernel calcInterfaceVelocityHorizontalKernel;
+	cl::Kernel calcInterfaceVelocityVerticalKernel;
+	
 	cl::Kernel calcFluxKernel;
+	cl::Kernel calcFluxHorizontalKernel;
+	cl::Kernel calcFluxVerticalKernel;
+	
 	cl::Kernel integrateFluxKernel;
 	cl::Kernel computePressureKernel;
+	cl::Kernel computePressureHorizontalKernel;
+	cl::Kernel computePressureVerticalKernel;
 	cl::Kernel diffuseMomentumKernel;
 	cl::Kernel diffuseWorkKernel;
 	cl::Kernel convertToTexKernel;
@@ -48,8 +56,6 @@ struct BurgersSolver : public Solver {
 
 	EventProfileEntry calcCFLEvent;
 	EventProfileEntry calcCFLMinReduceEvent;
-	EventProfileEntry applyBoundaryHorizontalEvent;
-	EventProfileEntry applyBoundaryVerticalEvent;
 	EventProfileEntry calcInterfaceVelocityEvent;
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry integrateFluxEvent;
@@ -74,6 +80,8 @@ struct BurgersSolver : public Solver {
 	virtual void addDrop(Tensor::Vector<float,DIM> pos, Tensor::Vector<float,DIM> vel);
 	virtual void screenshot();
 	virtual void save();
+
+	virtual void apply1DBoundary(cl::Buffer buffer);
 };
 
 

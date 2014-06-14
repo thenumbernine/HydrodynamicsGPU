@@ -1,6 +1,7 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/RoeSolver.h"
 #include "HydroGPU/BurgersSolver.h"
+#include "Tensor/Tensor.h"
 #include "Config/Config.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
@@ -32,6 +33,7 @@ HydroGPUApp::HydroGPUApp()
 , gradientTex(GLuint())
 , configFilename("config.lua")
 , solverName("Burgers")
+, size(512, 512)
 , doUpdate(1)
 , maxFrames(-1)
 , currentFrame(0)
@@ -40,7 +42,7 @@ HydroGPUApp::HydroGPUApp()
 , cfl(.5f)
 , displayMethod(DISPLAY_DENSITY)
 , displayScale(2.f)
-, boundaryMethod(BOUNDARY_REPEAT)
+, boundaryMethod(BOUNDARY_PERIODIC)
 , useGravity(true)
 , noise(0)
 , gamma(1.4)
@@ -52,9 +54,6 @@ HydroGPUApp::HydroGPUApp()
 , rightGuiDown(false)
 , viewZoom(1.f)
 {
-	for (int i = 0; i < DIM; ++i) {
-		size.s[i] = 512;
-	}
 }
 
 int HydroGPUApp::main(std::vector<std::string> args) {
@@ -92,8 +91,8 @@ void HydroGPUApp::init() {
 		config->loadString(configString);
 	}
 	config->get("useGPU", useGPU);
-	config->get("sizeX", size.s[0]);
-	config->get("sizeY", size.s[1]);
+	config->get("sizeX", size(0));
+	config->get("sizeY", size(1));
 	config->get("maxFrames", maxFrames);
 	config->get("solverName", solverName);
 	config->get("xmin", xmin.s[0]);
@@ -101,6 +100,7 @@ void HydroGPUApp::init() {
 	config->get("xmax", xmax.s[0]);
 	config->get("ymax", xmax.s[1]);
 	config->get("useFixedDT", useFixedDT);
+	config->get("fixedDT", fixedDT);
 	config->get("cfl", cfl);
 	config->get("noise", noise);
 	config->get("gamma", gamma);
@@ -108,6 +108,8 @@ void HydroGPUApp::init() {
 	config->get("displayScale", displayScale);
 	config->get("boundaryMethod", boundaryMethod);
 	config->get("useGravity", useGravity);
+
+	sizeWithGhost = size + 2 * NUM_GHOST_CELLS;
 
 	Super::init();
 
@@ -124,7 +126,7 @@ void HydroGPUApp::init() {
 	glBindTexture(GL_TEXTURE_2D, fluidTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, 4, size.s[0], size.s[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, 4, size(0), size(1), 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	if ((err = glGetError()) != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
 
@@ -170,10 +172,8 @@ void HydroGPUApp::init() {
 	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex);
 
 	//read in the initial state
-	std::vector<real4> stateVec(size.s[0] * size.s[1]);
+	std::vector<real4> stateVec(sizeWithGhost.volume());
 	{
-		int index[DIM];
-
 		//ideal: config.get<real4(real2)>("initState", callback);
 		//or even in the loop: *state = config.get("initState")(x,y)
 		// then use template specialization to provide conversion to/from real2 and real4 ... be it nested in tables or not?
@@ -223,15 +223,17 @@ void HydroGPUApp::init() {
 
 		std::cout << "initializing..." << std::endl;
 		real4* state = &stateVec[0];	
-		for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
-			for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++state) {
+		Tensor::Vector<int,2> index;
+		for (index(1) = 0; index(1) < sizeWithGhost(1); ++index(1)) {
+			for (index(0) = 0; index(0) < sizeWithGhost(0); ++index(0), ++state) {
 				real2 x;
-				x.s[0] = real(xmax.s[0] - xmin.s[0]) * real(index[0]) / real(size.s[0]) + real(xmin.s[0]);
-				x.s[1] = real(xmax.s[1] - xmin.s[1]) * real(index[1]) / real(size.s[1]) + real(xmin.s[1]);
+				x.s[0] = real(xmax.s[0] - xmin.s[0]) * (real(index(0) - NUM_GHOST_CELLS) + real(.5)) / real(size(0)) + real(xmin.s[0]);
+				x.s[1] = real(xmax.s[1] - xmin.s[1]) * (real(index(1) - NUM_GHOST_CELLS) + real(.5)) / real(size(1)) + real(xmin.s[1]);
 				*state = callback(x);
 			}
 		}
 		std::cout << "...done" << std::endl;
+		if (state != &stateVec[stateVec.size()]) throw Common::Exception() << "didn't write to all cells on init";
 	}
 
 	//construct the solver
@@ -380,8 +382,10 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			rightGuiDown = false;
 		} else if (event.key.keysym.sym == SDLK_s) {
 			if (shiftDown) {
+				std::cout << "saving..." << std::endl;
 				solver->save();
 			} else {
+				std::cout << "taking screenshot..." << std::endl;
 				solver->screenshot();
 			}
 		} else if (event.key.keysym.sym == SDLK_f) {

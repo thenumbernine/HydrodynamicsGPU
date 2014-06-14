@@ -32,7 +32,9 @@ RoeSolver::RoeSolver(
 	cl::ImageGL gradientTexMem = app.gradientTexMem;
 	real2 xmin = app.xmin;
 	real2 xmax = app.xmax;
-	cl_int2 size = app.size;
+	cl_int2 size;
+	size.s[0] = app.size(0);
+	size.s[1] = app.size(1);
 	bool useGPU = app.useGPU;
 
 	entries.push_back(&calcEigenBasisEvent);
@@ -164,7 +166,9 @@ RoeSolver::~RoeSolver() {
 void RoeSolver::update() {
 	cl::CommandQueue commands = app.commands;
 	cl::ImageGL fluidTexMem = app.fluidTexMem;
-	cl_int2 size = app.size;
+	cl_int2 size;
+	size.s[0] = app.size(0);
+	size.s[1] = app.size(1);
 	bool useGPU = app.useGPU;
 	
 	applyBoundaryHorizontalKernel.setArg(2, app.boundaryMethod);
@@ -271,9 +275,7 @@ void RoeSolver::screenshot() {
 	for (int i = 0; i < 1000; ++i) {
 		std::string filename = std::string("screenshot") + std::to_string(i) + ".png";
 		if (!Common::File::exists(filename)) {
-			std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(
-				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
-				nullptr, 4);
+			std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(app.size, nullptr, 4);
 			
 			glBindTexture(GL_TEXTURE_2D, app.fluidTex);
 			glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, image->getData());
@@ -290,17 +292,15 @@ void RoeSolver::save() {
 	for (int i = 0; i < 1000; ++i) {
 		std::string filename = std::string("save") + std::to_string(i) + ".fits";
 		if (!Common::File::exists(filename)) {
-			std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(
-				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
-				nullptr, 1);
-			int volume = app.size.s[0] * app.size.s[1];
+			std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(app.size, nullptr, 1);
+			int volume = app.size.volume();
 			std::vector<real4> stateVec(volume);
 			app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
 			app.commands.flush();
 			app.commands.finish();
 			real4* state = &stateVec[0];
-			for (int j = 0; j < app.size.s[1]; ++j) {
-				for (int i = 0; i < app.size.s[0]; ++i, ++state) {
+			for (int j = 0; j < app.size(1); ++j) {
+				for (int i = 0; i < app.size(0); ++i, ++state) {
 					(*image)(i,j) = state->s[0];
 				}
 			}
