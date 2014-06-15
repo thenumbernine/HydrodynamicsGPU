@@ -48,6 +48,7 @@ __kernel void calcEigenBasis(
 	__global real16* eigenvectorsBuffer,
 	__global real16* eigenvectorsInverseBuffer,
 	const __global real4* stateBuffer,
+	const __global real* gravityPotentialBuffer,
 	int2 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
@@ -80,13 +81,15 @@ __kernel void calcEigenBasis(
 		real energyTotalR = stateR.w * invDensityR;
 
 		real energyKineticL = .5f * dot(velocityL, velocityL);
-		real energyInternalL = energyTotalL - energyKineticL;
+		real energyPotentialL = gravityPotentialBuffer[indexPrev];
+		real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 		real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
 		real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
 		real weightL = sqrt(densityL);
 
 		real energyKineticR = .5f * dot(velocityR, velocityR);
-		real energyInternalR = energyTotalR - energyKineticR;
+		real energyPotentialR = gravityPotentialBuffer[index];
+		real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 		real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
 		real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
 		real weightR = sqrt(densityR);
@@ -189,13 +192,15 @@ __kernel void calcEigenBasis(
 		real energyTotalR = stateR.w * invDensityR;
 
 		real energyKineticL = .5f * dot(velocityL, velocityL);
-		real energyInternalL = energyTotalL - energyKineticL;
+		real energyPotentialL = gravityPotentialBuffer[indexPrev];
+		real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 		real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
 		real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
 		real weightL = sqrt(densityL);
 
 		real energyKineticR = .5f * dot(velocityR, velocityR);
-		real energyInternalR = energyTotalR - energyKineticR;
+		real energyPotentialR = gravityPotentialBuffer[index];
+		real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 		real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
 		real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
 		real weightR = sqrt(densityR);

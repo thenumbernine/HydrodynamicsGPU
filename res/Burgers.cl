@@ -183,46 +183,6 @@ __kernel void integrateFlux(
 	}
 }
 
-__kernel void poissonRelax(
-	__global real* gravityPotentialBuffer,
-	const __global real4* stateBuffer,
-	int2 size,
-	real2 dx,
-	char repeat)
-{
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	int index = i.x + size.x * i.y;
-
-	int ixp, ixn, iyp, iyn;
-	if (repeat) {
-		ixp = (i.x + size.x - 1) % size.x;
-		ixn = (i.x + 1) % size.x;
-		iyp = (i.y + size.y - 1) % size.y;
-		iyn = (i.y + 1) % size.y;
-	} else {
-		ixp = max(i.x - 1, 0);
-		ixn = min(i.x + 1, size.x - 1);
-		iyp = max(i.y - 1, 0);
-		iyn = min(i.y + 1, size.y - 1);
-	}
-
-	int xp = ixp + size.x * i.y;
-	int xn = ixn + size.x * i.y;
-	int yp = i.x + size.x * iyp;
-	int yn = i.x + size.x * iyn;
-
-	real sum = gravityPotentialBuffer[xp] 
-				+ gravityPotentialBuffer[xn] 
-				+ gravityPotentialBuffer[yp] 
-				+ gravityPotentialBuffer[yn];
-	
-#define M_PI 3.141592653589793115997963468544185161590576171875f
-#define GRAVITY_CONSTANT 1.f		//6.67384e-11 m^3 / (kg s^2)
-	real scale = M_PI * GRAVITY_CONSTANT * dx.x * dx.y;
-
-	gravityPotentialBuffer[index] = .25f * sum + scale * stateBuffer[index].x;
-}
-
 __kernel void computePressure(
 	__global real* pressureBuffer,
 	const __global real4* stateBuffer,
@@ -266,41 +226,6 @@ __kernel void computePressure(
 	pressure += deltaVelocitySq * density;
 	
 	pressureBuffer[index] = pressure;
-}
-
-__kernel void addGravity(
-	__global real4* stateBuffer,
-	const __global real* gravityPotentialBuffer,
-	int2 size,
-	real2 dx,
-	const __global real* dtBuffer)
-{
-	real dt = dtBuffer[0];
-	real2 dt_dx = dt / dx;
-
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
-	int index = i.x + size.x * i.y;
-
-	real4 state = stateBuffer[index];
-	real density = state.x;
-
-	for (int side = 0; side < 2; ++side) {
-		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
-		
-		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;	
-	
-		real gravityGrad = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
-		
-		state[side+1] -= dt_dx[side] * density * gravityGrad;
-		state.w -= dt * density * gravityGrad * state[side+1];
-	}
-
-	stateBuffer[index] = state;
 }
 
 __kernel void diffuseMomentum(

@@ -1,72 +1,35 @@
 #pragma once
 
-#include "HydroGPU/Solver.h"
-#include "Profiler/Stat.h"
-#include "Tensor/Vector.h"
-#include <OpenCL/cl.hpp>
-#include <vector>
+#include "HydroGPU/Solver2D.h"
 
 struct HydroGPUApp;
 
-struct RoeSolver : public Solver {
-	cl::Program program;
-	cl::CommandQueue commands;
-	
-	cl::Buffer stateBuffer;
+struct RoeSolver : public Solver2D {
+	typedef Solver2D Super;
+
 	cl::Buffer eigenvaluesBuffer;
 	cl::Buffer eigenvectorsBuffer;
 	cl::Buffer eigenvectorsInverseBuffer;
 	cl::Buffer deltaQTildeBuffer;
 	cl::Buffer fluxBuffer;
-	cl::Buffer cflBuffer;
-	cl::Buffer cflSwapBuffer;
-	cl::Buffer dtBuffer;
 	
 	cl::Kernel calcEigenBasisKernel;
 	cl::Kernel calcCFLKernel;
-	cl::Kernel calcCFLMinReduceKernel;
-	cl::Kernel applyBoundaryHorizontalKernel;
-	cl::Kernel applyBoundaryVerticalKernel;
 	cl::Kernel calcDeltaQTildeKernel;
 	cl::Kernel calcFluxKernel;
 	cl::Kernel integrateFluxKernel;
-	cl::Kernel convertToTexKernel;
-	cl::Kernel addDropKernel;
-	cl::Kernel addSourceKernel;
 	
-	struct EventProfileEntry {
-		EventProfileEntry(std::string name_) : name(name_) {}
-		std::string name;
-		cl::Event clEvent;
-		Profiler::Stat stat;
-	};
-
-	HydroGPUApp &app;
-
 	EventProfileEntry calcEigenBasisEvent;
 	EventProfileEntry calcCFLEvent;
-	EventProfileEntry calcCFLMinReduceEvent;
-	EventProfileEntry applyBoundaryHorizontalEvent;
-	EventProfileEntry applyBoundaryVerticalEvent;
 	EventProfileEntry calcDeltaQTildeEvent;
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry integrateFluxEvent;
-	EventProfileEntry addSourceEvent;
-	std::vector<EventProfileEntry*> entries;
-
-	cl::NDRange globalSize, localSize;
-
-	cl_float2 dropPos, dropVel;
 	
-	real cfl;
-	bool drop;
-
 	RoeSolver(HydroGPUApp &app, std::vector<real4> stateVec);
-	virtual ~RoeSolver();
 
-	virtual void update();
-	virtual void addDrop(Tensor::Vector<float,DIM> pos, Tensor::Vector<float,DIM> vel);
-	virtual void screenshot();
-	virtual void save();
+protected:
+	virtual void initStep();
+	virtual void calcTimestep();
+	virtual void step();
 };
 
