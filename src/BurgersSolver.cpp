@@ -226,6 +226,18 @@ BurgersSolver::BurgersSolver(
 	//once you get that, plug it into the total energy
 
 	if (app.useGravity) {
+		switch (app.boundaryMethod) {
+		case BOUNDARY_PERIODIC:
+			poissonRelaxKernel.setArg(4, true);
+			break;
+		case BOUNDARY_MIRROR:
+		case BOUNDARY_FREEFLOW:
+			poissonRelaxKernel.setArg(4, false);
+			break;
+		default:
+			throw Common::Exception() << "unknown boundary method " << app.boundaryMethod;
+		}	
+		
 		//solve for gravitational potential via gauss seidel
 		cl::NDRange offset2d(0, 0);
 		for (int i = 0; i < 20; ++i) {
@@ -260,6 +272,18 @@ void BurgersSolver::update() {
 	cl::NDRange localSize1d(localSize[0]);
 	cl::NDRange globalWidth(size.s[0]);
 	cl::NDRange globalHeight(size.s[1]);
+
+	switch (app.boundaryMethod) {
+	case BOUNDARY_PERIODIC:
+		poissonRelaxKernel.setArg(4, true);
+		break;
+	case BOUNDARY_MIRROR:
+	case BOUNDARY_FREEFLOW:
+		poissonRelaxKernel.setArg(4, false);
+		break;
+	default:
+		throw Common::Exception() << "unknown boundary method " << app.boundaryMethod;
+	}
 
 	//boundary
 	commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethod][0], offset1d, globalWidth, localSize1d);

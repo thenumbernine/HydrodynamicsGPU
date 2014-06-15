@@ -187,16 +187,24 @@ __kernel void poissonRelax(
 	__global real* gravityPotentialBuffer,
 	const __global real4* stateBuffer,
 	int2 size,
-	real2 dx)
+	real2 dx,
+	char repeat)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
 	int index = i.x + size.x * i.y;
 
-	int ixp = (i.x + size.x - 1) % size.x;
-	int ixn = (i.x + 1) % size.x;
-	int iyp = (i.y + size.y - 1) % size.y;
-	int iyn = (i.y + 1) % size.y;
+	int ixp, ixn, iyp, iyn;
+	if (repeat) {
+		ixp = (i.x + size.x - 1) % size.x;
+		ixn = (i.x + 1) % size.x;
+		iyp = (i.y + size.y - 1) % size.y;
+		iyn = (i.y + 1) % size.y;
+	} else {
+		ixp = max(i.x - 1, 0);
+		ixn = min(i.x + 1, size.x - 1);
+		iyp = max(i.y - 1, 0);
+		iyn = min(i.y + 1, size.y - 1);
+	}
 
 	int xp = ixp + size.x * i.y;
 	int xn = ixn + size.x * i.y;
@@ -222,8 +230,8 @@ __kernel void computePressure(
 	int2 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	//if (i.x < 1 || i.y < 1 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
+	//if (i.x >= size.x || i.y >= size.y) return;
+	if (i.x < 1 || i.y < 1 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
 	int index = i.x + size.x * i.y;
 	
 	real4 state = stateBuffer[index];

@@ -136,7 +136,7 @@ function initState(x,y)
 		end
 	end
 	--noise must be 0 at borders with freeflow or we'll get waves at the edges
-	local noise = math.exp(-(x * x + y * y) * 100)
+	local noise = .01 * math.exp(-(x * x + y * y) * 100)
 	return buildState{
 		density = inside and 1 or .1,
 		pressure = 1,
