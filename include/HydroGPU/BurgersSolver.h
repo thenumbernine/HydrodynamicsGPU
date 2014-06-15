@@ -23,20 +23,11 @@ struct BurgersSolver : public Solver {
 
 	cl::Kernel calcCFLKernel;
 	cl::Kernel calcCFLMinReduceKernel;
-	std::vector<std::vector<cl::Kernel>> stateBoundaryKernels;//[NUM_BOUNDARY_METHODS][DIM];
-	
+	std::vector<std::vector<cl::Kernel>> stateBoundaryKernels;	//[NUM_BOUNDARY_METHODS][DIM];
 	cl::Kernel calcInterfaceVelocityKernel;
-	cl::Kernel calcInterfaceVelocityHorizontalKernel;
-	cl::Kernel calcInterfaceVelocityVerticalKernel;
-	
 	cl::Kernel calcFluxKernel;
-	cl::Kernel calcFluxHorizontalKernel;
-	cl::Kernel calcFluxVerticalKernel;
-	
 	cl::Kernel integrateFluxKernel;
 	cl::Kernel computePressureKernel;
-	cl::Kernel computePressureHorizontalKernel;
-	cl::Kernel computePressureVerticalKernel;
 	cl::Kernel diffuseMomentumKernel;
 	cl::Kernel diffuseWorkKernel;
 	cl::Kernel convertToTexKernel;
@@ -79,9 +70,8 @@ struct BurgersSolver : public Solver {
 	virtual void update();
 	virtual void addDrop(Tensor::Vector<float,DIM> pos, Tensor::Vector<float,DIM> vel);
 	virtual void screenshot();
-	virtual void save();
-
-	virtual void apply1DBoundary(cl::Buffer buffer);
+	virtual void save();	//picks the filename automatically based on what's already there
+	virtual void save(std::string filename);
 };
 
 

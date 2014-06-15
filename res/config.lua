@@ -12,12 +12,11 @@ xmin = -.5
 xmax = .5
 ymin = -.5
 ymax = .5
-useFixedDT = false 
-fixedDT = .01
+useFixedDT = false
 cfl = .5
 displayMethod = assert(displayMethods.density)
 displayScale = 2
-boundaryMethod = assert(boundaryMethods.mirror)	-- periodic and freeflow aren't working
+boundaryMethod = assert(boundaryMethods.periodic)
 useGravity = false
 noise = .01
 gamma = 1.4
@@ -68,12 +67,12 @@ function initState(x,y)
 	local inside = rSq <= .2*.2
 	return buildState{
 		density = inside and 1 or .1,
-		pressure = inside and 1 or .1,
+		pressure = inside and 1 or .1
 	}
 end
 --]]	
 
--- [[ square shock wave / 2D Sod test
+--[[ square shock wave / 2D Sod test
 boundaryMethod = boundaryMethods.mirror
 function initState(x,y)
 	local inside = x < 0 and y < 0
@@ -99,9 +98,10 @@ function initState(x,y)
 end
 --]]
 
---[[ gravity potential test - equilibrium - some Rayleigh-Taylor
+-- [[ gravity potential test - equilibrium - some Rayleigh-Taylor
 useGravity = true
 boundaryMethod = boundaryMethods.freeflow
+noise = 0	--noise must be 0 at borders with freeflow or we'll get waves at the edges
 local sources = {
 -- [=[ single source
 	{0,0, radius=.2},
@@ -135,11 +135,14 @@ function initState(x,y)
 			end
 		end
 	end
+	--noise must be 0 at borders with freeflow or we'll get waves at the edges
+	local noise = math.exp(-(x * x + y * y) * 100)
 	return buildState{
 		density = inside and 1 or .1,
 		pressure = 1,
+		vx = noise * crand(),
+		vy = noise * crand(),
 	}
 end
 --]]
-
 
