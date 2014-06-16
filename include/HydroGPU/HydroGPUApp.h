@@ -2,7 +2,7 @@
 
 #include "HydroGPU/Solver.h"
 #include "CLApp/CLApp.h"
-#include "Config/Config.h"
+#include "LuaCxx/State.h"
 #include "Tensor/Vector.h"
 
 struct HydroGPUApp : public ::CLApp::CLApp {
@@ -18,11 +18,12 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	std::string configFilename;
 	std::string configString;
 	std::string solverName;
-	cl_int2 size;
+	int dim;
+	cl_int3 size;
+	real3 xmin, xmax;
 	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
 	int maxFrames;	//run this far and pause.  -1 = forever = default
 	int currentFrame;
-	real2 xmin, xmax;
 	bool useFixedDT;
 	real fixedDT;
 	real cfl;
@@ -32,7 +33,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	bool useGravity;
 	double noise;	//use this to init noise if using the default initState
 	double gamma;
-	std::shared_ptr<Config::Config> config;
+	std::shared_ptr<LuaCxx::State> lua;
 	
 	//input
 	bool leftButtonDown;
@@ -48,7 +49,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 
 	HydroGPUApp();
 
-	virtual int main(std::vector<std::string> args);
+	virtual int main(const std::vector<std::string>& args);
 	virtual void init();
 	virtual void shutdown();
 	virtual void resize(int width, int height);

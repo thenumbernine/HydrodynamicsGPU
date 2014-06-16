@@ -7,6 +7,8 @@
 #include <OpenGL/gl.h>
 #include <iostream>
 
+const int DIM = 2;
+
 Solver2D::Solver2D(
 	HydroGPUApp &app_,
 	std::vector<real4> stateVec, 

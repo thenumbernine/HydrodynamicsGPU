@@ -5,13 +5,12 @@
 
 solverName = 'Burgers'
 useGPU = true
+dim = 2
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
-sizeX, sizeY = 512, 512 --1024, 1024
+size = {512, 512, 512} --{1024, 1024, 1024}
 --maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions
-xmin = -.5
-xmax = .5
-ymin = -.5
-ymax = .5
+xmin = {-.5, -.5, -.5}
+xmax = {.5, .5, .5}
 useFixedDT = false
 cfl = .5
 displayMethod = assert(displayMethods.density)
