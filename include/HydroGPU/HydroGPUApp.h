@@ -33,7 +33,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	bool useGravity;
 	double noise;	//use this to init noise if using the default initState
 	double gamma;
-	std::shared_ptr<LuaCxx::State> lua;
+	LuaCxx::State lua;
 	
 	//input
 	bool leftButtonDown;

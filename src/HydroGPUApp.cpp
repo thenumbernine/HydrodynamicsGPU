@@ -70,7 +70,6 @@ int HydroGPUApp::main(const std::vector<std::string>& args) {
 
 void HydroGPUApp::init() {
 	//config before Super::init so we can provide it 'useGPU'
-	lua = std::make_shared<LuaCxx::State>();
 	{	//I could either interpret strings for enum names, or I could provide tables of enum values..
 		std::ostringstream s;
 		s << "boundaryMethods = {\n";
@@ -83,32 +82,32 @@ void HydroGPUApp::init() {
 			s << "\t['" << displayMethodNames[i] << "'] = " << i << ",\n";
 		}
 		s << "}\n";
-		lua->loadString(s.str());
+		lua.loadString(s.str());
 	}
 	std::cout << "loading config file " << configFilename << std::endl;
-	lua->loadFile(configFilename);
+	lua.loadFile(configFilename);
 	if (!configString.empty()) {
 		std::cout << "loading config string " << configString << std::endl;
-		lua->loadString(configString);
+		lua.loadString(configString);
 	}
 	
-	lua->_G()["useGPU"] >> useGPU;
-	lua->_G()["dim"] >> dim;
+	lua["useGPU"] >> useGPU;
+	lua["dim"] >> dim;
 	for (int i = 0; i < 3; ++i) {
-		lua->_G()["size"][i+1] >> size.s[i];
-		lua->_G()["xmin"][i+1] >> xmin.s[i];
-		lua->_G()["xmax"][i+1] >> xmax.s[i];
+		lua["size"][i+1] >> size.s[i];
+		lua["xmin"][i+1] >> xmin.s[i];
+		lua["xmax"][i+1] >> xmax.s[i];
 	}
-	lua->_G()["maxFrames"] >> maxFrames;
-	lua->_G()["solverName"] >> solverName;
-	lua->_G()["useFixedDT"] >> useFixedDT;
-	lua->_G()["cfl"] >> cfl;
-	lua->_G()["noise"] >> noise;
-	lua->_G()["gamma"] >> gamma;
-	lua->_G()["displayMethod"] >> displayMethod;
-	lua->_G()["displayScale"] >> displayScale;
-	lua->_G()["boundaryMethod"] >> boundaryMethod;
-	lua->_G()["useGravity"] >> useGravity;
+	lua["maxFrames"] >> maxFrames;
+	lua["solverName"] >> solverName;
+	lua["useFixedDT"] >> useFixedDT;
+	lua["cfl"] >> cfl;
+	lua["noise"] >> noise;
+	lua["gamma"] >> gamma;
+	lua["displayMethod"] >> displayMethod;
+	lua["displayScale"] >> displayScale;
+	lua["boundaryMethod"] >> boundaryMethod;
+	lua["useGravity"] >> useGravity;
 
 	Super::init();
 
@@ -183,9 +182,9 @@ void HydroGPUApp::init() {
 			return state;
 		};
 
-		//lua->_G()["initState"] >> callback;
+		//lua["initState"] >> callback;
 	
-		lua_State *L = lua->getState();
+		lua_State *L = lua.getState();
 		lua_getglobal(L, "initState");
 		if (lua_isfunction(L, -1)) {
 			callback = [&](real2 x) -> real4 {
@@ -193,7 +192,7 @@ void HydroGPUApp::init() {
 				for (int i = 0; i < 2; ++i) {
 					lua_pushnumber(L, x.s[i]);
 				}
-				lua->call(2, 4);	//use our own error handler
+				lua.call(2, 4);	//use our own error handler
 				real4 result;
 				for (int i = 0; i < 4; ++i) {
 					result.s[i] = lua_tonumber(L, i-4);
