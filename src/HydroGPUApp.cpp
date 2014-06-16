@@ -174,47 +174,17 @@ void HydroGPUApp::init() {
 	//read in the initial state
 	std::vector<real4> stateVec(size.s[0] * size.s[1]);
 	{
-		int index[3];
-
-		std::function<real4(real2)> callback = [&](real2 x) -> real4 {
-			//default callback
-			bool inside = fabs(x.s[0]) < .15 && fabs(x.s[1]) < .15;
-			//bool inside = x.s[0] < -.2 && x.s[1] < -.2;
-			real density = inside ? 1. : .1;
-			Tensor::Vector<real, 3> velocity;
-			real specificKineticEnergy = 0.;
-			for (int n = 0; n < dim; ++n) {
-				velocity(n) = crand() * noise;
-				specificKineticEnergy += velocity(n) * velocity(n);
-			}
-			specificKineticEnergy *= .5;
-			real specificInternalEnergy = 1.;
-			real specificTotalEnergy = specificKineticEnergy + specificInternalEnergy;
-		
-			real4 state;
-			state.s[0] = density;
-			for (int n = 0; n < dim; ++n) {
-				state.s[n+1] = density * velocity(n);
-			}
-			state.s[dim+1] = density * specificTotalEnergy;
-			
-			return state;
-		};
-
-		if (!lua["initState"].nil()) {
-			callback = [&](real2 x) -> real4 {
-				return lua["initState"].call<real4>(x);
-			};
-		}
+		if (!lua["initState"].isFunction()) throw Common::Exception() << "expected initState function";
 		
 		std::cout << "initializing..." << std::endl;
 		real4* state = &stateVec[0];	
+		int index[3];
 		for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
 			for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++state) {
 				real2 x;
 				x.s[0] = real(xmax.s[0] - xmin.s[0]) * real(index[0]) / real(size.s[0]) + real(xmin.s[0]);
 				x.s[1] = real(xmax.s[1] - xmin.s[1]) * real(index[1]) / real(size.s[1]) + real(xmin.s[1]);
-				*state = callback(x);
+				*state = lua["initState"].call<real4>(x);
 			}
 		}
 		std::cout << "...done" << std::endl;
