@@ -10,6 +10,28 @@
 #include <OpenGL/OpenGL.h>
 #include <iostream>
 
+//helper functions
+namespace LuaCxx {
+template<> void fromC<real2> (lua_State *L, const real2& value) { 
+	lua_newtable(L);
+	int t = lua_gettop(L);
+	for (int i = 0; i < 2; ++i) {
+		lua_pushnumber(L, value.s[i]);
+		lua_rawseti(L, t, i+1);
+	}
+}
+
+template<> real4 toC<real4>(lua_State *L, int loc) {
+	real4 result; 
+	for (int i = 0; i < 4; ++i) { 
+		lua_rawgeti(L, loc, i+1); 
+		result.s[i] = lua_tonumber(L, -1);
+		lua_pop(L,1);
+	}
+	return result;
+}
+}
+
 //have to keep these updated with HydroGPU/Shared/Common.h
 
 const char *displayMethodNames[NUM_DISPLAY_METHODS] = {
@@ -154,9 +176,6 @@ void HydroGPUApp::init() {
 	{
 		int index[3];
 
-		//ideal: config.get<real4(real2)>("initState", callback);
-		//or even in the loop: *state = config.get("initState")(x,y)
-		// then use template specialization to provide conversion to/from real2 and real4 ... be it nested in tables or not?
 		std::function<real4(real2)> callback = [&](real2 x) -> real4 {
 			//default callback
 			bool inside = fabs(x.s[0]) < .15 && fabs(x.s[1]) < .15;
@@ -182,27 +201,12 @@ void HydroGPUApp::init() {
 			return state;
 		};
 
-		//lua["initState"] >> callback;
-	
-		lua_State *L = lua.getState();
-		lua_getglobal(L, "initState");
-		if (lua_isfunction(L, -1)) {
+		if (!lua["initState"].nil()) {
 			callback = [&](real2 x) -> real4 {
-				lua_getglobal(L, "initState");
-				for (int i = 0; i < 2; ++i) {
-					lua_pushnumber(L, x.s[i]);
-				}
-				lua.call(2, 4);	//use our own error handler
-				real4 result;
-				for (int i = 0; i < 4; ++i) {
-					result.s[i] = lua_tonumber(L, i-4);
-				}
-				lua_pop(L,4);
-				return result;
+				return lua["initState"].call<real4>(x);
 			};
 		}
-		lua_pop(L, 1);
-
+		
 		std::cout << "initializing..." << std::endl;
 		real4* state = &stateVec[0];	
 		for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {

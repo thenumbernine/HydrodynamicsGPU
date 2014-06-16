@@ -37,7 +37,7 @@ local function energyInternalForPressure(pressure, density)
 end
 
 local function primsToState(density, vx, vy, energyTotal)
-	return density, vx * density, vy * density, energyTotal * density
+	return {density, vx * density, vy * density, energyTotal * density}
 end
 
 --[=[
@@ -63,7 +63,8 @@ end
 
 
 --[[ circle -- http://www.cfd-online.com/Wiki/Explosion_test_in_2-D
-function initState(x,y)
+function initState(pos)
+	local x, y = unpack(pos)
 	local rSq = x * x + y * y
 	local inside = rSq <= .2*.2
 	return buildState{
@@ -75,7 +76,8 @@ end
 
 --[[ square shock wave / 2D Sod test
 boundaryMethod = boundaryMethods.mirror
-function initState(x,y)
+function initState(pos)
+	local x, y = unpack(pos)
 	local inside = x < 0 and y < 0
 	return buildState{
 		density = inside and 1 or .1,
@@ -87,7 +89,8 @@ end
 --[[ Kelvin-Hemholtz
 noise = sizeX*2e-5
 solverName = 'Roe'	--Burgers is having trouble... hmm...
-function initState(x,y)
+function initState(pos)
+	local x, y = unpack(pos)
 	local inside = y > -.25 and y < .25
 	local theta = (x - xmin) / (xmax - xmin) * 2 * math.pi
 	return buildState{
@@ -118,7 +121,8 @@ local sources = {
 	{-.25,-.25, radius=.1},
 --]=]
 }
-function initState(x,y)
+function initState(pos)
+	local x, y = unpack(pos)
 	local minDistSq = math.huge
 	local minSource
 	local inside = false
