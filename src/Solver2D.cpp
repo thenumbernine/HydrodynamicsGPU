@@ -13,6 +13,8 @@ Solver2D::Solver2D(
 	const std::string &programFilename)
 : app(app_)
 , commands(app.commands)
+, fluidTex(GLuint())
+, viewZoom(1.f)
 {
 	cl::Device device = app.device;
 	cl::Context context = app.context;
@@ -21,7 +23,21 @@ Solver2D::Solver2D(
 	for (std::vector<cl::Kernel> &v : stateBoundaryKernels) {
 		v.resize(DIM);
 	}
-	
+
+	//get a texture going for visualizing the output
+	glGenTextures(1, &fluidTex);
+	glBindTexture(GL_TEXTURE_2D, fluidTex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, 4, app.size.s[0], app.size.s[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	int err = glGetError();
+	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
+
+	//hmm, my cl.hpp version only supports clCreateFromGLTexture2D, which is deprecated ... do I use the deprecated method, or do I stick with the C structures?
+	// ... or do I look for a more up-to-date version of cl.hpp
+	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex);
+
 	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
 	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
 	Tensor::Vector<size_t,DIM> localSizeVec;
@@ -33,6 +49,7 @@ Solver2D::Solver2D(
 			localSizeVec(n) = (size_t)ceil((double)localSizeVec(n) * .5);
 		}
 	}
+	
 	//hmm...
 	if (!app.useGPU) localSizeVec(0) >>= 1;
 	std::cout << "global_size\t" << app.size.s[0] << ", " << app.size.s[1] << std::endl;
@@ -151,7 +168,7 @@ Solver2D::Solver2D(
 	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, app.size, dx, dtBuffer);
 
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
-	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, app.size, app.fluidTexMem, app.gradientTexMem);
+	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, app.size, fluidTexMem, app.gradientTexMem);
 
 	addDropKernel = cl::Kernel(program, "addDrop");
 	app.setArgs(addDropKernel, stateBuffer, app.size, app.xmin, app.xmax);
@@ -192,6 +209,8 @@ Solver2D::Solver2D(
 }
 
 Solver2D::~Solver2D() {
+	glDeleteTextures(1, &fluidTex);
+	
 	std::cout << "OpenCL profiling info:" << std::endl;
 	for (EventProfileEntry *entry : entries) {
 		std::cout << entry->name << "\t" 
@@ -227,6 +246,12 @@ void Solver2D::findMinTimestep() {
 }
 
 void Solver2D::update() {
+	//CPU need to bind beforehand for roe/cpu to use it
+	//GPU needs it unbound until after the update
+	if (!app.useGPU) {
+		glBindTexture(GL_TEXTURE_2D, fluidTex);
+	}
+	
 	switch (app.boundaryMethod) {
 	case BOUNDARY_PERIODIC:
 		poissonRelaxKernel.setArg(4, true);
@@ -250,10 +275,20 @@ void Solver2D::update() {
 	}
 
 	step();
-	
+
+/*
+	for (EventProfileEntry *entry : entries) {
+		cl_ulong start = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_START>();
+		cl_ulong end = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>();
+		entry->stat.accum((double)(end - start) * 1e-9);
+	}
+*/
+}
+
+void Solver2D::display() {
 	glFinish();
 	
-	std::vector<cl::Memory> acquireGLMems = {app.fluidTexMem};
+	std::vector<cl::Memory> acquireGLMems = {fluidTexMem};
 	commands.enqueueAcquireGLObjects(&acquireGLMems);
 
 	if (app.useGPU) {
@@ -288,20 +323,37 @@ void Solver2D::update() {
 
 	commands.enqueueReleaseGLObjects(&acquireGLMems);
 	commands.finish();
+	
+	glPushMatrix();
+	glTranslatef(-viewPos(0), -viewPos(1), 0);
+	glScalef(viewZoom, viewZoom, viewZoom);
+	glBindTexture(GL_TEXTURE_2D, fluidTex);
+	glEnable(GL_TEXTURE_2D);
+	glBegin(GL_QUADS);
+	glTexCoord2f(0,0); glVertex2f(-.5f,-.5f);
+	glTexCoord2f(1,0); glVertex2f(.5f,-.5f);
+	glTexCoord2f(1,1); glVertex2f(.5f,.5f);
+	glTexCoord2f(0,1); glVertex2f(-.5f,.5f);
+	glEnd();
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glPopMatrix();
 
-	for (EventProfileEntry *entry : entries) {
-		cl_ulong start = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_START>();
-		cl_ulong end = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>();
-		entry->stat.accum((double)(end - start) * 1e-9);
-	}
+	{int err = glGetError();
+	if (err) std::cout << "GL error " << err << " at " << __LINE__ << std::endl;}
 }
 
+void Solver2D::resize() {
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glOrtho(-app.aspectRatio *.5, app.aspectRatio * .5, -.5, .5, -1., 1.);
+	glMatrixMode(GL_MODELVIEW);
+}
 
-void Solver2D::addDrop(Tensor::Vector<float,2> pos, Tensor::Vector<float,2> vel) {
-	addSourcePos.s[0] = pos(0);
-	addSourcePos.s[1] = pos(1);
-	addSourceVel.s[0] = vel(0);
-	addSourceVel.s[1] = vel(1);
+void Solver2D::addDrop() {
+	addSourcePos.s[0] = mousePos(0);
+	addSourcePos.s[1] = mousePos(1);
+	addSourceVel.s[0] = mouseVel(0);
+	addSourceVel.s[1] = mouseVel(1);
 	addDropKernel.setArg(4, addSourcePos);
 	addDropKernel.setArg(5, addSourceVel);
 	commands.enqueueNDRangeKernel(addDropKernel, offset2d, globalSize, localSize);
@@ -315,7 +367,7 @@ void Solver2D::screenshot() {
 				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
 				nullptr, 3);
 			
-			glBindTexture(GL_TEXTURE_2D, app.fluidTex);
+			glBindTexture(GL_TEXTURE_2D, fluidTex);
 			glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, image->getData());
 			glBindTexture(GL_TEXTURE_2D, 0);
 			
@@ -361,4 +413,25 @@ void Solver2D::save(std::string filename) {
 	}
 	Image::system->write(filename, image); 
 }
+
+void Solver2D::mouseMove(int x, int y, int dx, int dy) {
+	mousePos(0) = (float)x / (float)app.screenSize(0) * (app.xmax.s[0] - app.xmin.s[0]) + app.xmin.s[0];
+	mousePos(0) *= app.aspectRatio;	//only if xmin/xmax is symmetric. otehrwise more math required.
+	mousePos(1) = (1.f - (float)y / (float)app.screenSize(1)) * (app.xmax.s[1] - app.xmin.s[1]) + app.xmin.s[1];
+	mousePos += viewPos;
+	mousePos /= viewZoom;
+	mouseVel(0) = (float)dx / (float)app.screenSize(0);
+	mouseVel(1) = (float)dy / (float)app.screenSize(1);
+}
+
+void Solver2D::mousePan(int dx, int dy) {
+	viewPos += Tensor::Vector<float,2>(-(float)dx * app.aspectRatio / (float)app.screenSize(0), (float)dy / (float)app.screenSize(1));
+}
+
+void Solver2D::mouseZoom(int dz) {
+	float scale = exp((float)dz * -.03f); 
+	viewPos *= scale;
+	viewZoom *= scale; 
+}
+
 

@@ -3,10 +3,10 @@
 	-- solver variables
 
 
-solverName = 'Roe'
+solverName = 'Burgers'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
-sizeX, sizeY = 256, 256 --1024, 1024
+sizeX, sizeY = 512, 512 --1024, 1024
 --maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions
 xmin = -.5
 xmax = .5
@@ -26,6 +26,8 @@ gamma = 1.4
 
 
 local function crand() return math.random() * 2 - 1 end
+
+local function clamp(x,min,max) return math.max(min, math.min(max, x)) end
 
 local function energyKineticForVelocity(vx, vy)
 	return .5  * (vx * vx + vy * vy)
@@ -136,12 +138,15 @@ function initState(x,y)
 		end
 	end
 	--noise must be 0 at borders with freeflow or we'll get waves at the edges
-	local noise = .01 * math.exp(-(x * x + y * y) * 100)
+	local dx = x - minSource[1]
+	local dy = y - minSource[2]
+	local r = math.sqrt(dx * dx + dy * dy)
+	local noise = math.exp(-100 * (x * x + y * y))
 	return buildState{
 		density = inside and 1 or .1,
 		pressure = 1,
-		vx = noise * crand(),
-		vy = noise * crand(),
+		vx = .01 * noise * crand(),
+		vy = .01 * noise * crand(),
 	}
 end
 --]]

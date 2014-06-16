@@ -8,10 +8,8 @@
 struct HydroGPUApp : public ::CLApp::CLApp {
 	typedef ::CLApp::CLApp Super;
 
-	GLuint fluidTex;
 	GLuint gradientTex;
 	
-	cl::ImageGL fluidTexMem;		//data is written to this buffer before rendering
 	cl::ImageGL gradientTexMem;	//as it is written, data is read from this for mapping values to colors
 
 	std::shared_ptr<Solver> solver;
@@ -35,7 +33,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	double noise;	//use this to init noise if using the default initState
 	double gamma;
 	std::shared_ptr<Config::Config> config;
-
+	
 	//input
 	bool leftButtonDown;
 	bool rightButtonDown;
@@ -43,14 +41,11 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	bool rightShiftDown;
 	bool leftGuiDown;
 	bool rightGuiDown;
-	Tensor::Vector<real,2> mousePos, mouseVel;
 	
 	//display
 	Tensor::Vector<int,2> screenSize;
-	float viewZoom;
-	Tensor::Vector<float,2> viewPos;
 	float aspectRatio;
-	
+
 	HydroGPUApp();
 
 	virtual int main(std::vector<std::string> args);

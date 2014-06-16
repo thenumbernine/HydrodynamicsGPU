@@ -28,7 +28,6 @@ const char *boundaryMethodNames[NUM_BOUNDARY_METHODS] = {
 
 HydroGPUApp::HydroGPUApp()
 : Super()
-, fluidTex(GLuint())
 , gradientTex(GLuint())
 , configFilename("config.lua")
 , solverName("Burgers")
@@ -50,7 +49,6 @@ HydroGPUApp::HydroGPUApp()
 , rightShiftDown(false)
 , leftGuiDown(false)
 , rightGuiDown(false)
-, viewZoom(1.f)
 {
 	for (int i = 0; i < DIM; ++i) {
 		size.s[i] = 512;
@@ -111,27 +109,11 @@ void HydroGPUApp::init() {
 
 	Super::init();
 
-
-	int err;
-	  
 	for (int n = 0; n < DIM; ++n) {
 		xmin.s[n] = -.5f;
 		xmax.s[n] = .5f;
 	}
 	
-	//get a texture going for visualizing the output
-	glGenTextures(1, &fluidTex);
-	glBindTexture(GL_TEXTURE_2D, fluidTex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, 4, size.s[0], size.s[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	if ((err = glGetError()) != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
-
-	//hmm, my cl.hpp version only supports clCreateFromGLTexture2D, which is deprecated ... do I use the deprecated method, or do I stick with the C structures?
-	// ... or do I look for a more up-to-date version of cl.hpp
-	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex);
-
 	//gradient texture
 	{
 		glGenTextures(1, &gradientTex);
@@ -243,25 +225,21 @@ void HydroGPUApp::init() {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}
 	
-	err = glGetError();
+	int err = glGetError();
 	if (err) throw Common::Exception() << "GL error " << err;
 
 	std::cout << "Success!" << std::endl;
 }
 
 void HydroGPUApp::shutdown() {
-	glDeleteTextures(1, &fluidTex);
 	glDeleteTextures(1, &gradientTex);
 }
 
 void HydroGPUApp::resize(int width, int height) {
 	Super::resize(width, height);	//viewport
 	screenSize = Tensor::Vector<int,2>(width, height);
-	aspectRatio = (float)width / (float)height;
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(-aspectRatio *.5, aspectRatio * .5, -.5, .5, -1., 1.);
-	glMatrixMode(GL_MODELVIEW);
+	aspectRatio = (float)screenSize(0) / (float)screenSize(1);
+	solver->resize();
 }
 
 void HydroGPUApp::update() {
@@ -276,40 +254,19 @@ PROFILE_BEGIN_FRAME()
 
 	bool guiDown = leftGuiDown || rightGuiDown;
 	if (rightButtonDown || (leftButtonDown && guiDown)) {
-		solver->addDrop(mousePos, mouseVel);
-	}
-	
-	//CPU need to bind beforehand for roe/cpu to use it
-	//GPU needs it unbound until after the update
-	if (!useGPU) {
-		glBindTexture(GL_TEXTURE_2D, fluidTex);
+		solver->addDrop();
 	}
 	
 	if (doUpdate) {
 		solver->update();
 		if (doUpdate == 2) doUpdate = 0;
 	}
-	
-	glPushMatrix();
-	glTranslatef(-viewPos(0), -viewPos(1), 0);
-	glScalef(viewZoom, viewZoom, viewZoom);
-	glBindTexture(GL_TEXTURE_2D, fluidTex);
-	glEnable(GL_TEXTURE_2D);
-	glBegin(GL_QUADS);
-	glTexCoord2f(0,0); glVertex2f(-.5f,-.5f);
-	glTexCoord2f(1,0); glVertex2f(.5f,-.5f);
-	glTexCoord2f(1,1); glVertex2f(.5f,.5f);
-	glTexCoord2f(0,1); glVertex2f(-.5f,.5f);
-	glEnd();
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glPopMatrix();
 
-	{int err = glGetError();
-	if (err) std::cout << "GL error " << err << " at " << __LINE__ << std::endl;}
+	solver->display();
 PROFILE_END_FRAME();
 }
 
-void HydroGPUApp::sdlEvent(SDL_Event &event) {
+void HydroGPUApp::sdlEvent(SDL_Event& event) {
 	bool shiftDown = leftShiftDown || rightShiftDown;
 	bool guiDown = leftGuiDown || rightGuiDown;
 
@@ -321,25 +278,17 @@ void HydroGPUApp::sdlEvent(SDL_Event &event) {
 			if (leftButtonDown && !guiDown) {
 				if (shiftDown) {
 					if (dy) {
-						float scale = exp((float)dy * -.03f); 
-						viewPos *= scale;
-						viewZoom *= scale; 
+						solver->mouseZoom(dy);
 					} 
 				} else {
 					if (dx || dy) {
-						viewPos += Tensor::Vector<float,2>(-(float)dx * aspectRatio / (float)screenSize(0), (float)dy / (float)screenSize(1));
+						solver->mousePan(dx, dy);
 					}
 				}
 			}
-		}
-		{
-			mousePos(0) = (float)event.motion.x / (float)screenSize(0) * (xmax.s[0] - xmin.s[0]) + xmin.s[0];
-			mousePos(0) *= aspectRatio;	//only if xmin/xmax is symmetric. otehrwise more math required.
-			mousePos(1) = (1.f - (float)event.motion.y / (float)screenSize(1)) * (xmax.s[1] - xmin.s[1]) + xmin.s[1];
-			mousePos += viewPos;
-			mousePos /= viewZoom;
-			mouseVel(0) = (float)event.motion.xrel / (float)screenSize(0);
-			mouseVel(1) = (float)event.motion.yrel / (float)screenSize(1);
+			int x = event.motion.x;
+			int y = event.motion.y;
+			solver->mouseMove(x, y, dx, dy);
 		}
 		break;
 	case SDL_MOUSEBUTTONDOWN:

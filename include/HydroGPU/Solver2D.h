@@ -9,7 +9,7 @@ struct HydroGPUApp;
 
 struct Solver2D : public Solver {
 	cl::Program program;
-
+	
 	//common kernels for all 2D
 	std::vector<std::vector<cl::Kernel>> stateBoundaryKernels;	//[NUM_BOUNDARY_METHODS][DIM];
 	cl::Buffer stateBuffer;
@@ -45,6 +45,9 @@ struct Solver2D : public Solver {
 	real2 dx;
 	HydroGPUApp &app;
 	cl::CommandQueue commands;
+
+	cl::ImageGL fluidTexMem;		//data is written to this buffer before rendering
+	GLuint fluidTex;
 	
 	//for mouse input
 	cl_float2 addSourcePos, addSourceVel;
@@ -52,12 +55,24 @@ struct Solver2D : public Solver {
 	Solver2D(HydroGPUApp &app, std::vector<real4> stateVec, const std::string &programFilename);
 	virtual ~Solver2D();
 	
-	virtual void addDrop(Tensor::Vector<float,DIM> pos, Tensor::Vector<float,DIM> vel);
+	virtual void update();
+	virtual void display();
+	virtual void resize();
+
+	//input
+	virtual void mouseMove(int x, int y, int dx, int dy);
+	virtual void mousePan(int dx, int dy);
+	virtual void mouseZoom(int dz);
+
+	float viewZoom;
+	Tensor::Vector<float,2> viewPos;
+	Tensor::Vector<real,2> mousePos, mouseVel;
+	
+	virtual void addDrop();
 	virtual void screenshot();
 	virtual void save();	//picks the filename automatically based on what's already there
 	virtual void save(std::string filename);
 
-	virtual void update();
 protected:
 	virtual void boundary();
 	virtual void initStep();
