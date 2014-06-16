@@ -71,10 +71,7 @@ void RoeSolver::step() {
 	
 	if (app.useGravity) {
 		commands.enqueueNDRangeKernel(addGravityKernel, offset2d, globalSize, localSize);
-	
-		//boundary
-		commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethod][0], offset1d, globalWidth, localSize1d);
-		commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethod][1], offset1d, globalHeight, localSize1d);
+		boundary();	
 	}
 }
 

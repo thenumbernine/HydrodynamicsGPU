@@ -34,14 +34,14 @@ template<> real4 toC<real4>(lua_State *L, int loc) {
 
 //have to keep these updated with HydroGPU/Shared/Common.h
 
-const char *displayMethodNames[NUM_DISPLAY_METHODS] = {
+std::vector<std::string> displayMethodNames = std::vector<std::string>{
 	"density",
 	"velocity",
 	"pressure",
 	"gravity potential",
 };
 
-const char *boundaryMethodNames[NUM_BOUNDARY_METHODS] = {
+std::vector<std::string> boundaryMethodNames = std::vector<std::string>{
 	"periodic",
 	"mirror",
 	"freeflow",
@@ -61,7 +61,7 @@ HydroGPUApp::HydroGPUApp()
 , cfl(.5f)
 , displayMethod(DISPLAY_DENSITY)
 , displayScale(2.f)
-, boundaryMethod(BOUNDARY_PERIODIC)
+, boundaryMethods(BOUNDARY_PERIODIC, BOUNDARY_PERIODIC, BOUNDARY_PERIODIC)
 , useGravity(true)
 , noise(0)
 , gamma(1.4)
@@ -92,20 +92,6 @@ int HydroGPUApp::main(const std::vector<std::string>& args) {
 
 void HydroGPUApp::init() {
 	//config before Super::init so we can provide it 'useGPU'
-	{	//I could either interpret strings for enum names, or I could provide tables of enum values..
-		std::ostringstream s;
-		s << "boundaryMethods = {\n";
-		for (int i = 0; i < NUM_BOUNDARY_METHODS; ++i) {
-			s << "\t['" << boundaryMethodNames[i] << "'] = " << i << ",\n";
-		}
-		s << "}\n";
-		s << "displayMethods = {\n";
-		for (int i = 0; i < NUM_DISPLAY_METHODS; ++i) {
-			s << "\t['" << displayMethodNames[i] << "'] = " << i << ",\n";
-		}
-		s << "}\n";
-		lua.loadString(s.str());
-	}
 	std::cout << "loading config file " << configFilename << std::endl;
 	lua.loadFile(configFilename);
 	if (!configString.empty()) {
@@ -116,9 +102,15 @@ void HydroGPUApp::init() {
 	lua["useGPU"] >> useGPU;
 	lua["dim"] >> dim;
 	for (int i = 0; i < 3; ++i) {
-		lua["size"][i+1] >> size.s[i];
-		lua["xmin"][i+1] >> xmin.s[i];
-		lua["xmax"][i+1] >> xmax.s[i];
+		if (!lua["size"].isNil()) lua["size"][i+1] >> size.s[i];
+		if (!lua["xmin"].isNil()) lua["xmin"][i+1] >> xmin.s[i];
+		if (!lua["xmax"].isNil()) lua["xmax"][i+1] >> xmax.s[i];
+		if (!lua["boundaryMethods"].isNil()) {
+			std::string boundaryMethodName;
+			if ((lua["boundaryMethods"][i+1] >> boundaryMethodName).good()) {
+				boundaryMethods(i) = std::find(boundaryMethodNames.begin(), boundaryMethodNames.end(), boundaryMethodName) - boundaryMethodNames.begin();
+			}
+		}
 	}
 	lua["maxFrames"] >> maxFrames;
 	lua["solverName"] >> solverName;
@@ -126,9 +118,13 @@ void HydroGPUApp::init() {
 	lua["cfl"] >> cfl;
 	lua["noise"] >> noise;
 	lua["gamma"] >> gamma;
-	lua["displayMethod"] >> displayMethod;
+	{
+		std::string displayMethodName;
+		if ((lua["displayMethod"] >> displayMethodName).good()) {
+			displayMethod = std::find(displayMethodNames.begin(), displayMethodNames.end(), displayMethodName) - displayMethodNames.begin();
+		}
+	}
 	lua["displayScale"] >> displayScale;
-	lua["boundaryMethod"] >> boundaryMethod;
 	lua["useGravity"] >> useGravity;
 
 	Super::init();
@@ -323,11 +319,14 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 			std::cout << "display " << displayMethodNames[displayMethod] << std::endl;
 		} else if (event.key.keysym.sym == SDLK_b) {
 			if (shiftDown) {
-				boundaryMethod = (boundaryMethod + NUM_BOUNDARY_METHODS - 1) % NUM_BOUNDARY_METHODS;
+				boundaryMethods(0) = (boundaryMethods(0) + NUM_BOUNDARY_METHODS - 1) % NUM_BOUNDARY_METHODS;
 			} else {
-				boundaryMethod = (boundaryMethod + 1) % NUM_BOUNDARY_METHODS;
+				boundaryMethods(0) = (boundaryMethods(0) + 1) % NUM_BOUNDARY_METHODS;
 			}
-			std::cout << "boundary " << boundaryMethodNames[boundaryMethod] << std::endl;
+			for (int i = 1; i < 3; ++i) {
+				boundaryMethods(i) = boundaryMethods(0);
+			}
+			std::cout << "boundary " << boundaryMethodNames[boundaryMethods(0)] << std::endl;
 		} else if (event.key.keysym.sym == SDLK_u) {
 			if (doUpdate) {
 				doUpdate = 0;

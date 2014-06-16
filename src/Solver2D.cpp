@@ -184,7 +184,7 @@ Solver2D::Solver2D(
 	//once you get that, plug it into the total energy
 
 	if (app.useGravity) {
-		switch (app.boundaryMethod) {
+		switch (app.boundaryMethods(0)) {	//TODO per dimension
 		case BOUNDARY_PERIODIC:
 			poissonRelaxKernel.setArg(4, true);
 			break;
@@ -193,7 +193,7 @@ Solver2D::Solver2D(
 			poissonRelaxKernel.setArg(4, false);
 			break;
 		default:
-			throw Common::Exception() << "unknown boundary method " << app.boundaryMethod;
+			throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
 		}	
 		
 		//solve for gravitational potential via gauss seidel
@@ -223,8 +223,10 @@ Solver2D::~Solver2D() {
 
 void Solver2D::boundary() {
 	//boundary
-	commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethod][0], offset1d, globalWidth, localSize1d);
-	commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethod][1], offset1d, globalHeight, localSize1d);
+	for (int i = 0; i < app.dim; ++i) {
+		cl::NDRange globalSize1d(app.size.s[i]);
+		commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethods(i)][i], offset1d, globalSize1d, localSize1d);
+	}
 }
 
 void Solver2D::initStep() {
@@ -254,7 +256,7 @@ void Solver2D::update() {
 		glBindTexture(GL_TEXTURE_2D, fluidTex);
 	}
 	
-	switch (app.boundaryMethod) {
+	switch (app.boundaryMethods(0)) {
 	case BOUNDARY_PERIODIC:
 		poissonRelaxKernel.setArg(4, true);
 		break;
@@ -263,7 +265,7 @@ void Solver2D::update() {
 		poissonRelaxKernel.setArg(4, false);
 		break;
 	default:
-		throw Common::Exception() << "unknown boundary method " << app.boundaryMethod;
+		throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
 	}
 
 	//commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);

@@ -13,9 +13,9 @@ xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
 useFixedDT = false
 cfl = .5
-displayMethod = assert(displayMethods.density)
+displayMethod = 'density'
 displayScale = 2
-boundaryMethod = assert(boundaryMethods.periodic)
+boundaryMethods = {'periodic', 'periodic', 'periodic'}
 useGravity = false
 noise = .01
 gamma = 1.4
@@ -75,7 +75,7 @@ end
 --]]	
 
 --[[ square shock wave / 2D Sod test
-boundaryMethod = boundaryMethods.mirror
+boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(pos)
 	local x, y = unpack(pos)
 	local inside = x < 0 and y < 0
@@ -104,7 +104,7 @@ end
 
 -- [[ gravity potential test - equilibrium - some Rayleigh-Taylor
 useGravity = true
-boundaryMethod = boundaryMethods.freeflow
+boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
 noise = 0	--noise must be 0 at borders with freeflow or we'll get waves at the edges
 local sources = {
 -- [=[ single source

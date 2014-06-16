@@ -30,7 +30,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	real cfl;
 	int displayMethod;
 	float displayScale;
-	int boundaryMethod;
+	Tensor::Vector<int,3> boundaryMethods;
 	bool useGravity;
 	double noise;	//use this to init noise if using the default initState
 	double gamma;
