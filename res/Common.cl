@@ -16,23 +16,6 @@ __kernel void stateBoundaryPeriodicHorizontal(
 	stateBuffer[i + size.x * 1] = stateBuffer[i + size.x * (size.y - 3)];
 	stateBuffer[i + size.x * (size.y - 2)] = stateBuffer[i + size.x * 2];
 	stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * 3];
-
-	//I'm starting to think I should trim the ghost cells off the total work size and just return; if work ids are within the ghost zone
-	if (i == 0) {
-		for (i = -1; i >= -2; --i) {
-			stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * (size.y - 4)];
-			stateBuffer[i + size.x * 1] = stateBuffer[i + size.x * (size.y - 3)];
-			stateBuffer[i + size.x * (size.y - 2)] = stateBuffer[i + size.x * 2];
-			stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * 3];
-		}
-	} else if (i == size.x - 1) {
-		for (i = size.x; i <= size.x + 1; ++i) {
-			stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * (size.y - 4)];
-			stateBuffer[i + size.x * 1] = stateBuffer[i + size.x * (size.y - 3)];
-			stateBuffer[i + size.x * (size.y - 2)] = stateBuffer[i + size.x * 2];
-			stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * 3];
-		}
-	}
 }
 
 __kernel void stateBoundaryPeriodicVertical(
@@ -44,22 +27,6 @@ __kernel void stateBoundaryPeriodicVertical(
 	stateBuffer[1 + size.x * i] = stateBuffer[size.x - 3 + size.x * i];
 	stateBuffer[size.x - 2 + size.x * i] = stateBuffer[2 + size.x * i];
 	stateBuffer[size.x - 1 + size.x * i] = stateBuffer[3 + size.x * i];
-
-	if (i == 0) {
-		for (i = -1; i >= -2; --i) {
-			stateBuffer[0 + size.x * i] = stateBuffer[size.x - 4 + size.x * i];
-			stateBuffer[1 + size.x * i] = stateBuffer[size.x - 3 + size.x * i];
-			stateBuffer[size.x - 2 + size.x * i] = stateBuffer[2 + size.x * i];
-			stateBuffer[size.x - 1 + size.x * i] = stateBuffer[3 + size.x * i];
-		}
-	} else if (i == size.y - 1) {
-		for (i = size.y; i <= size.y + 1; ++i) {
-			stateBuffer[0 + size.x * i] = stateBuffer[size.x - 4 + size.x * i];
-			stateBuffer[1 + size.x * i] = stateBuffer[size.x - 3 + size.x * i];
-			stateBuffer[size.x - 2 + size.x * i] = stateBuffer[2 + size.x * i];
-			stateBuffer[size.x - 1 + size.x * i] = stateBuffer[3 + size.x * i];
-		}
-	}
 }
 
 //mirror
@@ -76,22 +43,6 @@ __kernel void stateBoundaryMirrorHorizontal(
 	stateBuffer[i + size.x * 1] = mirrorStateY(stateBuffer[i + size.x * 2]);
 	stateBuffer[i + size.x * (size.y - 1)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 4)]);
 	stateBuffer[i + size.x * (size.y - 2)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 3)]);
-
-	if (i == 0) {
-		for (i = -1; i >= -2; --i) {
-			stateBuffer[i + size.x * 0] = mirrorStateY(stateBuffer[i + size.x * 3]);
-			stateBuffer[i + size.x * 1] = mirrorStateY(stateBuffer[i + size.x * 2]);
-			stateBuffer[i + size.x * (size.y - 1)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 4)]);
-			stateBuffer[i + size.x * (size.y - 2)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 3)]);
-		}
-	} else if (i == size.x - 1) {
-		for (i = size.x; i <= size.x + 1; ++i) {
-			stateBuffer[i + size.x * 0] = mirrorStateY(stateBuffer[i + size.x * 3]);
-			stateBuffer[i + size.x * 1] = mirrorStateY(stateBuffer[i + size.x * 2]);
-			stateBuffer[i + size.x * (size.y - 1)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 4)]);
-			stateBuffer[i + size.x * (size.y - 2)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 3)]);
-		}
-	}
 }
 
 __kernel void stateBoundaryMirrorVertical(
@@ -103,22 +54,6 @@ __kernel void stateBoundaryMirrorVertical(
 	stateBuffer[1 + size.x * i] = mirrorStateX(stateBuffer[2 + size.x * i]);
 	stateBuffer[size.x - 1 + size.x * i] = mirrorStateX(stateBuffer[size.x - 4 + size.x * i]);
 	stateBuffer[size.x - 2 + size.x * i] = mirrorStateX(stateBuffer[size.x - 3 + size.x * i]);	
-
-	if (i == 0) {
-		for (i = -1; i >= -2; --i) {
-			stateBuffer[0 + size.x * i] = mirrorStateX(stateBuffer[3 + size.x * i]);
-			stateBuffer[1 + size.x * i] = mirrorStateX(stateBuffer[2 + size.x * i]);
-			stateBuffer[size.x - 1 + size.x * i] = mirrorStateX(stateBuffer[size.x - 4 + size.x * i]);
-			stateBuffer[size.x - 2 + size.x * i] = mirrorStateX(stateBuffer[size.x - 3 + size.x * i]);	
-		}
-	} else if (i == size.y - 1) {
-		for (i = size.y; i <= size.y + 1; ++i) {
-			stateBuffer[0 + size.x * i] = mirrorStateX(stateBuffer[3 + size.x * i]);
-			stateBuffer[1 + size.x * i] = mirrorStateX(stateBuffer[2 + size.x * i]);
-			stateBuffer[size.x - 1 + size.x * i] = mirrorStateX(stateBuffer[size.x - 4 + size.x * i]);
-			stateBuffer[size.x - 2 + size.x * i] = mirrorStateX(stateBuffer[size.x - 3 + size.x * i]);	
-		}
-	}
 }
 
 //freeflow
@@ -130,18 +65,6 @@ __kernel void stateBoundaryFreeFlowHorizontal(
 	int i = get_global_id(0);
 	stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * 1] = (stateBuffer[i + size.x * 2]);
 	stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * (size.y - 2)] = (stateBuffer[i + size.x * (size.y - 3)]);
-	
-	if (i == 0) {
-		for (i = -1; i >= -2; --i) {
-			stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * 1] = (stateBuffer[i + size.x * 2]);
-			stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * (size.y - 2)] = (stateBuffer[i + size.x * (size.y - 3)]);
-		}
-	} else if (i == size.x - 1) {
-		for (i = size.x; i <= size.x + 1; ++i) {
-			stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * 1] = (stateBuffer[i + size.x * 2]);
-			stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * (size.y - 2)] = (stateBuffer[i + size.x * (size.y - 3)]);
-		}
-	}
 }
 
 
@@ -152,18 +75,6 @@ __kernel void stateBoundaryFreeFlowVertical(
 	int i = get_global_id(0);
 	stateBuffer[0 + size.x * i] = stateBuffer[1 + size.x * i] = (stateBuffer[2 + size.x * i]);
 	stateBuffer[size.x - 1 + size.x * i] = stateBuffer[size.x - 2 + size.x * i] = (stateBuffer[size.x - 3 + size.x * i]);
-
-	if (i == 0) {
-		for (i = -1; i >= -2; --i) {
-			stateBuffer[0 + size.x * i] = stateBuffer[1 + size.x * i] = (stateBuffer[2 + size.x * i]);
-			stateBuffer[size.x - 1 + size.x * i] = stateBuffer[size.x - 2 + size.x * i] = (stateBuffer[size.x - 3 + size.x * i]);
-		}
-	} else if (i == size.y - 1) {
-		for (i = size.y; i <= size.y + 1; ++i) {
-			stateBuffer[0 + size.x * i] = stateBuffer[1 + size.x * i] = (stateBuffer[2 + size.x * i]);
-			stateBuffer[size.x - 1 + size.x * i] = stateBuffer[size.x - 2 + size.x * i] = (stateBuffer[size.x - 3 + size.x * i]);
-		}
-	}
 }
 
 __kernel void convertToTex(
@@ -355,11 +266,11 @@ __kernel void addGravity(
 
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		--iPrev[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
 		
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
+		++iNext[side];
 		int indexNext = iNext.x + size.x * iNext.y;	
 	
 		real gravityGrad = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);

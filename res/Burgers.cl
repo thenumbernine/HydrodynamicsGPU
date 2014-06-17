@@ -76,7 +76,7 @@ __kernel void calcInterfaceVelocity(
 	real2 interfaceVelocity;
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		--iPrev[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
 		
 		real4 stateL = stateBuffer[indexPrev];
@@ -118,15 +118,15 @@ __kernel void calcFlux(
 	
 	for (int side = 0; side < 2; ++side) {	
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		--iPrev[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
 	
 		int2 iPrev2 = iPrev;
-		iPrev2[side] = (iPrev2[side] + size[side] - 1) % size[side];
+		--iPrev2[side];
 		int indexPrev2 = iPrev2.x + size.x * iPrev2.y;
 		
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
+		++iNext[side];
 		int indexNext = iNext.x + size.x * iNext.y;
 
 		int indexL2 = indexPrev2;
@@ -172,7 +172,7 @@ __kernel void integrateFlux(
 	
 	for (int side = 0; side < 2; ++side) {
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
+		++iNext[side];
 		int indexNext = iNext.x + size.x * iNext.y;
 		
 		real4 fluxL = fluxBuffer[side + 2 * index];
@@ -190,7 +190,6 @@ __kernel void computePressure(
 	int2 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	//if (i.x >= size.x || i.y >= size.y) return;
 	if (i.x < 1 || i.y < 1 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
 	int index = i.x + size.x * i.y;
 	
@@ -210,11 +209,11 @@ __kernel void computePressure(
 	real deltaVelocitySq = 0.f;
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		--iPrev[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
 		
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
+		++iNext[side];
 		int indexNext = iNext.x + size.x * iNext.y;
 
 		real velocityL = stateBuffer[indexPrev][side+1];
@@ -243,11 +242,11 @@ __kernel void diffuseMomentum(
 
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		--iPrev[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
 		
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
+		++iNext[side];
 		int indexNext = iNext.x + size.x * iNext.y;
 
 		real pressureL = pressureBuffer[indexPrev];
@@ -273,11 +272,11 @@ __kernel void diffuseWork(
 
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		--iPrev[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
 		
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
+		++iNext[side];
 		int indexNext = iNext.x + size.x * iNext.y;
 
 		real4 stateL = stateBuffer[indexPrev];
