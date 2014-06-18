@@ -1,8 +1,8 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/RoeSolver2D.h"
 #include "HydroGPU/BurgersSolver2D.h"
-//#include "HydroGPU/RoeSolver3D.h"
-//#include "HydroGPU/BurgersSolver3D.h"
+#include "HydroGPU/RoeSolver3D.h"
+#include "HydroGPU/BurgersSolver3D.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -175,12 +175,27 @@ void HydroGPUApp::init() {
 	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_1D, 0, gradientTex);
 
 	//construct the solver
-	if (solverName == "Burgers") {
-		solver = std::make_shared<BurgersSolver2D>(*this);
-	} else if (solverName == "Roe") {
-		solver = std::make_shared<RoeSolver2D>(*this);
-	} else {
-		throw Common::Exception() << "unknown solver " << solverName;
+	switch (dim) {
+	case 2:
+		if (solverName == "Burgers") {
+			solver = std::make_shared<BurgersSolver2D>(*this);
+		} else if (solverName == "Roe") {
+			solver = std::make_shared<RoeSolver2D>(*this);
+		} else {
+			throw Common::Exception() << "unknown solver " << solverName;
+		}
+		break;
+	case 3:
+		if (solverName == "Burgers") {
+			solver = std::make_shared<BurgersSolver3D>(*this);
+		} else if (solverName == "Roe") {
+			solver = std::make_shared<RoeSolver3D>(*this);
+		} else {
+			throw Common::Exception() << "unknown solver " << solverName;
+		}
+		break;
+	default:
+		throw Common::Exception() << "got unsupported dimension " << dim;
 	}
 
 	resetState();
@@ -191,8 +206,11 @@ void HydroGPUApp::init() {
 	std::cout << "Success!" << std::endl;
 }
 
+void HydroGPUApp::shutdown() {
+	glDeleteTextures(1, &gradientTex);
+}
+
 void HydroGPUApp::resetState() {
-	//read in the initial state
 	std::vector<real8> stateVec(size.s[0] * size.s[1] * size.s[2]);
 		
 	if (!lua["initState"].isFunction()) throw Common::Exception() << "expected initState function";
@@ -203,21 +221,17 @@ void HydroGPUApp::resetState() {
 	for (index[2] = 0; index[2] < size.s[2]; ++index[2]) {
 		for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
 			for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++state) {
-				real3 x;
+				real3 pos;
 				for (int i = 0; i < 3; ++i) {
-					x.s[i] = real(xmax.s[i] - xmin.s[i]) * (real(index[i]) + .5) / real(size.s[i]) + real(xmin.s[i]);
+					pos.s[i] = real(xmax.s[i] - xmin.s[i]) * (real(index[i]) + .5) / real(size.s[i]) + real(xmin.s[i]);
 				}
-				*state = lua["initState"].call<real8>(x);
+				*state = lua["initState"].call<real8>(pos);
 			}
 		}
 	}
 	std::cout << "...done" << std::endl;
 
 	solver->resetState(stateVec);
-}
-
-void HydroGPUApp::shutdown() {
-	glDeleteTextures(1, &gradientTex);
 }
 
 void HydroGPUApp::resize(int width, int height) {
@@ -236,7 +250,7 @@ PROFILE_BEGIN_FRAME()
 	}
 
 	Super::update();	//glclear 
-
+	
 	bool guiDown = leftGuiDown || rightGuiDown;
 	if (rightButtonDown || (leftButtonDown && guiDown)) {
 		solver->addDrop();

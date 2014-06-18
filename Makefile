@@ -8,6 +8,7 @@ include ../CLApp/Include.mk
 include ../Tensor/Include.mk
 include ../Profiler/Include.mk
 include ../Image/Include.mk
+include ../Shader/Include.mk
 include ../LuaCxx/Include.mk
 
 INCLUDE+=res/include
