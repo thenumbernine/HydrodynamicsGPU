@@ -52,7 +52,7 @@ struct Solver2D : public Solver {
 	//for mouse input
 	cl_float2 addSourcePos, addSourceVel;
 	
-	Solver2D(HydroGPUApp &app, std::vector<real4> stateVec, const std::string &programFilename);
+	Solver2D(HydroGPUApp &app, const std::string &programFilename);
 	virtual ~Solver2D();
 	
 	virtual void update();
@@ -74,6 +74,7 @@ struct Solver2D : public Solver {
 	virtual void save(std::string filename);
 
 protected:
+	virtual void resetState(std::vector<real8> stateVec);
 	virtual void boundary();
 	virtual void initStep();
 	virtual void calcTimestep() = 0;

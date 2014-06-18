@@ -25,7 +25,7 @@ struct RoeSolver2D : public Solver2D {
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry integrateFluxEvent;
 	
-	RoeSolver2D(HydroGPUApp &app, std::vector<real4> stateVec);
+	RoeSolver2D(HydroGPUApp &app);
 
 protected:
 	virtual void initStep();

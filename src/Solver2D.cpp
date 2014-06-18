@@ -11,7 +11,6 @@ const int DIM = 2;
 
 Solver2D::Solver2D(
 	HydroGPUApp &app_,
-	std::vector<real4> stateVec, 
 	const std::string &programFilename)
 : app(app_)
 , commands(app.commands)
@@ -96,8 +95,6 @@ Solver2D::Solver2D(
 	cflSwapBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume / localSize[0]);
 	dtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
 	gravityPotentialBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
-	
-	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
 
 	//get the edges, so reduction doesn't
 	{
@@ -105,17 +102,6 @@ Solver2D::Solver2D(
 		for (real &r : cflVec) { r = std::numeric_limits<real>::max(); }
 		commands.enqueueWriteBuffer(cflBuffer, CL_TRUE, 0, sizeof(real) * volume, &cflVec[0]);
 	}
-
-	//here's our initial guess to sor
-	std::vector<real> gravityPotentialVec(stateVec.size());
-	for (size_t i = 0; i < stateVec.size(); ++i) {
-		if (app.useGravity) {
-			gravityPotentialVec[i] = stateVec[i].s[0];
-		} else {
-			gravityPotentialVec[i] = 0.;
-		}
-	}
-	commands.enqueueWriteBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &gravityPotentialVec[0]);
 
 	if (app.useFixedDT) {
 		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app.fixedDT);
@@ -182,6 +168,22 @@ Solver2D::Solver2D(
 	//solve inverse discretized linear system to find Psi
 	//D_ij / (-4 pi G) Phi_j = rho_i
 	//once you get that, plug it into the total energy
+}
+
+void Solver2D::resetState(std::vector<real8> state3DVec) {
+	int volume = app.size.s[0] * app.size.s[1];
+	if (volume != state3DVec.size()) throw Common::Exception() << "state vec is of bad size";
+
+	//here's our initial guess to sor
+	std::vector<real> gravityPotentialVec(volume);
+	for (size_t i = 0; i < volume; ++i) {
+		if (app.useGravity) {
+			gravityPotentialVec[i] = state3DVec[i].s[0];
+		} else {
+			gravityPotentialVec[i] = 0.;
+		}
+	}
+	commands.enqueueWriteBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &gravityPotentialVec[0]);
 
 	if (app.useGravity) {
 		switch (app.boundaryMethods(0)) {	//TODO per dimension
@@ -204,10 +206,23 @@ Solver2D::Solver2D(
 
 		//update internal energy
 		for (int i = 0; i < volume; ++i) {
-			stateVec[i].s[3] += gravityPotentialVec[i];
+			state3DVec[i].s[4] += gravityPotentialVec[i];
 		}
-		commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
 	}
+
+	//convert 3D to 2D
+	std::vector<real4> state2DVec;
+	for (int i = 0; i < volume; ++i) {
+		real8 &state3D = state3DVec[i];
+		real4 state2D;
+		state2D.s[0] = state3D.s[0];
+		state2D.s[1] = state3D.s[1];
+		state2D.s[2] = state3D.s[2];
+		state2D.s[3] = state3D.s[4];
+		state2DVec.push_back(state2D);
+	}
+
+	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &state2DVec[0]);
 }
 
 Solver2D::~Solver2D() {

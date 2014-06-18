@@ -1,6 +1,8 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/RoeSolver2D.h"
 #include "HydroGPU/BurgersSolver2D.h"
+//#include "HydroGPU/RoeSolver3D.h"
+//#include "HydroGPU/BurgersSolver3D.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -12,18 +14,18 @@
 
 //helper functions
 namespace LuaCxx {
-template<> void fromC<real2> (lua_State *L, const real2& value) { 
+template<> void fromC<real3> (lua_State *L, const real3& value) { 
 	lua_newtable(L);
 	int t = lua_gettop(L);
-	for (int i = 0; i < 2; ++i) {
+	for (int i = 0; i < 3; ++i) {
 		lua_pushnumber(L, value.s[i]);
 		lua_rawseti(L, t, i+1);
 	}
 }
 
-template<> real4 toC<real4>(lua_State *L, int loc) {
-	real4 result; 
-	for (int i = 0; i < 4; ++i) { 
+template<> real8 toC<real8>(lua_State *L, int loc) {
+	real8 result; 
+	for (int i = 0; i < 8; ++i) { 
 		lua_rawgeti(L, loc, i+1); 
 		result.s[i] = lua_tonumber(L, -1);
 		lua_pop(L,1);
@@ -62,7 +64,7 @@ HydroGPUApp::HydroGPUApp()
 , displayMethod(DISPLAY_DENSITY)
 , displayScale(2.f)
 , boundaryMethods(BOUNDARY_PERIODIC, BOUNDARY_PERIODIC, BOUNDARY_PERIODIC)
-, useGravity(true)
+, useGravity(false)
 , gamma(1.4)
 , leftButtonDown(false)
 , rightButtonDown(false)
@@ -108,6 +110,7 @@ void HydroGPUApp::init() {
 			std::string boundaryMethodName;
 			if ((lua["boundaryMethods"][i+1] >> boundaryMethodName).good()) {
 				boundaryMethods(i) = std::find(boundaryMethodNames.begin(), boundaryMethodNames.end(), boundaryMethodName) - boundaryMethodNames.begin();
+				if (boundaryMethods(i) == NUM_BOUNDARY_METHODS) throw Common::Exception() << "couldn't interpret boundary method " << boundaryMethodName;
 			}
 		}
 	}
@@ -120,18 +123,24 @@ void HydroGPUApp::init() {
 		std::string displayMethodName;
 		if ((lua["displayMethod"] >> displayMethodName).good()) {
 			displayMethod = std::find(displayMethodNames.begin(), displayMethodNames.end(), displayMethodName) - displayMethodNames.begin();
+			if (displayMethod == NUM_DISPLAY_METHODS) throw Common::Exception() << "couldn't interpret display method " << displayMethodName;
 		}
 	}
 	lua["displayScale"] >> displayScale;
 	lua["useGravity"] >> useGravity;
 
+	for (int i = dim; i < 3; ++i) {
+		size.s[i] = 1;
+	}
+
 	Super::init();
 
+	glEnable(GL_DEPTH_TEST);
 
 	//gradient texture
 	{
 		glGenTextures(1, &gradientTex);
-		glBindTexture(GL_TEXTURE_2D, gradientTex);
+		glBindTexture(GL_TEXTURE_1D, gradientTex);
 
 		float colors[][3] = {
 			{0, 0, 0},
@@ -157,46 +166,54 @@ void HydroGPUApp::init() {
 			}
 		}
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glBindTexture(GL_TEXTURE_2D, 0);
+		glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, width, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glBindTexture(GL_TEXTURE_1D, 0);
 	}
 
-	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, gradientTex);
-
-	//read in the initial state
-	std::vector<real4> stateVec(size.s[0] * size.s[1]);
-	{
-		if (!lua["initState"].isFunction()) throw Common::Exception() << "expected initState function";
-		
-		std::cout << "initializing..." << std::endl;
-		real4* state = &stateVec[0];	
-		int index[3];
-		for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
-			for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++state) {
-				real2 x;
-				x.s[0] = real(xmax.s[0] - xmin.s[0]) * real(index[0]) / real(size.s[0]) + real(xmin.s[0]);
-				x.s[1] = real(xmax.s[1] - xmin.s[1]) * real(index[1]) / real(size.s[1]) + real(xmin.s[1]);
-				*state = lua["initState"].call<real4>(x);
-			}
-		}
-		std::cout << "...done" << std::endl;
-	}
+	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_1D, 0, gradientTex);
 
 	//construct the solver
 	if (solverName == "Burgers") {
-		solver = std::make_shared<BurgersSolver2D>(*this, stateVec);
+		solver = std::make_shared<BurgersSolver2D>(*this);
 	} else if (solverName == "Roe") {
-		solver = std::make_shared<RoeSolver2D>(*this, stateVec);
+		solver = std::make_shared<RoeSolver2D>(*this);
 	} else {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}
-	
+
+	resetState();
+
 	int err = glGetError();
 	if (err) throw Common::Exception() << "GL error " << err;
 
 	std::cout << "Success!" << std::endl;
+}
+
+void HydroGPUApp::resetState() {
+	//read in the initial state
+	std::vector<real8> stateVec(size.s[0] * size.s[1] * size.s[2]);
+		
+	if (!lua["initState"].isFunction()) throw Common::Exception() << "expected initState function";
+	
+	std::cout << "initializing..." << std::endl;
+	real8* state = &stateVec[0];	
+	int index[3];
+	for (index[2] = 0; index[2] < size.s[2]; ++index[2]) {
+		for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
+			for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++state) {
+				real3 x;
+				for (int i = 0; i < 3; ++i) {
+					x.s[i] = real(xmax.s[i] - xmin.s[i]) * (real(index[i]) + .5) / real(size.s[i]) + real(xmin.s[i]);
+				}
+				*state = lua["initState"].call<real8>(x);
+			}
+		}
+	}
+	std::cout << "...done" << std::endl;
+
+	solver->resetState(stateVec);
 }
 
 void HydroGPUApp::shutdown() {
@@ -335,6 +352,8 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 					doUpdate = 1;
 				}
 			}
+		} else if (event.key.keysym.sym == SDLK_r) {
+			resetState();
 		}
 		break;
 	}

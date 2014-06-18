@@ -2,9 +2,8 @@
 #include "HydroGPU/HydroGPUApp.h"
 
 BurgersSolver2D::BurgersSolver2D(
-	HydroGPUApp &app_,
-	std::vector<real4> stateVec)
-: Super(app_, stateVec, "Burgers2D.cl")
+	HydroGPUApp &app_)
+: Super(app_, "Burgers2D.cl")
 , calcCFLEvent("calcCFL")
 , calcInterfaceVelocityEvent("calcInterfaceVelocity")
 , calcFluxEvent("calcFlux")

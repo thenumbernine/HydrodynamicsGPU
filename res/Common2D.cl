@@ -82,7 +82,7 @@ __kernel void convertToTex(
 	const __global real* gravityPotentialBuffer,
 	int2 size,
 	__write_only image2d_t fluidTex,
-	__read_only image2d_t gradientTex,
+	__read_only image1d_t gradientTex,
 	int displayMethod,
 	float displayScale)
 {
@@ -119,9 +119,7 @@ __kernel void convertToTex(
 	}
 	value *= displayScale;
 
-	float4 color = read_imagef(gradientTex, 
-		CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR,
-		(float2)(value, .5f));
+	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
 	write_imagef(fluidTex, i, color.bgra);
 }
 

@@ -2,9 +2,8 @@
 #include "HydroGPU/HydroGPUApp.h"
 
 RoeSolver2D::RoeSolver2D(
-	HydroGPUApp &app_,
-	std::vector<real4> stateVec)
-: Super(app_, stateVec, "Roe2D.cl")
+	HydroGPUApp &app_)
+: Super(app_, "Roe2D.cl")
 , calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
 , calcDeltaQTildeEvent("calcDeltaQTilde")

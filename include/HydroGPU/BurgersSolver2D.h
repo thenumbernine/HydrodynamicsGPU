@@ -28,7 +28,7 @@ struct BurgersSolver2D : public Solver2D {
 	EventProfileEntry diffuseMomentumEvent;
 	EventProfileEntry diffuseWorkEvent;
 
-	BurgersSolver2D(HydroGPUApp &app, std::vector<real4> stateVec);
+	BurgersSolver2D(HydroGPUApp &app);
 
 protected:
 	virtual void calcTimestep();
