@@ -5,7 +5,7 @@
 
 struct HydroGPUApp;
 
-struct BurgersSolver : public Solver2D {
+struct BurgersSolver2D : public Solver2D {
 	typedef Solver2D Super;
 
 	cl::Buffer interfaceVelocityBuffer;
@@ -28,7 +28,7 @@ struct BurgersSolver : public Solver2D {
 	EventProfileEntry diffuseMomentumEvent;
 	EventProfileEntry diffuseWorkEvent;
 
-	BurgersSolver(HydroGPUApp &app, std::vector<real4> stateVec);
+	BurgersSolver2D(HydroGPUApp &app, std::vector<real4> stateVec);
 
 protected:
 	virtual void calcTimestep();

@@ -1,10 +1,10 @@
-#include "HydroGPU/RoeSolver.h"
+#include "HydroGPU/RoeSolver2D.h"
 #include "HydroGPU/HydroGPUApp.h"
 
-RoeSolver::RoeSolver(
+RoeSolver2D::RoeSolver2D(
 	HydroGPUApp &app_,
 	std::vector<real4> stateVec)
-: Super(app_, stateVec, "Roe.cl")
+: Super(app_, stateVec, "Roe2D.cl")
 , calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
 , calcDeltaQTildeEvent("calcDeltaQTilde")
@@ -47,16 +47,16 @@ RoeSolver::RoeSolver(
 	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, app.size, dx, dtBuffer);
 }	
 
-void RoeSolver::initStep() {
+void RoeSolver2D::initStep() {
 	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset2d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);	//cpu dies here
 }
 
-void RoeSolver::calcTimestep() {
+void RoeSolver2D::calcTimestep() {
 	commands.enqueueNDRangeKernel(calcCFLKernel, offset2d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
-void RoeSolver::step() {
+void RoeSolver2D::step() {
 	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offset2d, globalSize, localSize, NULL, &calcDeltaQTildeEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offset2d, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
 	commands.enqueueNDRangeKernel(integrateFluxKernel, offset2d, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);

@@ -4,7 +4,7 @@
 
 struct HydroGPUApp;
 
-struct RoeSolver : public Solver2D {
+struct RoeSolver2D : public Solver2D {
 	typedef Solver2D Super;
 
 	cl::Buffer eigenvaluesBuffer;
@@ -25,7 +25,7 @@ struct RoeSolver : public Solver2D {
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry integrateFluxEvent;
 	
-	RoeSolver(HydroGPUApp &app, std::vector<real4> stateVec);
+	RoeSolver2D(HydroGPUApp &app, std::vector<real4> stateVec);
 
 protected:
 	virtual void initStep();

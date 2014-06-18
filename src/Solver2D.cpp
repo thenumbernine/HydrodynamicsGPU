@@ -67,7 +67,7 @@ Solver2D::Solver2D(
 
 	std::vector<std::string> kernelSources = std::vector<std::string>{
 		std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
-		Common::File::read("Common.cl"),
+		Common::File::read("Common2D.cl"),
 		Common::File::read(programFilename)
 	};
 	std::vector<std::pair<const char *, size_t>> sources;

@@ -1,6 +1,6 @@
 #include "HydroGPU/HydroGPUApp.h"
-#include "HydroGPU/RoeSolver.h"
-#include "HydroGPU/BurgersSolver.h"
+#include "HydroGPU/RoeSolver2D.h"
+#include "HydroGPU/BurgersSolver2D.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -186,9 +186,9 @@ void HydroGPUApp::init() {
 
 	//construct the solver
 	if (solverName == "Burgers") {
-		solver = std::make_shared<BurgersSolver>(*this, stateVec);
+		solver = std::make_shared<BurgersSolver2D>(*this, stateVec);
 	} else if (solverName == "Roe") {
-		solver = std::make_shared<RoeSolver>(*this, stateVec);
+		solver = std::make_shared<RoeSolver2D>(*this, stateVec);
 	} else {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}

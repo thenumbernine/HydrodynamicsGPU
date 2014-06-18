@@ -7,7 +7,7 @@ solverName = 'Burgers'
 useGPU = true
 dim = 2
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
-size = {1024, 1024, 512} --{1024, 1024, 1024}
+size = {512, 512, 512} --{1024, 1024, 1024}
 --maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -143,7 +143,6 @@ function initState(pos)
 	--noise must be 0 at borders with freeflow or we'll get waves at the edges
 	local dx = x - minSource[1]
 	local dy = y - minSource[2]
-	local r = math.sqrt(dx * dx + dy * dy)
 	local noise = math.exp(-100 * (x * x + y * y))
 	return buildState{
 		density = inside and 1 or .1,
