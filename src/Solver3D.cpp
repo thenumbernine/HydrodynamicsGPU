@@ -224,8 +224,7 @@ Solver3D::Solver3D(
 	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, app.size, fluidTexMem, app.gradientTexMem);
 }
 
-void Solver3D::resetState(std::vector<real8> stateVec) {
-	
+void Solver3D::resetState(std::vector<real8> stateVec) {	
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 	if (volume != stateVec.size()) throw Common::Exception() << "got a state vec with a bad length";
 
@@ -233,6 +232,9 @@ void Solver3D::resetState(std::vector<real8> stateVec) {
 	//solve inverse discretized linear system to find Psi
 	//D_ij / (-4 pi G) Phi_j = rho_i
 	//once you get that, plug it into the total energy
+	
+	//write state density first for gravity potential, to then update energy
+	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * volume, &stateVec[0]);
 
 	//here's our initial guess to sor
 	std::vector<real> gravityPotentialVec(volume);

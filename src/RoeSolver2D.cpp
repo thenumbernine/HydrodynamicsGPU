@@ -47,7 +47,7 @@ RoeSolver2D::RoeSolver2D(
 }	
 
 void RoeSolver2D::initStep() {
-	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset2d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);	//cpu dies here
+	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset2d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 }
 
 void RoeSolver2D::calcTimestep() {

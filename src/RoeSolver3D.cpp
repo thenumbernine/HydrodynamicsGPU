@@ -1,6 +1,8 @@
 #include "HydroGPU/RoeSolver3D.h"
 #include "HydroGPU/HydroGPUApp.h"
 
+const int DIM = 3;
+
 RoeSolver3D::RoeSolver3D(
 	HydroGPUApp &app_)
 : Super(app_, "Roe3D.cl")
@@ -22,13 +24,13 @@ RoeSolver3D::RoeSolver3D(
 
 	//memory
 
-	int volume = app.size.s[0] * app.size.s[1];
+	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
-	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * 2);
-	eigenvectorsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * 2);
-	eigenvectorsInverseBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * 2);
-	deltaQTildeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * 2);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * 2);
+	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * DIM);
+	eigenvectorsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * DIM * 2);
+	eigenvectorsInverseBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * DIM * 2);
+	deltaQTildeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * DIM);
+	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * DIM);
 	
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
 	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer, app.size);
@@ -47,7 +49,7 @@ RoeSolver3D::RoeSolver3D(
 }	
 
 void RoeSolver3D::initStep() {
-	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset3d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);	//cpu dies here
+	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset3d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 }
 
 void RoeSolver3D::calcTimestep() {

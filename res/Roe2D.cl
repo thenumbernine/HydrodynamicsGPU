@@ -1,4 +1,4 @@
-#include "HydroGPU/Shared/Common.h"
+#include "HydroGPU/Shared/Common2D.h"
 
 real4 matmul(real16 m, real4 v);
 real mat44det(real16 m);

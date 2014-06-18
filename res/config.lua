@@ -4,10 +4,9 @@
 
 
 solverName = 'Burgers'
-useGPU = true
 dim = 3
+useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
-size = dim == 3 and {64, 64, 64} or {512, 512}	--{1024, 1024}
 --maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -19,6 +18,21 @@ boundaryMethods = {'periodic', 'periodic', 'periodic'}
 useGravity = false
 noise = .01
 gamma = 1.4
+
+-- size according to dim and solver
+if dim == 3 then
+	size = {64, 64, 64}
+elseif dim == 2 then
+	if solverName == 'Burgers' then
+		size = {1024, 1024}
+	elseif solverName == 'Roe' then
+		size = {512, 512}
+	else
+		error('unknown solver name '..solverName)
+	end
+else
+	error('unknown dim '..dim)
+end
 
 
 	-- helper functions

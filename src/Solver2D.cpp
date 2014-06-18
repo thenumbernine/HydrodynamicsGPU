@@ -163,22 +163,38 @@ Solver2D::Solver2D(
 
 	addSourceKernel = cl::Kernel(program, "addSource");
 	app.setArgs(addSourceKernel, stateBuffer, app.size, app.xmin, app.xmax, dtBuffer);
-
-	//grad^2 Phi = - 4 pi G rho
-	//solve inverse discretized linear system to find Psi
-	//D_ij / (-4 pi G) Phi_j = rho_i
-	//once you get that, plug it into the total energy
 }
 
 void Solver2D::resetState(std::vector<real8> state3DVec) {
 	int volume = app.size.s[0] * app.size.s[1];
 	if (volume != state3DVec.size()) throw Common::Exception() << "state vec is of bad size";
 
+	//convert 3D to 2D
+	std::vector<real4> stateVec;
+	for (int i = 0; i < volume; ++i) {
+		real8 &state3D = state3DVec[i];
+		real4 state;
+		state.s[0] = state3D.s[0];
+		state.s[1] = state3D.s[1];
+		state.s[2] = state3D.s[2];
+		state.s[3] = state3D.s[4];
+		stateVec.push_back(state);
+	}
+	if (volume != stateVec.size()) throw Common::Exception() << "state vec is of bad size";
+
+	//grad^2 Phi = - 4 pi G rho
+	//solve inverse discretized linear system to find Psi
+	//D_ij / (-4 pi G) Phi_j = rho_i
+	//once you get that, plug it into the total energy
+	
+	//write state density first for gravity potential, to then update energy
+	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
+	
 	//here's our initial guess to sor
 	std::vector<real> gravityPotentialVec(volume);
 	for (size_t i = 0; i < volume; ++i) {
 		if (app.useGravity) {
-			gravityPotentialVec[i] = state3DVec[i].s[0];
+			gravityPotentialVec[i] = stateVec[i].s[0];
 		} else {
 			gravityPotentialVec[i] = 0.;
 		}
@@ -186,17 +202,7 @@ void Solver2D::resetState(std::vector<real8> state3DVec) {
 	commands.enqueueWriteBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &gravityPotentialVec[0]);
 
 	if (app.useGravity) {
-		switch (app.boundaryMethods(0)) {	//TODO per dimension
-		case BOUNDARY_PERIODIC:
-			poissonRelaxKernel.setArg(4, true);
-			break;
-		case BOUNDARY_MIRROR:
-		case BOUNDARY_FREEFLOW:
-			poissonRelaxKernel.setArg(4, false);
-			break;
-		default:
-			throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
-		}	
+		setPoissonRelaxRepeatArg();
 		
 		//solve for gravitational potential via gauss seidel
 		cl::NDRange offset2d(0, 0);
@@ -206,23 +212,12 @@ void Solver2D::resetState(std::vector<real8> state3DVec) {
 
 		//update internal energy
 		for (int i = 0; i < volume; ++i) {
-			state3DVec[i].s[4] += gravityPotentialVec[i];
+			stateVec[i].s[3] += gravityPotentialVec[i];
 		}
 	}
 
-	//convert 3D to 2D
-	std::vector<real4> state2DVec;
-	for (int i = 0; i < volume; ++i) {
-		real8 &state3D = state3DVec[i];
-		real4 state2D;
-		state2D.s[0] = state3D.s[0];
-		state2D.s[1] = state3D.s[1];
-		state2D.s[2] = state3D.s[2];
-		state2D.s[3] = state3D.s[4];
-		state2DVec.push_back(state2D);
-	}
-
-	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &state2DVec[0]);
+	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
+	commands.finish();
 }
 
 Solver2D::~Solver2D() {
@@ -242,6 +237,20 @@ void Solver2D::boundary() {
 		cl::NDRange globalSize1d(app.size.s[i]);
 		commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethods(i)][i], offset1d, globalSize1d, localSize1d);
 	}
+}
+
+void Solver2D::setPoissonRelaxRepeatArg() {
+	switch (app.boundaryMethods(0)) {	//TODO per dimension
+	case BOUNDARY_PERIODIC:
+		poissonRelaxKernel.setArg(4, true);
+		break;
+	case BOUNDARY_MIRROR:
+	case BOUNDARY_FREEFLOW:
+		poissonRelaxKernel.setArg(4, false);
+		break;
+	default:
+		throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
+	}	
 }
 
 void Solver2D::initStep() {
@@ -271,17 +280,7 @@ void Solver2D::update() {
 		glBindTexture(GL_TEXTURE_2D, fluidTex);
 	}
 	
-	switch (app.boundaryMethods(0)) {
-	case BOUNDARY_PERIODIC:
-		poissonRelaxKernel.setArg(4, true);
-		break;
-	case BOUNDARY_MIRROR:
-	case BOUNDARY_FREEFLOW:
-		poissonRelaxKernel.setArg(4, false);
-		break;
-	default:
-		throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
-	}
+	setPoissonRelaxRepeatArg();
 
 	//commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
 

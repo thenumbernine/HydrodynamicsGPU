@@ -75,11 +75,12 @@ struct Solver2D : public Solver {
 
 protected:
 	virtual void resetState(std::vector<real8> stateVec);
-	virtual void boundary();
 	virtual void initStep();
 	virtual void calcTimestep() = 0;
 	virtual void findMinTimestep();
 	virtual void step() = 0;
+	virtual void boundary();
+	virtual void setPoissonRelaxRepeatArg();
 
 };
 

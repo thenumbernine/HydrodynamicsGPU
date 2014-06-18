@@ -1,4 +1,4 @@
-#include "HydroGPU/Shared/Common.h"
+#include "HydroGPU/Shared/Common2D.h"
 
 real4 slopeLimiter(real4 r);
 
