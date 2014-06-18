@@ -6,13 +6,18 @@ real8 slopeLimiter(real8 r);
 //5x5 mat mul
 // the 25 matrix entries are stored in ma:mb
 real8 matmul(real16 ma, real16 mb, real8 v) {
-	return (real4)(
-		dot(m.s0123, v),
-		dot(m.s4567, v),
-		dot(m.s89AB, v),
-		dot(m.sCDEF, v));
+	real8 result;
+	result.s0123 = (real4)(
+		dot(ma.s0123, v.s0123) + ma.s4 * v.s4,
+		dot(ma.s5678, v.s0123) + ma.s9 * v.s4,
+		dot(ma.sABCD, v.s0123) + ma.sE * v.s4,
+		ma.sF * v.s0 + dot(mb.s0123, v.s1234));
+	result.s4 = 
+		dot(mb.s4567, v.s0123) + mb.s8 * v.s4;
+	return result;
 }
 
+//crashing when compiled ...
 __kernel void calcEigenBasis(
 	__global real8* eigenvaluesBuffer,
 	__global real16* eigenvectorsBuffer,
@@ -21,34 +26,30 @@ __kernel void calcEigenBasis(
 	const __global real* gravityPotentialBuffer,
 	int3 size)
 {
+#if 0
 	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 1 || i.y >= size.y - 1 || i.z >= size.z - 1) return;
+	int index = INDEXV(i);
 
-	for (int side = 0; side < 2; ++side) {	
-		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+	for (int side = 0; side < 3; ++side) {	
+		int3 iPrev = i;
+		--iPrev[side];
+		int indexPrev = INDEXV(iPrev);
 
-		int interfaceIndex = side + 2 * index;
+		int interfaceIndex = side + 3 * index;
 
 		real8 stateL = stateBuffer[indexPrev];
 		real8 stateR = stateBuffer[index];
-	
-#if 1	//calculate flux based on normal
 
-		real2 normal = (real2)(0.f, 0.f);
-		normal[side] = 1;
-
-		real densityL = stateL.x;
+		real densityL = stateL.s0;
 		real invDensityL = 1.f / densityL;
-		real2 velocityL = stateL.yz * invDensityL;
-		real energyTotalL = stateL.w * invDensityL;
+		real3 velocityL = stateL.s123 * invDensityL;
+		real energyTotalL = stateL.s4 * invDensityL;
 
-		real densityR = stateR.x;
+		real densityR = stateR.s0;
 		real invDensityR = 1.f / densityR;
-		real2 velocityR = stateR.yz * invDensityR;
-		real energyTotalR = stateR.w * invDensityR;
+		real3 velocityR = stateR.s123 * invDensityR;
+		real energyTotalR = stateR.s4 * invDensityR;
 
 		real energyKineticL = .5f * dot(velocityL, velocityL);
 		real energyPotentialL = gravityPotentialBuffer[indexPrev];
@@ -65,120 +66,123 @@ __kernel void calcEigenBasis(
 		real weightR = sqrt(densityR);
 
 		real roeWeightNormalization = 1.f / (weightL + weightR);
-		real2 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
+		real3 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
 		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
 		
 		real velocitySq = dot(velocity, velocity);
 		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
 		
-		real2 tangent = (real2)(-normal.y, normal.x);
+#if 1	//calculate flux based on normal
+
+		real3 normal = (real3)(0.f, 0.f, 0.f);
+		normal[side] = 1;
+
+		real3 tangentA = (real3)(normal.y, normal.z, normal.x);
+		real3 tangentB = (real3)(normal.z, normal.x, normal.y);
 		real velocityN = dot(velocity, normal);
-		real velocityT = dot(velocity, tangent);
+		real velocityTA = dot(velocity, tangentA);
+		real velocityTB = dot(velocity, tangentB);
 	
 		//eigenvalues
 
-		eigenvaluesBuffer[interfaceIndex].s0123 =  (real4)(
+		real8 eigenvalues;
+		eigenvalues.s0123 = (real4)(
 			velocityN - speedOfSound,
 			velocityN,
 			velocityN,
-			velocityN + speedOfSound);
+			velocityN);
+		eigenvalues.s4 = velocityN + speedOfSound;
+		eigenvaluesBuffer[interfaceIndex] = eigenvalues;
 
 		//eigenvectors
 
 		//specify transposed
-		real16 eigenvectors = (real16)(
+		real16 eigenvectorsA, eigenvectorsB;
 		//min col 
-			1.f,
-			velocity.x - speedOfSound * normal.x,
-			velocity.y - speedOfSound * normal.y,
-			enthalpyTotal - speedOfSound * velocityN,
+		eigenvectorsA[0] = 1.f;
+		eigenvectorsA[5] = velocity.x - speedOfSound * normal.x;
+		eigenvectorsA[10] = velocity.y - speedOfSound * normal.y;
+		eigenvectorsA[15] = velocity.z - speedOfSound * normal.z;
+		eigenvectorsB[20-16] = enthalpyTotal - speedOfSound * velocityN;
 		//mid col (normal)
-			1.f,
-			velocity.x,
-			velocity.y,
-			.5f * velocitySq,
-		//mid col (tangent)
-			0.f,
-			tangent.x,
-			tangent.y,
-			velocityT,
+		eigenvectorsA[1] = 1.f;
+		eigenvectorsA[6] = velocity.x;
+		eigenvectorsA[11] = velocity.y;
+		eigenvectorsB[16-16] = velocity.z;
+		eigenvectorsB[21-16] = .5f * velocitySq;
+		//mid col (tangent A)
+		eigenvectorsA[2] = 0.f;
+		eigenvectorsA[7] = tangentA.x;
+		eigenvectorsA[12] = tangentA.y;
+		eigenvectorsB[17-16] = tangentA.z;
+		eigenvectorsB[22-16] = velocityTA;
+		//mid col (tangent B)
+		eigenvectorsA[3] = 0.f;
+		eigenvectorsA[8] = tangentB.x;
+		eigenvectorsA[13] = tangentB.y;
+		eigenvectorsB[18-16] = tangentB.z;
+		eigenvectorsB[23-16] = velocityTB;
 		//max col 
-			1.f,
-			velocity.x + speedOfSound * normal.x,
-			velocity.y + speedOfSound * normal.y,
-			enthalpyTotal + speedOfSound * velocityN);
+		eigenvectorsA[4] = 1.f;
+		eigenvectorsA[9] = velocity.x + speedOfSound * normal.x;
+		eigenvectorsA[14] = velocity.y + speedOfSound * normal.y;
+		eigenvectorsB[19-16] = velocity.z + speedOfSound * normal.z;
+		eigenvectorsB[24-16] = enthalpyTotal + speedOfSound * velocityN;
 
-		//transpose and store
-		eigenvectorsBuffer[interfaceIndex] = (real16)(
-			eigenvectors.s048C,
-			eigenvectors.s159D,
-			eigenvectors.s26AE,
-			eigenvectors.s37BF);
+		eigenvectorsBuffer[0 + 2 * interfaceIndex] = eigenvectorsA;
+		eigenvectorsBuffer[1 + 2 * interfaceIndex] = eigenvectorsB;
+
 
 		//calculate eigenvector inverses ... 
 		real invDenom = .5f / (speedOfSound * speedOfSound);
-		eigenvectorsInverseBuffer[interfaceIndex] = (real16)( 
+		real16 eigenvectorsInverseA, eigenvectorsInverseB;
+		eigenvectorsInverseA = (real16)( 
 		//min row
 			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom,
 			-(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
 			-(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom,
+			-(normal.z * speedOfSound + (GAMMA - 1.f) * velocity.z) * invDenom,
 			(GAMMA - 1.f) * invDenom,
 		//mid normal row
 			1.f - (GAMMA - 1.f) * velocitySq * invDenom,
 			(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
 			(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
+			(GAMMA - 1.f) * velocity.z * 2.f * invDenom,
 			-(GAMMA - 1.f) * 2.f * invDenom,
-		//mid tangent row
-			-velocityT, 
-			tangent.x,
-			tangent.y,
+		//mid tangent A row
+			-velocityTA,
+			tangentA.x,
+			tangentA.y,
+			tangentA.z,
+			0.f,
+		//mid tangent B row
+			-velocityTB);
+		eigenvectorsInverseB.s01234567 = (real8)(
+			tangentB.x,
+			tangentB.y,
+			tangentB.z,
 			0.f,
 		//max row
 			(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom,
 			(normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
 			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
-			(GAMMA - 1.f) * invDenom);
+			(normal.z * speedOfSound - (GAMMA - 1.f) * velocity.z) * invDenom);
+		eigenvectorsB.s8 =
+			(GAMMA - 1.f) * invDenom;
+
+		eigenvectorsInverseBuffer[0 + 2 * interfaceIndex] = eigenvectorsInverseA;
+		eigenvectorsInverseBuffer[1 + 2 * interfaceIndex] = eigenvectorsInverseB;
 #endif
 
 
 
-
-
 #if 0	//calculate flux in x-axis and rotate into normal
-
-		real densityL = stateL.x;
-		real invDensityL = 1.f / densityL;
-		real2 velocityL = stateL.yz * invDensityL;
-		real energyTotalL = stateL.w * invDensityL;
-
-		real densityR = stateR.x;
-		real invDensityR = 1.f / densityR;
-		real2 velocityR = stateR.yz * invDensityR;
-		real energyTotalR = stateR.w * invDensityR;
-
-		real energyKineticL = .5f * dot(velocityL, velocityL);
-		real energyPotentialL = gravityPotentialBuffer[indexPrev];
-		real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
-		real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
-		real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
-		real weightL = sqrt(densityL);
-
-		real energyKineticR = .5f * dot(velocityR, velocityR);
-		real energyPotentialR = gravityPotentialBuffer[index];
-		real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
-		real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
-		real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
-		real weightR = sqrt(densityR);
-
-		real roeWeightNormalization = 1.f / (weightL + weightR);
-		real2 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
-		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
 		
-		real velocitySq = dot(velocity, velocity);
-		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
-
+		// -90' rotation to put the [side] axis contents into the x axis
 		if (side == 1) {
-			velocity.xy = (real2)(velocity.y, -velocity.x);	// -90' rotation to put the y axis contents into the x axis
+			velocity.xy = (real2)(velocity.y, -velocity.x);
+		} else if (side == 2) {
+			velocity.xz = (real2)(velocity.z, -velocity.x);
 		}
 
 		//eigenvalues
@@ -264,52 +268,60 @@ __kernel void calcEigenBasis(
 		eigenvectorsInverseBuffer[interfaceIndex] = eigenvectorsInverse;
 #endif
 	}
+#endif
 }
 
 __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real8* eigenvaluesBuffer,
-	int2 size,
-	real2 dx,
+	int3 size,
+	real3 dx,
 	real cfl)
 {
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int index = INDEXV(i);
+	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 2 || i.y >= size.y - 2 || i.z >= size.z - 2) {
+		cflBuffer[index] = INFINITY;
+		return;
+	}
 
-	real2 dum;
-	for (int side = 0; side < 2; ++side) {
-		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+	real3 dum;
+	for (int side = 0; side < 3; ++side) {
+		int3 iNext = i;
+		++iNext[side];
+		int indexNext = INDEXV(iNext);
 		
-		real8 eigenvaluesL = eigenvaluesBuffer[side + 2 * index];
-		real8 eigenvaluesR = eigenvaluesBuffer[side + 2 * indexNext];
+		real8 eigenvaluesL = eigenvaluesBuffer[side + 3 * index];
+		real8 eigenvaluesR = eigenvaluesBuffer[side + 3 * indexNext];
 		
 		real maxLambda = max(
-			0.f,
+			max(
+				0.f,
+				eigenvaluesL.s0),
 			max(
 				max(
-					eigenvaluesL.x,
-					eigenvaluesL.y), 
+					eigenvaluesL.s1,
+					eigenvaluesL.s2), 
 				max(
-					eigenvaluesL.z,
-					eigenvaluesL.w)));
+					eigenvaluesL.s3,
+					eigenvaluesL.s4)));
 
 		real minLambda = min(
-			0.f,
+			min(
+				0.f,
+				eigenvaluesR.s0),
 			min(
 				min(
-					eigenvaluesR.x,
-					eigenvaluesR.y),
+					eigenvaluesR.s1,
+					eigenvaluesR.s2),
 				min(
-					eigenvaluesR.z,
-					eigenvaluesR.w)));
+					eigenvaluesR.s3,
+					eigenvaluesR.s4)));
 
 		dum[side] = dx[side] / (maxLambda - minLambda);
 	}
 		
-	cflBuffer[index] = cfl * min(dum.x, dum.y);
+	cflBuffer[index] = cfl * min(dum.x, min(dum.y, dum.z));
 }
 
 //http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
@@ -349,25 +361,28 @@ __kernel void calcDeltaQTilde(
 	__global real8* deltaQTildeBuffer,
 	const __global real16* eigenvectorsInverseBuffer,
 	const __global real8* stateBuffer,
-	int2 size,
+	int3 size,
 	real2 dx)
 {
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 1 || i.y >= size.y - 1 || i.z >= size.z - 1) return;
+	int index = INDEXV(i);
 
-	for (int side = 0; side < 2; ++side) {
-		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+	for (int side = 0; side < 3; ++side) {
+		int3 iPrev = i;
+		--iPrev[side];
+		int indexPrev = INDEXV(iPrev);
 				
 		real8 stateL = stateBuffer[indexPrev];
 		real8 stateR = stateBuffer[index];
 
-		int interfaceIndex = side + 2 * index;
+		int interfaceIndex = side + 3 * index;
 		
 		real8 deltaQ = stateR - stateL;
-		deltaQTildeBuffer[interfaceIndex] = matmul(eigenvectorsInverseBuffer[interfaceIndex], deltaQ);
+		deltaQTildeBuffer[interfaceIndex] = matmul(
+			eigenvectorsInverseBuffer[0 + 2 * interfaceIndex], 
+			eigenvectorsInverseBuffer[1 + 2 * interfaceIndex], 
+			deltaQ);
 	}
 }
 
@@ -378,6 +393,7 @@ real8 slopeLimiter(real8 r) {
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
+//crashing on compile...
 __kernel void calcFlux(
 	__global real8* fluxBuffer,
 	const __global real8* stateBuffer,
@@ -385,75 +401,84 @@ __kernel void calcFlux(
 	const __global real16* eigenvectorsBuffer,
 	const __global real16* eigenvectorsInverseBuffer,
 	const __global real8* deltaQTildeBuffer,
-	int2 size,
-	real2 dx,
+	int3 size,
+	real3 dx,
 	__global real *dt)
 {
-	real2 dt_dx = *dt / dx;
+#if 0
+	real3 dt_dx = *dt / dx;
 	
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-
-	int index = i.x + size.x * i.y;
+	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 1 || i.y >= size.y - 1 || i.z >= size.z - 1) return;
+	int index = INDEXV(i);
 	
-	for (int side = 0; side < 2; ++side) {	
-		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+	for (int side = 0; side < 3; ++side) {	
+		int3 iPrev = i;
+		--iPrev[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
 
-		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
+		int3 iNext = i;
+		++iNext[side];
 		int indexNext = iNext.x + size.x * iNext.y;
 	
 		real8 stateL = stateBuffer[indexPrev];
 		real8 stateR = stateBuffer[index];
 
-		int interfaceLIndex = side + 2 * indexPrev;
-		int interfaceIndex = side + 2 * index;
-		int interfaceRIndex = side + 2 * indexNext;
+		//int interfaceLIndex = side + 3 * indexPrev;
+		int interfaceIndex = side + 3 * index;
+		//int interfaceRIndex = side + 3 * indexNext;
 
-		real8 deltaQTildeL = deltaQTildeBuffer[interfaceLIndex];
+		//real8 deltaQTildeL = deltaQTildeBuffer[interfaceLIndex];
 		real8 deltaQTilde = deltaQTildeBuffer[interfaceIndex];
-		real8 deltaQTildeR = deltaQTildeBuffer[interfaceRIndex];
+		//real8 deltaQTildeR = deltaQTildeBuffer[interfaceRIndex];
 
 		real8 eigenvalues = eigenvaluesBuffer[interfaceIndex];
-		real16 eigenvectors = eigenvectorsBuffer[interfaceIndex];
-		real16 eigenvectorsInverse = eigenvectorsInverseBuffer[interfaceIndex];
+		real16 eigenvectorsA = eigenvectorsBuffer[0 + 2 * interfaceIndex];
+		real16 eigenvectorsB = eigenvectorsBuffer[1 + 2 * interfaceIndex];
+		real16 eigenvectorsInverseA = eigenvectorsInverseBuffer[0 + 2 * interfaceIndex];
+		real16 eigenvectorsInverseB = eigenvectorsInverseBuffer[1 + 2 * interfaceIndex];
 
 		real8 theta = step(0.f, eigenvalues) * 2.f - 1.f;
-		real8 rTilde = mix(deltaQTildeR, deltaQTildeL, theta * .5f + .5f) / deltaQTilde;
+		//real8 rTilde = mix(deltaQTildeR, deltaQTildeL, theta * .5f + .5f) / deltaQTilde;
 		real8 qAvg = (stateR + stateL) * .5f;
-		real8 fluxAvgTilde = matmul(eigenvectorsInverse, qAvg) * eigenvalues;
-		real8 phi = slopeLimiter(rTilde);
-		real8 epsilon = eigenvalues * dt_dx[side];
+		real8 fluxAvgTilde = matmul(eigenvectorsInverseA, eigenvectorsInverseB, qAvg) * eigenvalues;
+		//real8 phi = slopeLimiter(rTilde);
+		//real8 epsilon = eigenvalues * dt_dx[side];
 		real8 deltaFluxTilde = eigenvalues * deltaQTilde;
-		real8 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + .5f * phi * (epsilon - theta));
+		real8 fluxTilde = fluxAvgTilde;
 		
-		fluxBuffer[side + 2 * index] = matmul(eigenvectors, fluxTilde);
+		//combined, delta factored out:
+		//fluxTilde -= .5f * deltaFluxTilde * (theta + .5f * phi * (epsilon - theta));
+		
+		//split apart:
+		fluxTilde -= .5f * deltaFluxTilde * theta;
+		//fluxTilde -= .25f * deltaFluxTilde * phi * (epsilon - theta);
+		
+		fluxBuffer[side + 3 * index] = matmul(eigenvectorsA, eigenvectorsB, fluxTilde);
 	}
+#endif
 }
 
 __kernel void integrateFlux(
 	__global real8* stateBuffer,
 	const __global real8* fluxBuffer,
-	int2 size,
-	real2 dx,
+	int3 size,
+	real3 dx,
 	const __global real* dt)
 {
-	real2 dt_dx = *dt / dx;
+	real3 dt_dx = *dt / dx;
 	
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-
-	int index = i.x + size.x * i.y;
+	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 2 || i.y >= size.y - 2 || i.z >= size.z - 2) return;
+	int index = INDEXV(i);
 	
-	for (int side = 0; side < 2; ++side) {	
-		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+	for (int side = 0; side < 3; ++side) {	
+		int3 iNext = i;
+		++iNext[side];
+		int indexNext = INDEXV(iNext);
 		
-		real8 fluxL = fluxBuffer[side + 2 * index];
-		real8 fluxR = fluxBuffer[side + 2 * indexNext];
+		real8 fluxL = fluxBuffer[side + 3 * index];
+		real8 fluxR = fluxBuffer[side + 3 * indexNext];
 
 		real8 df = fluxR - fluxL;
 		stateBuffer[index] -= df * dt_dx[side];

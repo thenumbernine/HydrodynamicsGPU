@@ -57,7 +57,7 @@ __kernel void calcEigenBasis(
 
 	for (int side = 0; side < 2; ++side) {	
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 
 		int interfaceIndex = side + 2 * index;
@@ -289,7 +289,7 @@ __kernel void calcCFL(
 	real2 dum;
 	for (int side = 0; side < 2; ++side) {
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
+		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
 		real4 eigenvaluesL = eigenvaluesBuffer[side + 2 * index];
@@ -367,7 +367,7 @@ __kernel void calcDeltaQTilde(
 
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 				
 		real4 stateL = stateBuffer[indexPrev];
@@ -406,11 +406,11 @@ __kernel void calcFlux(
 	
 	for (int side = 0; side < 2; ++side) {	
 		int2 iPrev = i;
-		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
+		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
+		++iNext[side];
 		int indexNext = INDEXV(iNext);
 	
 		real4 stateL = stateBuffer[indexPrev];
@@ -456,7 +456,7 @@ __kernel void integrateFlux(
 	
 	for (int side = 0; side < 2; ++side) {	
 		int2 iNext = i;
-		iNext[side] = (iNext[side] + 1) % size[side];
+		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
 		real4 fluxL = fluxBuffer[side + 2 * index];
