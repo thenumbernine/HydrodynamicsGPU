@@ -11,7 +11,7 @@ __kernel void calcCFL(
 	real cfl)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	int index = i.x + size.x * i.y;
+	int index = INDEXV(i);
 	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) {
 		cflBuffer[index] = INFINITY;
 		return;
@@ -71,13 +71,13 @@ __kernel void calcInterfaceVelocity(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x < 2 || i.y < 2 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXV(i);
 	
 	real2 interfaceVelocity;
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
 		--iPrev[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		int indexPrev = INDEXV(iPrev);
 		
 		real4 stateL = stateBuffer[indexPrev];
 		real densityL = stateL.x;
@@ -114,20 +114,20 @@ __kernel void calcFlux(
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x < 2 || i.y < 2 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXV(i);
 	
 	for (int side = 0; side < 2; ++side) {	
 		int2 iPrev = i;
 		--iPrev[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		int indexPrev = INDEXV(iPrev);
 	
 		int2 iPrev2 = iPrev;
 		--iPrev2[side];
-		int indexPrev2 = iPrev2.x + size.x * iPrev2.y;
+		int indexPrev2 = INDEXV(iPrev2);
 		
 		int2 iNext = i;
 		++iNext[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		int indexNext = INDEXV(iNext);
 
 		int indexL2 = indexPrev2;
 		int indexL1 = indexPrev;
@@ -168,12 +168,12 @@ __kernel void integrateFlux(
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXV(i);
 	
 	for (int side = 0; side < 2; ++side) {
 		int2 iNext = i;
 		++iNext[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		int indexNext = INDEXV(iNext);
 		
 		real4 fluxL = fluxBuffer[side + 2 * index];
 		real4 fluxR = fluxBuffer[side + 2 * indexNext];
@@ -191,7 +191,7 @@ __kernel void computePressure(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x < 1 || i.y < 1 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXV(i);
 	
 	real4 state = stateBuffer[index];
 	
@@ -210,11 +210,11 @@ __kernel void computePressure(
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
 		--iPrev[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		int indexPrev = INDEXV(iPrev);
 		
 		int2 iNext = i;
 		++iNext[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		int indexNext = INDEXV(iNext);
 
 		real velocityL = stateBuffer[indexPrev][side+1];
 		real velocityR = stateBuffer[indexNext][side+1];
@@ -238,16 +238,16 @@ __kernel void diffuseMomentum(
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXV(i);
 
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
 		--iPrev[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		int indexPrev = INDEXV(iPrev);
 		
 		int2 iNext = i;
 		++iNext[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		int indexNext = INDEXV(iNext);
 
 		real pressureL = pressureBuffer[indexPrev];
 		real pressureR = pressureBuffer[indexNext];
@@ -268,16 +268,16 @@ __kernel void diffuseWork(
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXV(i);
 
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
 		--iPrev[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		int indexPrev = INDEXV(iPrev);
 		
 		int2 iNext = i;
 		++iNext[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		int indexNext = INDEXV(iNext);
 
 		real4 stateL = stateBuffer[indexPrev];
 		real4 stateR = stateBuffer[indexNext];
