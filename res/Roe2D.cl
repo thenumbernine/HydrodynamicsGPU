@@ -52,23 +52,18 @@ __kernel void calcEigenBasis(
 	int2 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	if (i.x < 2 || i.y < 2 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
+	int index = INDEXV(i);
 
 	for (int side = 0; side < 2; ++side) {	
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		int indexPrev = INDEXV(iPrev);
 
 		int interfaceIndex = side + 2 * index;
 
 		real4 stateL = stateBuffer[indexPrev];
 		real4 stateR = stateBuffer[index];
-	
-#if 1	//calculate flux based on normal
-
-		real2 normal = (real2)(0.f, 0.f);
-		normal[side] = 1;
 
 		real densityL = stateL.x;
 		real invDensityL = 1.f / densityL;
@@ -100,7 +95,12 @@ __kernel void calcEigenBasis(
 		
 		real velocitySq = dot(velocity, velocity);
 		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
-		
+	
+#if 1	//calculate flux based on normal
+
+		real2 normal = (real2)(0.f, 0.f);
+		normal[side] = 1;
+	
 		real2 tangent = (real2)(-normal.y, normal.x);
 		real velocityN = dot(velocity, normal);
 		real velocityT = dot(velocity, tangent);
@@ -176,41 +176,7 @@ __kernel void calcEigenBasis(
 #endif
 
 
-
-
-
 #if 0	//calculate flux in x-axis and rotate into normal
-
-		real densityL = stateL.x;
-		real invDensityL = 1.f / densityL;
-		real2 velocityL = stateL.yz * invDensityL;
-		real energyTotalL = stateL.w * invDensityL;
-
-		real densityR = stateR.x;
-		real invDensityR = 1.f / densityR;
-		real2 velocityR = stateR.yz * invDensityR;
-		real energyTotalR = stateR.w * invDensityR;
-
-		real energyKineticL = .5f * dot(velocityL, velocityL);
-		real energyPotentialL = gravityPotentialBuffer[indexPrev];
-		real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
-		real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
-		real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
-		real weightL = sqrt(densityL);
-
-		real energyKineticR = .5f * dot(velocityR, velocityR);
-		real energyPotentialR = gravityPotentialBuffer[index];
-		real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
-		real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
-		real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
-		real weightR = sqrt(densityR);
-
-		real roeWeightNormalization = 1.f / (weightL + weightR);
-		real2 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
-		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
-		
-		real velocitySq = dot(velocity, velocity);
-		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
 
 		if (side == 1) {
 			velocity.xy = (real2)(velocity.y, -velocity.x);	// -90' rotation to put the y axis contents into the x axis
@@ -314,14 +280,17 @@ __kernel void calcCFL(
 	real cfl)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	int index = INDEXV(i);
+	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) {
+		cflBuffer[index] = INFINITY;
+		return;
+	}
 
 	real2 dum;
 	for (int side = 0; side < 2; ++side) {
 		int2 iNext = i;
 		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		int indexNext = INDEXV(iNext);
 		
 		real4 eigenvaluesL = eigenvaluesBuffer[side + 2 * index];
 		real4 eigenvaluesR = eigenvaluesBuffer[side + 2 * indexNext];
@@ -393,13 +362,13 @@ __kernel void calcDeltaQTilde(
 	real2 dx)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	int index = i.x + size.x * i.y;
+	if (i.x < 2 || i.y < 2 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
+	int index = INDEXV(i);
 
 	for (int side = 0; side < 2; ++side) {
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		int indexPrev = INDEXV(iPrev);
 				
 		real4 stateL = stateBuffer[indexPrev];
 		real4 stateR = stateBuffer[index];
@@ -432,18 +401,17 @@ __kernel void calcFlux(
 	real2 dt_dx = *dt / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-
-	int index = i.x + size.x * i.y;
+	if (i.x < 2 || i.y < 2 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
+	int index = INDEXV(i);
 	
 	for (int side = 0; side < 2; ++side) {	
 		int2 iPrev = i;
 		iPrev[side] = (iPrev[side] + size[side] - 1) % size[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
+		int indexPrev = INDEXV(iPrev);
 
 		int2 iNext = i;
 		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		int indexNext = INDEXV(iNext);
 	
 		real4 stateL = stateBuffer[indexPrev];
 		real4 stateR = stateBuffer[index];
@@ -483,14 +451,13 @@ __kernel void integrateFlux(
 	real2 dt_dx = *dt / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-
-	int index = i.x + size.x * i.y;
+	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
+	int index = INDEXV(i);
 	
 	for (int side = 0; side < 2; ++side) {	
 		int2 iNext = i;
 		iNext[side] = (iNext[side] + 1) % size[side];
-		int indexNext = iNext.x + size.x * iNext.y;
+		int indexNext = INDEXV(iNext);
 		
 		real4 fluxL = fluxBuffer[side + 2 * index];
 		real4 fluxR = fluxBuffer[side + 2 * indexNext];

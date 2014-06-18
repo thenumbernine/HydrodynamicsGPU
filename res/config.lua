@@ -3,7 +3,7 @@
 	-- solver variables
 
 
-solverName = 'Burgers'
+solverName = 'Roe'
 dim = 2
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
