@@ -321,7 +321,7 @@ void Solver3D::update() {
 		calcTimestep();
 	}
 
-	if (false) {
+	if (app.showTimestep) {
 		real dt;
 		commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
 		std::cout << "dt " << dt << std::endl;

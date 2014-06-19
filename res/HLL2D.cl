@@ -29,10 +29,14 @@ __kernel void calcEigenvalues(
 	int2 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.y < 2 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
+	if (i.x < 2 || i.x >= size.x - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 1
+#endif
+	) return;
 	int index = INDEXV(i);
 
-	for (int side = 0; side < 2; ++side) {	
+	for (int side = 0; side < DIM; ++side) {	
 		int2 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
@@ -117,13 +121,17 @@ __kernel void calcCFL(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	int index = INDEXV(i);
-	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) {
+	if (i.x < 2 || i.x >= size.x - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 2
+#endif
+	) {
 		cflBuffer[index] = INFINITY;
 		return;
 	}
 
-	real2 dum;
-	for (int side = 0; side < 2; ++side) {
+	real result = INFINITY;
+	for (int side = 0; side < DIM; ++side) {
 		int2 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
@@ -151,10 +159,11 @@ __kernel void calcCFL(
 					eigenvaluesR.z,
 					eigenvaluesR.w)));
 
-		dum[side] = dx[side] / (maxLambda - minLambda);
+		real dum = dx[side] / (maxLambda - minLambda);
+		result = min(result, dum);
 	}
 		
-	cflBuffer[index] = cfl * min(dum.x, dum.y);
+	cflBuffer[index] = cfl * result;
 }
 
 real4 slopeLimiter(real4 r) {
@@ -174,10 +183,14 @@ __kernel void integrateFlux(
 	real2 dt_dx = *dt / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
+	if (i.x < 2 || i.x >= size.x - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 2
+#endif
+	) return;
 	int index = INDEXV(i);
 	
-	for (int side = 0; side < 2; ++side) {	
+	for (int side = 0; side < DIM; ++side) {	
 		int2 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);

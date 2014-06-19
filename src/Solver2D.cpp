@@ -411,7 +411,7 @@ void Solver2D::display() {
 
 	glPopMatrix();
 
-	if (false) {
+	if (app.showTimestep) {
 		real dt;
 		commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
 		commands.finish();

@@ -73,6 +73,7 @@ HydroGPUApp::HydroGPUApp()
 , rightShiftDown(false)
 , leftGuiDown(false)
 , rightGuiDown(false)
+, showTimestep(false)
 {
 	for (int i = 0; i < 3; ++i) {
 		size.s[i] = 1;	//default each dimension to a point.  so if lua doesn't define it then the dimension will be ignored
@@ -115,6 +116,7 @@ void HydroGPUApp::init() {
 		}
 	}
 	lua["maxFrames"] >> maxFrames;
+	lua["showTimestep"] >> showTimestep;
 	lua["solverName"] >> solverName;
 	lua["useFixedDT"] >> useFixedDT;
 	lua["cfl"] >> cfl;
@@ -386,6 +388,8 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 			}
 		} else if (event.key.keysym.sym == SDLK_r) {
 			resetState();
+		} else if (event.key.keysym.sym == SDLK_t) {
+			showTimestep = !showTimestep;
 		}
 		break;
 	}

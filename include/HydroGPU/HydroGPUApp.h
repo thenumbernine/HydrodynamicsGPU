@@ -48,6 +48,8 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	Tensor::Vector<int,2> screenSize;
 	float aspectRatio;
 
+	bool showTimestep;
+
 	HydroGPUApp();
 
 	virtual int main(const std::vector<std::string>& args);
