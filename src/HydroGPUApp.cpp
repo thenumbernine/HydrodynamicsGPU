@@ -55,7 +55,7 @@ HydroGPUApp::HydroGPUApp()
 , gradientTex(GLuint())
 , configFilename("config.lua")
 , solverName("Burgers")
-, dim(2)
+, dim(0)
 , doUpdate(1)
 , maxFrames(-1)
 , currentFrame(0)
@@ -75,7 +75,7 @@ HydroGPUApp::HydroGPUApp()
 , rightGuiDown(false)
 {
 	for (int i = 0; i < 3; ++i) {
-		size.s[i] = 512;
+		size.s[i] = 1;	//default each dimension to a point.  so if lua doesn't define it then the dimension will be ignored
 		xmin.s[i] = -.5f;
 		xmax.s[i] = .5f;
 	}
@@ -102,7 +102,6 @@ void HydroGPUApp::init() {
 	}
 	
 	lua["useGPU"] >> useGPU;
-	lua["dim"] >> dim;
 	for (int i = 0; i < 3; ++i) {
 		if (!lua["size"].isNil()) lua["size"][i+1] >> size.s[i];
 		if (!lua["xmin"].isNil()) lua["xmin"][i+1] >> xmin.s[i];
@@ -130,10 +129,17 @@ void HydroGPUApp::init() {
 	lua["displayScale"] >> displayScale;
 	lua["useGravity"] >> useGravity;
 
-	for (int i = dim; i < 3; ++i) {
-		size.s[i] = 1;
+	//store dimension as last non-1 size
+	for (dim = 3; dim > 0; --dim) {
+		if (size.s[dim-1] > 1) {
+			break;
+		} if (size.s[dim-1] != 1) {
+			throw Common::Exception() << "size[" << dim << "] has invalid value of " << size.s[dim-1];
+		}
 	}
-	
+	if (dim == 0) throw Common::Exception() << "couldn't find any size information";
+	std::cout << "dim " << dim << std::endl;
+
 	for (int i = 0; i < 3; ++i) {
 		dx.s[i] = (xmax.s[i] - xmin.s[i]) / (float)size.s[i];
 	}
@@ -185,6 +191,7 @@ void HydroGPUApp::init() {
 
 	//construct the solver
 	switch (dim) {
+	case 1:
 	case 2:
 		if (solverName == "Burgers") {
 			solver = std::make_shared<BurgersSolver2D>(*this);

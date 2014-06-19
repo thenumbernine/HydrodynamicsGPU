@@ -25,19 +25,7 @@ Solver2D::Solver2D(
 		v.resize(DIM);
 	}
 
-	//get a texture going for visualizing the output
-	glGenTextures(1, &fluidTex);
-	glBindTexture(GL_TEXTURE_2D, fluidTex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, 4, app.size.s[0], app.size.s[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	int err = glGetError();
-	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
-
-	//hmm, my cl.hpp version only supports clCreateFromGLTexture2D, which is deprecated ... do I use the deprecated method, or do I stick with the C structures?
-	// ... or do I look for a more up-to-date version of cl.hpp
-	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex);
+	// NDRanges
 
 	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
 	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
@@ -57,7 +45,7 @@ Solver2D::Solver2D(
 	localSizeVec = Tensor::Vector<int,2>(16, 16);
 
 	//if dim 2 is size 1 then tell opencl to treat it like a 1D problem
-	if (app.size.s[1] == 1) {
+	if (app.dim == 1) {
 		localSizeVec = Tensor::Vector<int,2>(16, 1);
 		globalSize = cl::NDRange(app.size.s[0]);
 		localSize = cl::NDRange(localSizeVec(0));
@@ -75,8 +63,48 @@ Solver2D::Solver2D(
 	std::cout << "global_size\t" << app.size << std::endl;
 	std::cout << "local_size\t" << localSizeVec << std::endl;
 
+	//memory
+
+	int volume = app.size.s[0] * app.size.s[1];
+	
+	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume);
+	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
+	cflSwapBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume / localSize[0]);
+	dtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
+	gravityPotentialBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
+
+	if (app.dim == 1) {
+		
+		std::string shaderCode = Common::File::read("Display1D.shader");
+		std::vector<Shader::Shader> shaders = {
+			Shader::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
+			Shader::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
+		};
+		shader1d = std::make_shared<Shader::Program>(shaders);
+		shader1d->link();
+		shader1d->setUniform<int>("tex", 0);
+		shader1d->setUniform<float>("xmin", app.xmin.s[0]);
+		shader1d->setUniform<float>("xmax", app.xmax.s[0]);
+		shader1d->done();
+	}
+		
+	//get a texture going for visualizing the output
+	glGenTextures(1, &fluidTex);
+	glBindTexture(GL_TEXTURE_2D, fluidTex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app.size.s[0], app.size.s[1], 0, GL_RGBA, GL_FLOAT, NULL);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	int err = glGetError();
+	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
+
+	//hmm, my cl.hpp version only supports clCreateFromGLTexture2D, which is deprecated ... do I use the deprecated method, or do I stick with the C structures?
+	// ... or do I look for a more up-to-date version of cl.hpp
+	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex);
+
 	std::vector<std::string> kernelSources = std::vector<std::string>{
 		std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
+		std::string() + "#define DIM " + std::to_string(app.dim) + "\n",
 		Common::File::read("Common2D.cl"),
 		Common::File::read(programFilename)
 	};
@@ -96,16 +124,6 @@ Solver2D::Solver2D(
 
 	//warnings?
 	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
-
-	//memory
-
-	int volume = app.size.s[0] * app.size.s[1];
-
-	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume);
-	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
-	cflSwapBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume / localSize[0]);
-	dtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
-	gravityPotentialBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 
 	//get the edges, so reduction doesn't
 	{
@@ -261,7 +279,7 @@ void Solver2D::initStep() {
 }
 
 void Solver2D::findMinTimestep() {
-	int reduceSize = globalSize[0] * globalSize[1];
+	int reduceSize = app.size.s[0] * app.size.s[1];
 	cl::Buffer dst = cflSwapBuffer;
 	cl::Buffer src = cflBuffer;
 	while (reduceSize > 1) {
@@ -349,17 +367,57 @@ void Solver2D::display() {
 	glPushMatrix();
 	glTranslatef(-viewPos(0), -viewPos(1), 0);
 	glScalef(viewZoom, viewZoom, viewZoom);
-	glBindTexture(GL_TEXTURE_2D, fluidTex);
-	glEnable(GL_TEXTURE_2D);
-	glBegin(GL_QUADS);
-	glTexCoord2f(0,0); glVertex2f(app.xmin.s[0], app.xmin.s[1]);
-	glTexCoord2f(1,0); glVertex2f(app.xmax.s[0], app.xmin.s[1]);
-	glTexCoord2f(1,1); glVertex2f(app.xmax.s[0], app.xmax.s[1]);
-	glTexCoord2f(0,1); glVertex2f(app.xmin.s[0], app.xmax.s[1]);
-	glEnd();
-	glBindTexture(GL_TEXTURE_2D, 0);
+	
+	if (app.dim == 1) {
+
+		shader1d->use();
+		glBindTexture(GL_TEXTURE_2D, fluidTex);
+		glBegin(GL_LINE_STRIP);
+		for (int i = 2; i < app.size.s[0]-2; ++i) {
+			real x = ((real)(i) + .5f) / (real)app.size.s[0];
+			glVertex2f(x, 0.f);
+		}
+		glEnd();
+		glBindTexture(GL_TEXTURE_2D, 0);	
+		shader1d->done();
+		
+		glBegin(GL_LINES);
+		glColor3f(.5, .5, .5);
+		glVertex2f(0, -10);
+		glVertex2f(0, 10);
+		glVertex2f(-10, 0);
+		glVertex2f(10, 0);
+		glColor3f(.25, .25, .25);
+		for (int i = -100; i < 100; ++i) {
+			glVertex2f(.1*i, -10);
+			glVertex2f(.1*i, 10);
+			glVertex2f(-10, .1*i);
+			glVertex2f(10, .1*i);
+		}
+		glEnd();
+		
+	} else {
+
+		glBindTexture(GL_TEXTURE_2D, fluidTex);
+		glEnable(GL_TEXTURE_2D);
+		glBegin(GL_QUADS);
+		glTexCoord2f(0,0); glVertex2f(app.xmin.s[0], app.xmin.s[1]);
+		glTexCoord2f(1,0); glVertex2f(app.xmax.s[0], app.xmin.s[1]);
+		glTexCoord2f(1,1); glVertex2f(app.xmax.s[0], app.xmax.s[1]);
+		glTexCoord2f(0,1); glVertex2f(app.xmin.s[0], app.xmax.s[1]);
+		glEnd();
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
 	glPopMatrix();
 
+	if (false) {
+		real dt;
+		commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
+		commands.finish();
+		std::cout << "dt " << dt << std::endl;
+	}
+	
 	{int err = glGetError();
 	if (err) std::cout << "GL error " << err << " at " << __LINE__ << std::endl;}
 }

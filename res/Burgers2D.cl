@@ -12,7 +12,11 @@ __kernel void calcCFL(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	int index = INDEXV(i);
-	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) {
+	if (i.x < 2 || i.x >= size.x - 2
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 2
+#endif
+	) {
 		cflBuffer[index] = INFINITY;
 		return;
 	}
@@ -25,9 +29,12 @@ __kernel void calcCFL(
 	real specificPotentialEnergy = gravityPotentialBuffer[index]; 
 	real specificInternalEnergy = specificTotalEnergy - specificKineticEnergy - specificPotentialEnergy;
 	real speedOfSound = sqrt(GAMMA * (GAMMA - 1.f) * specificInternalEnergy);
-	real dumx = dx.x / (speedOfSound + fabs(velocity.x));
-	real dumy = dx.y / (speedOfSound + fabs(velocity.y));
-	cflBuffer[index] = cfl * min(dumx, dumy);
+	real result = dx[0] / (speedOfSound + fabs(velocity[0]));
+	for (int side = 0; side < DIM; ++side) {
+		real dum = dx[side] / (speedOfSound + fabs(velocity[side]));
+		result = min(result, dum);
+	}
+	cflBuffer[index] = cfl * result;
 }
 
 __kernel void calcInterfaceVelocity(
@@ -37,11 +44,15 @@ __kernel void calcInterfaceVelocity(
 	real2 dx)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.y < 2 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
+	if (i.x < 2 || i.x >= size.x - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 1
+#endif
+	) return;
 	int index = INDEXV(i);
 	
 	real2 interfaceVelocity;
-	for (int side = 0; side < 2; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int2 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
@@ -80,10 +91,14 @@ __kernel void calcFlux(
 	real2 dt_dx = dt / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.y < 2 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
+	if (i.x < 2 || i.x >= size.x - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 1
+#endif
+	) return;
 	int index = INDEXV(i);
 	
-	for (int side = 0; side < 2; ++side) {	
+	for (int side = 0; side < DIM; ++side) {	
 		int2 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
@@ -134,10 +149,14 @@ __kernel void integrateFlux(
 	real2 dt_dx = dtBuffer[0] / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
+	if (i.x < 2 || i.x >= size.x - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 2
+#endif
+	) return;
 	int index = INDEXV(i);
 	
-	for (int side = 0; side < 2; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int2 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
@@ -157,7 +176,11 @@ __kernel void computePressure(
 	int2 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 1 || i.y < 1 || i.x >= size.x - 1 || i.y >= size.y - 1) return;
+	if (i.x < 1 || i.x >= size.x - 1 
+#if DIM > 1
+		|| i.y < 1 || i.y >= size.y - 1
+#endif
+	) return;
 	int index = INDEXV(i);
 	
 	real4 state = stateBuffer[index];
@@ -174,7 +197,7 @@ __kernel void computePressure(
 
 	//von Neumann-Richtmyer artificial viscosity
 	real deltaVelocitySq = 0.f;
-	for (int side = 0; side < 2; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int2 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
@@ -204,10 +227,14 @@ __kernel void diffuseMomentum(
 	real2 dt_dx = dtBuffer[0] / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
+	if (i.x < 2 || i.x >= size.x - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 2
+#endif
+	) return;
 	int index = INDEXV(i);
 
-	for (int side = 0; side < 2; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int2 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
@@ -234,10 +261,14 @@ __kernel void diffuseWork(
 	real2 dt_dx = dtBuffer[0] / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
+	if (i.x < 2 || i.x >= size.x - 2
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 2
+#endif
+	) return;
 	int index = INDEXV(i);
 
-	for (int side = 0; side < 2; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int2 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);

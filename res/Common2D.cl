@@ -117,11 +117,9 @@ __kernel void convertToTex(
 	float displayScale)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x >= size.x || i.y >= size.y) return;
-	
-	int index = i.x + size.x * i.y;
+	int index = INDEXV(i);
 	real4 state = stateBuffer[index];
-
+	
 	real value;
 	switch (displayMethod) {
 	case DISPLAY_DENSITY:	//density
@@ -149,8 +147,12 @@ __kernel void convertToTex(
 	}
 	value *= displayScale;
 
+#if DIM == 1
+	write_imagef(fluidTex, i, (float4)(value, 0.f, 0.f, 1.f));
+#elif DIM == 2
 	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
 	write_imagef(fluidTex, i, color.bgra);
+#endif
 }
 
 __kernel void addDrop(

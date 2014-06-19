@@ -3,8 +3,7 @@
 	-- solver variables
 
 
-solverName = 'Burgers'
-dim = 2
+solverName = 'Roe'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
 --maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions
@@ -15,24 +14,27 @@ cfl = .5
 displayMethod = 'density'
 displayScale = 2
 boundaryMethods = {'periodic', 'periodic', 'periodic'}
-useGravity = true 
-noise = .01
+useGravity = false 
+noise = 0	--.01
 gamma = 1.4
 
--- size according to dim and solver
-if dim == 3 then
-	size = {64, 64, 64}
-elseif dim == 2 then
-	size = {512, 512}
-	--[[ working on degeneracy so I can code everything as a 3D case
-	size = {1024, 1, 1}
-	xmin[2] = xmin[2] * size[2]/size[1]
-	xmax[2] = xmax[2] * size[2]/size[1]
-	--]]
-else
-	error('unknown dim '..dim)
-end
+-- the number of non-1-sized elements in 'size' determine the dimension
+--  (if an element is not provided or nil then it defaults to 1)
+--[[ 3D
+size = {64, 64, 64}
+--]]
+-- [[ 2D
+size = {512, 512}
+--]]
+--[[ 1D
+size = {1024}
+xmin[2] = xmin[2] * 1/size[1]
+xmax[2] = xmax[2] * 1/size[1]
+displayScale = .25
+--]]
 
+
+local dim = #size
 
 	-- helper functions
 
@@ -64,8 +66,8 @@ args:
 local function buildState(args)
 	local density = assert(args.density)
 	local vx = args.vx or crand() * noise
-	local vy = args.vy or crand() * noise
-	local vz = args.vz or crand() * noise
+	local vy = dim <= 1 and 0 or (args.vy or crand() * noise)
+	local vz = dim <= 2 and 0 or (args.vz or crand() * noise)
 	local energyKinetic = energyKineticForVelocity(vx, vy, vz)
 	local energyInternal = args.energyInternal or energyInternalForPressure(assert(args.pressure, "you need to provide either energyInternal or pressure"), density)
 	local energyTotal = energyKinetic + energyInternal 
@@ -87,7 +89,7 @@ function initState(x)
 end
 --]]	
 
---[[ square shock wave / 2D Sod test
+-- [[ square shock wave / 2D Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x)
 	local inside = x[1] <= 0 and x[2] <= 0 and x[3] <= 0
@@ -117,7 +119,7 @@ function initState(x)
 end
 --]]
 
--- [[ gravity potential test - equilibrium - some Rayleigh-Taylor
+--[[ gravity potential test - equilibrium - some Rayleigh-Taylor
 useGravity = true
 boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
 noise = 0	--noise must be 0 at borders with freeflow or we'll get waves at the edges

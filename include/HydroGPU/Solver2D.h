@@ -2,6 +2,7 @@
 
 #include "HydroGPU/Solver.h"
 #include "Profiler/Stat.h"
+#include "Shader/Program.h"
 #include <OpenCL/cl.hpp>
 #include <vector>
 
@@ -45,6 +46,8 @@ struct Solver2D : public Solver {
 
 	cl::ImageGL fluidTexMem;		//data is written to this buffer before rendering
 	GLuint fluidTex;
+	
+	std::shared_ptr<Shader::Program> shader1d;
 	
 	//for mouse input
 	cl_float2 addSourcePos, addSourceVel;
