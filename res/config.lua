@@ -3,7 +3,7 @@
 	-- solver variables
 
 
-solverName = 'HLL'
+solverName = 'Burgers'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
 --maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
@@ -34,6 +34,11 @@ xmax[2] = xmax[2] * 1/size[1]
 displayScale = .25
 --]]
 
+
+-- testing HLL
+solverName = 'HLL'
+useFixedDT = true
+fixedDT = .01
 
 local dim = #size
 

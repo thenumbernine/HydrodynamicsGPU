@@ -119,6 +119,7 @@ void HydroGPUApp::init() {
 	lua["showTimestep"] >> showTimestep;
 	lua["solverName"] >> solverName;
 	lua["useFixedDT"] >> useFixedDT;
+	lua["fixedDT"] >> fixedDT;
 	lua["cfl"] >> cfl;
 	lua["gamma"] >> gamma;
 	{

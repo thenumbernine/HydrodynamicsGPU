@@ -107,6 +107,8 @@ __kernel void calcEigenvalues(
 		} else {
 			flux = (sr * fluxL - sl * fluxR + sl * sr * (stateR - stateL)) / (sr - sl);
 		}
+
+		fluxBuffer[interfaceIndex] = flux;
 	}
 }
 
