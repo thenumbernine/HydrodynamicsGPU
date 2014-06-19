@@ -4,7 +4,7 @@
 
 
 solverName = 'Burgers'
-dim = 3
+dim = 2
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
 --maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions
@@ -21,10 +21,7 @@ gamma = 1.4
 
 -- size according to dim and solver
 if dim == 3 then
-	--size = {64, 64, 64}
-	size = {128, 128, 8}
-	xmin[3] = -.5*8/128
-	xmax[3] = .5*8/128 
+	size = {64, 64, 64}
 elseif dim == 2 then
 	size = {512, 512}
 else
