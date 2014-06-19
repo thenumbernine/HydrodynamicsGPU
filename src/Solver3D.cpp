@@ -86,6 +86,7 @@ Solver3D::Solver3D(
 		shader->link();
 		shader->setUniform<int>("tex", 0);
 		shader->setUniform<int>("maxiter", 100);
+		shader->setUniform<float>("scale", app.xmax.s[0] - app.xmin.s[0], app.xmax.s[1] - app.xmin.s[1], app.xmax.s[2] - app.xmin.s[2]);
 		shader->done();
 	}
 
@@ -378,7 +379,11 @@ void Solver3D::display() {
 			float x = vertexes[quads[i] * 3 + 0];
 			float y = vertexes[quads[i] * 3 + 1];
 			float z = vertexes[quads[i] * 3 + 2];
-			glVertex3f(x - .5f, y - .5f, z - .5f);
+			glTexCoord3f(x, y, z);
+			x = x * (app.xmax.s[0] - app.xmin.s[0]) + app.xmin.s[0];
+			y = y * (app.xmax.s[1] - app.xmin.s[1]) + app.xmin.s[1];
+			z = z * (app.xmax.s[2] - app.xmin.s[2]) + app.xmin.s[2];
+			glVertex3f(x, y, z);
 		}
 		glEnd();
 		if (pass == 0) {
