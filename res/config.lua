@@ -15,7 +15,7 @@ cfl = .5
 displayMethod = 'density'
 displayScale = 2
 boundaryMethods = {'periodic', 'periodic', 'periodic'}
-useGravity = false
+useGravity = true 
 noise = .01
 gamma = 1.4
 
@@ -24,6 +24,11 @@ if dim == 3 then
 	size = {64, 64, 64}
 elseif dim == 2 then
 	size = {512, 512}
+	--[[ working on degeneracy so I can code everything as a 3D case
+	size = {1024, 1, 1}
+	xmin[2] = xmin[2] * size[2]/size[1]
+	xmax[2] = xmax[2] * size[2]/size[1]
+	--]]
 else
 	error('unknown dim '..dim)
 end

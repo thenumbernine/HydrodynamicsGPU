@@ -38,8 +38,6 @@ struct Solver2D : public Solver {
 	cl::NDRange offset1d;
 	cl::NDRange offset2d;
 	cl::NDRange globalSize;
-	cl::NDRange globalWidth;
-	cl::NDRange globalHeight;
 	cl::NDRange localSize;
 	cl::NDRange localSize1d;
 	HydroGPUApp &app;

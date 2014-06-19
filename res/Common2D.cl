@@ -38,18 +38,7 @@ real4 mirrorStateY(real4 state);
 
 //periodic
 
-__kernel void stateBoundaryPeriodicHorizontal(
-	__global real4* stateBuffer,	//ghost
-	int2 size)
-{
-	int i = get_global_id(0);
-	stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * (size.y - 4)];
-	stateBuffer[i + size.x * 1] = stateBuffer[i + size.x * (size.y - 3)];
-	stateBuffer[i + size.x * (size.y - 2)] = stateBuffer[i + size.x * 2];
-	stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * 3];
-}
-
-__kernel void stateBoundaryPeriodicVertical(
+__kernel void stateBoundaryPeriodicX(
 	__global real4* stateBuffer,
 	int2 size)
 {
@@ -60,23 +49,23 @@ __kernel void stateBoundaryPeriodicVertical(
 	stateBuffer[size.x - 1 + size.x * i] = stateBuffer[3 + size.x * i];
 }
 
+__kernel void stateBoundaryPeriodicY(
+	__global real4* stateBuffer,
+	int2 size)
+{
+	int i = get_global_id(0);
+	stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * (size.y - 4)];
+	stateBuffer[i + size.x * 1] = stateBuffer[i + size.x * (size.y - 3)];
+	stateBuffer[i + size.x * (size.y - 2)] = stateBuffer[i + size.x * 2];
+	stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * 3];
+}
+
 //mirror
 
 real4 mirrorStateX(real4 state) { return (real4)(state.x, -state.y, state.z, state.w); }
 real4 mirrorStateY(real4 state) { return (real4)(state.x, state.y, -state.z, state.w); }
 
-__kernel void stateBoundaryMirrorHorizontal(
-	__global real4* stateBuffer,	//ghost
-	int2 size)
-{
-	int i = get_global_id(0);
-	stateBuffer[i + size.x * 0] = mirrorStateY(stateBuffer[i + size.x * 3]);
-	stateBuffer[i + size.x * 1] = mirrorStateY(stateBuffer[i + size.x * 2]);
-	stateBuffer[i + size.x * (size.y - 1)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 4)]);
-	stateBuffer[i + size.x * (size.y - 2)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 3)]);
-}
-
-__kernel void stateBoundaryMirrorVertical(
+__kernel void stateBoundaryMirrorX(
 	__global real4* stateBuffer,
 	int2 size)
 {
@@ -87,25 +76,35 @@ __kernel void stateBoundaryMirrorVertical(
 	stateBuffer[size.x - 2 + size.x * i] = mirrorStateX(stateBuffer[size.x - 3 + size.x * i]);	
 }
 
-//freeflow
-
-__kernel void stateBoundaryFreeFlowHorizontal(
-	__global real4* stateBuffer,	//ghost
+__kernel void stateBoundaryMirrorY(
+	__global real4* stateBuffer,
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * 1] = (stateBuffer[i + size.x * 2]);
-	stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * (size.y - 2)] = (stateBuffer[i + size.x * (size.y - 3)]);
+	stateBuffer[i + size.x * 0] = mirrorStateY(stateBuffer[i + size.x * 3]);
+	stateBuffer[i + size.x * 1] = mirrorStateY(stateBuffer[i + size.x * 2]);
+	stateBuffer[i + size.x * (size.y - 1)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 4)]);
+	stateBuffer[i + size.x * (size.y - 2)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 3)]);
 }
 
+//freeflow
 
-__kernel void stateBoundaryFreeFlowVertical(
+__kernel void stateBoundaryFreeFlowX(
 	__global real4* stateBuffer,
 	int2 size)
 {
 	int i = get_global_id(0);
 	stateBuffer[0 + size.x * i] = stateBuffer[1 + size.x * i] = (stateBuffer[2 + size.x * i]);
 	stateBuffer[size.x - 1 + size.x * i] = stateBuffer[size.x - 2 + size.x * i] = (stateBuffer[size.x - 3 + size.x * i]);
+}
+
+__kernel void stateBoundaryFreeFlowY(
+	__global real4* stateBuffer,
+	int2 size)
+{
+	int i = get_global_id(0);
+	stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * 1] = (stateBuffer[i + size.x * 2]);
+	stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * (size.y - 2)] = (stateBuffer[i + size.x * (size.y - 3)]);
 }
 
 __kernel void convertToTex(

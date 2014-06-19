@@ -53,16 +53,27 @@ Solver2D::Solver2D(
 	
 	//hmm...
 	if (!app.useGPU) localSizeVec(0) >>= 1;
+	//hmmmm....
+	localSizeVec = Tensor::Vector<int,2>(16, 16);
+
+	//if dim 2 is size 1 then tell opencl to treat it like a 1D problem
+	if (app.size.s[1] == 1) {
+		localSizeVec = Tensor::Vector<int,2>(16, 1);
+		globalSize = cl::NDRange(app.size.s[0]);
+		localSize = cl::NDRange(localSizeVec(0));
+		localSize1d = cl::NDRange(localSizeVec(0));
+		offset1d = cl::NDRange(0);
+		offset2d = cl::NDRange(0);
+	} else {
+		globalSize = cl::NDRange(app.size.s[0], app.size.s[1]);
+		localSize = cl::NDRange(localSizeVec(0), localSizeVec(1));
+		localSize1d = cl::NDRange(localSizeVec(0));
+		offset1d = cl::NDRange(0);
+		offset2d = cl::NDRange(0, 0);
+	}
+
 	std::cout << "global_size\t" << app.size << std::endl;
 	std::cout << "local_size\t" << localSizeVec << std::endl;
-
-	globalSize = cl::NDRange(app.size.s[0], app.size.s[1]);
-	globalWidth = cl::NDRange(app.size.s[0]);
-	globalHeight = cl::NDRange(app.size.s[1]);
-	localSize = cl::NDRange(localSizeVec(0), localSizeVec(1));
-	localSize1d = cl::NDRange(localSizeVec(0));
-	offset1d = cl::NDRange(0);
-	offset2d = cl::NDRange(0, 0);
 
 	std::vector<std::string> kernelSources = std::vector<std::string>{
 		std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
@@ -125,10 +136,10 @@ Solver2D::Solver2D(
 			}
 			switch (side) {
 			case 0:
-				name += "Horizontal";
+				name += "X";
 				break;
 			case 1:
-				name += "Vertical";
+				name += "Y";
 				break;
 			default:
 				throw Common::Exception() << "no kernel for boundary side " << side;
@@ -226,6 +237,7 @@ Solver2D::~Solver2D() {
 void Solver2D::boundary() {
 	//boundary
 	for (int i = 0; i < app.dim; ++i) {
+		if (app.size.s[i] == 1) break;
 		cl::NDRange globalSize1d(app.size.s[i]);
 		commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethods(i)][i], offset1d, globalSize1d, localSize1d);
 	}
@@ -340,10 +352,10 @@ void Solver2D::display() {
 	glBindTexture(GL_TEXTURE_2D, fluidTex);
 	glEnable(GL_TEXTURE_2D);
 	glBegin(GL_QUADS);
-	glTexCoord2f(0,0); glVertex2f(-.5f,-.5f);
-	glTexCoord2f(1,0); glVertex2f(.5f,-.5f);
-	glTexCoord2f(1,1); glVertex2f(.5f,.5f);
-	glTexCoord2f(0,1); glVertex2f(-.5f,.5f);
+	glTexCoord2f(0,0); glVertex2f(app.xmin.s[0], app.xmin.s[1]);
+	glTexCoord2f(1,0); glVertex2f(app.xmax.s[0], app.xmin.s[1]);
+	glTexCoord2f(1,1); glVertex2f(app.xmax.s[0], app.xmax.s[1]);
+	glTexCoord2f(0,1); glVertex2f(app.xmin.s[0], app.xmax.s[1]);
 	glEnd();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glPopMatrix();
