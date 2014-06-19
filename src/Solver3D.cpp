@@ -60,14 +60,6 @@ std::ostream& operator<<(std::ostream& o, typename CLType<T,n>::Type v) {
 }
 #endif
 
-std::ostream& operator<<(std::ostream& o, real3 v) {
-	return o << v.s[0] << ", " << v.s[1] << ", " << v.s[2];
-}
-
-std::ostream& operator<<(std::ostream& o, cl_int3 v) {
-	return o << v.s[0] << ", " << v.s[1] << ", " << v.s[2];
-}
-
 Solver3D::Solver3D(
 	HydroGPUApp &app_,
 	const std::string &programFilename)
@@ -180,14 +172,6 @@ Solver3D::Solver3D(
 		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app.fixedDT);
 	}
 
-	for (int i = 0; i < DIM; ++i) {
-		dx.s[i] = (app.xmax.s[i] - app.xmin.s[i]) / (float)app.size.s[i];
-	}
-	std::cout << "xmin " << app.xmin << std::endl;
-	std::cout << "xmax " << app.xmax << std::endl;
-	std::cout << "size " << app.size << std::endl;
-	std::cout << "dx " << dx << std::endl;
-
 	for (int boundaryIndex = 0; boundaryIndex < NUM_BOUNDARY_METHODS; ++boundaryIndex) {
 		for (int side = 0; side < DIM; ++side) {
 			std::string name = "stateBoundary";
@@ -215,10 +199,10 @@ Solver3D::Solver3D(
 	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)), volume, cflSwapBuffer);
 
 	poissonRelaxKernel = cl::Kernel(program, "poissonRelax");
-	app.setArgs(poissonRelaxKernel, gravityPotentialBuffer, stateBuffer, app.size, dx);
+	app.setArgs(poissonRelaxKernel, gravityPotentialBuffer, stateBuffer, app.size, app.dx);
 	
 	addGravityKernel = cl::Kernel(program, "addGravity");
-	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, app.size, dx, dtBuffer);
+	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, app.size, app.dx, dtBuffer);
 
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, app.size, fluidTexMem, app.gradientTexMem);

@@ -42,7 +42,6 @@ struct Solver2D : public Solver {
 	cl::NDRange globalHeight;
 	cl::NDRange localSize;
 	cl::NDRange localSize1d;
-	real2 dx;
 	HydroGPUApp &app;
 	cl::CommandQueue commands;
 

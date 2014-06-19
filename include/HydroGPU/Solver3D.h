@@ -43,7 +43,6 @@ struct Solver3D : public Solver {
 	cl::NDRange globalHeight;
 	cl::NDRange localSize;
 	cl::NDRange localSize1d;
-	real3 dx;
 	HydroGPUApp &app;
 	cl::CommandQueue commands;
 

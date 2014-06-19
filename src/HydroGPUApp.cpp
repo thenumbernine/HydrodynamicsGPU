@@ -132,6 +132,14 @@ void HydroGPUApp::init() {
 	for (int i = dim; i < 3; ++i) {
 		size.s[i] = 1;
 	}
+	
+	for (int i = 0; i < 3; ++i) {
+		dx.s[i] = (xmax.s[i] - xmin.s[i]) / (float)size.s[i];
+	}
+	std::cout << "xmin " << xmin << std::endl;
+	std::cout << "xmax " << xmax << std::endl;
+	std::cout << "size " << size << std::endl;
+	std::cout << "dx " << dx << std::endl;
 
 	Super::init();
 

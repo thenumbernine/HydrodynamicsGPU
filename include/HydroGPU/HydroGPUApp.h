@@ -34,6 +34,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	bool useGravity;
 	double gamma;
 	LuaCxx::State lua;
+	real3 dx;
 	
 	//input
 	bool leftButtonDown;
@@ -57,3 +58,12 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	virtual void update();
 	virtual void sdlEvent(SDL_Event &event);
 };
+
+inline std::ostream& operator<<(std::ostream& o, real3 v) {
+	return o << v.s[0] << ", " << v.s[1] << ", " << v.s[2];
+}
+
+inline std::ostream& operator<<(std::ostream& o, cl_int3 v) {
+	return o << v.s[0] << ", " << v.s[1] << ", " << v.s[2];
+}
+
