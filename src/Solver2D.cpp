@@ -7,74 +7,23 @@
 #include <OpenGL/gl.h>
 #include <iostream>
 
-const int DIM = 2;
-
 Solver2D::Solver2D(
 	HydroGPUApp &app_,
 	const std::string &programFilename)
-: app(app_)
-, commands(app.commands)
+: Super(app_, programFilename)
 , fluidTex(GLuint())
 , viewZoom(1.f)
 {
 	cl::Device device = app.device;
 	cl::Context context = app.context;
-		
-	stateBoundaryKernels.resize(NUM_BOUNDARY_METHODS);
-	for (std::vector<cl::Kernel> &v : stateBoundaryKernels) {
-		v.resize(DIM);
-	}
-
-	// NDRanges
-
-	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
-	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
-	Tensor::Vector<size_t,DIM> localSizeVec;
-	for (int n = 0; n < DIM; ++n) {
-		localSizeVec(n) = std::min<size_t>(maxWorkItemSizes[n], app.size.s[n]);
-	}
-	while (localSizeVec.volume() > maxWorkGroupSize) {
-		for (int n = 0; n < DIM; ++n) {
-			localSizeVec(n) = (size_t)ceil((double)localSizeVec(n) * .5);
-		}
-	}
 	
-	//hmm...
-	if (!app.useGPU) localSizeVec(0) >>= 1;
-	//hmmmm....
-	localSizeVec = Tensor::Vector<int,2>(16, 16);
-
-	//if dim 2 is size 1 then tell opencl to treat it like a 1D problem
-	if (app.dim == 1) {
-		localSizeVec = Tensor::Vector<int,2>(16, 1);
-		globalSize = cl::NDRange(app.size.s[0]);
-		localSize = cl::NDRange(localSizeVec(0));
-		localSize1d = cl::NDRange(localSizeVec(0));
-		offset1d = cl::NDRange(0);
-		offsetNd = cl::NDRange(0);
-	} else {
-		globalSize = cl::NDRange(app.size.s[0], app.size.s[1]);
-		localSize = cl::NDRange(localSizeVec(0), localSizeVec(1));
-		localSize1d = cl::NDRange(localSizeVec(0));
-		offset1d = cl::NDRange(0);
-		offsetNd = cl::NDRange(0, 0);
-	}
-
-	std::cout << "global_size\t" << app.size << std::endl;
-	std::cout << "local_size\t" << localSizeVec << std::endl;
-
 	//memory
 
-	int volume = app.size.s[0] * app.size.s[1];
+	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 	
 	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume);
-	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
-	cflSwapBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume / localSize[0]);
-	dtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
-	gravityPotentialBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
-
+	
 	if (app.dim == 1) {
-		
 		std::string shaderCode = Common::File::read("Display1D.shader");
 		std::vector<Shader::Shader> shaders = {
 			Shader::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
@@ -114,79 +63,6 @@ Solver2D::Solver2D(
 	// ... or do I look for a more up-to-date version of cl.hpp
 	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex);
 
-	{
-		std::vector<std::string> kernelSources = std::vector<std::string>{
-			std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
-			std::string() + "#define DIM " + std::to_string(app.dim) + "\n",
-			Common::File::read("Common2D.cl"),
-			Common::File::read(programFilename)
-		};
-		std::vector<std::pair<const char *, size_t>> sources;
-		for (const std::string &s : kernelSources) {
-			sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));
-		}
-		program = cl::Program(context, sources);
-	}
-
-	try {
-		program.build({device}, "-I include");
-	} catch (cl::Error &err) {
-		throw Common::Exception() 
-			<< "failed to build program executable!\n"
-			<< program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
-	}
-
-	//warnings?
-	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
-
-	//get the edges, so reduction doesn't
-	{
-		std::vector<real> cflVec(volume);
-		for (real &r : cflVec) { r = std::numeric_limits<real>::max(); }
-		commands.enqueueWriteBuffer(cflBuffer, CL_TRUE, 0, sizeof(real) * volume, &cflVec[0]);
-	}
-	
-	if (app.useFixedDT) {
-		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app.fixedDT);
-	}
-
-	for (int boundaryIndex = 0; boundaryIndex < NUM_BOUNDARY_METHODS; ++boundaryIndex) {
-		for (int side = 0; side < DIM; ++side) {
-			std::string name = "stateBoundary";
-			switch (boundaryIndex) {
-			case BOUNDARY_PERIODIC:
-				name += "Periodic";
-				break;
-			case BOUNDARY_MIRROR:
-				name += "Mirror";
-				break;
-			case BOUNDARY_FREEFLOW:
-				name += "FreeFlow";
-				break;
-			default:
-				throw Common::Exception() << "no kernel for boundary method " << boundaryIndex;
-			}
-			switch (side) {
-			case 0:
-				name += "X";
-				break;
-			case 1:
-				name += "Y";
-				break;
-			default:
-				throw Common::Exception() << "no kernel for boundary side " << side;
-			}
-			stateBoundaryKernels[boundaryIndex][side] = cl::Kernel(program, name.c_str());
-			app.setArgs(stateBoundaryKernels[boundaryIndex][side], stateBuffer, app.size);
-		}
-	}
-
-	calcCFLMinReduceKernel = cl::Kernel(program, "calcCFLMinReduce");
-	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)), volume, cflSwapBuffer);
-
-	poissonRelaxKernel = cl::Kernel(program, "poissonRelax");
-	app.setArgs(poissonRelaxKernel, gravityPotentialBuffer, stateBuffer, app.size, app.dx);
-	
 	addGravityKernel = cl::Kernel(program, "addGravity");
 	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, app.size, app.dx, dtBuffer);
 
@@ -198,6 +74,8 @@ Solver2D::Solver2D(
 
 	addSourceKernel = cl::Kernel(program, "addSource");
 	app.setArgs(addSourceKernel, stateBuffer, app.size, app.xmin, app.xmax, dtBuffer);
+
+	initKernels();	//parent call for after the child class has populated buffers
 }
 
 void Solver2D::resetState(std::vector<real8> state3DVec) {
@@ -275,42 +153,7 @@ void Solver2D::boundary() {
 	}
 }
 
-void Solver2D::setPoissonRelaxRepeatArg() {
-	cl_int2 repeat;
-	for (int i = 0; i < 2; ++i) {
-		switch (app.boundaryMethods(0)) {	//TODO per dimension
-		case BOUNDARY_PERIODIC:
-			repeat.s[i] = 1;
-			break;
-		case BOUNDARY_MIRROR:
-		case BOUNDARY_FREEFLOW:
-			repeat.s[i] = 0;
-			break;
-		default:
-			throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
-		}	
-	}	
-	poissonRelaxKernel.setArg(4, repeat);
-}
-
 void Solver2D::initStep() {
-}
-
-void Solver2D::findMinTimestep() {
-	int reduceSize = app.size.s[0] * app.size.s[1];
-	cl::Buffer dst = cflSwapBuffer;
-	cl::Buffer src = cflBuffer;
-	while (reduceSize > 1) {
-		int nextSize = (reduceSize >> 4) + !!(reduceSize & ((1 << 4) - 1));
-		cl::NDRange reduceGlobalSize(std::max<int>(reduceSize, localSize[0]));
-		calcCFLMinReduceKernel.setArg(0, src);
-		calcCFLMinReduceKernel.setArg(2, reduceSize);
-		calcCFLMinReduceKernel.setArg(3, nextSize == 1 ? dtBuffer : dst);
-		commands.enqueueNDRangeKernel(calcCFLMinReduceKernel, offset1d, reduceGlobalSize, localSize1d);
-		commands.finish();
-		std::swap(dst, src);
-		reduceSize = nextSize;
-	}
 }
 
 void Solver2D::update() {
@@ -319,6 +162,8 @@ void Solver2D::update() {
 	if (!app.useGPU) {
 		glBindTexture(GL_TEXTURE_2D, fluidTex);
 	}
+	
+	Super::update();
 	
 	setPoissonRelaxRepeatArg();
 
@@ -330,12 +175,6 @@ void Solver2D::update() {
 	
 	if (!app.useFixedDT) {
 		calcTimestep();
-	}
-	
-	if (app.showTimestep) {
-		real dt;
-		commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
-		std::cout << "dt " << dt << std::endl;
 	}
 	
 	step();

@@ -69,3 +69,13 @@ inline std::ostream& operator<<(std::ostream& o, cl_int3 v) {
 	return o << v.s[0] << ", " << v.s[1] << ", " << v.s[2];
 }
 
+inline std::ostream& operator<<(std::ostream& o, cl::NDRange &range) {
+	o << "(";
+	const char *comma = "";
+	for (int i = 0; i < range.dimensions(); ++i) {
+		o << comma << range[i];
+		comma = ", ";
+	}
+	return o << ")";
+}
+

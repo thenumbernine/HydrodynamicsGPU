@@ -2,15 +2,43 @@
 
 #include "HydroGPU/Shared/Common.h"	//cl shared header
 #include "Tensor/Vector.h"
+#include <OpenCL/cl.hpp>
 #include <vector>
 
 struct HydroGPUApp;
 struct Solver {
-	Solver() {}
-	Solver(HydroGPUApp &app) {}
-	virtual ~Solver() {}
+	HydroGPUApp &app;
+	
+	cl::Program program;
+	cl::CommandQueue commands;
 
-	virtual void update() = 0;
+	cl::Buffer stateBuffer;	//initialized by the child class, but used in arguments in the parent class
+	cl::Buffer cflBuffer;
+	cl::Buffer cflSwapBuffer;
+	cl::Buffer dtBuffer;
+	cl::Buffer gravityPotentialBuffer;
+	
+	cl::Kernel calcCFLMinReduceKernel;
+	cl::Kernel poissonRelaxKernel;
+	
+	std::vector<std::vector<cl::Kernel>> stateBoundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim];
+
+	//useful to have around
+	cl::NDRange globalSize;
+	cl::NDRange localSize;
+	cl::NDRange localSize1d;
+	cl::NDRange offset1d;
+	cl::NDRange offsetNd;
+
+	Solver(HydroGPUApp& app, const std::string& programFilename);
+	virtual ~Solver() {}
+	
+	virtual void initKernels();
+	
+	virtual void findMinTimestep();
+	virtual void setPoissonRelaxRepeatArg();
+	
+	virtual void update();
 	virtual void display() = 0;
 	virtual void resize() = 0;
 

@@ -11,19 +11,9 @@
 struct HydroGPUApp;
 
 struct Solver3D : public Solver {
-	cl::Program program;
+	typedef Solver Super;
 	
-	//common kernels for all 3D
-	std::vector<std::vector<cl::Kernel>> stateBoundaryKernels;	//[NUM_BOUNDARY_METHODS][DIM];
-	cl::Buffer stateBuffer;
-	cl::Buffer cflBuffer;
-	cl::Buffer cflSwapBuffer;
-	cl::Buffer dtBuffer;
-	cl::Buffer gravityPotentialBuffer;
-	
-	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel convertToTexKernel;
-	cl::Kernel poissonRelaxKernel;
 	cl::Kernel addGravityKernel;
 
 	struct EventProfileEntry {
@@ -34,17 +24,6 @@ struct Solver3D : public Solver {
 	};
 	
 	std::vector<EventProfileEntry*> entries;
-
-	//useful to have around
-	cl::NDRange offset1d;
-	cl::NDRange offsetNd;
-	cl::NDRange globalSize;
-	cl::NDRange globalWidth;
-	cl::NDRange globalHeight;
-	cl::NDRange localSize;
-	cl::NDRange localSize1d;
-	HydroGPUApp &app;
-	cl::CommandQueue commands;
 
 	cl::ImageGL fluidTexMem;		//data is written to this buffer before rendering
 	GLuint fluidTex;
@@ -73,9 +52,7 @@ struct Solver3D : public Solver {
 protected:
 	virtual void initStep();
 	virtual void calcTimestep() = 0;
-	virtual void findMinTimestep();
 	virtual void step() = 0;
 	virtual void boundary();
-	virtual void setPoissonRelaxRepeatArg();
 };
 

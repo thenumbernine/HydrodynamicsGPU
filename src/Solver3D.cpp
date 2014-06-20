@@ -61,56 +61,19 @@ std::ostream& operator<<(std::ostream& o, typename CLType<T,n>::Type v) {
 Solver3D::Solver3D(
 	HydroGPUApp &app_,
 	const std::string &programFilename)
-: app(app_)
-, commands(app.commands)
+: Super(app_, programFilename)
 , fluidTex(GLuint())
 , viewDist(1.f)
 {
 	cl::Device device = app.device;
 	cl::Context context = app.context;
-		
-	stateBoundaryKernels.resize(NUM_BOUNDARY_METHODS);
-	for (std::vector<cl::Kernel>& v : stateBoundaryKernels) {
-		v.resize(app.dim);
-	}
-
-	//NDRanges
-
-	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
-	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
-	Tensor::Vector<size_t,3> localSizeVec;
-	for (int n = 0; n < 3; ++n) {
-		localSizeVec(n) = std::min<size_t>(maxWorkItemSizes[n], app.size.s[n]);
-	}
-	while (localSizeVec.volume() > maxWorkGroupSize) {
-		for (int n = 0; n < 3; ++n) {
-			localSizeVec(n) = (size_t)ceil((double)localSizeVec(n) * .5);
-		}
-	}
 	
-	//hmm...
-	if (!app.useGPU) localSizeVec(0) >>= 1;
-
-	globalSize = cl::NDRange(app.size.s[0], app.size.s[1], app.size.s[2]);
-	localSize = cl::NDRange(localSizeVec(0), localSizeVec(1), localSizeVec(2));
-	localSize1d = cl::NDRange(localSizeVec(0));
-	offset1d = cl::NDRange(0);
-	offsetNd = cl::NDRange(0, 0, 0);
-	
-	std::cout << "global_size\t" << app.size << std::endl;
-	std::cout << "local_size\t" << localSizeVec << std::endl;
 
 	//memory
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 	
 	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume);
-	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
-	cflSwapBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume / localSize[0]);
-	dtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
-	gravityPotentialBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
-
-
 	
 	{
 		std::string shaderCode = Common::File::read("Display3D.shader");
@@ -149,85 +112,14 @@ Solver3D::Solver3D(
 	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
 
 	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, fluidTex);
-	
-	{
-		std::vector<std::string> kernelSources = std::vector<std::string>{
-			std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
-			Common::File::read("Common3D.cl"),
-			Common::File::read(programFilename)
-		};
-		std::vector<std::pair<const char *, size_t>> sources;
-		for (const std::string &s : kernelSources) {
-			sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));
-		}
-		program = cl::Program(context, sources);
-	}
-
-	try {
-		program.build({device}, "-I include");
-	} catch (cl::Error &err) {
-		throw Common::Exception() 
-			<< "failed to build program executable!\n"
-			<< program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
-	}
-
-	//warnings?
-	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
-
-	//get the edges, so reduction doesn't
-	{
-		std::vector<real> cflVec(volume);
-		for (real &r : cflVec) { r = std::numeric_limits<real>::max(); }
-		commands.enqueueWriteBuffer(cflBuffer, CL_TRUE, 0, sizeof(real) * volume, &cflVec[0]);
-	}
-	
-	if (app.useFixedDT) {
-		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app.fixedDT);
-	}
-
-	for (int boundaryIndex = 0; boundaryIndex < NUM_BOUNDARY_METHODS; ++boundaryIndex) {
-		for (int side = 0; side < app.dim; ++side) {
-			std::string name = "stateBoundary";
-			switch (boundaryIndex) {
-			case BOUNDARY_PERIODIC:
-				name += "Periodic";
-				break;
-			case BOUNDARY_MIRROR:
-				name += "Mirror";
-				break;
-			case BOUNDARY_FREEFLOW:
-				name += "FreeFlow";
-				break;
-			default:
-				throw Common::Exception() << "no kernel for boundary method " << boundaryIndex;
-			}
-			switch (side) {
-			case 0:
-				name += "X";
-				break;
-			case 1:
-				name += "Y";
-				break;
-			case 2:
-				name += "Z";
-				break;
-			}
-			stateBoundaryKernels[boundaryIndex][side] = cl::Kernel(program, name.c_str());
-			app.setArgs(stateBoundaryKernels[boundaryIndex][side], stateBuffer, app.size);
-		}
-	}
-
-	calcCFLMinReduceKernel = cl::Kernel(program, "calcCFLMinReduce");
-	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSizeVec(0) * sizeof(real)), volume, cflSwapBuffer);
-
-	poissonRelaxKernel = cl::Kernel(program, "poissonRelax");
-	app.setArgs(poissonRelaxKernel, gravityPotentialBuffer, stateBuffer, app.size, app.dx);
-	
+		
 	addGravityKernel = cl::Kernel(program, "addGravity");
 	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, app.size, app.dx, dtBuffer);
 
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, app.size, fluidTexMem, app.gradientTexMem);
+
+	initKernels();
 }
 
 void Solver3D::resetState(std::vector<real8> stateVec) {	
@@ -293,45 +185,13 @@ void Solver3D::boundary() {
 	}
 }
 
-void Solver3D::setPoissonRelaxRepeatArg() {
-	cl_int3 repeat;
-	for (int i = 0; i < 3; ++i) {
-		switch (app.boundaryMethods(0)) {	//TODO per dimension
-		case BOUNDARY_PERIODIC:
-			repeat.s[i] = 1;
-			break;
-		case BOUNDARY_MIRROR:
-		case BOUNDARY_FREEFLOW:
-			repeat.s[i] = 0;
-			break;
-		default:
-			throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
-		}	
-	}	
-	poissonRelaxKernel.setArg(4, repeat);
-}
 
 void Solver3D::initStep() {
 }
 
-void Solver3D::findMinTimestep() {
-	int reduceSize = globalSize[0] * globalSize[1] * globalSize[2];
-	cl::Buffer dst = cflSwapBuffer;
-	cl::Buffer src = cflBuffer;
-	while (reduceSize > 1) {
-		int nextSize = (reduceSize >> 4) + !!(reduceSize & ((1 << 4) - 1));
-		cl::NDRange reduceGlobalSize(std::max<int>(reduceSize, localSize[0]));
-		calcCFLMinReduceKernel.setArg(0, src);
-		calcCFLMinReduceKernel.setArg(2, reduceSize);
-		calcCFLMinReduceKernel.setArg(3, nextSize == 1 ? dtBuffer : dst);
-		commands.enqueueNDRangeKernel(calcCFLMinReduceKernel, offset1d, reduceGlobalSize, localSize1d);
-		commands.finish();
-		std::swap(dst, src);
-		reduceSize = nextSize;
-	}
-}
-
 void Solver3D::update() {
+	Super::update();
+	
 	setPoissonRelaxRepeatArg();
 
 	boundary();
@@ -340,12 +200,6 @@ void Solver3D::update() {
 	
 	if (!app.useFixedDT) {
 		calcTimestep();
-	}
-
-	if (app.showTimestep) {
-		real dt;
-		commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
-		std::cout << "dt " << dt << std::endl;
 	}
 
 	step();
