@@ -7,8 +7,6 @@
 #include <OpenGL/gl.h>
 #include <iostream>
 
-const int DIM = 3;
-
 static float vertexes[] = {
 	0, 0, 0,
 	1, 0, 0,
@@ -73,8 +71,46 @@ Solver3D::Solver3D(
 		
 	stateBoundaryKernels.resize(NUM_BOUNDARY_METHODS);
 	for (std::vector<cl::Kernel>& v : stateBoundaryKernels) {
-		v.resize(DIM);
+		v.resize(app.dim);
 	}
+
+	//NDRanges
+
+	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
+	Tensor::Vector<size_t,3> localSizeVec;
+	for (int n = 0; n < 3; ++n) {
+		localSizeVec(n) = std::min<size_t>(maxWorkItemSizes[n], app.size.s[n]);
+	}
+	while (localSizeVec.volume() > maxWorkGroupSize) {
+		for (int n = 0; n < 3; ++n) {
+			localSizeVec(n) = (size_t)ceil((double)localSizeVec(n) * .5);
+		}
+	}
+	
+	//hmm...
+	if (!app.useGPU) localSizeVec(0) >>= 1;
+
+	globalSize = cl::NDRange(app.size.s[0], app.size.s[1], app.size.s[2]);
+	localSize = cl::NDRange(localSizeVec(0), localSizeVec(1), localSizeVec(2));
+	localSize1d = cl::NDRange(localSizeVec(0));
+	offset1d = cl::NDRange(0);
+	offsetNd = cl::NDRange(0, 0, 0);
+	
+	std::cout << "global_size\t" << app.size << std::endl;
+	std::cout << "local_size\t" << localSizeVec << std::endl;
+
+	//memory
+
+	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
+	
+	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume);
+	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
+	cflSwapBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume / localSize[0]);
+	dtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
+	gravityPotentialBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
+
+
 	
 	{
 		std::string shaderCode = Common::File::read("Display3D.shader");
@@ -95,39 +131,25 @@ Solver3D::Solver3D(
 	glBindTexture(GL_TEXTURE_3D, fluidTex);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	Tensor::Vector<int,3> glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
+	for (int i = 0; i < app.dim; ++i) {
+		switch (app.boundaryMethods(i)) {
+		case BOUNDARY_PERIODIC:
+			glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_REPEAT);
+			break;
+		case BOUNDARY_MIRROR:
+		case BOUNDARY_FREEFLOW:
+			glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_CLAMP_TO_EDGE);
+			break;
+		}
+	}
 	glTexImage3D(GL_TEXTURE_3D, 0, 4, app.size.s[0], app.size.s[1], app.size.s[2], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glBindTexture(GL_TEXTURE_3D, 0);
 	int err = glGetError();
 	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
 
 	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, fluidTex);
-
-	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
-	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
-	Tensor::Vector<size_t,DIM> localSizeVec;
-	for (int n = 0; n < DIM; ++n) {
-		localSizeVec(n) = std::min<size_t>(maxWorkItemSizes[n], app.size.s[n]);
-	}
-	while (localSizeVec.volume() > maxWorkGroupSize) {
-		for (int n = 0; n < DIM; ++n) {
-			localSizeVec(n) = (size_t)ceil((double)localSizeVec(n) * .5);
-		}
-	}
 	
-	//hmm...
-	if (!app.useGPU) localSizeVec(0) >>= 1;
-	std::cout << "global_size\t" << app.size << std::endl;
-	std::cout << "local_size\t" << localSizeVec << std::endl;
-
-	globalSize = cl::NDRange(app.size.s[0], app.size.s[1], app.size.s[2]);
-	localSize = cl::NDRange(localSizeVec(0), localSizeVec(1), localSizeVec(2));
-	localSize1d = cl::NDRange(localSizeVec(0));
-	offset1d = cl::NDRange(0);
-	offset3d = cl::NDRange(0, 0, 0);
-
 	{
 		std::vector<std::string> kernelSources = std::vector<std::string>{
 			std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
@@ -152,16 +174,6 @@ Solver3D::Solver3D(
 	//warnings?
 	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
 
-	//memory
-
-	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
-
-	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume);
-	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
-	cflSwapBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume / localSize[0]);
-	dtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
-	gravityPotentialBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
-
 	//get the edges, so reduction doesn't
 	{
 		std::vector<real> cflVec(volume);
@@ -174,9 +186,8 @@ Solver3D::Solver3D(
 	}
 
 	for (int boundaryIndex = 0; boundaryIndex < NUM_BOUNDARY_METHODS; ++boundaryIndex) {
-		for (int side = 0; side < DIM; ++side) {
+		for (int side = 0; side < app.dim; ++side) {
 			std::string name = "stateBoundary";
-			
 			switch (boundaryIndex) {
 			case BOUNDARY_PERIODIC:
 				name += "Periodic";
@@ -190,7 +201,17 @@ Solver3D::Solver3D(
 			default:
 				throw Common::Exception() << "no kernel for boundary method " << boundaryIndex;
 			}
-			name += side == 0 ? "X" : (side == 1 ? "Y" : "Z");
+			switch (side) {
+			case 0:
+				name += "X";
+				break;
+			case 1:
+				name += "Y";
+				break;
+			case 2:
+				name += "Z";
+				break;
+			}
 			stateBoundaryKernels[boundaryIndex][side] = cl::Kernel(program, name.c_str());
 			app.setArgs(stateBoundaryKernels[boundaryIndex][side], stateBuffer, app.size);
 		}
@@ -235,10 +256,10 @@ void Solver3D::resetState(std::vector<real8> stateVec) {
 
 	if (app.useGravity) {
 		setPoissonRelaxRepeatArg();
-
+		
 		//solve for gravitational potential via gauss seidel
 		for (int i = 0; i < 20; ++i) {
-			commands.enqueueNDRangeKernel(poissonRelaxKernel, offset3d, globalSize, localSize);
+			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 
 		//update internal energy
@@ -264,10 +285,10 @@ Solver3D::~Solver3D() {
 
 void Solver3D::boundary() {
 	//boundary
-	for (int i = 0; i < DIM; ++i) {
-		cl::NDRange globalSize2d(app.size.s[(i+1)%DIM], app.size.s[(i+2)%DIM]);
+	for (int i = 0; i < 3; ++i) {
+		cl::NDRange globalSize2d(app.size.s[(i+1)%3], app.size.s[(i+2)%3]);
 		cl::NDRange offset2d(0, 0);
-		cl::NDRange localSize2d(localSize[(i+1)%DIM], localSize[(i+2)%DIM]);
+		cl::NDRange localSize2d(localSize[(i+1)%3], localSize[(i+2)%3]);
 		commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethods(i)][i], offset2d, globalSize2d, localSize2d);
 	}
 }
@@ -347,7 +368,7 @@ void Solver3D::display() {
 	if (app.useGPU) {
 		convertToTexKernel.setArg(5, app.displayMethod);
 		convertToTexKernel.setArg(6, app.displayScale);
-		commands.enqueueNDRangeKernel(convertToTexKernel, offset3d, globalSize, localSize);
+		commands.enqueueNDRangeKernel(convertToTexKernel, offsetNd, globalSize, localSize);
 	} else {
 		throw Common::Exception() << "no support";
 	}

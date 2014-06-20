@@ -1,8 +1,6 @@
 #include "HydroGPU/RoeSolver3D.h"
 #include "HydroGPU/HydroGPUApp.h"
 
-const int DIM = 3;
-
 RoeSolver3D::RoeSolver3D(
 	HydroGPUApp &app_)
 : Super(app_, "Roe3D.cl")
@@ -26,11 +24,11 @@ RoeSolver3D::RoeSolver3D(
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
-	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * DIM);
-	eigenvectorsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * DIM * 2);
-	eigenvectorsInverseBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * DIM * 2);
-	deltaQTildeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * DIM);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * DIM);
+	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
+	eigenvectorsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * app.dim * 2);
+	eigenvectorsInverseBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * app.dim * 2);
+	deltaQTildeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
+	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
 	
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
 	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer, app.size);
@@ -49,29 +47,29 @@ RoeSolver3D::RoeSolver3D(
 }	
 
 void RoeSolver3D::initStep() {
-	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset3d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 }
 
 void RoeSolver3D::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offset3d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
 void RoeSolver3D::step() {
-	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offset3d, globalSize, localSize, NULL, &calcDeltaQTildeEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcFluxKernel, offset3d, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
-	commands.enqueueNDRangeKernel(integrateFluxKernel, offset3d, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, NULL, &calcDeltaQTildeEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
 
 	if (app.useGravity) {
 		//recompute poisson solution to gravitational potential
 		const int maxIter = 20;
 		for (int i = 0; i < maxIter; ++i) {
-			commands.enqueueNDRangeKernel(poissonRelaxKernel, offset3d, globalSize, localSize);
+			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 	}	
 	
 	if (app.useGravity) {
-		commands.enqueueNDRangeKernel(addGravityKernel, offset3d, globalSize, localSize);
+		commands.enqueueNDRangeKernel(addGravityKernel, offsetNd, globalSize, localSize);
 		boundary();	
 	}
 }

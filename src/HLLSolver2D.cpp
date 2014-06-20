@@ -18,7 +18,7 @@ HLLSolver2D::HLLSolver2D(
 
 	//memory
 
-	int volume = app.size.s[0] * app.size.s[1];
+	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
 	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
 	//deltaQTildeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
@@ -35,27 +35,27 @@ HLLSolver2D::HLLSolver2D(
 }	
 
 void HLLSolver2D::initStep() {
-	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offset2d, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 }
 
 void HLLSolver2D::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offset2d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
 void HLLSolver2D::step() {
-	commands.enqueueNDRangeKernel(integrateFluxKernel, offset2d, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
 
 	if (app.useGravity) {
 		//recompute poisson solution to gravitational potential
 		const int maxIter = 20;
 		for (int i = 0; i < maxIter; ++i) {
-			commands.enqueueNDRangeKernel(poissonRelaxKernel, offset2d, globalSize, localSize);
+			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 	}	
 	
 	if (app.useGravity) {
-		commands.enqueueNDRangeKernel(addGravityKernel, offset2d, globalSize, localSize);
+		commands.enqueueNDRangeKernel(addGravityKernel, offsetNd, globalSize, localSize);
 		boundary();	
 	}
 }

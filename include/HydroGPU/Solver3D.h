@@ -37,7 +37,7 @@ struct Solver3D : public Solver {
 
 	//useful to have around
 	cl::NDRange offset1d;
-	cl::NDRange offset3d;
+	cl::NDRange offsetNd;
 	cl::NDRange globalSize;
 	cl::NDRange globalWidth;
 	cl::NDRange globalHeight;

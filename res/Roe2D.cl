@@ -64,7 +64,7 @@ __kernel void calcEigenBasis(
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 
-		int interfaceIndex = side + 2 * index;
+		int interfaceIndex = side + DIM * index;
 
 		real4 stateL = stateBuffer[indexPrev];
 		real4 stateR = stateBuffer[index];
@@ -300,8 +300,8 @@ __kernel void calcCFL(
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
-		real4 eigenvaluesL = eigenvaluesBuffer[side + 2 * index];
-		real4 eigenvaluesR = eigenvaluesBuffer[side + 2 * indexNext];
+		real4 eigenvaluesL = eigenvaluesBuffer[side + DIM * index];
+		real4 eigenvaluesR = eigenvaluesBuffer[side + DIM * indexNext];
 		
 		real maxLambda = max(
 			0.f,
@@ -353,7 +353,7 @@ __kernel void calcDeltaQTilde(
 		real4 stateL = stateBuffer[indexPrev];
 		real4 stateR = stateBuffer[index];
 
-		int interfaceIndex = side + 2 * index;
+		int interfaceIndex = side + DIM * index;
 		
 		real4 deltaQ = stateR - stateL;
 		deltaQTildeBuffer[interfaceIndex] = matmul(eigenvectorsInverseBuffer[interfaceIndex], deltaQ);
@@ -400,9 +400,9 @@ __kernel void calcFlux(
 		real4 stateL = stateBuffer[indexPrev];
 		real4 stateR = stateBuffer[index];
 
-		int interfaceLIndex = side + 2 * indexPrev;
-		int interfaceIndex = side + 2 * index;
-		int interfaceRIndex = side + 2 * indexNext;
+		int interfaceLIndex = side + DIM * indexPrev;
+		int interfaceIndex = side + DIM * index;
+		int interfaceRIndex = side + DIM * indexNext;
 
 		real4 deltaQTildeL = deltaQTildeBuffer[interfaceLIndex];
 		real4 deltaQTilde = deltaQTildeBuffer[interfaceIndex];
@@ -421,7 +421,7 @@ __kernel void calcFlux(
 		real4 deltaFluxTilde = eigenvalues * deltaQTilde;
 		real4 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + .5f * phi * (epsilon - theta));
 		
-		fluxBuffer[side + 2 * index] = matmul(eigenvectors, fluxTilde);
+		fluxBuffer[side + DIM * index] = matmul(eigenvectors, fluxTilde);
 	}
 }
 
@@ -447,8 +447,8 @@ __kernel void integrateFlux(
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
-		real4 fluxL = fluxBuffer[side + 2 * index];
-		real4 fluxR = fluxBuffer[side + 2 * indexNext];
+		real4 fluxL = fluxBuffer[side + DIM * index];
+		real4 fluxR = fluxBuffer[side + DIM * indexNext];
 
 		real4 df = fluxR - fluxL;
 		stateBuffer[index] -= df * dt_dx[side];

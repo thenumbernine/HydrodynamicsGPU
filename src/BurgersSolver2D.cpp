@@ -27,17 +27,17 @@ BurgersSolver2D::BurgersSolver2D(
 
 	//memory
 
-	int volume = app.size.s[0] * app.size.s[1];
+	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
-	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real2) * volume);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
+	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume * app.dim);
+	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * app.dim);
 	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 
 	{
 		//zero interface and flux
-		std::vector<real4> zero(volume);
-		commands.enqueueWriteBuffer(interfaceVelocityBuffer, CL_TRUE, 0, sizeof(real2) * volume, &zero[0]);
-		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real4) * volume, &zero[0]);
+		std::vector<real4> zero(volume * app.dim);
+		commands.enqueueWriteBuffer(interfaceVelocityBuffer, CL_TRUE, 0, sizeof(real) * volume * app.dim, &zero[0]);
+		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real4) * volume * app.dim, &zero[0]);
 	}
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
@@ -63,37 +63,37 @@ BurgersSolver2D::BurgersSolver2D(
 }
 
 void BurgersSolver2D::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offset2d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
 void BurgersSolver2D::step() {
-	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offset2d, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcFluxKernel, offset2d, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
-	commands.enqueueNDRangeKernel(integrateFluxKernel, offset2d, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
 
 	if (app.useGravity) {
 		//recompute poisson solution to gravitational potential
 		const int maxIter = 20;
 		for (int i = 0; i < maxIter; ++i) {
-			commands.enqueueNDRangeKernel(poissonRelaxKernel, offset2d, globalSize, localSize);
+			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 	}	
 
 	boundary();
 	
-	commands.enqueueNDRangeKernel(computePressureKernel, offset2d, globalSize, localSize, NULL, &computePressureEvent.clEvent);
+	commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize, NULL, &computePressureEvent.clEvent);
 	
 	if (app.useGravity) {
-		commands.enqueueNDRangeKernel(addGravityKernel, offset2d, globalSize, localSize);
+		commands.enqueueNDRangeKernel(addGravityKernel, offsetNd, globalSize, localSize);
 	
 		boundary();
 	}
 	
-	commands.enqueueNDRangeKernel(diffuseMomentumKernel, offset2d, globalSize, localSize, NULL, &diffuseMomentumEvent.clEvent);
+	commands.enqueueNDRangeKernel(diffuseMomentumKernel, offsetNd, globalSize, localSize, NULL, &diffuseMomentumEvent.clEvent);
 	
 	boundary();
 
-	commands.enqueueNDRangeKernel(diffuseWorkKernel, offset2d, globalSize, localSize, NULL, &diffuseWorkEvent.clEvent);
+	commands.enqueueNDRangeKernel(diffuseWorkKernel, offsetNd, globalSize, localSize, NULL, &diffuseWorkEvent.clEvent);
 }
 

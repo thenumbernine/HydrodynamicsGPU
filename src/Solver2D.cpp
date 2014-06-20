@@ -51,13 +51,13 @@ Solver2D::Solver2D(
 		localSize = cl::NDRange(localSizeVec(0));
 		localSize1d = cl::NDRange(localSizeVec(0));
 		offset1d = cl::NDRange(0);
-		offset2d = cl::NDRange(0);
+		offsetNd = cl::NDRange(0);
 	} else {
 		globalSize = cl::NDRange(app.size.s[0], app.size.s[1]);
 		localSize = cl::NDRange(localSizeVec(0), localSizeVec(1));
 		localSize1d = cl::NDRange(localSizeVec(0));
 		offset1d = cl::NDRange(0);
-		offset2d = cl::NDRange(0, 0);
+		offsetNd = cl::NDRange(0, 0);
 	}
 
 	std::cout << "global_size\t" << app.size << std::endl;
@@ -114,17 +114,19 @@ Solver2D::Solver2D(
 	// ... or do I look for a more up-to-date version of cl.hpp
 	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex);
 
-	std::vector<std::string> kernelSources = std::vector<std::string>{
-		std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
-		std::string() + "#define DIM " + std::to_string(app.dim) + "\n",
-		Common::File::read("Common2D.cl"),
-		Common::File::read(programFilename)
-	};
-	std::vector<std::pair<const char *, size_t>> sources;
-	for (const std::string &s : kernelSources) {
-		sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));
+	{
+		std::vector<std::string> kernelSources = std::vector<std::string>{
+			std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
+			std::string() + "#define DIM " + std::to_string(app.dim) + "\n",
+			Common::File::read("Common2D.cl"),
+			Common::File::read(programFilename)
+		};
+		std::vector<std::pair<const char *, size_t>> sources;
+		for (const std::string &s : kernelSources) {
+			sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));
+		}
+		program = cl::Program(context, sources);
 	}
-	program = cl::Program(context, sources);
 
 	try {
 		program.build({device}, "-I include");
@@ -143,7 +145,7 @@ Solver2D::Solver2D(
 		for (real &r : cflVec) { r = std::numeric_limits<real>::max(); }
 		commands.enqueueWriteBuffer(cflBuffer, CL_TRUE, 0, sizeof(real) * volume, &cflVec[0]);
 	}
-
+	
 	if (app.useFixedDT) {
 		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app.fixedDT);
 	}
@@ -232,15 +234,16 @@ void Solver2D::resetState(std::vector<real8> state3DVec) {
 			gravityPotentialVec[i] = 0.;
 		}
 	}
+	
 	commands.enqueueWriteBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &gravityPotentialVec[0]);
 
 	if (app.useGravity) {
 		setPoissonRelaxRepeatArg();
 		
 		//solve for gravitational potential via gauss seidel
-		cl::NDRange offset2d(0, 0);
+		cl::NDRange offsetNd(0, 0);
 		for (int i = 0; i < 20; ++i) {
-			commands.enqueueNDRangeKernel(poissonRelaxKernel, offset2d, globalSize, localSize);
+			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 
 		//update internal energy
@@ -248,7 +251,7 @@ void Solver2D::resetState(std::vector<real8> state3DVec) {
 			stateVec[i].s[3] += gravityPotentialVec[i];
 		}
 	}
-
+	
 	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
 	commands.finish();
 }
@@ -277,11 +280,11 @@ void Solver2D::setPoissonRelaxRepeatArg() {
 	for (int i = 0; i < 2; ++i) {
 		switch (app.boundaryMethods(0)) {	//TODO per dimension
 		case BOUNDARY_PERIODIC:
-			repeat.s[i] = true;
+			repeat.s[i] = 1;
 			break;
 		case BOUNDARY_MIRROR:
 		case BOUNDARY_FREEFLOW:
-			repeat.s[i] = false;
+			repeat.s[i] = 0;
 			break;
 		default:
 			throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
@@ -319,7 +322,7 @@ void Solver2D::update() {
 	
 	setPoissonRelaxRepeatArg();
 
-	//commands.enqueueNDRangeKernel(addSourceKernel, offset2d, globalSize, localSize, NULL, &addSourceEvent.clEvent);
+	//commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize, NULL, &addSourceEvent.clEvent);
 
 	boundary();
 	
@@ -328,7 +331,13 @@ void Solver2D::update() {
 	if (!app.useFixedDT) {
 		calcTimestep();
 	}
-
+	
+	if (app.showTimestep) {
+		real dt;
+		commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
+		std::cout << "dt " << dt << std::endl;
+	}
+	
 	step();
 
 /*
@@ -349,7 +358,7 @@ void Solver2D::display() {
 	if (app.useGPU) {
 		convertToTexKernel.setArg(5, app.displayMethod);
 		convertToTexKernel.setArg(6, app.displayScale);
-		commands.enqueueNDRangeKernel(convertToTexKernel, offset2d, globalSize, localSize);
+		commands.enqueueNDRangeKernel(convertToTexKernel, offsetNd, globalSize, localSize);
 	} else {
 		int volume = app.size.s[0] * app.size.s[1];
 		std::vector<real4> stateVec(volume);
@@ -451,7 +460,7 @@ void Solver2D::addDrop() {
 	addSourceVel.s[1] = mouseVel(1);
 	addDropKernel.setArg(4, addSourcePos);
 	addDropKernel.setArg(5, addSourceVel);
-	commands.enqueueNDRangeKernel(addDropKernel, offset2d, globalSize, localSize);
+	commands.enqueueNDRangeKernel(addDropKernel, offsetNd, globalSize, localSize);
 }
 
 void Solver2D::screenshot() {

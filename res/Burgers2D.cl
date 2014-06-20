@@ -22,9 +22,9 @@ __kernel void calcCFL(
 	}
 
 	real4 state = stateBuffer[index];
-	real density = state.x;
-	real2 velocity = state.yz / density;
-	real specificTotalEnergy = state.w / density;
+	real density = state.s0;
+	real2 velocity = state.s12 / density;
+	real specificTotalEnergy = state.s3 / density;
 	real specificKineticEnergy = .5f * dot(velocity, velocity);
 	real specificPotentialEnergy = gravityPotentialBuffer[index]; 
 	real specificInternalEnergy = specificTotalEnergy - specificKineticEnergy - specificPotentialEnergy;
@@ -38,7 +38,7 @@ __kernel void calcCFL(
 }
 
 __kernel void calcInterfaceVelocity(
-	__global real2* interfaceVelocityBuffer,
+	__global real* interfaceVelocityBuffer,
 	const __global real4* stateBuffer,
 	int2 size,
 	real2 dx)
@@ -51,7 +51,6 @@ __kernel void calcInterfaceVelocity(
 	) return;
 	int index = INDEXV(i);
 	
-	real2 interfaceVelocity;
 	for (int side = 0; side < DIM; ++side) {
 		int2 iPrev = i;
 		--iPrev[side];
@@ -65,9 +64,8 @@ __kernel void calcInterfaceVelocity(
 		real densityR = stateR.x;
 		real velocityR = stateR[side+1] / densityR;
 		
-		interfaceVelocity[side] = .5f * (velocityL + velocityR);
+		interfaceVelocityBuffer[side + DIM * index] = .5f * (velocityL + velocityR);
 	}
-	interfaceVelocityBuffer[index] = interfaceVelocity;
 }
 
 real4 slopeLimiter(real4 r) {
@@ -82,7 +80,7 @@ real4 slopeLimiter(real4 r) {
 __kernel void calcFlux(
 	__global real4* fluxBuffer,
 	const __global real4* stateBuffer,
-	const __global real2* interfaceVelocityBuffer,
+	const __global real* interfaceVelocityBuffer,
 	int2 size,
 	real2 dx,
 	const __global real* dtBuffer)
@@ -125,7 +123,7 @@ __kernel void calcFlux(
 		real4 deltaState = stateR - stateL;
 		real4 deltaStateR = stateR2 - stateR;
 
-		real interfaceVelocity = interfaceVelocityBuffer[index][side];
+		real interfaceVelocity = interfaceVelocityBuffer[side + DIM * index];
 		real theta = step(0.f, interfaceVelocity);
 		
 		real4 stateSlopeRatio = mix(deltaStateR, deltaStateL, theta) / deltaState;
@@ -135,7 +133,7 @@ __kernel void calcFlux(
 		real4 flux = mix(stateR, stateL, theta) * interfaceVelocity
 			+ delta * .5f * (.5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])));
 
-		fluxBuffer[side + 2 * index] = flux;
+		fluxBuffer[side + DIM * index] = flux;
 	}
 }
 
@@ -161,8 +159,8 @@ __kernel void integrateFlux(
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
-		real4 fluxL = fluxBuffer[side + 2 * index];
-		real4 fluxR = fluxBuffer[side + 2 * indexNext];
+		real4 fluxL = fluxBuffer[side + DIM * index];
+		real4 fluxR = fluxBuffer[side + DIM * indexNext];
 	
 		real4 df = fluxR - fluxL;
 		stateBuffer[index] -= df * dt_dx[side];

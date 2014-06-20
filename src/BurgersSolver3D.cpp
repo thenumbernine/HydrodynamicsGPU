@@ -1,8 +1,6 @@
 #include "HydroGPU/BurgersSolver3D.h"
 #include "HydroGPU/HydroGPUApp.h"
 
-const int DIM = 3;
-
 BurgersSolver3D::BurgersSolver3D(
 	HydroGPUApp &app_)
 : Super(app_, "Burgers3D.cl")
@@ -31,15 +29,15 @@ BurgersSolver3D::BurgersSolver3D(
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
-	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume * DIM);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * DIM);
+	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume * app.dim);
+	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
 	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 
 	{
 		//zero interface and flux
-		std::vector<real8> zero(volume * DIM);
-		commands.enqueueWriteBuffer(interfaceVelocityBuffer, CL_TRUE, 0, sizeof(real) * volume * DIM, &zero[0]);
-		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real8) * volume * DIM, &zero[0]);
+		std::vector<real8> zero(volume * app.dim);
+		commands.enqueueWriteBuffer(interfaceVelocityBuffer, CL_TRUE, 0, sizeof(real) * volume * app.dim, &zero[0]);
+		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real8) * volume * app.dim, &zero[0]);
 	}
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
@@ -65,37 +63,37 @@ BurgersSolver3D::BurgersSolver3D(
 }
 
 void BurgersSolver3D::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offset3d, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
 void BurgersSolver3D::step() {
-	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offset3d, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcFluxKernel, offset3d, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
-	commands.enqueueNDRangeKernel(integrateFluxKernel, offset3d, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
 
 	if (app.useGravity) {
 		//recompute poisson solution to gravitational potential
 		const int maxIter = 20;
 		for (int i = 0; i < maxIter; ++i) {
-			commands.enqueueNDRangeKernel(poissonRelaxKernel, offset3d, globalSize, localSize);
+			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 	}	
 
 	boundary();
 	
-	commands.enqueueNDRangeKernel(computePressureKernel, offset3d, globalSize, localSize, NULL, &computePressureEvent.clEvent);
+	commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize, NULL, &computePressureEvent.clEvent);
 	
 	if (app.useGravity) {
-		commands.enqueueNDRangeKernel(addGravityKernel, offset3d, globalSize, localSize);
+		commands.enqueueNDRangeKernel(addGravityKernel, offsetNd, globalSize, localSize);
 	
 		boundary();
 	}
 	
-	commands.enqueueNDRangeKernel(diffuseMomentumKernel, offset3d, globalSize, localSize, NULL, &diffuseMomentumEvent.clEvent);
+	commands.enqueueNDRangeKernel(diffuseMomentumKernel, offsetNd, globalSize, localSize, NULL, &diffuseMomentumEvent.clEvent);
 	
 	boundary();
 
-	commands.enqueueNDRangeKernel(diffuseWorkKernel, offset3d, globalSize, localSize, NULL, &diffuseWorkEvent.clEvent);
+	commands.enqueueNDRangeKernel(diffuseWorkKernel, offsetNd, globalSize, localSize, NULL, &diffuseWorkEvent.clEvent);
 }
 
