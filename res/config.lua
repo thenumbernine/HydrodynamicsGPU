@@ -21,10 +21,10 @@ gamma = 1.4
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
--- [[ 3D
+--[[ 3D
 size = {64, 64, 64}
 --]]
---[[ 2D
+-- [[ 2D
 -- max burgers size: 4096x4096
 -- max roe size: 1024x1024
 size = {512, 512}

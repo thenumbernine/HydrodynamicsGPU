@@ -65,7 +65,6 @@ Solver3D::Solver3D(
 , fluidTex(GLuint())
 , viewDist(1.f)
 {
-	cl::Device device = app.device;
 	cl::Context context = app.context;
 	
 
@@ -112,10 +111,7 @@ Solver3D::Solver3D(
 	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
 
 	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, fluidTex);
-		
-	addGravityKernel = cl::Kernel(program, "addGravity");
-	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, app.size, app.dx, dtBuffer);
-
+	
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, app.size, fluidTexMem, app.gradientTexMem);
 
@@ -133,7 +129,7 @@ void Solver3D::resetState(std::vector<real8> stateVec) {
 	
 	//write state density first for gravity potential, to then update energy
 	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * volume, &stateVec[0]);
-
+	
 	//here's our initial guess to sor
 	std::vector<real> gravityPotentialVec(volume);
 	for (size_t i = 0; i < volume; ++i) {
@@ -177,40 +173,12 @@ Solver3D::~Solver3D() {
 
 void Solver3D::boundary() {
 	//boundary
-	for (int i = 0; i < 3; ++i) {
+	for (int i = 0; i < app.dim; ++i) {
 		cl::NDRange globalSize2d(app.size.s[(i+1)%3], app.size.s[(i+2)%3]);
 		cl::NDRange offset2d(0, 0);
 		cl::NDRange localSize2d(localSize[(i+1)%3], localSize[(i+2)%3]);
 		commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethods(i)][i], offset2d, globalSize2d, localSize2d);
 	}
-}
-
-
-void Solver3D::initStep() {
-}
-
-void Solver3D::update() {
-	Super::update();
-	
-	setPoissonRelaxRepeatArg();
-
-	boundary();
-	
-	initStep();
-	
-	if (!app.useFixedDT) {
-		calcTimestep();
-	}
-
-	step();
-
-/*
-	for (EventProfileEntry *entry : entries) {
-		cl_ulong start = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_START>();
-		cl_ulong end = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>();
-		entry->stat.accum((double)(end - start) * 1e-9);
-	}
-*/
 }
 
 void Solver3D::display() {

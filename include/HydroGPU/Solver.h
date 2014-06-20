@@ -20,6 +20,7 @@ struct Solver {
 	
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel poissonRelaxKernel;
+	cl::Kernel addGravityKernel;
 	
 	std::vector<std::vector<cl::Kernel>> stateBoundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim];
 
@@ -37,8 +38,13 @@ struct Solver {
 	
 	virtual void findMinTimestep();
 	virtual void setPoissonRelaxRepeatArg();
-	
+
+	virtual void initStep();
+	virtual void boundary() = 0;
+	virtual void step() = 0;
+	virtual void calcTimestep() = 0;
 	virtual void update();
+	
 	virtual void display() = 0;
 	virtual void resize() = 0;
 

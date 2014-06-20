@@ -151,6 +151,9 @@ void Solver::initKernels() {
 	
 	poissonRelaxKernel = cl::Kernel(program, "poissonRelax");
 	app.setArgs(poissonRelaxKernel, gravityPotentialBuffer, stateBuffer, app.size, app.dx);
+	
+	addGravityKernel = cl::Kernel(program, "addGravity");
+	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, app.size, app.dx, dtBuffer);
 }
 
 void Solver::findMinTimestep() {
@@ -170,12 +173,38 @@ void Solver::findMinTimestep() {
 	}
 }
 
+void Solver::initStep() {
+}
+
 void Solver::update() {
 	if (app.showTimestep) {
 		real dt;
 		commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
 		std::cout << "dt " << dt << std::endl;
 	}
+
+	setPoissonRelaxRepeatArg();
+
+	//commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize, NULL, &addSourceEvent.clEvent);
+
+	boundary();
+	
+	initStep();
+	
+	if (!app.useFixedDT) {
+		calcTimestep();
+	}
+	
+	step();
+
+/*
+	for (EventProfileEntry *entry : entries) {
+		cl_ulong start = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_START>();
+		cl_ulong end = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>();
+		entry->stat.accum((double)(end - start) * 1e-9);
+	}
+*/
+
 }
 
 void Solver::setPoissonRelaxRepeatArg() {

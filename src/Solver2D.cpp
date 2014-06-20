@@ -14,7 +14,6 @@ Solver2D::Solver2D(
 , fluidTex(GLuint())
 , viewZoom(1.f)
 {
-	cl::Device device = app.device;
 	cl::Context context = app.context;
 	
 	//memory
@@ -62,9 +61,6 @@ Solver2D::Solver2D(
 	//hmm, my cl.hpp version only supports clCreateFromGLTexture2D, which is deprecated ... do I use the deprecated method, or do I stick with the C structures?
 	// ... or do I look for a more up-to-date version of cl.hpp
 	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex);
-
-	addGravityKernel = cl::Kernel(program, "addGravity");
-	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, app.size, app.dx, dtBuffer);
 
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, app.size, fluidTexMem, app.gradientTexMem);
@@ -151,41 +147,6 @@ void Solver2D::boundary() {
 		cl::NDRange globalSize1d(app.size.s[i]);
 		commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethods(i)][i], offset1d, globalSize1d, localSize1d);
 	}
-}
-
-void Solver2D::initStep() {
-}
-
-void Solver2D::update() {
-	//CPU need to bind beforehand for roe/cpu to use it
-	//GPU needs it unbound until after the update
-	if (!app.useGPU) {
-		glBindTexture(GL_TEXTURE_2D, fluidTex);
-	}
-	
-	Super::update();
-	
-	setPoissonRelaxRepeatArg();
-
-	//commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize, NULL, &addSourceEvent.clEvent);
-
-	boundary();
-	
-	initStep();
-	
-	if (!app.useFixedDT) {
-		calcTimestep();
-	}
-	
-	step();
-
-/*
-	for (EventProfileEntry *entry : entries) {
-		cl_ulong start = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_START>();
-		cl_ulong end = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>();
-		entry->stat.accum((double)(end - start) * 1e-9);
-	}
-*/
 }
 
 void Solver2D::display() {

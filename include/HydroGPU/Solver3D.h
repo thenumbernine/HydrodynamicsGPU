@@ -14,7 +14,6 @@ struct Solver3D : public Solver {
 	typedef Solver Super;
 	
 	cl::Kernel convertToTexKernel;
-	cl::Kernel addGravityKernel;
 
 	struct EventProfileEntry {
 		EventProfileEntry(std::string name_) : name(name_) {}
@@ -36,7 +35,6 @@ struct Solver3D : public Solver {
 	virtual ~Solver3D();
 	
 	virtual void resetState(std::vector<real8> stateVec);
-	virtual void update();
 	virtual void display();
 	virtual void resize();
 
@@ -50,9 +48,6 @@ struct Solver3D : public Solver {
 	virtual void save();
 
 protected:
-	virtual void initStep();
-	virtual void calcTimestep() = 0;
-	virtual void step() = 0;
 	virtual void boundary();
 };
 

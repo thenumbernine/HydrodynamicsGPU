@@ -14,7 +14,6 @@ struct Solver2D : public Solver {
 	cl::Kernel convertToTexKernel;
 	cl::Kernel addDropKernel;
 	cl::Kernel addSourceKernel;
-	cl::Kernel addGravityKernel;
 
 	struct EventProfileEntry {
 		EventProfileEntry(std::string name_) : name(name_) {}
@@ -36,7 +35,6 @@ struct Solver2D : public Solver {
 	Solver2D(HydroGPUApp &app, const std::string &programFilename);
 	virtual ~Solver2D();
 	
-	virtual void update();
 	virtual void display();
 	virtual void resize();
 
@@ -56,9 +54,6 @@ struct Solver2D : public Solver {
 
 protected:
 	virtual void resetState(std::vector<real8> stateVec);
-	virtual void initStep();
-	virtual void calcTimestep() = 0;
-	virtual void step() = 0;
 	virtual void boundary();
 
 };
