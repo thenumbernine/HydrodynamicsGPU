@@ -1,5 +1,9 @@
 #include "HydroGPU/Shared/Common3D.h"
 
+real8 mirrorX(real8 state);
+real8 mirrorY(real8 state);
+real8 mirrorZ(real8 state);
+
 //http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 __kernel void calcCFLMinReduce(
 	const __global real* buffer,
@@ -32,8 +36,6 @@ __kernel void calcCFLMinReduce(
 		result[get_group_id(0)] = scratch[0];
 	}
 }
-
-real8 mirror(real8 state, int mirrorDim);
 
 __kernel void stateBoundaryPeriodicX(
 	__global real8* stateBuffer,
@@ -68,20 +70,19 @@ __kernel void stateBoundaryPeriodicZ(
 	stateBuffer[INDEX(i.x, i.y, size.z - 1)] = stateBuffer[INDEX(i.x, i.y, 3)];
 }
 
-real8 mirror(real8 state, int mirrorDim) {
-	state[mirrorDim] = -state[mirrorDim];
-	return state;
-}
+real8 mirrorX(real8 state) { state.s1 = -state.s1; return state; }
+real8 mirrorY(real8 state) { state.s2 = -state.s2; return state; }
+real8 mirrorZ(real8 state) { state.s3 = -state.s3; return state; }
 
 __kernel void stateBoundaryMirrorX(
 	__global real8* stateBuffer,
 	int3 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(0, i.x, i.y)] = mirror(stateBuffer[INDEX(3, i.x, i.y)], 1);
-	stateBuffer[INDEX(1, i.x, i.y)] = mirror(stateBuffer[INDEX(2, i.x, i.y)], 1);
-	stateBuffer[INDEX(size.x - 1, i.x, i.y)] = mirror(stateBuffer[INDEX(size.x - 4, i.x, i.y)], 1);
-	stateBuffer[INDEX(size.x - 2, i.x, i.y)] = mirror(stateBuffer[INDEX(size.x - 3, i.x, i.y)], 1);
+	stateBuffer[INDEX(0, i.x, i.y)] = mirrorX(stateBuffer[INDEX(3, i.x, i.y)]);
+	stateBuffer[INDEX(1, i.x, i.y)] = mirrorX(stateBuffer[INDEX(2, i.x, i.y)]);
+	stateBuffer[INDEX(size.x - 1, i.x, i.y)] = mirrorX(stateBuffer[INDEX(size.x - 4, i.x, i.y)]);
+	stateBuffer[INDEX(size.x - 2, i.x, i.y)] = mirrorX(stateBuffer[INDEX(size.x - 3, i.x, i.y)]);
 }
 
 __kernel void stateBoundaryMirrorY(
@@ -89,10 +90,10 @@ __kernel void stateBoundaryMirrorY(
 	int3 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(i.y, 0, i.x)] = mirror(stateBuffer[INDEX(i.y, 3, i.x)], 2);
-	stateBuffer[INDEX(i.y, 1, i.x)] = mirror(stateBuffer[INDEX(i.y, 2, i.x)], 2);
-	stateBuffer[INDEX(i.y, size.y - 1, i.x)] = mirror(stateBuffer[INDEX(i.y, size.y - 4, i.x)], 2);
-	stateBuffer[INDEX(i.y, size.y - 2, i.x)] = mirror(stateBuffer[INDEX(i.y, size.y - 3, i.x)], 2);
+	stateBuffer[INDEX(i.y, 0, i.x)] = mirrorY(stateBuffer[INDEX(i.y, 3, i.x)]);
+	stateBuffer[INDEX(i.y, 1, i.x)] = mirrorY(stateBuffer[INDEX(i.y, 2, i.x)]);
+	stateBuffer[INDEX(i.y, size.y - 1, i.x)] = mirrorY(stateBuffer[INDEX(i.y, size.y - 4, i.x)]);
+	stateBuffer[INDEX(i.y, size.y - 2, i.x)] = mirrorY(stateBuffer[INDEX(i.y, size.y - 3, i.x)]);
 }
 
 __kernel void stateBoundaryMirrorZ(
@@ -100,10 +101,10 @@ __kernel void stateBoundaryMirrorZ(
 	int3 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(i.x, i.y, 0)] = mirror(stateBuffer[INDEX(i.x, i.y, 3)], 3);
-	stateBuffer[INDEX(i.x, i.y, 1)] = mirror(stateBuffer[INDEX(i.x, i.y, 2)], 3);
-	stateBuffer[INDEX(i.x, i.y, size.z - 1)] = mirror(stateBuffer[INDEX(i.x, i.y, size.z - 4)], 3);
-	stateBuffer[INDEX(i.x, i.y, size.z - 2)] = mirror(stateBuffer[INDEX(i.x, i.y, size.z - 3)], 3);
+	stateBuffer[INDEX(i.x, i.y, 0)] = mirrorZ(stateBuffer[INDEX(i.x, i.y, 3)]);
+	stateBuffer[INDEX(i.x, i.y, 1)] = mirrorZ(stateBuffer[INDEX(i.x, i.y, 2)]);
+	stateBuffer[INDEX(i.x, i.y, size.z - 1)] = mirrorZ(stateBuffer[INDEX(i.x, i.y, size.z - 4)]);
+	stateBuffer[INDEX(i.x, i.y, size.z - 2)] = mirrorZ(stateBuffer[INDEX(i.x, i.y, size.z - 3)]);
 }
 
 __kernel void stateBoundaryFreeFlowX(

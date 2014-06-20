@@ -2,16 +2,16 @@
 
 //http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 __kernel void calcCFLMinReduce(
-	const __global float* buffer,
-	__local float* scratch,
+	const __global real* buffer,
+	__local real* scratch,
 	__const int length,
-	__global float* result)
+	__global real* result)
 {
 	int global_index = get_global_id(0);
-	float accumulator = INFINITY;
+	real accumulator = INFINITY;
 	// Loop sequentially over chunks of input vector
 	while (global_index < length) {
-		float element = buffer[global_index];
+		real element = buffer[global_index];
 		accumulator = (accumulator < element) ? accumulator : element;
 		global_index += get_global_size(0);
 	}
@@ -22,8 +22,8 @@ __kernel void calcCFLMinReduce(
 	barrier(CLK_LOCAL_MEM_FENCE);
 	for(int offset = get_local_size(0) / 2; offset > 0; offset = offset / 2) {
 		if (local_index < offset) {
-			float other = scratch[local_index + offset];
-			float mine = scratch[local_index];
+			real other = scratch[local_index + offset];
+			real mine = scratch[local_index];
 			scratch[local_index] = (mine < other) ? mine : other;
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
@@ -43,10 +43,10 @@ __kernel void stateBoundaryPeriodicX(
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[0 + size.x * i] = stateBuffer[size.x - 4 + size.x * i];
-	stateBuffer[1 + size.x * i] = stateBuffer[size.x - 3 + size.x * i];
-	stateBuffer[size.x - 2 + size.x * i] = stateBuffer[2 + size.x * i];
-	stateBuffer[size.x - 1 + size.x * i] = stateBuffer[3 + size.x * i];
+	stateBuffer[INDEX(0, i)] = stateBuffer[INDEX(size.x - 4, i)];
+	stateBuffer[INDEX(1, i)] = stateBuffer[INDEX(size.x - 3, i)];
+	stateBuffer[INDEX(size.x - 2, i)] = stateBuffer[INDEX(2, i)];
+	stateBuffer[INDEX(size.x - 1, i)] = stateBuffer[INDEX(3, i)];
 }
 
 __kernel void stateBoundaryPeriodicY(
@@ -54,10 +54,10 @@ __kernel void stateBoundaryPeriodicY(
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * (size.y - 4)];
-	stateBuffer[i + size.x * 1] = stateBuffer[i + size.x * (size.y - 3)];
-	stateBuffer[i + size.x * (size.y - 2)] = stateBuffer[i + size.x * 2];
-	stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * 3];
+	stateBuffer[INDEX(i, 0)] = stateBuffer[INDEX(i, size.y - 4)];
+	stateBuffer[INDEX(i, 1)] = stateBuffer[INDEX(i, size.y - 3)];
+	stateBuffer[INDEX(i, size.y - 2)] = stateBuffer[INDEX(i, 2)];
+	stateBuffer[INDEX(i, size.y - 1)] = stateBuffer[INDEX(i, 3)];
 }
 
 //mirror
@@ -70,10 +70,10 @@ __kernel void stateBoundaryMirrorX(
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[0 + size.x * i] = mirrorStateX(stateBuffer[3 + size.x * i]);
-	stateBuffer[1 + size.x * i] = mirrorStateX(stateBuffer[2 + size.x * i]);
-	stateBuffer[size.x - 1 + size.x * i] = mirrorStateX(stateBuffer[size.x - 4 + size.x * i]);
-	stateBuffer[size.x - 2 + size.x * i] = mirrorStateX(stateBuffer[size.x - 3 + size.x * i]);	
+	stateBuffer[INDEX(0, i)] = mirrorStateX(stateBuffer[INDEX(3, i)]);
+	stateBuffer[INDEX(1, i)] = mirrorStateX(stateBuffer[INDEX(2, i)]);
+	stateBuffer[INDEX(size.x - 1, i)] = mirrorStateX(stateBuffer[INDEX(size.x - 4, i)]);
+	stateBuffer[INDEX(size.x - 2, i)] = mirrorStateX(stateBuffer[INDEX(size.x - 3, i)]);	
 }
 
 __kernel void stateBoundaryMirrorY(
@@ -81,10 +81,10 @@ __kernel void stateBoundaryMirrorY(
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[i + size.x * 0] = mirrorStateY(stateBuffer[i + size.x * 3]);
-	stateBuffer[i + size.x * 1] = mirrorStateY(stateBuffer[i + size.x * 2]);
-	stateBuffer[i + size.x * (size.y - 1)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 4)]);
-	stateBuffer[i + size.x * (size.y - 2)] = mirrorStateY(stateBuffer[i + size.x * (size.y - 3)]);
+	stateBuffer[INDEX(i, 0)] = mirrorStateY(stateBuffer[INDEX(i, 3)]);
+	stateBuffer[INDEX(i, 1)] = mirrorStateY(stateBuffer[INDEX(i, 2)]);
+	stateBuffer[INDEX(i, size.y - 1)] = mirrorStateY(stateBuffer[INDEX(i, size.y - 4)]);
+	stateBuffer[INDEX(i, size.y - 2)] = mirrorStateY(stateBuffer[INDEX(i, size.y - 3)]);
 }
 
 //freeflow
@@ -94,8 +94,8 @@ __kernel void stateBoundaryFreeFlowX(
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[0 + size.x * i] = stateBuffer[1 + size.x * i] = (stateBuffer[2 + size.x * i]);
-	stateBuffer[size.x - 1 + size.x * i] = stateBuffer[size.x - 2 + size.x * i] = (stateBuffer[size.x - 3 + size.x * i]);
+	stateBuffer[INDEX(0, i)] = stateBuffer[INDEX(1, i)] = (stateBuffer[INDEX(2, i)]);
+	stateBuffer[INDEX(size.x - 1, i)] = stateBuffer[INDEX(size.x - 2, i)] = (stateBuffer[INDEX(size.x - 3, i)]);
 }
 
 __kernel void stateBoundaryFreeFlowY(
@@ -103,8 +103,8 @@ __kernel void stateBoundaryFreeFlowY(
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[i + size.x * 0] = stateBuffer[i + size.x * 1] = (stateBuffer[i + size.x * 2]);
-	stateBuffer[i + size.x * (size.y - 1)] = stateBuffer[i + size.x * (size.y - 2)] = (stateBuffer[i + size.x * (size.y - 3)]);
+	stateBuffer[INDEX(i, 0)] = stateBuffer[INDEX(i, 1)] = (stateBuffer[INDEX(i, 2)]);
+	stateBuffer[INDEX(i, size.y - 1)] = stateBuffer[INDEX(i, size.y - 2)] = (stateBuffer[INDEX(i, size.y - 3)]);
 }
 
 __kernel void convertToTex(
@@ -242,39 +242,36 @@ __kernel void poissonRelax(
 	const __global real4* stateBuffer,
 	int2 size,
 	real2 dx,
-	char repeat)
+	int2 repeat)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	int index = i.x + size.x * i.y;
+	int index = INDEXV(i);
 
-	int ixp, ixn, iyp, iyn;
-	if (repeat) {
-		ixp = (i.x + size.x - 1) % size.x;
-		ixn = (i.x + 1) % size.x;
-		iyp = (i.y + size.y - 1) % size.y;
-		iyn = (i.y + 1) % size.y;
-	} else {
-		ixp = max(i.x - 1, 0);
-		ixn = min(i.x + 1, size.x - 1);
-		iyp = max(i.y - 1, 0);
-		iyn = min(i.y + 1, size.y - 1);
+	real sum = 0.f;
+	for (int side = 0; side < DIM; ++side) {
+		int2 iprev = i;
+		int2 inext = i;
+		if (repeat[side]) {
+			iprev[side] = (iprev[side] + size[side] - 1) % size[side];
+			inext[side] = (inext[side] + 1) % size[side];
+		} else {
+			iprev[side] = max(iprev[side] - 1, 0);
+			inext[side] = min(inext[side] + 1, size[side] - 1);
+		}
+		int indexPrev = INDEXV(iprev);
+		int indexNext = INDEXV(inext);
+		sum += gravityPotentialBuffer[indexPrev] + gravityPotentialBuffer[indexNext];
 	}
 
-	int xp = ixp + size.x * i.y;
-	int xn = ixn + size.x * i.y;
-	int yp = i.x + size.x * iyp;
-	int yn = i.x + size.x * iyn;
-
-	real sum = gravityPotentialBuffer[xp] 
-				+ gravityPotentialBuffer[xn] 
-				+ gravityPotentialBuffer[yp] 
-				+ gravityPotentialBuffer[yn];
-	
 #define M_PI 3.141592653589793115997963468544185161590576171875f
 #define GRAVITY_CONSTANT 1.f		//6.67384e-11 m^3 / (kg s^2)
-	real scale = M_PI * GRAVITY_CONSTANT * dx.x * dx.y;
+	
+	real scale = M_PI * GRAVITY_CONSTANT * dx.x;
+#if DIM > 1
+	scale *= dx.y;
+#endif
 
-	gravityPotentialBuffer[index] = .25f * sum + scale * stateBuffer[index].x;
+	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * stateBuffer[index].x;
 }
 
 __kernel void addGravity(

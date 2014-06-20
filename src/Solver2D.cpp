@@ -93,6 +93,18 @@ Solver2D::Solver2D(
 	glBindTexture(GL_TEXTURE_2D, fluidTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	Tensor::Vector<int,3> glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
+	for (int i = 0; i < app.dim; ++i) {
+		switch (app.boundaryMethods(i)) {
+		case BOUNDARY_PERIODIC:
+			glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_REPEAT);
+			break;
+		case BOUNDARY_MIRROR:
+		case BOUNDARY_FREEFLOW:
+			glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_CLAMP_TO_EDGE);
+			break;
+		}
+	}
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app.size.s[0], app.size.s[1], 0, GL_RGBA, GL_FLOAT, NULL);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	int err = glGetError();
@@ -255,24 +267,27 @@ Solver2D::~Solver2D() {
 void Solver2D::boundary() {
 	//boundary
 	for (int i = 0; i < app.dim; ++i) {
-		if (app.size.s[i] == 1) break;
 		cl::NDRange globalSize1d(app.size.s[i]);
 		commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethods(i)][i], offset1d, globalSize1d, localSize1d);
 	}
 }
 
 void Solver2D::setPoissonRelaxRepeatArg() {
-	switch (app.boundaryMethods(0)) {	//TODO per dimension
-	case BOUNDARY_PERIODIC:
-		poissonRelaxKernel.setArg(4, true);
-		break;
-	case BOUNDARY_MIRROR:
-	case BOUNDARY_FREEFLOW:
-		poissonRelaxKernel.setArg(4, false);
-		break;
-	default:
-		throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
+	cl_int2 repeat;
+	for (int i = 0; i < 2; ++i) {
+		switch (app.boundaryMethods(0)) {	//TODO per dimension
+		case BOUNDARY_PERIODIC:
+			repeat.s[i] = true;
+			break;
+		case BOUNDARY_MIRROR:
+		case BOUNDARY_FREEFLOW:
+			repeat.s[i] = false;
+			break;
+		default:
+			throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
+		}	
 	}	
+	poissonRelaxKernel.setArg(4, repeat);
 }
 
 void Solver2D::initStep() {

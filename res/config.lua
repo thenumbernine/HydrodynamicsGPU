@@ -6,8 +6,8 @@
 solverName = 'Burgers'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
---maxFrames = 1		--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
-showTimestep = true	--whether to print timestep.  useful for debugging.  push 't' to toggle.
+--maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
 useFixedDT = false
@@ -24,10 +24,12 @@ gamma = 1.4
 --[[ 3D
 size = {64, 64, 64}
 --]]
---[[ 2D
+-- [[ 2D
+-- max burgers size: 4096x4096
+-- max roe size: 1024x1024
 size = {512, 512}
 --]]
--- [[ 1D
+--[[ 1D
 size = {1024}
 xmin[2] = xmin[2] * 1/size[1]
 xmax[2] = xmax[2] * 1/size[1]
@@ -35,10 +37,12 @@ displayScale = .25
 --]]
 
 
--- testing HLL
+--[[ testing HLL
 solverName = 'HLL'
 useFixedDT = true
 fixedDT = .01
+--]]
+
 
 local dim = #size
 
