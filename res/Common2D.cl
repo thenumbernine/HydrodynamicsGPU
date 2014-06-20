@@ -1,5 +1,8 @@
 #include "HydroGPU/Shared/Common2D.h"
 
+real4 mirrorStateX(real4 state);
+real4 mirrorStateY(real4 state);
+
 //http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 __kernel void calcCFLMinReduce(
 	const __global real* buffer,
@@ -33,9 +36,6 @@ __kernel void calcCFLMinReduce(
 	}
 }
 
-real4 mirrorStateX(real4 state);
-real4 mirrorStateY(real4 state);
-
 //periodic
 
 __kernel void stateBoundaryPeriodicX(
@@ -62,8 +62,8 @@ __kernel void stateBoundaryPeriodicY(
 
 //mirror
 
-real4 mirrorStateX(real4 state) { return (real4)(state.x, -state.y, state.z, state.w); }
-real4 mirrorStateY(real4 state) { return (real4)(state.x, state.y, -state.z, state.w); }
+real4 mirrorStateX(real4 state) { state.s1 = -state.s1; return state; }
+real4 mirrorStateY(real4 state) { state.s2 = -state.s2; return state; }
 
 __kernel void stateBoundaryMirrorX(
 	__global real4* stateBuffer,
@@ -118,21 +118,21 @@ __kernel void convertToTex(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	int index = INDEXV(i);
-	real4 state = stateBuffer[index];
 	
+	real4 state = stateBuffer[index];
 	real value;
 	switch (displayMethod) {
 	case DISPLAY_DENSITY:	//density
-		value = state.x;
+		value = state.s0;
 		break;
 	case DISPLAY_VELOCITY:	//velocity
-		value = length(state.yz) / state.x;
+		value = length(state.s12) / state.s0;
 		break;
 	case DISPLAY_PRESSURE:	//pressure
 		{
-			real density = state.x;
-			real energyTotal = state.w / density;
-			real energyKinetic = .5f * dot(state.yz, state.yz) / (density * density);
+			real density = state.s0;
+			real energyTotal = state.s3 / density;
+			real energyKinetic = .5f * dot(state.yz, state.s12) / (density * density);
 			real energyPotential = gravityPotentialBuffer[index];
 			real energyInternal = energyTotal - energyKinetic - energyPotential;
 			value = (GAMMA - 1.f) * energyInternal * density;
@@ -153,6 +153,78 @@ __kernel void convertToTex(
 	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
 	write_imagef(fluidTex, i, color.bgra);
 #endif
+}
+
+__kernel void poissonRelax(
+	__global real* gravityPotentialBuffer,
+	const __global real4* stateBuffer,
+	int2 size,
+	real2 dx,
+	int2 repeat)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	int index = INDEXV(i);
+
+	real sum = 0.f;
+	for (int side = 0; side < DIM; ++side) {
+		int2 iprev = i;
+		int2 inext = i;
+		if (repeat[side]) {
+			iprev[side] = (iprev[side] + size[side] - 1) % size[side];
+			inext[side] = (inext[side] + 1) % size[side];
+		} else {
+			iprev[side] = max(iprev[side] - 1, 0);
+			inext[side] = min(inext[side] + 1, size[side] - 1);
+		}
+		int indexPrev = INDEXV(iprev);
+		int indexNext = INDEXV(inext);
+		sum += gravityPotentialBuffer[indexPrev] + gravityPotentialBuffer[indexNext];
+	}
+
+#define M_PI 3.141592653589793115997963468544185161590576171875f
+#define GRAVITY_CONSTANT 1.f		//6.67384e-11 m^3 / (kg s^2)
+	
+	real scale = M_PI * GRAVITY_CONSTANT * dx.x;
+#if DIM > 1
+	scale *= dx.y;
+#endif
+
+	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * stateBuffer[index].x;
+}
+
+__kernel void addGravity(
+	__global real4* stateBuffer,
+	const __global real* gravityPotentialBuffer,
+	int2 size,
+	real2 dx,
+	const __global real* dtBuffer)
+{
+	real dt = dtBuffer[0];
+	real2 dt_dx = dt / dx;
+
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
+	int index = i.x + size.x * i.y;
+
+	real4 state = stateBuffer[index];
+	real density = state.x;
+
+	for (int side = 0; side < 2; ++side) {
+		int2 iPrev = i;
+		--iPrev[side];
+		int indexPrev = iPrev.x + size.x * iPrev.y;
+		
+		int2 iNext = i;
+		++iNext[side];
+		int indexNext = iNext.x + size.x * iNext.y;	
+	
+		real gravityGrad = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
+		
+		state[side+1] -= dt_dx[side] * density * gravityGrad;
+		state.w -= dt * density * gravityGrad * state[side+1];
+	}
+
+	stateBuffer[index] = state;
 }
 
 __kernel void addDrop(
@@ -235,78 +307,6 @@ return;
 	energyTotal = energyInternal + energyKinetic;
 
 	stateBuffer[index] = (real4)(1.f, velocity.x, velocity.y, energyTotal) * density;
-}
-
-__kernel void poissonRelax(
-	__global real* gravityPotentialBuffer,
-	const __global real4* stateBuffer,
-	int2 size,
-	real2 dx,
-	int2 repeat)
-{
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	int index = INDEXV(i);
-
-	real sum = 0.f;
-	for (int side = 0; side < DIM; ++side) {
-		int2 iprev = i;
-		int2 inext = i;
-		if (repeat[side]) {
-			iprev[side] = (iprev[side] + size[side] - 1) % size[side];
-			inext[side] = (inext[side] + 1) % size[side];
-		} else {
-			iprev[side] = max(iprev[side] - 1, 0);
-			inext[side] = min(inext[side] + 1, size[side] - 1);
-		}
-		int indexPrev = INDEXV(iprev);
-		int indexNext = INDEXV(inext);
-		sum += gravityPotentialBuffer[indexPrev] + gravityPotentialBuffer[indexNext];
-	}
-
-#define M_PI 3.141592653589793115997963468544185161590576171875f
-#define GRAVITY_CONSTANT 1.f		//6.67384e-11 m^3 / (kg s^2)
-	
-	real scale = M_PI * GRAVITY_CONSTANT * dx.x;
-#if DIM > 1
-	scale *= dx.y;
-#endif
-
-	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * stateBuffer[index].x;
-}
-
-__kernel void addGravity(
-	__global real4* stateBuffer,
-	const __global real* gravityPotentialBuffer,
-	int2 size,
-	real2 dx,
-	const __global real* dtBuffer)
-{
-	real dt = dtBuffer[0];
-	real2 dt_dx = dt / dx;
-
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
-	int index = i.x + size.x * i.y;
-
-	real4 state = stateBuffer[index];
-	real density = state.x;
-
-	for (int side = 0; side < 2; ++side) {
-		int2 iPrev = i;
-		--iPrev[side];
-		int indexPrev = iPrev.x + size.x * iPrev.y;
-		
-		int2 iNext = i;
-		++iNext[side];
-		int indexNext = iNext.x + size.x * iNext.y;	
-	
-		real gravityGrad = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
-		
-		state[side+1] -= dt_dx[side] * density * gravityGrad;
-		state.w -= dt * density * gravityGrad * state[side+1];
-	}
-
-	stateBuffer[index] = state;
 }
 
 
