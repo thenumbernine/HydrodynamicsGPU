@@ -31,10 +31,13 @@ struct Solver {
 	cl::NDRange offset1d;
 	cl::NDRange offsetNd;
 
+	size_t totalAlloc;
+
 	Solver(HydroGPUApp& app, const std::vector<std::string>& programFilenames);
 	virtual ~Solver() {}
 	
 	virtual void initKernels();
+	cl::Buffer clAlloc(size_t size);
 	
 	virtual void findMinTimestep();
 	virtual void setPoissonRelaxRepeatArg();

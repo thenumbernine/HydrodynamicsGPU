@@ -143,7 +143,7 @@ __kernel void calcEigenBasis(
 			enthalpyTotal + speedOfSound * velocityN);
 
 		//transpose and store
-		eigenvectorsBuffer[interfaceIndex] = (real16)(
+		eigenvectorsBuffer[4 * interfaceIndex] = (real16)(
 			eigenvectors.s048C,
 			eigenvectors.s159D,
 			eigenvectors.s26AE,
@@ -152,7 +152,7 @@ __kernel void calcEigenBasis(
 #if 1	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
 		//calculate eigenvector inverses ... 
 		real invDenom = .5f / (speedOfSound * speedOfSound);
-		eigenvectorsInverseBuffer[interfaceIndex] = (real16)( 
+		eigenvectorsInverseBuffer[4 * interfaceIndex] = (real16)( 
 		//min row
 			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom,
 			-(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
@@ -175,7 +175,7 @@ __kernel void calcEigenBasis(
 			(GAMMA - 1.f) * invDenom);
 #endif
 #if 0 //numerically solve for the inverse
-		eigenvectorsInverseBuffer[interfaceIndex] = mat44inv(eigenvectorsBuffer[interfaceIndex]);
+		eigenvectorsInverseBuffer[4 * interfaceIndex] = mat44inv(eigenvectorsBuffer[4 * interfaceIndex]);
 #endif
 #endif
 
@@ -270,8 +270,8 @@ __kernel void calcEigenBasis(
 			eigenvectors.s456789AB = (real8)(-eigenvectors.s89AB, eigenvectors.s4567);
 		}
 		
-		eigenvectorsBuffer[interfaceIndex] = eigenvectors;
-		eigenvectorsInverseBuffer[interfaceIndex] = eigenvectorsInverse;
+		eigenvectorsBuffer[4 * interfaceIndex] = eigenvectors;
+		eigenvectorsInverseBuffer[4 * interfaceIndex] = eigenvectorsInverse;
 #endif
 	}
 }
@@ -356,7 +356,7 @@ __kernel void calcDeltaQTilde(
 		int interfaceIndex = side + DIM * index;
 		
 		real8 deltaQ = stateR - stateL;
-		deltaQTildeBuffer[interfaceIndex].s0123 = matmul(eigenvectorsInverseBuffer[interfaceIndex], deltaQ.s0123);
+		deltaQTildeBuffer[interfaceIndex].s0123 = matmul(eigenvectorsInverseBuffer[4 * interfaceIndex], deltaQ.s0123);
 	}
 }
 
@@ -409,8 +409,8 @@ __kernel void calcFlux(
 		real8 deltaQTildeR = deltaQTildeBuffer[interfaceRIndex];
 
 		real8 eigenvalues = eigenvaluesBuffer[interfaceIndex];
-		real16 eigenvectors = eigenvectorsBuffer[interfaceIndex];
-		real16 eigenvectorsInverse = eigenvectorsInverseBuffer[interfaceIndex];
+		real16 eigenvectors = eigenvectorsBuffer[4 * interfaceIndex];
+		real16 eigenvectorsInverse = eigenvectorsInverseBuffer[4 * interfaceIndex];
 
 		real8 theta = step(0.f, eigenvalues) * 2.f - 1.f;
 		real8 rTilde = mix(deltaQTildeR, deltaQTildeL, theta * .5f + .5f) / deltaQTilde;

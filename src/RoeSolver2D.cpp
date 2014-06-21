@@ -24,11 +24,11 @@ RoeSolver2D::RoeSolver2D(
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
-	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
-	eigenvectorsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * app.dim);
-	eigenvectorsInverseBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * app.dim);
-	deltaQTildeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
+	eigenvaluesBuffer = clAlloc(sizeof(real8) * volume * app.dim);
+	eigenvectorsBuffer = clAlloc(sizeof(real16) * 4 * volume * app.dim);
+	eigenvectorsInverseBuffer = clAlloc(sizeof(real16) * 4 * volume * app.dim);
+	deltaQTildeBuffer = clAlloc(sizeof(real8) * volume * app.dim);
+	fluxBuffer = clAlloc(sizeof(real8) * volume * app.dim);
 	
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
 	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer, app.size);

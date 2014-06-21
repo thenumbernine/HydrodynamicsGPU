@@ -2,11 +2,18 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 
+cl::Buffer Solver::clAlloc(size_t size) {
+	totalAlloc += size;
+	std::cout << "allocating gpu mem size " << size << " running total " << totalAlloc << std::endl; 
+	return cl::Buffer(app.context, CL_MEM_READ_WRITE, size);
+}
+
 Solver::Solver(
 	HydroGPUApp& app_,
 	const std::vector<std::string>& programFilenames)
 : app(app_)
 , commands(app.commands)
+, totalAlloc(0)
 {
 	cl::Device device = app.device;
 	cl::Context context = app.context;

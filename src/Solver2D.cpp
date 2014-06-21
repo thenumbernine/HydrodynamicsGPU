@@ -20,7 +20,7 @@ Solver2D::Solver2D(
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 	
-	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume);
+	stateBuffer = clAlloc(sizeof(real8) * volume);
 	
 	if (app.dim == 1) {
 		std::string shaderCode = Common::File::read("Display1D.shader");
@@ -54,6 +54,8 @@ Solver2D::Solver2D(
 		}
 	}
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app.size.s[0], app.size.s[1], 0, GL_RGBA, GL_FLOAT, NULL);
+	totalAlloc += sizeof(float) * 4 * volume;
+	std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << totalAlloc << std::endl;
 	glBindTexture(GL_TEXTURE_2D, 0);
 	int err = glGetError();
 	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
