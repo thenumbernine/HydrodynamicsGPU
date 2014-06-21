@@ -25,13 +25,13 @@ HLLSolver2D::HLLSolver2D(
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume * 2);
 	
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenvalues");
-	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer, app.size);
+	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.size, app.dx, app.cfl);
+	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.dx, app.cfl);
 	
 	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
-	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, app.size, app.dx, dtBuffer);
+	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, app.dx, dtBuffer);
 }	
 
 void HLLSolver2D::initStep() {

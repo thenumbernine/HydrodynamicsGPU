@@ -25,13 +25,12 @@ __kernel void calcEigenvalues(
 	__global real4* eigenvaluesBuffer,
 	__global real4* fluxBuffer,
 	const __global real4* stateBuffer,
-	const __global real* gravityPotentialBuffer,
-	int2 size)
+	const __global real* gravityPotentialBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.x >= size.x - 1 
+	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 1
+		|| i.y < 2 || i.y >= SIZE_Y - 1
 #endif
 	) return;
 	int index = INDEXV(i);
@@ -128,15 +127,14 @@ __kernel void calcEigenvalues(
 __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real4* eigenvaluesBuffer,
-	int2 size,
 	real2 dx,
 	real cfl)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	int index = INDEXV(i);
-	if (i.x < 2 || i.x >= size.x - 2 
+	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 2
+		|| i.y < 2 || i.y >= SIZE_Y - 2
 #endif
 	) {
 		cflBuffer[index] = INFINITY;
@@ -189,16 +187,15 @@ real4 slopeLimiter(real4 r) {
 __kernel void integrateFlux(
 	__global real4* stateBuffer,
 	const __global real4* fluxBuffer,
-	int2 size,
 	real2 dx,
 	const __global real* dt)
 {
 	real2 dt_dx = *dt / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.x >= size.x - 2 
+	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 2
+		|| i.y < 2 || i.y >= SIZE_Y - 2
 #endif
 	) return;
 	int index = INDEXV(i);

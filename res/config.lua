@@ -3,7 +3,7 @@
 	-- solver variables
 
 
-solverName = 'Burgers'
+solverName = 'Roe'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
 --maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
@@ -21,7 +21,7 @@ gamma = 1.4
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
--- [[ 3D
+--[[ 3D
 -- roe 3d is crashing on build.
 -- burgers 3d with flux limiter is crashing on build, but without flux limiter works fine
 size = {64, 64, 64}
@@ -33,7 +33,7 @@ size = {64, 64, 64}
 -- roe with 8 channels is crashing on build
 size = {512, 512}
 --]]
---[[ 1D
+-- [[ 1D
 size = {1024}
 displayScale = .25
 --]]

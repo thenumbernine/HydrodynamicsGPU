@@ -63,13 +63,13 @@ Solver2D::Solver2D(
 	fluidTexMem = cl::ImageGL(app.context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex);
 
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
-	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, app.size, fluidTexMem, app.gradientTexMem);
+	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, fluidTexMem, app.gradientTexMem);
 
 	addDropKernel = cl::Kernel(program, "addDrop");
-	app.setArgs(addDropKernel, stateBuffer, app.size, app.xmin, app.xmax);
+	app.setArgs(addDropKernel, stateBuffer, app.xmin, app.xmax);
 
 	addSourceKernel = cl::Kernel(program, "addSource");
-	app.setArgs(addSourceKernel, stateBuffer, app.size, app.xmin, app.xmax, dtBuffer);
+	app.setArgs(addSourceKernel, stateBuffer, app.xmin, app.xmax, dtBuffer);
 
 	initKernels();	//parent call for after the child class has populated buffers
 }
