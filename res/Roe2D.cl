@@ -3,7 +3,7 @@
 real4 matmul(real16 m, real4 v);
 real mat44det(real16 m);
 real16 mat44inv(real16 m);
-real4 slopeLimiter(real4 r);
+real8 slopeLimiter(real8 r);
 
 real4 matmul(real16 m, real4 v) {
 	return (real4)(
@@ -44,10 +44,10 @@ real16 mat44inv(real16 m) {
 }
 
 __kernel void calcEigenBasis(
-	__global real4* eigenvaluesBuffer,
+	__global real8* eigenvaluesBuffer,
 	__global real16* eigenvectorsBuffer,
 	__global real16* eigenvectorsInverseBuffer,
-	const __global real4* stateBuffer,
+	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
 	int2 size)
 {
@@ -66,8 +66,8 @@ __kernel void calcEigenBasis(
 
 		int interfaceIndex = side + DIM * index;
 
-		real4 stateL = stateBuffer[indexPrev];
-		real4 stateR = stateBuffer[index];
+		real8 stateL = stateBuffer[indexPrev];
+		real8 stateR = stateBuffer[index];
 
 		real densityL = stateL.x;
 		real invDensityL = 1.f / densityL;
@@ -111,7 +111,7 @@ __kernel void calcEigenBasis(
 	
 		//eigenvalues
 
-		eigenvaluesBuffer[interfaceIndex] =  (real4)(
+		eigenvaluesBuffer[interfaceIndex].s0123 = (real4)(
 			velocityN - speedOfSound,
 			velocityN,
 			velocityN,
@@ -188,7 +188,7 @@ __kernel void calcEigenBasis(
 
 		//eigenvalues
 
-		eigenvaluesBuffer[interfaceIndex] =  (real4)(
+		eigenvaluesBuffer[interfaceIndex].s0123 = (real4)(
 			velocity.x - speedOfSound,
 			velocity.x,
 			velocity.x,
@@ -278,7 +278,7 @@ __kernel void calcEigenBasis(
 
 __kernel void calcCFL(
 	__global real* cflBuffer,
-	const __global real4* eigenvaluesBuffer,
+	const __global real8* eigenvaluesBuffer,
 	int2 size,
 	real2 dx,
 	real cfl)
@@ -300,8 +300,8 @@ __kernel void calcCFL(
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
-		real4 eigenvaluesL = eigenvaluesBuffer[side + DIM * index];
-		real4 eigenvaluesR = eigenvaluesBuffer[side + DIM * indexNext];
+		real8 eigenvaluesL = eigenvaluesBuffer[side + DIM * index];
+		real8 eigenvaluesR = eigenvaluesBuffer[side + DIM * indexNext];
 		
 		real maxLambda = max(
 			0.f,
@@ -331,9 +331,9 @@ __kernel void calcCFL(
 }
 
 __kernel void calcDeltaQTilde(
-	__global real4* deltaQTildeBuffer,
+	__global real8* deltaQTildeBuffer,
 	const __global real16* eigenvectorsInverseBuffer,
-	const __global real4* stateBuffer,
+	const __global real8* stateBuffer,
 	int2 size,
 	real2 dx)
 {
@@ -350,30 +350,30 @@ __kernel void calcDeltaQTilde(
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 				
-		real4 stateL = stateBuffer[indexPrev];
-		real4 stateR = stateBuffer[index];
+		real8 stateL = stateBuffer[indexPrev];
+		real8 stateR = stateBuffer[index];
 
 		int interfaceIndex = side + DIM * index;
 		
-		real4 deltaQ = stateR - stateL;
-		deltaQTildeBuffer[interfaceIndex] = matmul(eigenvectorsInverseBuffer[interfaceIndex], deltaQ);
+		real8 deltaQ = stateR - stateL;
+		deltaQTildeBuffer[interfaceIndex].s0123 = matmul(eigenvectorsInverseBuffer[interfaceIndex], deltaQ.s0123);
 	}
 }
 
-real4 slopeLimiter(real4 r) {
+real8 slopeLimiter(real8 r) {
 	//donor cell
-	//return (real4)(0.f, 0.f, 0.f, 0.f);
+	//return (real8)(0.f);
 	//superbee
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
 __kernel void calcFlux(
-	__global real4* fluxBuffer,
-	const __global real4* stateBuffer,
-	const __global real4* eigenvaluesBuffer,
+	__global real8* fluxBuffer,
+	const __global real8* stateBuffer,
+	const __global real8* eigenvaluesBuffer,
 	const __global real16* eigenvectorsBuffer,
 	const __global real16* eigenvectorsInverseBuffer,
-	const __global real4* deltaQTildeBuffer,
+	const __global real8* deltaQTildeBuffer,
 	int2 size,
 	real2 dx,
 	__global real *dt)
@@ -397,37 +397,38 @@ __kernel void calcFlux(
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 	
-		real4 stateL = stateBuffer[indexPrev];
-		real4 stateR = stateBuffer[index];
+		real8 stateL = stateBuffer[indexPrev];
+		real8 stateR = stateBuffer[index];
 
 		int interfaceLIndex = side + DIM * indexPrev;
 		int interfaceIndex = side + DIM * index;
 		int interfaceRIndex = side + DIM * indexNext;
 
-		real4 deltaQTildeL = deltaQTildeBuffer[interfaceLIndex];
-		real4 deltaQTilde = deltaQTildeBuffer[interfaceIndex];
-		real4 deltaQTildeR = deltaQTildeBuffer[interfaceRIndex];
+		real8 deltaQTildeL = deltaQTildeBuffer[interfaceLIndex];
+		real8 deltaQTilde = deltaQTildeBuffer[interfaceIndex];
+		real8 deltaQTildeR = deltaQTildeBuffer[interfaceRIndex];
 
-		real4 eigenvalues = eigenvaluesBuffer[interfaceIndex];
+		real8 eigenvalues = eigenvaluesBuffer[interfaceIndex];
 		real16 eigenvectors = eigenvectorsBuffer[interfaceIndex];
 		real16 eigenvectorsInverse = eigenvectorsInverseBuffer[interfaceIndex];
 
-		real4 theta = step(0.f, eigenvalues) * 2.f - 1.f;
-		real4 rTilde = mix(deltaQTildeR, deltaQTildeL, theta * .5f + .5f) / deltaQTilde;
-		real4 qAvg = (stateR + stateL) * .5f;
-		real4 fluxAvgTilde = matmul(eigenvectorsInverse, qAvg) * eigenvalues;
-		real4 phi = slopeLimiter(rTilde);
-		real4 epsilon = eigenvalues * dt_dx[side];
-		real4 deltaFluxTilde = eigenvalues * deltaQTilde;
-		real4 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + .5f * phi * (epsilon - theta));
+		real8 theta = step(0.f, eigenvalues) * 2.f - 1.f;
+		real8 rTilde = mix(deltaQTildeR, deltaQTildeL, theta * .5f + .5f) / deltaQTilde;
+		real8 qAvg = (stateR + stateL) * .5f;
+		real8 fluxAvgTilde;
+		fluxAvgTilde.s0123 = matmul(eigenvectorsInverse, qAvg.s0123) * eigenvalues.s0123;
+		real8 phi = slopeLimiter(rTilde);
+		real8 epsilon = eigenvalues * dt_dx[side];
+		real8 deltaFluxTilde = eigenvalues * deltaQTilde;
+		real8 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + .5f * phi * (epsilon - theta));
 		
-		fluxBuffer[side + DIM * index] = matmul(eigenvectors, fluxTilde);
+		fluxBuffer[side + DIM * index].s0123 = matmul(eigenvectors, fluxTilde.s0123);
 	}
 }
 
 __kernel void integrateFlux(
-	__global real4* stateBuffer,
-	const __global real4* fluxBuffer,
+	__global real8* stateBuffer,
+	const __global real8* fluxBuffer,
 	int2 size,
 	real2 dx,
 	const __global real* dt)
@@ -447,10 +448,10 @@ __kernel void integrateFlux(
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
-		real4 fluxL = fluxBuffer[side + DIM * index];
-		real4 fluxR = fluxBuffer[side + DIM * indexNext];
+		real8 fluxL = fluxBuffer[side + DIM * index];
+		real8 fluxR = fluxBuffer[side + DIM * indexNext];
 
-		real4 df = fluxR - fluxL;
+		real8 df = fluxR - fluxL;
 		stateBuffer[index] -= df * dt_dx[side];
 	}
 }
