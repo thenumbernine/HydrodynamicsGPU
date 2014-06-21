@@ -151,8 +151,8 @@ void Solver2D::display() {
 	commands.enqueueAcquireGLObjects(&acquireGLMems);
 
 	if (app.useGPU) {
-		convertToTexKernel.setArg(5, app.displayMethod);
-		convertToTexKernel.setArg(6, app.displayScale);
+		convertToTexKernel.setArg(4, app.displayMethod);
+		convertToTexKernel.setArg(5, app.displayScale);
 		commands.enqueueNDRangeKernel(convertToTexKernel, offsetNd, globalSize, localSize);
 	} else {
 		int volume = app.size.s[0] * app.size.s[1];

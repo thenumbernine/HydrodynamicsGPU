@@ -10,7 +10,8 @@ useGPU = true
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
-useFixedDT = false
+useFixedDT = false 
+fixedDT = .01
 cfl = .5
 displayMethod = 'density'
 displayScale = 2
@@ -30,8 +31,8 @@ size = {64, 64, 64}
 -- max burgers size with 4 channels: 4096x4096
 -- max roe size with 4 channels: 1024x1024
 -- max burgers size with 8 channels: 2048x2048
--- roe with 8 channels is crashing on build
-size = {512, 512}
+-- roe with 8 channels is crashing on build, particularly in the calcFlux kernel any time the dtBuffer is read
+size = {16, 16}
 --]]
 -- [[ 1D
 size = {1024}

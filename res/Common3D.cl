@@ -188,7 +188,6 @@ __kernel void convertToTex(
 __kernel void poissonRelax(
 	__global real* gravityPotentialBuffer,
 	const __global real8* stateBuffer,
-	real4 dx,
 	int4 repeat)
 {
 	int4 size = (int4)(SIZE_X, SIZE_Y, SIZE_Z, 0);
@@ -213,11 +212,11 @@ __kernel void poissonRelax(
 	
 #define M_PI 3.141592653589793115997963468544185161590576171875f
 #define GRAVITY_CONSTANT 1.f		//6.67384e-11 m^3 / (kg s^2)
-	real scale = M_PI * GRAVITY_CONSTANT * dx.x * dx.y * dx.z;
+	real scale = M_PI * GRAVITY_CONSTANT * DX;
 #if DIM > 1
-	scale *= dx.y;
+	scale *= DY; 
 #if DIM > 2
-	scale *= dx.z;
+	scale *= DZ; 
 #endif
 #endif
 	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * stateBuffer[index].s0;
@@ -227,10 +226,10 @@ __kernel void addGravity(
 	__global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
 	int4 size,
-	real4 dx,
 	const __global real* dtBuffer)
 {
 	real dt = dtBuffer[0];
+	real4 dx = (real4)(DX, DY, DZ, 1.f);
 	real4 dt_dx = dt / dx;
 
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);

@@ -8,6 +8,22 @@ cl::Buffer Solver::clAlloc(size_t size) {
 	return cl::Buffer(app.context, CL_MEM_READ_WRITE, size);
 }
 
+template<typename T> std::string toNumericString(T value);
+
+template<> std::string toNumericString<double>(double value) {
+	std::string s = std::to_string(value);
+	if (s.find("e") == std::string::npos) {
+		if (s.find(".") == std::string::npos) {
+			s += ".";
+		}
+	}
+	return s;
+}
+
+template<> std::string toNumericString<float>(float value) {
+	return toNumericString<double>(value) + "f";
+}
+
 Solver::Solver(
 	HydroGPUApp& app_,
 	const std::vector<std::string>& programFilenames)
@@ -69,11 +85,14 @@ Solver::Solver(
 	
 	{
 		std::vector<std::string> kernelSources = std::vector<std::string>{
-			std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
-			std::string() + "#define DIM " + std::to_string(app.dim) + "\n",
-			std::string() + "#define SIZE_X " + std::to_string(app.size.s[0]) + "\n",
-			std::string() + "#define SIZE_Y " + std::to_string(app.size.s[1]) + "\n",
-			std::string() + "#define SIZE_Z " + std::to_string(app.size.s[2]) + "\n",
+			std::string() + "#define GAMMA " + toNumericString<real>(app.gamma) + "\n" +
+			std::string() + "#define DIM " + std::to_string(app.dim) + "\n" +
+			std::string() + "#define SIZE_X " + std::to_string(app.size.s[0]) + "\n" +
+			std::string() + "#define SIZE_Y " + std::to_string(app.size.s[1]) + "\n" +
+			std::string() + "#define SIZE_Z " + std::to_string(app.size.s[2]) + "\n" +
+			std::string() + "#define DX " + toNumericString<real>(app.dx.s[0]) + "\n" +
+			std::string() + "#define DY " + toNumericString<real>(app.dx.s[1]) + "\n" +
+			std::string() + "#define DZ " + toNumericString<real>(app.dx.s[2]) + "\n"
 		};
 		for (const std::string& programFilename : programFilenames) {
 			kernelSources.push_back(Common::File::read(programFilename));
@@ -170,10 +189,10 @@ void Solver::initKernels() {
 	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSize[0] * sizeof(real)), volume, cflSwapBuffer);
 	
 	poissonRelaxKernel = cl::Kernel(program, "poissonRelax");
-	app.setArgs(poissonRelaxKernel, gravityPotentialBuffer, stateBuffer, app.dx);
+	app.setArgs(poissonRelaxKernel, gravityPotentialBuffer, stateBuffer);
 	
 	addGravityKernel = cl::Kernel(program, "addGravity");
-	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, app.dx, dtBuffer);
+	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, dtBuffer);
 }
 
 void Solver::findMinTimestep() {
@@ -242,6 +261,6 @@ void Solver::setPoissonRelaxRepeatArg() {
 			throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
 		}	
 	}	
-	poissonRelaxKernel.setArg(3, repeat);
+	poissonRelaxKernel.setArg(2, repeat);
 }
 

@@ -6,9 +6,9 @@ __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
-	real4 dx,
 	real cfl)
 {
+	real4 dx = (real4)(DX, DY, DZ, 1.f);
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
@@ -41,8 +41,7 @@ __kernel void calcCFL(
 
 __kernel void calcInterfaceVelocity(
 	__global real* interfaceVelocityBuffer,
-	const __global real8* stateBuffer,
-	real4 dx)
+	const __global real8* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -87,9 +86,9 @@ __kernel void calcFlux(
 	__global real8* fluxBuffer,
 	const __global real8* stateBuffer,
 	const __global real* interfaceVelocityBuffer,
-	real4 dx,
 	const __global real* dtBuffer)
 {
+	real4 dx = (real4)(DX, DY, DZ, 1.f);
 	real dt = dtBuffer[0];
 	real4 dt_dx = dt / dx;
 	
@@ -159,10 +158,11 @@ __kernel void calcFlux(
 __kernel void integrateFlux(
 	__global real8* stateBuffer,
 	const __global real8* fluxBuffer,
-	real4 dx,
 	const __global real* dtBuffer)
 {
-	real4 dt_dx = dtBuffer[0] / dx;
+	real4 dx = (real4)(DX, DY, DZ, 1.f);
+	real dt = dtBuffer[0];
+	real4 dt_dx = dt / dx;
 	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
@@ -245,10 +245,11 @@ __kernel void computePressure(
 __kernel void diffuseMomentum(
 	__global real8* stateBuffer,
 	const __global real* pressureBuffer,
-	real4 dx,
 	const __global real* dtBuffer)
 {
-	real4 dt_dx = dtBuffer[0] / dx;
+	real4 dx = (real4)(DX, DY, DZ, 1.f);
+	real dt = dtBuffer[0];
+	real4 dt_dx = dt / dx;
 	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
@@ -283,10 +284,11 @@ __kernel void diffuseMomentum(
 __kernel void diffuseWork(
 	__global real8* stateBuffer,
 	const __global real* pressureBuffer,
-	real4 dx,
 	const __global real* dtBuffer)
 {
-	real4 dt_dx = dtBuffer[0] / dx;
+	real4 dx = (real4)(DX, DY, DZ, 1.f);
+	real dt = dtBuffer[0];
+	real4 dt_dx = dt / dx;
 	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 

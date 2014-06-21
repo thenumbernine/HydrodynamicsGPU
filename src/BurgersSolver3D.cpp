@@ -41,25 +41,25 @@ BurgersSolver3D::BurgersSolver3D(
 	}
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app.setArgs(calcCFLKernel, cflBuffer, stateBuffer, gravityPotentialBuffer, app.dx, app.cfl);
+	app.setArgs(calcCFLKernel, cflBuffer, stateBuffer, gravityPotentialBuffer, app.cfl);
 	
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
-	app.setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer, app.dx);
+	app.setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer);
 
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, app.dx, dtBuffer);
+	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, dtBuffer);
 	
 	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
-	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, app.dx, dtBuffer);
+	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, dtBuffer);
 	
 	computePressureKernel = cl::Kernel(program, "computePressure");
 	app.setArgs(computePressureKernel, pressureBuffer, stateBuffer, gravityPotentialBuffer);
 
 	diffuseMomentumKernel = cl::Kernel(program, "diffuseMomentum");
-	app.setArgs(diffuseMomentumKernel, stateBuffer, pressureBuffer, app.dx, dtBuffer);
+	app.setArgs(diffuseMomentumKernel, stateBuffer, pressureBuffer, dtBuffer);
 	
 	diffuseWorkKernel = cl::Kernel(program, "diffuseWork");
-	app.setArgs(diffuseWorkKernel, stateBuffer, pressureBuffer, app.dx, dtBuffer);
+	app.setArgs(diffuseWorkKernel, stateBuffer, pressureBuffer, dtBuffer);
 }
 
 void BurgersSolver3D::calcTimestep() {
