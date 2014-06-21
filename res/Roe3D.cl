@@ -24,14 +24,14 @@ __kernel void calcEigenBasis(
 	__global real4* eigenvectorsInverseBuffer,
 	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
-	int3 size)
+	int4 size)
 {
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 1 || i.y >= size.y - 1 || i.z >= size.z - 1) return;
 	int index = INDEXV(i);
 
 	for (int side = 0; side < DIM; ++side) {	
-		int3 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 
@@ -42,12 +42,12 @@ __kernel void calcEigenBasis(
 
 		real densityL = stateL.s0;
 		real invDensityL = 1.f / densityL;
-		real3 velocityL = stateL.s123 * invDensityL;
+		real4 velocityL = (real4)(stateL.s1, stateL.s2, stateL.s3, 0.f) * invDensityL;
 		real energyTotalL = stateL.s4 * invDensityL;
 
 		real densityR = stateR.s0;
 		real invDensityR = 1.f / densityR;
-		real3 velocityR = stateR.s123 * invDensityR;
+		real4 velocityR = (real4)(stateR.s1, stateR.s2, stateR.s3, 0.f) * invDensityR;
 		real energyTotalR = stateR.s4 * invDensityR;
 
 		real energyKineticL = .5f * dot(velocityL, velocityL);
@@ -65,7 +65,7 @@ __kernel void calcEigenBasis(
 		real weightR = sqrt(densityR);
 
 		real roeWeightNormalization = 1.f / (weightL + weightR);
-		real3 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
+		real4 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
 		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
 		
 		real velocitySq = dot(velocity, velocity);
@@ -73,11 +73,11 @@ __kernel void calcEigenBasis(
 		
 #if 1	//calculate flux based on normal
 
-		real3 normal = (real3)(0.f, 0.f, 0.f);
+		real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
 		normal[side] = 1;
 
-		real3 tangentA = (real3)(normal.y, normal.z, normal.x);
-		real3 tangentB = (real3)(normal.z, normal.x, normal.y);
+		real4 tangentA = (real4)(normal.y, normal.z, normal.x, 0.f);
+		real4 tangentB = (real4)(normal.z, normal.x, normal.y, 0.f);
 		real velocityN = dot(velocity, normal);
 		real velocityTA = dot(velocity, tangentA);
 		real velocityTB = dot(velocity, tangentB);
@@ -286,20 +286,20 @@ __kernel void calcEigenBasis(
 __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real8* eigenvaluesBuffer,
-	int3 size,
-	real3 dx,
+	int4 size,
+	real4 dx,
 	real cfl)
 {
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 2 || i.y >= size.y - 2 || i.z >= size.z - 2) {
 		cflBuffer[index] = INFINITY;
 		return;
 	}
 
-	real3 dum;
+	real4 dum;
 	for (int side = 0; side < 3; ++side) {
-		int3 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
@@ -340,15 +340,15 @@ __kernel void calcDeltaQTilde(
 	__global real8* deltaQTildeBuffer,
 	const __global real16* eigenvectorsInverseBuffer,
 	const __global real8* stateBuffer,
-	int3 size,
+	int4 size,
 	real2 dx)
 {
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 1 || i.y >= size.y - 1 || i.z >= size.z - 1) return;
 	int index = INDEXV(i);
 
 	for (int side = 0; side < 3; ++side) {
-		int3 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 				
@@ -380,23 +380,23 @@ __kernel void calcFlux(
 	const __global real16* eigenvectorsBuffer,
 	const __global real16* eigenvectorsInverseBuffer,
 	const __global real8* deltaQTildeBuffer,
-	int3 size,
-	real3 dx,
+	int4 size,
+	real4 dx,
 	__global real *dt)
 {
 #if 0
-	real3 dt_dx = *dt / dx;
+	real4 dt_dx = *dt / dx;
 	
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 1 || i.y >= size.y - 1 || i.z >= size.z - 1) return;
 	int index = INDEXV(i);
 	
 	for (int side = 0; side < 3; ++side) {	
-		int3 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = iPrev.x + size.x * iPrev.y;
 
-		int3 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = iNext.x + size.x * iNext.y;
 	
@@ -441,18 +441,18 @@ __kernel void calcFlux(
 __kernel void integrateFlux(
 	__global real8* stateBuffer,
 	const __global real8* fluxBuffer,
-	int3 size,
-	real3 dx,
+	int4 size,
+	real4 dx,
 	const __global real* dt)
 {
-	real3 dt_dx = *dt / dx;
+	real4 dt_dx = *dt / dx;
 	
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 2 || i.y >= size.y - 2 || i.z >= size.z - 2) return;
 	int index = INDEXV(i);
 	
 	for (int side = 0; side < 3; ++side) {	
-		int3 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		

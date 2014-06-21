@@ -53,7 +53,7 @@ RoeSolver2D::RoeSolver2D(
 	clSetKernelArg(calcFluxKernel(), 7, sizeof(cl_mem), &dtBuffer());
 	
 	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
-	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, app.size, app.dx, dtBuffer);
+	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, app.dx, dtBuffer);
 }	
 
 void RoeSolver2D::initStep() {

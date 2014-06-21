@@ -6,17 +6,16 @@ __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
-	int4 size,
 	real4 dx,
 	real cfl)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
-	if (i.x < 2 || i.x >= size.x - 2 
+	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 2 
+		|| i.y < 2 || i.y >= SIZE_Y - 2 
 #if DIM > 2
-		|| i.z < 2 || i.z >= size.z - 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
 #endif
 #endif
 	) {
@@ -43,15 +42,14 @@ __kernel void calcCFL(
 __kernel void calcInterfaceVelocity(
 	__global real* interfaceVelocityBuffer,
 	const __global real8* stateBuffer,
-	int4 size,
 	real4 dx)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= size.x - 1 
+	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 1 
+		|| i.y < 2 || i.y >= SIZE_Y - 1 
 #if DIM > 2
-		|| i.z < 2 || i.z >= size.z - 1
+		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 #endif
 	) {
@@ -89,7 +87,6 @@ __kernel void calcFlux(
 	__global real8* fluxBuffer,
 	const __global real8* stateBuffer,
 	const __global real* interfaceVelocityBuffer,
-	int4 size,
 	real4 dx,
 	const __global real* dtBuffer)
 {
@@ -97,11 +94,11 @@ __kernel void calcFlux(
 	real4 dt_dx = dt / dx;
 	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= size.x - 1 
+	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 1 
+		|| i.y < 2 || i.y >= SIZE_Y - 1 
 #if DIM > 2
-		|| i.z < 2 || i.z >= size.z - 1
+		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 #endif
 	) {
@@ -162,18 +159,17 @@ __kernel void calcFlux(
 __kernel void integrateFlux(
 	__global real8* stateBuffer,
 	const __global real8* fluxBuffer,
-	int4 size,
 	real4 dx,
 	const __global real* dtBuffer)
 {
 	real4 dt_dx = dtBuffer[0] / dx;
 	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= size.x - 2 
+	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 2 
+		|| i.y < 2 || i.y >= SIZE_Y - 2 
 #if DIM > 2
-		|| i.z < 2 || i.z >= size.z - 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
 #endif
 #endif
 	) {
@@ -197,15 +193,14 @@ __kernel void integrateFlux(
 __kernel void computePressure(
 	__global real* pressureBuffer,
 	const __global real8* stateBuffer,
-	const __global real* gravityPotentialBuffer,
-	int4 size)
+	const __global real* gravityPotentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 1 || i.x >= size.x - 1 
+	if (i.x < 1 || i.x >= SIZE_X - 1 
 #if DIM > 1
-		|| i.y < 1 || i.y >= size.y - 1 
+		|| i.y < 1 || i.y >= SIZE_Y - 1 
 #if DIM > 2
-		|| i.z < 1 || i.z >= size.z - 1
+		|| i.z < 1 || i.z >= SIZE_Z - 1
 #endif
 #endif
 	) {
@@ -250,18 +245,17 @@ __kernel void computePressure(
 __kernel void diffuseMomentum(
 	__global real8* stateBuffer,
 	const __global real* pressureBuffer,
-	int4 size,
 	real4 dx,
 	const __global real* dtBuffer)
 {
 	real4 dt_dx = dtBuffer[0] / dx;
 	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= size.x - 2 
+	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 2 
+		|| i.y < 2 || i.y >= SIZE_Y - 2 
 #if DIM > 2
-		|| i.z < 2 || i.z >= size.z - 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
 #endif
 #endif
 	) {
@@ -289,18 +283,17 @@ __kernel void diffuseMomentum(
 __kernel void diffuseWork(
 	__global real8* stateBuffer,
 	const __global real* pressureBuffer,
-	int4 size,
 	real4 dx,
 	const __global real* dtBuffer)
 {
 	real4 dt_dx = dtBuffer[0] / dx;
 	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= size.x - 2 
+	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 2 
+		|| i.y < 2 || i.y >= SIZE_Y - 2 
 #if DIM > 2
-		|| i.z < 2 || i.z >= size.z - 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
 #endif
 #endif
 	) {

@@ -160,7 +160,7 @@ Solver3D::Solver3D(
 	fluidTexMem = cl::ImageGL(app.context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, fluidTex);
 	
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
-	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, app.size, fluidTexMem, app.gradientTexMem);
+	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, fluidTexMem, app.gradientTexMem);
 
 	initKernels();
 }
@@ -258,8 +258,8 @@ void Solver3D::display() {
 	commands.enqueueAcquireGLObjects(&acquireGLMems);
 
 	if (app.useGPU) {
-		convertToTexKernel.setArg(5, app.displayMethod);
-		convertToTexKernel.setArg(6, app.displayScale);
+		convertToTexKernel.setArg(4, app.displayMethod);
+		convertToTexKernel.setArg(5, app.displayScale);
 		commands.enqueueNDRangeKernel(convertToTexKernel, offsetNd, globalSize, localSize);
 	} else {
 		throw Common::Exception() << "no support";

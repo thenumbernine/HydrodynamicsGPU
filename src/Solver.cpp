@@ -71,6 +71,9 @@ Solver::Solver(
 		std::vector<std::string> kernelSources = std::vector<std::string>{
 			std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
 			std::string() + "#define DIM " + std::to_string(app.dim) + "\n",
+			std::string() + "#define SIZE_X " + std::to_string(app.size.s[0]) + "\n",
+			std::string() + "#define SIZE_Y " + std::to_string(app.size.s[1]) + "\n",
+			std::string() + "#define SIZE_Z " + std::to_string(app.size.s[2]) + "\n",
 		};
 		for (const std::string& programFilename : programFilenames) {
 			kernelSources.push_back(Common::File::read(programFilename));
@@ -159,7 +162,7 @@ void Solver::initKernels() {
 				break;
 			}
 			stateBoundaryKernels[boundaryIndex][side] = cl::Kernel(program, name.c_str());
-			app.setArgs(stateBoundaryKernels[boundaryIndex][side], stateBuffer, app.size);
+			app.setArgs(stateBoundaryKernels[boundaryIndex][side], stateBuffer);
 		}
 	}
 	
@@ -167,10 +170,10 @@ void Solver::initKernels() {
 	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSize[0] * sizeof(real)), volume, cflSwapBuffer);
 	
 	poissonRelaxKernel = cl::Kernel(program, "poissonRelax");
-	app.setArgs(poissonRelaxKernel, gravityPotentialBuffer, stateBuffer, app.size, app.dx);
+	app.setArgs(poissonRelaxKernel, gravityPotentialBuffer, stateBuffer, app.dx);
 	
 	addGravityKernel = cl::Kernel(program, "addGravity");
-	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, app.size, app.dx, dtBuffer);
+	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, app.dx, dtBuffer);
 }
 
 void Solver::findMinTimestep() {
@@ -225,7 +228,7 @@ void Solver::update() {
 }
 
 void Solver::setPoissonRelaxRepeatArg() {
-	cl_int3 repeat;
+	cl_int4 repeat;
 	for (int i = 0; i < app.dim; ++i) {
 		switch (app.boundaryMethods(0)) {	//TODO per dimension
 		case BOUNDARY_PERIODIC:
@@ -239,6 +242,6 @@ void Solver::setPoissonRelaxRepeatArg() {
 			throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
 		}	
 	}	
-	poissonRelaxKernel.setArg(4, repeat);
+	poissonRelaxKernel.setArg(3, repeat);
 }
 

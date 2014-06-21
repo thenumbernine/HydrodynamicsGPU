@@ -56,11 +56,10 @@ __kernel void calcEigenBasis(
 	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer)
 {
-	int2 size = (int2)(get_global_size(0), get_global_size(1));
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.x >= size.x - 1 
+	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 1
+		|| i.y < 2 || i.y >= SIZE_Y - 1
 #endif
 	) return;
 	int index = INDEXV(i);
@@ -298,12 +297,11 @@ __kernel void calcCFL(
 	real4 dx,
 	real cfl)
 {
-	int2 size = (int2)(get_global_size(0), get_global_size(1));
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	int index = INDEXV(i);
-	if (i.x < 2 || i.x >= size.x - 2 
+	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 2
+		|| i.y < 2 || i.y >= SIZE_Y - 2
 #endif
 	) {
 		cflBuffer[index] = INFINITY;
@@ -352,11 +350,10 @@ __kernel void calcDeltaQTilde(
 	const __global real8* stateBuffer,
 	real4 dx)
 {
-	int2 size = (int2)(get_global_size(0), get_global_size(1));
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.x >= size.x - 1 
+	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
-		|| i.y < 2 || i.y >= size.y - 1
+		|| i.y < 2 || i.y >= SIZE_Y - 1
 #endif
 	) return;
 	int index = INDEXV(i);
@@ -398,12 +395,11 @@ __kernel void calcFlux(
 	real4 dx,
 	__global real *dtBuffer)
 {
-	int2 size = (int2)(get_global_size(0), get_global_size(1));
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.x >= size.x - 1 
+	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if 0
-		|| i.y < 2 || i.y >= size.y - 1
+		|| i.y < 2 || i.y >= SIZE_Y - 1
 #endif
 	) return;
 	int index = INDEXV(i);
@@ -498,16 +494,15 @@ real8 epsilon = eigenvalues;	//either multiplying by dtBuffer[0] or dividing by 
 __kernel void integrateFlux(
 	__global real8* stateBuffer,
 	const __global real8* fluxBuffer,
-	int2 size,
 	real2 dx,
 	const __global real* dt)
 {
 	real2 dt_dx = *dt / dx;
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.x >= size.x - 2 
+	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if 0
-		|| i.y < 2 || i.y >= size.y - 2
+		|| i.y < 2 || i.y >= SIZE_Y - 2
 #endif
 	) return;
 	int index = INDEXV(i);
