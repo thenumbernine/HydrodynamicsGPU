@@ -3,7 +3,7 @@
 	-- solver variables
 
 
-solverName = 'Roe'
+solverName = 'Burgers'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
 --maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
@@ -21,7 +21,7 @@ gamma = 1.4
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
---[[ 3D
+-- [[ 3D
 -- roe 3d is crashing on build.
 -- burgers 3d with flux limiter is crashing on build, but without flux limiter works fine
 size = {64, 64, 64}
@@ -31,9 +31,9 @@ size = {64, 64, 64}
 -- max roe size with 4 channels: 1024x1024
 -- max burgers size with 8 channels: 2048x2048
 -- roe with 8 channels is crashing on build
-size = {256, 256}
+size = {16, 16}
 --]]
--- [[ 1D
+--[[ 1D
 size = {1024}
 displayScale = .25
 --]]
@@ -101,7 +101,7 @@ function initState(x)
 end
 --]]	
 
--- [[ Sod test
+--[[ Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x)
 	local inside = x[1] <= 0 and x[2] <= 0 and x[3] <= 0
@@ -131,9 +131,9 @@ function initState(x)
 end
 --]]
 
---[[ Kelvin-Hemholtz
+-- [[ Kelvin-Hemholtz
 noise = size[1] * 2e-5
-solverName = 'Roe'	--Burgers is having trouble... hmm...
+--solverName = 'Roe'	--Burgers is having trouble... hmm...
 function initState(x)
 	local inside = x[2] > -.25 and x[2] < .25
 	local theta = (x[1] - xmin[1]) / (xmax[1] - xmin[1]) * 2 * math.pi

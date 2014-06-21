@@ -27,7 +27,11 @@ template<> real8 toC<real8>(lua_State *L, int loc) {
 	real8 result; 
 	for (int i = 0; i < 8; ++i) { 
 		lua_rawgeti(L, loc, i+1); 
-		result.s[i] = lua_tonumber(L, -1);
+		if (lua_isnil(L, -1)) {
+			result.s[i] = 0;
+		} else {
+			result.s[i] = lua_tonumber(L, -1);
+		}
 		lua_pop(L,1);
 	}
 	return result;

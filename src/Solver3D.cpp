@@ -66,14 +66,12 @@ Solver3D::Solver3D(
 , viewZoom(1.f)
 , viewDist(1.f)
 {
-	cl::Context context = app.context;
-	
 
 	//memory
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 	
-	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume);
+	stateBuffer = clAlloc(sizeof(real8) * volume);
 
 	switch (app.dim) {
 	case 1:
@@ -111,6 +109,8 @@ Solver3D::Solver3D(
 				}
 			}
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app.size.s[0], app.size.s[1], 0, GL_RGBA, GL_FLOAT, NULL);
+			totalAlloc += sizeof(float) * 4 * volume;
+			std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << totalAlloc << std::endl;
 			glBindTexture(GL_TEXTURE_2D, 0);
 			int err = glGetError();
 			if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
@@ -126,7 +126,7 @@ Solver3D::Solver3D(
 			shader = std::make_shared<Shader::Program>(shaders);
 			shader->link()
 				.setUniform<int>("tex", 0)
-				.setUniform<int>("maxiter", 100)
+				.setUniform<int>("maxiter", std::max(app.size.s[0], std::max(app.size.s[1], app.size.s[2])))
 				.setUniform<float>("scale", app.xmax.s[0] - app.xmin.s[0], app.xmax.s[1] - app.xmin.s[1], app.xmax.s[2] - app.xmin.s[2])
 				.done();
 		
@@ -148,6 +148,8 @@ Solver3D::Solver3D(
 				}
 			}
 			glTexImage3D(GL_TEXTURE_3D, 0, 4, app.size.s[0], app.size.s[1], app.size.s[2], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+			totalAlloc += sizeof(char) * 4 * volume;
+			std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << totalAlloc << std::endl;
 			glBindTexture(GL_TEXTURE_3D, 0);
 			int err = glGetError();
 			if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
@@ -155,7 +157,7 @@ Solver3D::Solver3D(
 		break;
 	}
 
-	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, fluidTex);
+	fluidTexMem = cl::ImageGL(app.context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, fluidTex);
 	
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, app.size, fluidTexMem, app.gradientTexMem);

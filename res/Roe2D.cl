@@ -1,16 +1,20 @@
 #include "HydroGPU/Shared/Common2D.h"
 
-real4 matmul(real16 m, real4 v);
+real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v);
 real mat44det(real16 m);
 real16 mat44inv(real16 m);
 real8 slopeLimiter(real8 r);
 
-real4 matmul(real16 m, real4 v) {
-	return (real4)(
-		dot(m.s0123, v),
-		dot(m.s4567, v),
-		dot(m.s89AB, v),
-		dot(m.sCDEF, v));
+real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v) {
+	return (real8)(
+		dot(ma.s0123, v.s0123) + dot(ma.s4567, v.s4567),
+		dot(ma.s89AB, v.s0123) + dot(ma.sCDEF, v.s4567),
+		dot(mb.s0123, v.s0123) + dot(mb.s4567, v.s4567),
+		dot(mb.s89AB, v.s0123) + dot(mb.sCDEF, v.s4567),
+		dot(mc.s0123, v.s0123) + dot(mc.s4567, v.s4567),
+		dot(mc.s89AB, v.s0123) + dot(mc.sCDEF, v.s4567),
+		dot(md.s0123, v.s0123) + dot(md.s4567, v.s4567),
+		dot(md.s89AB, v.s0123) + dot(md.sCDEF, v.s4567));
 }
 
 real mat44det(real16 m) {
@@ -120,59 +124,67 @@ __kernel void calcEigenBasis(
 		//eigenvectors
 
 		//specify transposed
-		real16 eigenvectors = (real16)(
+		real16 eigenvectorsA;
+		real16 eigenvectorsB;
+		//real16 eigenvectorsC;
+		//real16 eigenvectorsD;
+		
 		//min col 
-			1.f,
-			velocity.x - speedOfSound * normal.x,
-			velocity.y - speedOfSound * normal.y,
-			enthalpyTotal - speedOfSound * velocityN,
+		eigenvectorsA.s0 = 1.f;
+		eigenvectorsA.s8 = velocity.x - speedOfSound * normal.x;
+		eigenvectorsB.s0 = velocity.y - speedOfSound * normal.y;
+		eigenvectorsB.s8 = enthalpyTotal - speedOfSound * velocityN;
 		//mid col (normal)
-			1.f,
-			velocity.x,
-			velocity.y,
-			.5f * velocitySq,
+		eigenvectorsA.s1 = 1.f;
+		eigenvectorsA.s9 = velocity.x;
+		eigenvectorsB.s1 = velocity.y;
+		eigenvectorsB.s9 = .5f * velocitySq;
 		//mid col (tangent)
-			0.f,
-			tangent.x,
-			tangent.y,
-			velocityT,
+		eigenvectorsA.s2 = 0.f;
+		eigenvectorsA.sA = tangent.x;
+		eigenvectorsB.s2 = tangent.y;
+		eigenvectorsB.sA = velocityT;
 		//max col 
-			1.f,
-			velocity.x + speedOfSound * normal.x,
-			velocity.y + speedOfSound * normal.y,
-			enthalpyTotal + speedOfSound * velocityN);
+		eigenvectorsA.s3 = 1.f;
+		eigenvectorsA.sB = velocity.x + speedOfSound * normal.x;
+		eigenvectorsB.s3 = velocity.y + speedOfSound * normal.y;
+		eigenvectorsB.sB = enthalpyTotal + speedOfSound * velocityN;
 
 		//transpose and store
-		eigenvectorsBuffer[4 * interfaceIndex] = (real16)(
-			eigenvectors.s048C,
-			eigenvectors.s159D,
-			eigenvectors.s26AE,
-			eigenvectors.s37BF);
+		eigenvectorsBuffer[0 + 4 * interfaceIndex] = eigenvectorsA;
+		eigenvectorsBuffer[1 + 4 * interfaceIndex] = eigenvectorsB;
+		//eigenvectorsBuffer[2 + 4 * interfaceIndex] = eigenvectorsC;
+		//eigenvectorsBuffer[3 + 4 * interfaceIndex] = eigenvectorsD;
 
 #if 1	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
 		//calculate eigenvector inverses ... 
 		real invDenom = .5f / (speedOfSound * speedOfSound);
-		eigenvectorsInverseBuffer[4 * interfaceIndex] = (real16)( 
+		eigenvectorsInverseBuffer[0 + 4 * interfaceIndex] = (real16)( 
 		//min row
 			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom,
 			-(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
 			-(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom,
 			(GAMMA - 1.f) * invDenom,
+			0.f, 0.f, 0.f, 0.f,
 		//mid normal row
 			1.f - (GAMMA - 1.f) * velocitySq * invDenom,
 			(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
 			(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
 			-(GAMMA - 1.f) * 2.f * invDenom,
+			0.f, 0.f, 0.f, 0.f);
+		eigenvectorsInverseBuffer[1 + 4 * interfaceIndex] = (real16)(
 		//mid tangent row
 			-velocityT, 
 			tangent.x,
 			tangent.y,
 			0.f,
+			0.f, 0.f, 0.f, 0.f,
 		//max row
 			(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom,
 			(normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
 			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
-			(GAMMA - 1.f) * invDenom);
+			(GAMMA - 1.f) * invDenom,
+			0.f, 0.f, 0.f, 0.f);
 #endif
 #if 0 //numerically solve for the inverse
 		eigenvectorsInverseBuffer[4 * interfaceIndex] = mat44inv(eigenvectorsBuffer[4 * interfaceIndex]);
@@ -356,7 +368,12 @@ __kernel void calcDeltaQTilde(
 		int interfaceIndex = side + DIM * index;
 		
 		real8 deltaQ = stateR - stateL;
-		deltaQTildeBuffer[interfaceIndex].s0123 = matmul(eigenvectorsInverseBuffer[4 * interfaceIndex], deltaQ.s0123);
+		deltaQTildeBuffer[interfaceIndex] = matmul(
+			eigenvectorsInverseBuffer[0 + 4 * interfaceIndex], 
+			eigenvectorsInverseBuffer[1 + 4 * interfaceIndex], 
+			eigenvectorsInverseBuffer[2 + 4 * interfaceIndex], 
+			eigenvectorsInverseBuffer[3 + 4 * interfaceIndex], 
+			deltaQ);
 	}
 }
 
@@ -409,20 +426,28 @@ __kernel void calcFlux(
 		real8 deltaQTildeR = deltaQTildeBuffer[interfaceRIndex];
 
 		real8 eigenvalues = eigenvaluesBuffer[interfaceIndex];
-		real16 eigenvectors = eigenvectorsBuffer[4 * interfaceIndex];
-		real16 eigenvectorsInverse = eigenvectorsInverseBuffer[4 * interfaceIndex];
 
 		real8 theta = step(0.f, eigenvalues) * 2.f - 1.f;
 		real8 rTilde = mix(deltaQTildeR, deltaQTildeL, theta * .5f + .5f) / deltaQTilde;
 		real8 qAvg = (stateR + stateL) * .5f;
 		real8 fluxAvgTilde;
-		fluxAvgTilde.s0123 = matmul(eigenvectorsInverse, qAvg.s0123) * eigenvalues.s0123;
+		fluxAvgTilde = matmul(
+			eigenvectorsInverseBuffer[0 + 4 * interfaceIndex], 
+			eigenvectorsInverseBuffer[1 + 4 * interfaceIndex], 
+			eigenvectorsInverseBuffer[2 + 4 * interfaceIndex], 
+			eigenvectorsInverseBuffer[3 + 4 * interfaceIndex], 
+			qAvg) * eigenvalues;
 		real8 phi = slopeLimiter(rTilde);
 		real8 epsilon = eigenvalues * dt_dx[side];
 		real8 deltaFluxTilde = eigenvalues * deltaQTilde;
 		real8 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + .5f * phi * (epsilon - theta));
 		
-		fluxBuffer[side + DIM * index].s0123 = matmul(eigenvectors, fluxTilde.s0123);
+		fluxBuffer[side + DIM * index] = matmul(
+			eigenvectorsBuffer[0 + 4 * interfaceIndex],
+			eigenvectorsBuffer[1 + 4 * interfaceIndex],
+			eigenvectorsBuffer[2 + 4 * interfaceIndex],
+			eigenvectorsBuffer[3 + 4 * interfaceIndex],
+			fluxTilde);
 	}
 }
 

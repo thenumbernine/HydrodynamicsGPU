@@ -83,7 +83,7 @@ Solver::Solver(
 	}
 
 	try {
-		program.build({device}, "-I include");
+		program.build({device}, "-I include -Werror -cl-fast-relaxed-math");
 	} catch (cl::Error &err) {
 		throw Common::Exception() 
 			<< "failed to build program executable!\n"
@@ -92,13 +92,28 @@ Solver::Solver(
 
 	//warnings?
 	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
+
+	//for curiousity's sake
+	{
+		cl_int err;
+		
+		size_t size = 0;
+		err = clGetProgramInfo(program(), CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &size, NULL);
+		if (err != CL_SUCCESS) throw Common::Exception() << "failed to get binary size";
 	
+		std::vector<char> binary(size);
+		err = clGetProgramInfo(program(), CL_PROGRAM_BINARIES, size, &binary[0], NULL);
+		if (err != CL_SUCCESS) throw Common::Exception() << "failed to get binary";
+
+		Common::File::write("program.cl.bin", std::string(&binary[0], binary.size()));
+	}
+
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 	
-	cflBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
-	cflSwapBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume / localSize[0]);
-	dtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real));
-	gravityPotentialBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
+	cflBuffer = clAlloc(sizeof(real) * volume);
+	cflSwapBuffer = clAlloc(sizeof(real) * volume / localSize[0]);
+	dtBuffer = clAlloc(sizeof(real));
+	gravityPotentialBuffer = clAlloc(sizeof(real) * volume);
 	
 	//get the edges, so reduction doesn't
 	{

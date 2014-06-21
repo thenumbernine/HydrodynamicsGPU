@@ -97,10 +97,8 @@ __kernel void calcFlux(
 	real3 dx,
 	const __global real* dtBuffer)
 {
-#ifdef CAUSES_COMPILER_TO_SEGFAULT_WITH_3D
 	real dt = dtBuffer[0];
 	real3 dt_dx = dt / dx;
-#endif
 	
 	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
 	if (i.x < 2 || i.x >= size.x - 1 
@@ -147,6 +145,7 @@ __kernel void calcFlux(
 		real8 deltaState = stateR - stateL;
 		real8 deltaStateR = stateR2 - stateR;
 #endif
+real8 deltaState = stateR - stateL;
 
 		real interfaceVelocity = interfaceVelocityBuffer[side + DIM * index];
 		real theta = step(0.f, interfaceVelocity);
@@ -156,11 +155,12 @@ __kernel void calcFlux(
 		real8 phi = slopeLimiter(stateSlopeRatio);
 		real8 delta = phi * deltaState;
 #endif
+#if DIM == 3
+real8 delta = deltaState;
+#endif
 
 		real8 flux = mix(stateR, stateL, theta) * interfaceVelocity;
-#ifdef CAUSES_COMPILER_TO_SEGFAULT_WITH_3D
 		flux += delta * .5f * (.5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])));
-#endif
 			
 		fluxBuffer[side + DIM * index] = flux;
 	}

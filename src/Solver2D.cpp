@@ -14,8 +14,6 @@ Solver2D::Solver2D(
 , fluidTex(GLuint())
 , viewZoom(1.f)
 {
-	cl::Context context = app.context;
-	
 	//memory
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
@@ -62,7 +60,7 @@ Solver2D::Solver2D(
 
 	//hmm, my cl.hpp version only supports clCreateFromGLTexture2D, which is deprecated ... do I use the deprecated method, or do I stick with the C structures?
 	// ... or do I look for a more up-to-date version of cl.hpp
-	fluidTexMem = cl::ImageGL(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex);
+	fluidTexMem = cl::ImageGL(app.context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, fluidTex);
 
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, app.size, fluidTexMem, app.gradientTexMem);
