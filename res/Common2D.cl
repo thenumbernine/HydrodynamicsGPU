@@ -39,25 +39,25 @@ __kernel void calcCFLMinReduce(
 //periodic
 
 __kernel void stateBoundaryPeriodicX(
-	__global real4* stateBuffer,
+	__global real8* stateBuffer,
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[INDEX(0, i)] = stateBuffer[INDEX(size.x - 4, i)];
-	stateBuffer[INDEX(1, i)] = stateBuffer[INDEX(size.x - 3, i)];
-	stateBuffer[INDEX(size.x - 2, i)] = stateBuffer[INDEX(2, i)];
-	stateBuffer[INDEX(size.x - 1, i)] = stateBuffer[INDEX(3, i)];
+	stateBuffer[INDEX(0, i)].s0123 = stateBuffer[INDEX(size.x - 4, i)].s0123;
+	stateBuffer[INDEX(1, i)].s0123 = stateBuffer[INDEX(size.x - 3, i)].s0123;
+	stateBuffer[INDEX(size.x - 2, i)].s0123 = stateBuffer[INDEX(2, i)].s0123;
+	stateBuffer[INDEX(size.x - 1, i)].s0123 = stateBuffer[INDEX(3, i)].s0123;
 }
 
 __kernel void stateBoundaryPeriodicY(
-	__global real4* stateBuffer,
+	__global real8* stateBuffer,
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[INDEX(i, 0)] = stateBuffer[INDEX(i, size.y - 4)];
-	stateBuffer[INDEX(i, 1)] = stateBuffer[INDEX(i, size.y - 3)];
-	stateBuffer[INDEX(i, size.y - 2)] = stateBuffer[INDEX(i, 2)];
-	stateBuffer[INDEX(i, size.y - 1)] = stateBuffer[INDEX(i, 3)];
+	stateBuffer[INDEX(i, 0)].s0123 = stateBuffer[INDEX(i, size.y - 4)].s0123;
+	stateBuffer[INDEX(i, 1)].s0123 = stateBuffer[INDEX(i, size.y - 3)].s0123;
+	stateBuffer[INDEX(i, size.y - 2)].s0123 = stateBuffer[INDEX(i, 2)].s0123;
+	stateBuffer[INDEX(i, size.y - 1)].s0123 = stateBuffer[INDEX(i, 3)].s0123;
 }
 
 //mirror
@@ -66,49 +66,49 @@ real4 mirrorStateX(real4 state) { state.s1 = -state.s1; return state; }
 real4 mirrorStateY(real4 state) { state.s2 = -state.s2; return state; }
 
 __kernel void stateBoundaryMirrorX(
-	__global real4* stateBuffer,
+	__global real8* stateBuffer,
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[INDEX(0, i)] = mirrorStateX(stateBuffer[INDEX(3, i)]);
-	stateBuffer[INDEX(1, i)] = mirrorStateX(stateBuffer[INDEX(2, i)]);
-	stateBuffer[INDEX(size.x - 1, i)] = mirrorStateX(stateBuffer[INDEX(size.x - 4, i)]);
-	stateBuffer[INDEX(size.x - 2, i)] = mirrorStateX(stateBuffer[INDEX(size.x - 3, i)]);	
+	stateBuffer[INDEX(0, i)].s0123 = mirrorStateX(stateBuffer[INDEX(3, i)].s0123);
+	stateBuffer[INDEX(1, i)].s0123 = mirrorStateX(stateBuffer[INDEX(2, i)].s0123);
+	stateBuffer[INDEX(size.x - 1, i)].s0123 = mirrorStateX(stateBuffer[INDEX(size.x - 4, i)].s0123);
+	stateBuffer[INDEX(size.x - 2, i)].s0123 = mirrorStateX(stateBuffer[INDEX(size.x - 3, i)].s0123);	
 }
 
 __kernel void stateBoundaryMirrorY(
-	__global real4* stateBuffer,
+	__global real8* stateBuffer,
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[INDEX(i, 0)] = mirrorStateY(stateBuffer[INDEX(i, 3)]);
-	stateBuffer[INDEX(i, 1)] = mirrorStateY(stateBuffer[INDEX(i, 2)]);
-	stateBuffer[INDEX(i, size.y - 1)] = mirrorStateY(stateBuffer[INDEX(i, size.y - 4)]);
-	stateBuffer[INDEX(i, size.y - 2)] = mirrorStateY(stateBuffer[INDEX(i, size.y - 3)]);
+	stateBuffer[INDEX(i, 0)].s0123 = mirrorStateY(stateBuffer[INDEX(i, 3)].s0123);
+	stateBuffer[INDEX(i, 1)].s0123 = mirrorStateY(stateBuffer[INDEX(i, 2)].s0123);
+	stateBuffer[INDEX(i, size.y - 1)].s0123 = mirrorStateY(stateBuffer[INDEX(i, size.y - 4)].s0123);
+	stateBuffer[INDEX(i, size.y - 2)].s0123 = mirrorStateY(stateBuffer[INDEX(i, size.y - 3)].s0123);
 }
 
 //freeflow
 
 __kernel void stateBoundaryFreeFlowX(
-	__global real4* stateBuffer,
+	__global real8* stateBuffer,
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[INDEX(0, i)] = stateBuffer[INDEX(1, i)] = (stateBuffer[INDEX(2, i)]);
-	stateBuffer[INDEX(size.x - 1, i)] = stateBuffer[INDEX(size.x - 2, i)] = (stateBuffer[INDEX(size.x - 3, i)]);
+	stateBuffer[INDEX(0, i)].s0123 = stateBuffer[INDEX(1, i)].s0123 = stateBuffer[INDEX(2, i)].s0123;
+	stateBuffer[INDEX(size.x - 1, i)].s0123 = stateBuffer[INDEX(size.x - 2, i)].s0123 = stateBuffer[INDEX(size.x - 3, i)].s0123;
 }
 
 __kernel void stateBoundaryFreeFlowY(
-	__global real4* stateBuffer,
+	__global real8* stateBuffer,
 	int2 size)
 {
 	int i = get_global_id(0);
-	stateBuffer[INDEX(i, 0)] = stateBuffer[INDEX(i, 1)] = (stateBuffer[INDEX(i, 2)]);
-	stateBuffer[INDEX(i, size.y - 1)] = stateBuffer[INDEX(i, size.y - 2)] = (stateBuffer[INDEX(i, size.y - 3)]);
+	stateBuffer[INDEX(i, 0)].s0123 = stateBuffer[INDEX(i, 1)].s0123 = stateBuffer[INDEX(i, 2)].s0123;
+	stateBuffer[INDEX(i, size.y - 1)].s0123 = stateBuffer[INDEX(i, size.y - 2)].s0123 = stateBuffer[INDEX(i, size.y - 3)].s0123;
 }
 
 __kernel void convertToTex(
-	const __global real4* stateBuffer,
+	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
 	int2 size,
 	__write_only image2d_t fluidTex,
@@ -119,7 +119,7 @@ __kernel void convertToTex(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	int index = INDEXV(i);
 	
-	real4 state = stateBuffer[index];
+	real4 state = stateBuffer[index].s0123;
 	real value;
 	switch (displayMethod) {
 	case DISPLAY_DENSITY:	//density
@@ -157,7 +157,7 @@ __kernel void convertToTex(
 
 __kernel void poissonRelax(
 	__global real* gravityPotentialBuffer,
-	const __global real4* stateBuffer,
+	const __global real8* stateBuffer,
 	int2 size,
 	real2 dx,
 	int2 repeat)
@@ -193,7 +193,7 @@ __kernel void poissonRelax(
 }
 
 __kernel void addGravity(
-	__global real4* stateBuffer,
+	__global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
 	int2 size,
 	real2 dx,
@@ -206,7 +206,7 @@ __kernel void addGravity(
 	if (i.x < 2 || i.y < 2 || i.x >= size.x - 2 || i.y >= size.y - 2) return;
 	int index = i.x + size.x * i.y;
 
-	real4 state = stateBuffer[index];
+	real4 state = stateBuffer[index].s0123;
 	real density = state.x;
 
 	for (int side = 0; side < 2; ++side) {
@@ -224,11 +224,11 @@ __kernel void addGravity(
 		state.w -= dt * density * gravityGrad * state[side+1];
 	}
 
-	stateBuffer[index] = state;
+	stateBuffer[index].s0123 = state;
 }
 
 __kernel void addDrop(
-	__global real4* stateBuffer,
+	__global real8* stateBuffer,
 	int2 size,
 	real2 xmin,
 	real2 xmax,
@@ -241,7 +241,7 @@ return;
 	if (i.x >= size.x || i.y >= size.y) return;
 
 	int index = i.x + size.x * i.y;
-	real4 state = stateBuffer[index];
+	real8 state = stateBuffer[index];
 
 	const float dropRadius = .02f;
 	const float densityMagnitude = 50.f;
@@ -268,11 +268,11 @@ return;
 	energyKinetic = .5f * dot(velocity, velocity);
 	energyTotal = energyInternal + energyKinetic;
 
-	stateBuffer[index] = (real4)(1.f, velocity.x, velocity.y, energyTotal) * density;
+	stateBuffer[index].s0123 = (real4)(1.f, velocity.x, velocity.y, energyTotal) * density;
 }
 
 __kernel void addSource(
-	__global real4* stateBuffer,
+	__global real8* stateBuffer,
 	int2 size,
 	real2 xmin,
 	real2 xmax,
@@ -293,7 +293,7 @@ return;
 	real falloff = exp(-rSq);
 
 	int index = i.x + size.x * i.y;
-	real4 state = stateBuffer[index];
+	real8 state = stateBuffer[index];
 	real density = state.x;
 	real2 velocity = state.yz / density;
 	real energyTotal = state.w / density;
@@ -306,7 +306,7 @@ return;
 	energyKinetic = .5f * dot(velocity, velocity);
 	energyTotal = energyInternal + energyKinetic;
 
-	stateBuffer[index] = (real4)(1.f, velocity.x, velocity.y, energyTotal) * density;
+	stateBuffer[index].s0123 = (real4)(1.f, velocity.x, velocity.y, energyTotal) * density;
 }
 
 

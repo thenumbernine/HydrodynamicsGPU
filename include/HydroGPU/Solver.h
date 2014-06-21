@@ -31,7 +31,7 @@ struct Solver {
 	cl::NDRange offset1d;
 	cl::NDRange offsetNd;
 
-	Solver(HydroGPUApp& app, const std::string& programFilename);
+	Solver(HydroGPUApp& app, const std::vector<std::string>& programFilenames);
 	virtual ~Solver() {}
 	
 	virtual void initKernels();

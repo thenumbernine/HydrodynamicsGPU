@@ -10,7 +10,7 @@
 Solver2D::Solver2D(
 	HydroGPUApp &app_,
 	const std::string &programFilename)
-: Super(app_, programFilename)
+: Super(app_, std::vector<std::string>{"Common2D.cl", programFilename})
 , fluidTex(GLuint())
 , viewZoom(1.f)
 {
@@ -20,7 +20,7 @@ Solver2D::Solver2D(
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 	
-	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real4) * volume);
+	stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume);
 	
 	if (app.dim == 1) {
 		std::string shaderCode = Common::File::read("Display1D.shader");
@@ -74,22 +74,17 @@ Solver2D::Solver2D(
 	initKernels();	//parent call for after the child class has populated buffers
 }
 
-void Solver2D::resetState(std::vector<real8> state3DVec) {
-	int volume = app.size.s[0] * app.size.s[1];
-	if (volume != state3DVec.size()) throw Common::Exception() << "state vec is of bad size";
-
-	//convert 3D to 2D
-	std::vector<real4> stateVec;
-	for (int i = 0; i < volume; ++i) {
-		real8 &state3D = state3DVec[i];
-		real4 state;
-		state.s[0] = state3D.s[0];
-		state.s[1] = state3D.s[1];
-		state.s[2] = state3D.s[2];
-		state.s[3] = state3D.s[4];
-		stateVec.push_back(state);
-	}
+void Solver2D::resetState(std::vector<real8> stateVec) {
+	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 	if (volume != stateVec.size()) throw Common::Exception() << "state vec is of bad size";
+
+	for (int i = 0; i < volume; ++i) {
+		stateVec[i].s[2] = stateVec[i].s[3];
+		stateVec[i].s[3] = stateVec[i].s[4];
+		for (int j = 4; j < 8; ++j) {
+			stateVec[i].s[j] = 0;
+		}
+	}
 
 	//grad^2 Phi = - 4 pi G rho
 	//solve inverse discretized linear system to find Psi
@@ -97,7 +92,7 @@ void Solver2D::resetState(std::vector<real8> state3DVec) {
 	//once you get that, plug it into the total energy
 	
 	//write state density first for gravity potential, to then update energy
-	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
+	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * volume, &stateVec[0]);
 	
 	//here's our initial guess to sor
 	std::vector<real> gravityPotentialVec(volume);
@@ -126,7 +121,7 @@ void Solver2D::resetState(std::vector<real8> state3DVec) {
 		}
 	}
 	
-	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);
+	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * volume, &stateVec[0]);
 	commands.finish();
 }
 
@@ -161,8 +156,8 @@ void Solver2D::display() {
 		commands.enqueueNDRangeKernel(convertToTexKernel, offsetNd, globalSize, localSize);
 	} else {
 		int volume = app.size.s[0] * app.size.s[1];
-		std::vector<real4> stateVec(volume);
-		commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * volume, &stateVec[0]);  
+		std::vector<real8> stateVec(volume);
+		commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * volume, &stateVec[0]);  
 		std::vector<Tensor::Vector<char,4>> texVec(volume);
 		for (int i = 0; i < volume; ++i) {
 			real value;
@@ -296,8 +291,8 @@ void Solver2D::save() {
 void Solver2D::save(std::string filename) {
 	std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]), nullptr, 1, 5);
 	
-	std::vector<real4> stateVec(app.size.s[0] * app.size.s[1]);
-	app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real4) * stateVec.size(), &stateVec[0]);
+	std::vector<real8> stateVec(app.size.s[0] * app.size.s[1]);
+	app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * stateVec.size(), &stateVec[0]);
 		
 	std::vector<real> gravVec(app.size.s[0] * app.size.s[1]);
 	app.commands.enqueueReadBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * gravVec.size(), &gravVec[0]);
@@ -306,7 +301,7 @@ void Solver2D::save(std::string filename) {
 	
 	for (int j = 0; j < app.size.s[1]; ++j) {
 		for (int i = 0; i < app.size.s[0]; ++i) {
-			real4 *state = &stateVec[i + app.size.s[0] * j];
+			real8 *state = &stateVec[i + app.size.s[0] * j];
 			real grav = gravVec[i + app.size.s[0] * j];
 			(*image)(i,j,0,0) = state->s[0];
 			(*image)(i,j,0,1) = state->s[1] / state->s[0];

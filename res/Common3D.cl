@@ -181,8 +181,12 @@ __kernel void convertToTex(
 	}
 	value *= displayScale;
 
+#if DIM == 1
+	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0.f, 0.f, 1.f));
+#else
 	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
 	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color.bgra);
+#endif
 }
 
 __kernel void poissonRelax(
@@ -196,18 +200,16 @@ __kernel void poissonRelax(
 	int index = INDEXV(i);
 
 	real sum = 0.f;
-	for (int side = 0; side < 3; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int3 iprev = i;
 		int3 inext = i;
-	/*	
 		if (repeat[side]) {
 			iprev[side] = (iprev[side] + size[side] - 1) % size[side];
 			inext[side] = (inext[side] + 1) % size[side];
 		} else {
-	*/
 			iprev[side] = max(iprev[side] - 1, 0);
 			inext[side] = min(inext[side] + 1, size[side] - 1);
-	//	}
+		}
 		int indexPrev = INDEXV(iprev);
 		int indexNext = INDEXV(inext);
 		sum += gravityPotentialBuffer[indexPrev] + gravityPotentialBuffer[indexNext];
@@ -216,8 +218,13 @@ __kernel void poissonRelax(
 #define M_PI 3.141592653589793115997963468544185161590576171875f
 #define GRAVITY_CONSTANT 1.f		//6.67384e-11 m^3 / (kg s^2)
 	real scale = M_PI * GRAVITY_CONSTANT * dx.x * dx.y * dx.z;
-
-	gravityPotentialBuffer[index] = sum / 6.f + scale * stateBuffer[index].s0;
+#if DIM > 1
+	scale *= dx.y;
+#if DIM > 2
+	scale *= dx.z;
+#endif
+#endif
+	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * stateBuffer[index].s0;
 }
 
 __kernel void addGravity(

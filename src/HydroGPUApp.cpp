@@ -193,30 +193,39 @@ void HydroGPUApp::init() {
 	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_1D, 0, gradientTex);
 
 	//construct the solver
-	switch (dim) {
-	case 1:
-	case 2:
-		if (solverName == "Burgers") {
-			solver = std::make_shared<BurgersSolver2D>(*this);
-		} else if (solverName == "Roe") {
-			solver = std::make_shared<RoeSolver2D>(*this);
-		} else if (solverName == "HLL") {
-			solver = std::make_shared<HLLSolver2D>(*this);
-		} else {
-			throw Common::Exception() << "unknown solver " << solverName;
-		}
-		break;
-	case 3:
-		if (solverName == "Burgers") {
+	if (solverName == "Burgers") {
+		switch (dim) {
+		case 1:
+		case 2:
+		case 3:
 			solver = std::make_shared<BurgersSolver3D>(*this);
-		} else if (solverName == "Roe") {
-			solver = std::make_shared<RoeSolver3D>(*this);
-		} else {
-			throw Common::Exception() << "unknown solver " << solverName;
+			break;
+		default:
+			throw Common::Exception() << "solver " << solverName << " can't handle dim " << dim;
 		}
-		break;
-	default:
-		throw Common::Exception() << "got unsupported dimension " << dim;
+	} else if (solverName == "Roe") {
+		switch (dim) {
+		case 1:
+		case 2:
+			solver = std::make_shared<RoeSolver2D>(*this);
+			break;
+		case 3:
+			solver = std::make_shared<RoeSolver3D>(*this);	//broken
+			break;
+		default:
+			throw Common::Exception() << "solver " << solverName << " can't handle dim " << dim;
+		}
+	} else if (solverName == "HLL") {
+		switch (dim) {
+		case 1:
+		case 2:
+			solver = std::make_shared<HLLSolver2D>(*this);
+			break;
+		default:
+			throw Common::Exception() << "solver " << solverName << " can't handle dim " << dim;
+		}
+	} else {
+		throw Common::Exception() << "unknown solver " << solverName;
 	}
 
 	resetState();

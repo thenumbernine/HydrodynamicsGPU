@@ -24,12 +24,13 @@ gamma = 1.4
 --[[ 3D
 size = {64, 64, 64}
 --]]
--- [[ 2D
--- max burgers size: 4096x4096
--- max roe size: 1024x1024
-size = {512, 512}
+--[[ 2D
+-- max burgers size with 4 channels: 4096x4096
+-- max burgers size with 8 channels: 2048x2048
+-- max roe size with 4 channels: 1024x1024
+size = {256, 256}
 --]]
---[[ 1D
+-- [[ 1D
 size = {1024}
 displayScale = .25
 --]]
@@ -146,7 +147,7 @@ function initState(x)
 end
 --]]
 
--- [[ gravity potential test - equilibrium - some Rayleigh-Taylor
+--[[ gravity potential test - equilibrium - some Rayleigh-Taylor
 useGravity = true
 boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
 noise = 0	--noise must be 0 at borders with freeflow or we'll get waves at the edges

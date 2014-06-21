@@ -4,7 +4,7 @@
 
 Solver::Solver(
 	HydroGPUApp& app_,
-	const std::string& programFilename)
+	const std::vector<std::string>& programFilenames)
 : app(app_)
 , commands(app.commands)
 {
@@ -61,18 +61,13 @@ Solver::Solver(
 	std::cout << "local_size\t" << localSize << std::endl;
 	
 	{
-		std::vector<std::string> commonFilenames = {
-			"Common2D.cl",
-			"Common2D.cl",
-			"Common3D.cl"
-		};
-		
 		std::vector<std::string> kernelSources = std::vector<std::string>{
 			std::string() + "#define GAMMA " + std::to_string(app.gamma) + "f\n",
 			std::string() + "#define DIM " + std::to_string(app.dim) + "\n",
-			Common::File::read(commonFilenames[app.dim-1]),
-			Common::File::read(programFilename)
 		};
+		for (const std::string& programFilename : programFilenames) {
+			kernelSources.push_back(Common::File::read(programFilename));
+		}
 		std::vector<std::pair<const char *, size_t>> sources;
 		for (const std::string &s : kernelSources) {
 			sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));

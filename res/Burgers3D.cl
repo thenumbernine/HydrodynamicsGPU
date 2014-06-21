@@ -12,7 +12,14 @@ __kernel void calcCFL(
 {
 	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
 	int index = INDEXV(i);
-	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 2 || i.y >= size.y - 2 || i.z >= size.z - 2) {
+	if (i.x < 2 || i.x >= size.x - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 2 
+#if DIM > 2
+		|| i.z < 2 || i.z >= size.z - 2
+#endif
+#endif
+	) {
 		cflBuffer[index] = INFINITY;
 		return;
 	}
@@ -25,8 +32,12 @@ __kernel void calcCFL(
 	real specificPotentialEnergy = gravityPotentialBuffer[index]; 
 	real specificInternalEnergy = specificTotalEnergy - specificKineticEnergy - specificPotentialEnergy;
 	real speedOfSound = sqrt(GAMMA * (GAMMA - 1.f) * specificInternalEnergy);
-	real3 dum = dx / (speedOfSound + fabs(velocity));
-	cflBuffer[index] = cfl * min(dum.x, min(dum.y, dum.z));
+	real result = dx.s0 / (speedOfSound + fabs(velocity.s0));
+	for (int side = 1; side < DIM; ++side) {
+		real dum = dx[side] / (speedOfSound + fabs(velocity[side]));
+		result = min(result, dum);
+	}
+	cflBuffer[index] = cfl * result;
 }
 
 __kernel void calcInterfaceVelocity(
@@ -36,10 +47,19 @@ __kernel void calcInterfaceVelocity(
 	real3 dx)
 {
 	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
-	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 1 || i.y >= size.y - 1 || i.z >= size.z - 1) return;
+	if (i.x < 2 || i.x >= size.x - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 1 
+#if DIM > 2
+		|| i.z < 2 || i.z >= size.z - 1
+#endif
+#endif
+	) {
+		return;
+	}
 	int index = INDEXV(i);
 	
-	for (int side = 0; side < 3; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int3 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
@@ -52,7 +72,7 @@ __kernel void calcInterfaceVelocity(
 		real densityR = stateR.s0;
 		real velocityR = stateR[side+1] / densityR;
 		
-		interfaceVelocityBuffer[side + 3 * index] = .5f * (velocityL + velocityR);
+		interfaceVelocityBuffer[side + DIM * index] = .5f * (velocityL + velocityR);
 	}
 }
 
@@ -82,10 +102,19 @@ __kernel void calcFlux(
 #endif
 	
 	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
-	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 1 || i.y >= size.y - 1 || i.z >= size.z - 1) return;
+	if (i.x < 2 || i.x >= size.x - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 1 
+#if DIM > 2
+		|| i.z < 2 || i.z >= size.z - 1
+#endif
+#endif
+	) {
+		return;
+	}
 	int index = INDEXV(i);
 	
-	for (int side = 0; side < 3; ++side) {	
+	for (int side = 0; side < DIM; ++side) {	
 		int3 iPrev = i;
 		iPrev[side] = iPrev[side]- 1;
 		int indexPrev = INDEXV(iPrev);
@@ -118,7 +147,7 @@ __kernel void calcFlux(
 		real8 deltaStateR = stateR2 - stateR;
 #endif
 
-		real interfaceVelocity = interfaceVelocityBuffer[side + 3 * index];
+		real interfaceVelocity = interfaceVelocityBuffer[side + DIM * index];
 		real theta = step(0.f, interfaceVelocity);
 		
 #ifdef CAUSES_COMPILER_TO_SEGFAULT
@@ -132,7 +161,7 @@ __kernel void calcFlux(
 		flux += delta * .5f * (.5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])));
 #endif
 			
-		fluxBuffer[side + 3 * index] = flux;
+		fluxBuffer[side + DIM * index] = flux;
 	}
 }
 
@@ -146,16 +175,25 @@ __kernel void integrateFlux(
 	real3 dt_dx = dtBuffer[0] / dx;
 	
 	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
-	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 2 || i.y >= size.y - 2 || i.z >= size.z - 2) return;
+	if (i.x < 2 || i.x >= size.x - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 2 
+#if DIM > 2
+		|| i.z < 2 || i.z >= size.z - 2
+#endif
+#endif
+	) {
+		return;
+	}
 	int index = INDEXV(i);
 	
-	for (int side = 0; side < 3; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int3 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
-		real8 fluxL = fluxBuffer[side + 3 * index];
-		real8 fluxR = fluxBuffer[side + 3 * indexNext];
+		real8 fluxL = fluxBuffer[side + DIM * index];
+		real8 fluxR = fluxBuffer[side + DIM * indexNext];
 	
 		real8 df = fluxR - fluxL;
 		stateBuffer[index] -= df * dt_dx[side];
@@ -169,7 +207,16 @@ __kernel void computePressure(
 	int3 size)
 {
 	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
-	if (i.x < 1 || i.y < 1 || i.z < 1 || i.x >= size.x - 1 || i.y >= size.y - 1 || i.z >= size.z - 1) return;
+	if (i.x < 1 || i.x >= size.x - 1 
+#if DIM > 1
+		|| i.y < 1 || i.y >= size.y - 1 
+#if DIM > 2
+		|| i.z < 1 || i.z >= size.z - 1
+#endif
+#endif
+	) {
+		return;
+	}
 	int index = INDEXV(i);
 	
 	real8 state = stateBuffer[index];
@@ -186,7 +233,7 @@ __kernel void computePressure(
 #if 0
 	//von Neumann-Richtmyer artificial viscosity
 	real deltaVelocitySq = 0.f;
-	for (int side = 0; side < 3; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int3 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
@@ -216,10 +263,19 @@ __kernel void diffuseMomentum(
 	real3 dt_dx = dtBuffer[0] / dx;
 	
 	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
-	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 2 || i.y >= size.y - 2 || i.z >= size.z - 2) return;
+	if (i.x < 2 || i.x >= size.x - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 2 
+#if DIM > 2
+		|| i.z < 2 || i.z >= size.z - 2
+#endif
+#endif
+	) {
+		return;
+	}
 	int index = INDEXV(i);
 
-	for (int side = 0; side < 3; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int3 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
@@ -246,10 +302,19 @@ __kernel void diffuseWork(
 	real3 dt_dx = dtBuffer[0] / dx;
 	
 	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
-	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 2 || i.y >= size.y - 2 || i.z >= size.z - 2) return;
+	if (i.x < 2 || i.x >= size.x - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= size.y - 2 
+#if DIM > 2
+		|| i.z < 2 || i.z >= size.z - 2
+#endif
+#endif
+	) {
+		return;
+	}
 	int index = INDEXV(i);
 
-	for (int side = 0; side < 3; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int3 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);

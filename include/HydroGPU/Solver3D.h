@@ -28,6 +28,10 @@ struct Solver3D : public Solver {
 	GLuint fluidTex;
 
 	std::shared_ptr<Shader::Program> shader;
+	//2D
+	Tensor::Vector<float,2> viewPos;
+	float viewZoom;
+	//3D
 	Tensor::Quat<float> viewAngle;
 	float viewDist;
 
