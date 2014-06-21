@@ -182,11 +182,11 @@ __kernel void convertToTex(
 	value *= displayScale;
 
 #if DIM == 1
-	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0.f, 0.f, 1.f));
+	float4 color = (float4)(value, 0.f, 0.f, 1.f);
 #else
 	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
-	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color.bgra);
 #endif
+	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color.bgra);
 }
 
 __kernel void poissonRelax(

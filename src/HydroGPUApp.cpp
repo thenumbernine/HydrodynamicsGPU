@@ -1,5 +1,4 @@
 #include "HydroGPU/HydroGPUApp.h"
-#include "HydroGPU/BurgersSolver2D.h"
 #include "HydroGPU/RoeSolver2D.h"
 #include "HydroGPU/HLLSolver2D.h"
 #include "HydroGPU/BurgersSolver3D.h"
