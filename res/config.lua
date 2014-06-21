@@ -24,13 +24,13 @@ gamma = 1.4
 --[[ 3D
 size = {64, 64, 64}
 --]]
---[[ 2D
+-- [[ 2D
 -- max burgers size with 4 channels: 4096x4096
 -- max burgers size with 8 channels: 2048x2048
 -- max roe size with 4 channels: 1024x1024
 size = {256, 256}
 --]]
--- [[ 1D
+--[[ 1D
 size = {1024}
 displayScale = .25
 --]]
