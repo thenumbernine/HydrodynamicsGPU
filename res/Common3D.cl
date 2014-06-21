@@ -55,10 +55,10 @@ __kernel void stateBoundaryPeriodicY(
 	int3 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(i.y, 0, i.x)] = stateBuffer[INDEX(i.y, size.y - 4, i.x)];
-	stateBuffer[INDEX(i.y, 1, i.x)] = stateBuffer[INDEX(i.y, size.y - 3, i.x)];
-	stateBuffer[INDEX(i.y, size.y - 2, i.x)] = stateBuffer[INDEX(i.y, 2, i.x)];
-	stateBuffer[INDEX(i.y, size.y - 1, i.x)] = stateBuffer[INDEX(i.y, 3, i.x)];
+	stateBuffer[INDEX(i.x, 0, i.y)] = stateBuffer[INDEX(i.x, size.y - 4, i.y)];
+	stateBuffer[INDEX(i.x, 1, i.y)] = stateBuffer[INDEX(i.x, size.y - 3, i.y)];
+	stateBuffer[INDEX(i.x, size.y - 2, i.y)] = stateBuffer[INDEX(i.x, 2, i.y)];
+	stateBuffer[INDEX(i.x, size.y - 1, i.y)] = stateBuffer[INDEX(i.x, 3, i.y)];
 }
 
 __kernel void stateBoundaryPeriodicZ(

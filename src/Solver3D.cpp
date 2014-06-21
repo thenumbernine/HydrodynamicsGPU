@@ -90,7 +90,7 @@ Solver3D::Solver3D(
 			shader->setUniform<float>("xmax", app.xmax.s[0]);
 			shader->done();
 		}
-		//...continue
+		//don't break
 	case 2:
 		{
 			//get a texture going for visualizing the output
@@ -228,10 +228,21 @@ void Solver3D::boundary() {
 		break;
 	case 3:
 		//boundary
+		cl::NDRange offset2d(0, 0);
+		cl::NDRange localSize2d(localSize[0], localSize[1]);
 		for (int i = 0; i < app.dim; ++i) {
-			cl::NDRange globalSize2d(app.size.s[(i+1)%3], app.size.s[(i+2)%3]);
-			cl::NDRange offset2d(0, 0);
-			cl::NDRange localSize2d(localSize[(i+1)%3], localSize[(i+2)%3]);
+			cl::NDRange globalSize2d;
+			switch (i) {
+			case 0:
+				globalSize2d = cl::NDRange(app.size.s[0], app.size.s[1]);
+				break;
+			case 1:
+				globalSize2d = cl::NDRange(app.size.s[0], app.size.s[2]);
+				break;
+			case 2:
+				globalSize2d = cl::NDRange(app.size.s[1], app.size.s[2]);
+				break;
+			}
 			commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethods(i)][i], offset2d, globalSize2d, localSize2d);
 		}
 		break;
