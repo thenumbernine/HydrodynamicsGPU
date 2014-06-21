@@ -3,7 +3,7 @@
 	-- solver variables
 
 
-solverName = 'Roe'
+solverName = 'Burgers'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
 --maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
@@ -24,13 +24,13 @@ gamma = 1.4
 --[[ 3D
 size = {64, 64, 64}
 --]]
--- [[ 2D
+--[[ 2D
 -- max burgers size with 4 channels: 4096x4096
 -- max burgers size with 8 channels: 2048x2048
 -- max roe size with 4 channels: 1024x1024
 size = {256, 256}
 --]]
---[[ 1D
+-- [[ 1D
 size = {1024}
 displayScale = .25
 --]]

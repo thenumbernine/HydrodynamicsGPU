@@ -189,17 +189,20 @@ void Solver2D::display() {
 	
 	if (app.dim == 1) {
 
-		shader1d->use();
 		glBindTexture(GL_TEXTURE_2D, fluidTex);
-		glBegin(GL_LINE_STRIP);
-		for (int i = 2; i < app.size.s[0]-2; ++i) {
-			real x = ((real)(i) + .5f) / (real)app.size.s[0];
-			glVertex2f(x, 0.f);
-		}
-		glEnd();
-		glBindTexture(GL_TEXTURE_2D, 0);	
+		shader1d->use();
+		for (int channel = 0; channel < 3; ++channel) {
+			shader1d->setUniform<int>("channel", channel);
+			glBegin(GL_LINE_STRIP);
+			for (int i = 2; i < app.size.s[0]-2; ++i) {
+				real x = ((real)(i) + .5f) / (real)app.size.s[0];
+				glVertex2f(x, 0.f);
+			}
+			glEnd();
+		}	
 		shader1d->done();
-		
+		glBindTexture(GL_TEXTURE_2D, 0);	
+			
 		glBegin(GL_LINES);
 		glColor3f(.5, .5, .5);
 		glVertex2f(0, -10);

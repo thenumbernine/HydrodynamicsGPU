@@ -120,6 +120,18 @@ __kernel void convertToTex(
 	int index = INDEXV(i);
 	
 	real4 state = stateBuffer[index].s0123;
+	
+#if DIM == 1
+	real density = state.s0;
+	real velocity = length(state.s12) / density;
+	real energyTotal = state.s3 / density;
+	real energyKinetic = .5f * velocity * velocity;
+	real energyPotential = gravityPotentialBuffer[index];
+	real energyInternal = energyTotal - energyKinetic - energyPotential;
+	float4 color = (float4)(density, velocity, energyInternal, 0.f) * displayScale;
+	write_imagef(fluidTex, i, color);
+#elif DIM == 2
+
 	real value;
 	switch (displayMethod) {
 	case DISPLAY_DENSITY:	//density
@@ -147,9 +159,6 @@ __kernel void convertToTex(
 	}
 	value *= displayScale;
 
-#if DIM == 1
-	write_imagef(fluidTex, i, (float4)(value, 0.f, 0.f, 1.f));
-#elif DIM == 2
 	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
 	write_imagef(fluidTex, i, color.bgra);
 #endif
