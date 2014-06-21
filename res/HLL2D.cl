@@ -40,6 +40,9 @@ __kernel void calcEigenvalues(
 		int2 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
+		
+		real2 normal = (real2)(0.f, 0.f);
+		normal[side] = 1.f;
 
 		int interfaceIndex = side + 2 * index;
 
@@ -49,55 +52,63 @@ __kernel void calcEigenvalues(
 		real densityL = stateL.x;
 		real invDensityL = 1.f / densityL;
 		real2 velocityL = stateL.yz * invDensityL;
+		real velocityNL = dot(velocityL, normal);
+		real velocitySqL = dot(velocityL, velocityL);
 		real energyTotalL = stateL.w * invDensityL;
-
-		real densityR = stateR.x;
-		real invDensityR = 1.f / densityR;
-		real2 velocityR = stateR.yz * invDensityR;
-		real energyTotalR = stateR.w * invDensityR;
-
 		real energyKineticL = .5f * dot(velocityL, velocityL);
 		real energyPotentialL = gravityPotentialBuffer[indexPrev];
 		real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 		real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
 		real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
+		real speedOfSoundL = sqrt((GAMMA - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
+		real4 eigenvaluesL = (real4)(
+			velocityNL - speedOfSoundL,
+			velocityNL,
+			velocityNL,
+			velocityNL + speedOfSoundL);
 		real weightL = sqrt(densityL);
 
+		real densityR = stateR.x;
+		real invDensityR = 1.f / densityR;
+		real2 velocityR = stateR.yz * invDensityR;
+		real velocityNR = dot(velocityR, normal);
+		real velocitySqR = dot(velocityR, velocityR);
+		real energyTotalR = stateR.w * invDensityR;
 		real energyKineticR = .5f * dot(velocityR, velocityR);
 		real energyPotentialR = gravityPotentialBuffer[index];
 		real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 		real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
 		real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
+		real speedOfSoundR = sqrt((GAMMA - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
+		real4 eigenvaluesR = (real4)(
+			velocityNR - speedOfSoundR,
+			velocityNR,
+			velocityNR,
+			velocityNR + speedOfSoundR);
 		real weightR = sqrt(densityR);
 
+		//Roe averaging
 		real roeWeightNormalization = 1.f / (weightL + weightR);
 		real2 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
-		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
-		
-		real velocitySq = dot(velocity, velocity);
-		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
-
-		real2 normal = (real2)(0.f, 0.f);
-		normal[side] = 1.f;
 		real velocityN = dot(velocity, normal);
-	
-		//eigenvalues
-
-		real4 eigenvalues = (real4)(
+		real velocitySq = dot(velocity, velocity);
+		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
+		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
+		real4 eigenvaluesRoe = (real4)(
 			velocityN - speedOfSound,
 			velocityN,
 			velocityN,
 			velocityN + speedOfSound);
 		
-		eigenvaluesBuffer[interfaceIndex] = eigenvalues;
+		eigenvaluesBuffer[interfaceIndex] = eigenvaluesRoe;
 	
 		//flux
 
 		real4 fluxL = flux(densityL, velocityL, pressureL, enthalpyTotalL, normal);
 		real4 fluxR = flux(densityR, velocityR, pressureR, enthalpyTotalR, normal);
 	
-		real sl = eigenvalues.x;
-		real sr = eigenvalues.w;
+		real sl = min(eigenvaluesL.s0, eigenvaluesRoe.s0);
+		real sr = max(eigenvaluesR.s3, eigenvaluesRoe.s3);
 
 		real4 flux;
 		if (sl < 0.f) {

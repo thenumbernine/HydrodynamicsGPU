@@ -31,8 +31,6 @@ size = {512, 512}
 --]]
 --[[ 1D
 size = {1024}
-xmin[2] = xmin[2] * 1/size[1]
-xmax[2] = xmax[2] * 1/size[1]
 displayScale = .25
 --]]
 
@@ -99,13 +97,32 @@ function initState(x)
 end
 --]]	
 
--- [[ square shock wave / 2D Sod test
+-- [[ Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x)
 	local inside = x[1] <= 0 and x[2] <= 0 and x[3] <= 0
 	return buildState{
 		density = inside and 1 or .1,
 		energyInternal = 1,
+	}
+end
+--]]
+
+--[[ Colella-Woodward interacting blast wave problem
+boundaryMethods = {'mirror', 'mirror', 'mirror'}
+function initState(x)
+	local pressure
+	if x[1] < -.4 then
+		pressure = 1000
+	elseif x[1] < .4 then
+		pressure = .01
+	else
+		pressure = 100
+	end
+	return buildState{
+		density = 1,
+		vx = 0, vy = 0, vz = 0,
+		pressure = pressure,
 	}
 end
 --]]
@@ -129,7 +146,7 @@ function initState(x)
 end
 --]]
 
---[[ gravity potential test - equilibrium - some Rayleigh-Taylor
+-- [[ gravity potential test - equilibrium - some Rayleigh-Taylor
 useGravity = true
 boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
 noise = 0	--noise must be 0 at borders with freeflow or we'll get waves at the edges
