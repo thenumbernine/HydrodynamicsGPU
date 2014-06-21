@@ -85,10 +85,6 @@ real8 slopeLimiter(real8 r) {
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
-#if DIM < 3		//crashes when building for 3D
-#define CAUSES_COMPILER_TO_SEGFAULT_WITH_3D
-#endif
-
 __kernel void calcFlux(
 	__global real8* fluxBuffer,
 	const __global real8* stateBuffer,
@@ -118,7 +114,6 @@ __kernel void calcFlux(
 		iPrev[side] = iPrev[side]- 1;
 		int indexPrev = INDEXV(iPrev);
 	
-#ifdef CAUSES_COMPILER_TO_SEGFAULT_WITH_3D
 		int3 iPrev2 = iPrev;
 		--iPrev2[side];
 		int indexPrev2 = INDEXV(iPrev2);
@@ -126,38 +121,36 @@ __kernel void calcFlux(
 		int3 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
-#endif
 
 		int indexL1 = indexPrev;
 		int indexR1 = index;
-#ifdef CAUSES_COMPILER_TO_SEGFAULT_WITH_3D
 		int indexL2 = indexPrev2;
 		int indexR2 = indexNext;
-#endif
 
 		real8 stateL = stateBuffer[indexL1];
 		real8 stateR = stateBuffer[indexR1];
-#ifdef CAUSES_COMPILER_TO_SEGFAULT_WITH_3D
 		real8 stateL2 = stateBuffer[indexL2];
 		real8 stateR2 = stateBuffer[indexR2];
 
 		real8 deltaStateL = stateL - stateL2;
 		real8 deltaState = stateR - stateL;
 		real8 deltaStateR = stateR2 - stateR;
-#endif
-real8 deltaState = stateR - stateL;
 
 		real interfaceVelocity = interfaceVelocityBuffer[side + DIM * index];
 		real theta = step(0.f, interfaceVelocity);
+	
+		//this line crashes when compiling on my Intel HD4000 only for the 3D case
+		//real8 stateSlopeRatio = mix(deltaStateR, deltaStateL, theta) / deltaState;
+		//...but writing it out explicitly works fine
+		real8 stateSlopeRatio;
+		if (interfaceVelocity >= 0.f) {
+			stateSlopeRatio = deltaStateL / deltaState;
+		} else {
+			stateSlopeRatio = deltaStateR / deltaState;
+		}
 		
-#ifdef CAUSES_COMPILER_TO_SEGFAULT_WITH_3D
-		real8 stateSlopeRatio = mix(deltaStateR, deltaStateL, theta) / deltaState;
 		real8 phi = slopeLimiter(stateSlopeRatio);
 		real8 delta = phi * deltaState;
-#endif
-#if DIM == 3
-real8 delta = deltaState;
-#endif
 
 		real8 flux = mix(stateR, stateL, theta) * interfaceVelocity;
 		flux += delta * .5f * (.5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])));
