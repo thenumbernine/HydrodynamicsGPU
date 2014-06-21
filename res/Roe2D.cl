@@ -7,6 +7,8 @@ real8 slopeLimiter(real8 r);
 
 real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v) {
 	return (real8)(
+		//I would use dot products of real8's
+		// but that causes an error
 		dot(ma.s0123, v.s0123) + dot(ma.s4567, v.s4567),
 		dot(ma.s89AB, v.s0123) + dot(ma.sCDEF, v.s4567),
 		dot(mb.s0123, v.s0123) + dot(mb.s4567, v.s4567),
@@ -52,9 +54,9 @@ __kernel void calcEigenBasis(
 	__global real16* eigenvectorsBuffer,
 	__global real16* eigenvectorsInverseBuffer,
 	const __global real8* stateBuffer,
-	const __global real* gravityPotentialBuffer,
-	int2 size)
+	const __global real* gravityPotentialBuffer)
 {
+	int2 size = (int2)(get_global_size(0), get_global_size(1));
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x < 2 || i.x >= size.x - 1 
 #if DIM > 1
@@ -126,8 +128,8 @@ __kernel void calcEigenBasis(
 		//specify transposed
 		real16 eigenvectorsA;
 		real16 eigenvectorsB;
-		//real16 eigenvectorsC;
-		//real16 eigenvectorsD;
+		real16 eigenvectorsC;
+		real16 eigenvectorsD;
 		
 		//min col 
 		eigenvectorsA.s0 = 1.f;
@@ -153,8 +155,8 @@ __kernel void calcEigenBasis(
 		//transpose and store
 		eigenvectorsBuffer[0 + 4 * interfaceIndex] = eigenvectorsA;
 		eigenvectorsBuffer[1 + 4 * interfaceIndex] = eigenvectorsB;
-		//eigenvectorsBuffer[2 + 4 * interfaceIndex] = eigenvectorsC;
-		//eigenvectorsBuffer[3 + 4 * interfaceIndex] = eigenvectorsD;
+		eigenvectorsBuffer[2 + 4 * interfaceIndex] = eigenvectorsC;
+		eigenvectorsBuffer[3 + 4 * interfaceIndex] = eigenvectorsD;
 
 #if 1	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
 		//calculate eigenvector inverses ... 
@@ -185,6 +187,8 @@ __kernel void calcEigenBasis(
 			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
 			(GAMMA - 1.f) * invDenom,
 			0.f, 0.f, 0.f, 0.f);
+		eigenvectorsInverseBuffer[2 + 4 * interfaceIndex] = 0.f;
+		eigenvectorsInverseBuffer[3 + 4 * interfaceIndex] = 0.f;
 #endif
 #if 0 //numerically solve for the inverse
 		eigenvectorsInverseBuffer[4 * interfaceIndex] = mat44inv(eigenvectorsBuffer[4 * interfaceIndex]);
@@ -291,10 +295,10 @@ __kernel void calcEigenBasis(
 __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real8* eigenvaluesBuffer,
-	int2 size,
-	real2 dx,
+	real4 dx,
 	real cfl)
 {
+	int2 size = (int2)(get_global_size(0), get_global_size(1));
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	int index = INDEXV(i);
 	if (i.x < 2 || i.x >= size.x - 2 
@@ -346,9 +350,9 @@ __kernel void calcDeltaQTilde(
 	__global real8* deltaQTildeBuffer,
 	const __global real16* eigenvectorsInverseBuffer,
 	const __global real8* stateBuffer,
-	int2 size,
-	real2 dx)
+	real4 dx)
 {
+	int2 size = (int2)(get_global_size(0), get_global_size(1));
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x < 2 || i.x >= size.x - 1 
 #if DIM > 1
@@ -391,11 +395,10 @@ __kernel void calcFlux(
 	const __global real16* eigenvectorsBuffer,
 	const __global real16* eigenvectorsInverseBuffer,
 	const __global real8* deltaQTildeBuffer,
-	int2 size,
-	real2 dx,
-	__global real *dt)
+	real4 dx,
+	__global real *dtBuffer)
 {
-	real2 dt_dx = *dt / dx;
+	int2 size = (int2)(get_global_size(0), get_global_size(1));
 	
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x < 2 || i.x >= size.x - 1 
@@ -427,20 +430,61 @@ __kernel void calcFlux(
 
 		real8 eigenvalues = eigenvaluesBuffer[interfaceIndex];
 
+		//with step function...
 		real8 theta = step(0.f, eigenvalues) * 2.f - 1.f;
-		real8 rTilde = mix(deltaQTildeR, deltaQTildeL, theta * .5f + .5f) / deltaQTilde;
+		//without step function...
+//		real8 theta;
+//		for (int i = 0; i < 8; ++i) {
+//			if (eigenvalues[i] >= 0.f) {
+//				theta[i] = 1.f;
+//			} else {
+//				theta[i] = -1.f;
+//			}
+//		}
+	
+		//this operation is crashing on compile for some cases
+		//real8 rTilde = mix(deltaQTildeR, deltaQTildeL, theta * .5f + .5f) / deltaQTilde;
+		//here it is written out as conditions
+//		real8 rTilde;
+//		for (int i = 0; i < 8; ++i) {
+//			if (eigenvalues[i] >= 0.f) {
+//				rTilde[i] = deltaQTildeL[i];
+//			} else {
+//				rTilde[i] = deltaQTildeR[i];
+//			}
+//			rTilde[i] /= deltaQTilde[i];
+//		}
+		
 		real8 qAvg = (stateR + stateL) * .5f;
-		real8 fluxAvgTilde;
-		fluxAvgTilde = matmul(
+		real8 fluxAvgTilde = matmul(
 			eigenvectorsInverseBuffer[0 + 4 * interfaceIndex], 
 			eigenvectorsInverseBuffer[1 + 4 * interfaceIndex], 
 			eigenvectorsInverseBuffer[2 + 4 * interfaceIndex], 
 			eigenvectorsInverseBuffer[3 + 4 * interfaceIndex], 
 			qAvg) * eigenvalues;
-		real8 phi = slopeLimiter(rTilde);
-		real8 epsilon = eigenvalues * dt_dx[side];
+
+//		real8 phi = slopeLimiter(rTilde);
+real8 phi = 0.f;
+
+//		real8 epsilon = eigenvalues * dt_dx[side];	//enabling this causes us to crash
+real8 epsilon = eigenvalues;	//either multiplying by dtBuffer[0] or dividing by dx[side] causes a crash
+
+		real8 fluxTilde = fluxAvgTilde; 
+	
 		real8 deltaFluxTilde = eigenvalues * deltaQTilde;
-		real8 fluxTilde = fluxAvgTilde - .5f * deltaFluxTilde * (theta + .5f * phi * (epsilon - theta));
+		
+		//with theta...
+		fluxTilde -= .5f * deltaFluxTilde * theta;
+		//without theta... this is crashing
+		//for (int i = 0; i < 8; ++i) {
+		//	if (eigenvalues[i] >= 0.f) {
+		//		fluxTilde[i] -= .5f * deltaFluxTilde[i];
+		//	} else {
+		//		fluxTilde[i] += .5f * deltaFluxTilde[i];
+		//	}
+		//}
+		
+		fluxTilde -= .5f * deltaFluxTilde * .5f * phi * (epsilon - theta);
 		
 		fluxBuffer[side + DIM * index] = matmul(
 			eigenvectorsBuffer[0 + 4 * interfaceIndex],

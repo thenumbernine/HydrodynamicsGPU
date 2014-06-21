@@ -83,7 +83,7 @@ Solver::Solver(
 	}
 
 	try {
-		program.build({device}, "-I include -Werror -cl-fast-relaxed-math");
+		program.build({device}, "-I include");// -Werror -cl-fast-relaxed-math");
 	} catch (cl::Error &err) {
 		throw Common::Exception() 
 			<< "failed to build program executable!\n"
@@ -112,7 +112,7 @@ Solver::Solver(
 	
 	cflBuffer = clAlloc(sizeof(real) * volume);
 	cflSwapBuffer = clAlloc(sizeof(real) * volume / localSize[0]);
-	dtBuffer = clAlloc(sizeof(real));
+	dtBuffer = clAlloc(sizeof(real16));
 	gravityPotentialBuffer = clAlloc(sizeof(real) * volume);
 	
 	//get the edges, so reduction doesn't

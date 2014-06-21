@@ -31,7 +31,7 @@ size = {64, 64, 64}
 -- max roe size with 4 channels: 1024x1024
 -- max burgers size with 8 channels: 2048x2048
 -- roe with 8 channels is crashing on build
-size = {1024, 1024}
+size = {512, 512}
 --]]
 -- [[ 1D
 size = {1024}

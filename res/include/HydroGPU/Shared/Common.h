@@ -9,14 +9,12 @@
 typedef float real;
 #ifdef __OPENCL_VERSION__
 typedef float2 real2;
-typedef float3 real3;
 typedef float4 real4;
 typedef float8 real8;
 typedef float16 real16;
 #else
 #include <OpenCL/cl.h>
 typedef cl_float2 real2;
-typedef cl_float3 real3;
 typedef cl_float4 real4;
 typedef cl_float8 real8;
 typedef cl_float16 real16;

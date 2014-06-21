@@ -6,11 +6,11 @@ __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
-	int3 size,
-	real3 dx,
+	int4 size,
+	real4 dx,
 	real cfl)
 {
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	if (i.x < 2 || i.x >= size.x - 2 
 #if DIM > 1
@@ -26,7 +26,7 @@ __kernel void calcCFL(
 
 	real8 state = stateBuffer[index];
 	real density = state.s0;
-	real3 velocity = state.s123 / density;
+	real4 velocity = (real4)(state.s1, state.s2, state.s3, 0.f) / density;
 	real specificTotalEnergy = state.s4 / density;
 	real specificKineticEnergy = .5f * dot(velocity, velocity);
 	real specificPotentialEnergy = gravityPotentialBuffer[index]; 
@@ -43,10 +43,10 @@ __kernel void calcCFL(
 __kernel void calcInterfaceVelocity(
 	__global real* interfaceVelocityBuffer,
 	const __global real8* stateBuffer,
-	int3 size,
-	real3 dx)
+	int4 size,
+	real4 dx)
 {
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= size.x - 1 
 #if DIM > 1
 		|| i.y < 2 || i.y >= size.y - 1 
@@ -60,7 +60,7 @@ __kernel void calcInterfaceVelocity(
 	int index = INDEXV(i);
 	
 	for (int side = 0; side < DIM; ++side) {
-		int3 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 		
@@ -89,14 +89,14 @@ __kernel void calcFlux(
 	__global real8* fluxBuffer,
 	const __global real8* stateBuffer,
 	const __global real* interfaceVelocityBuffer,
-	int3 size,
-	real3 dx,
+	int4 size,
+	real4 dx,
 	const __global real* dtBuffer)
 {
 	real dt = dtBuffer[0];
-	real3 dt_dx = dt / dx;
+	real4 dt_dx = dt / dx;
 	
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= size.x - 1 
 #if DIM > 1
 		|| i.y < 2 || i.y >= size.y - 1 
@@ -110,15 +110,15 @@ __kernel void calcFlux(
 	int index = INDEXV(i);
 	
 	for (int side = 0; side < DIM; ++side) {	
-		int3 iPrev = i;
+		int4 iPrev = i;
 		iPrev[side] = iPrev[side]- 1;
 		int indexPrev = INDEXV(iPrev);
 	
-		int3 iPrev2 = iPrev;
+		int4 iPrev2 = iPrev;
 		--iPrev2[side];
 		int indexPrev2 = INDEXV(iPrev2);
 		
-		int3 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 
@@ -162,13 +162,13 @@ __kernel void calcFlux(
 __kernel void integrateFlux(
 	__global real8* stateBuffer,
 	const __global real8* fluxBuffer,
-	int3 size,
-	real3 dx,
+	int4 size,
+	real4 dx,
 	const __global real* dtBuffer)
 {
-	real3 dt_dx = dtBuffer[0] / dx;
+	real4 dt_dx = dtBuffer[0] / dx;
 	
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= size.x - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= size.y - 2 
@@ -182,7 +182,7 @@ __kernel void integrateFlux(
 	int index = INDEXV(i);
 	
 	for (int side = 0; side < DIM; ++side) {
-		int3 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
@@ -198,9 +198,9 @@ __kernel void computePressure(
 	__global real* pressureBuffer,
 	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
-	int3 size)
+	int4 size)
 {
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 1 || i.x >= size.x - 1 
 #if DIM > 1
 		|| i.y < 1 || i.y >= size.y - 1 
@@ -216,7 +216,7 @@ __kernel void computePressure(
 	real8 state = stateBuffer[index];
 	
 	real density = state.s0;
-	real3 velocity = state.s123 / density;
+	real4 velocity = (real4)(state.s1, state.s2, state.s3, 0.f) / density;
 	real energyTotal = state.s4 / density;
 	
 	real energyKinetic = .5f * dot(velocity, velocity);
@@ -228,11 +228,11 @@ __kernel void computePressure(
 	//von Neumann-Richtmyer artificial viscosity
 	real deltaVelocitySq = 0.f;
 	for (int side = 0; side < DIM; ++side) {
-		int3 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 		
-		int3 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 
@@ -250,13 +250,13 @@ __kernel void computePressure(
 __kernel void diffuseMomentum(
 	__global real8* stateBuffer,
 	const __global real* pressureBuffer,
-	int3 size,
-	real3 dx,
+	int4 size,
+	real4 dx,
 	const __global real* dtBuffer)
 {
-	real3 dt_dx = dtBuffer[0] / dx;
+	real4 dt_dx = dtBuffer[0] / dx;
 	
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= size.x - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= size.y - 2 
@@ -270,11 +270,11 @@ __kernel void diffuseMomentum(
 	int index = INDEXV(i);
 
 	for (int side = 0; side < DIM; ++side) {
-		int3 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 		
-		int3 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 
@@ -289,13 +289,13 @@ __kernel void diffuseMomentum(
 __kernel void diffuseWork(
 	__global real8* stateBuffer,
 	const __global real* pressureBuffer,
-	int3 size,
-	real3 dx,
+	int4 size,
+	real4 dx,
 	const __global real* dtBuffer)
 {
-	real3 dt_dx = dtBuffer[0] / dx;
+	real4 dt_dx = dtBuffer[0] / dx;
 	
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= size.x - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= size.y - 2 
@@ -309,11 +309,11 @@ __kernel void diffuseWork(
 	int index = INDEXV(i);
 
 	for (int side = 0; side < DIM; ++side) {
-		int3 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 		
-		int3 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 

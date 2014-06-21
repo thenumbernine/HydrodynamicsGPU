@@ -41,7 +41,7 @@ __kernel void calcCFLMinReduce(
 
 __kernel void stateBoundaryPeriodicX(
 	__global real8* stateBuffer,
-	int3 size)
+	int4 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	stateBuffer[INDEX(0, i.x, i.y)] = stateBuffer[INDEX(size.x - 4, i.x, i.y)];
@@ -52,7 +52,7 @@ __kernel void stateBoundaryPeriodicX(
 
 __kernel void stateBoundaryPeriodicY(
 	__global real8* stateBuffer,
-	int3 size)
+	int4 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	stateBuffer[INDEX(i.x, 0, i.y)] = stateBuffer[INDEX(i.x, size.y - 4, i.y)];
@@ -63,7 +63,7 @@ __kernel void stateBoundaryPeriodicY(
 
 __kernel void stateBoundaryPeriodicZ(
 	__global real8* stateBuffer,
-	int3 size)
+	int4 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	stateBuffer[INDEX(i.x, i.y, 0)] = stateBuffer[INDEX(i.x, i.y, size.z - 4)];
@@ -80,7 +80,7 @@ real8 mirrorStateZ(real8 state) { state.s3 = -state.s3; return state; }
 
 __kernel void stateBoundaryMirrorX(
 	__global real8* stateBuffer,
-	int3 size)
+	int4 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	stateBuffer[INDEX(0, i.x, i.y)] = mirrorStateX(stateBuffer[INDEX(3, i.x, i.y)]);
@@ -91,7 +91,7 @@ __kernel void stateBoundaryMirrorX(
 
 __kernel void stateBoundaryMirrorY(
 	__global real8* stateBuffer,
-	int3 size)
+	int4 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	stateBuffer[INDEX(i.x, 0, i.y)] = mirrorStateY(stateBuffer[INDEX(i.x, 3, i.y)]);
@@ -102,7 +102,7 @@ __kernel void stateBoundaryMirrorY(
 
 __kernel void stateBoundaryMirrorZ(
 	__global real8* stateBuffer,
-	int3 size)
+	int4 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	stateBuffer[INDEX(i.x, i.y, 0)] = mirrorStateZ(stateBuffer[INDEX(i.x, i.y, 3)]);
@@ -115,7 +115,7 @@ __kernel void stateBoundaryMirrorZ(
 
 __kernel void stateBoundaryFreeFlowX(
 	__global real8* stateBuffer,
-	int3 size)
+	int4 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	stateBuffer[INDEX(0, i.x, i.y)] = stateBuffer[INDEX(2, i.x, i.y)] = stateBuffer[INDEX(2, i.x, i.y)];
@@ -124,7 +124,7 @@ __kernel void stateBoundaryFreeFlowX(
 
 __kernel void stateBoundaryFreeFlowY(
 	__global real8* stateBuffer,
-	int3 size)
+	int4 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	stateBuffer[INDEX(i.x, 0, i.y)] = stateBuffer[INDEX(i.x, 2, i.y)] = stateBuffer[INDEX(i.x, 2, i.y)];
@@ -133,7 +133,7 @@ __kernel void stateBoundaryFreeFlowY(
 
 __kernel void stateBoundaryFreeFlowZ(
 	__global real8* stateBuffer,
-	int3 size)
+	int4 size)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	stateBuffer[INDEX(i.x, i.y, 0)] = stateBuffer[INDEX(i.x, i.y, 2)] = stateBuffer[INDEX(i.x, i.y, 2)];
@@ -143,13 +143,13 @@ __kernel void stateBoundaryFreeFlowZ(
 __kernel void convertToTex(
 	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
-	int3 size,
+	int4 size,
 	__write_only image3d_t fluidTex,
 	__read_only image1d_t gradientTex,
 	int displayMethod,
 	float displayScale)
 {
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	
 	real8 state = stateBuffer[index];
@@ -198,17 +198,17 @@ __kernel void convertToTex(
 __kernel void poissonRelax(
 	__global real* gravityPotentialBuffer,
 	const __global real8* stateBuffer,
-	int3 size,
-	real3 dx,
-	int3 repeat)
+	int4 size,
+	real4 dx,
+	int4 repeat)
 {
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 
 	real sum = 0.f;
 	for (int side = 0; side < DIM; ++side) {
-		int3 iprev = i;
-		int3 inext = i;
+		int4 iprev = i;
+		int4 inext = i;
 		if (repeat[side]) {
 			iprev[side] = (iprev[side] + size[side] - 1) % size[side];
 			inext[side] = (inext[side] + 1) % size[side];
@@ -236,14 +236,14 @@ __kernel void poissonRelax(
 __kernel void addGravity(
 	__global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
-	int3 size,
-	real3 dx,
+	int4 size,
+	real4 dx,
 	const __global real* dtBuffer)
 {
 	real dt = dtBuffer[0];
-	real3 dt_dx = dt / dx;
+	real4 dt_dx = dt / dx;
 
-	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 2 || i.y >= size.y - 2 || i.z >= size.z - 2) return;
 	int index = INDEXV(i);
 
@@ -251,11 +251,11 @@ __kernel void addGravity(
 	real density = state.x;
 
 	for (int side = 0; side < 3; ++side) {
-		int3 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 		
-		int3 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 	

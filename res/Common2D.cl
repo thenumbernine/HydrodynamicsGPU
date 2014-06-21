@@ -245,7 +245,7 @@ __kernel void addDrop(
 	real2 pos,
 	real2 sourceVelocity)
 {
-return;
+#if 0
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 
@@ -278,6 +278,7 @@ return;
 	energyTotal = energyInternal + energyKinetic;
 
 	stateBuffer[index].s0123 = (real4)(1.f, velocity.x, velocity.y, energyTotal) * density;
+#endif
 }
 
 __kernel void addSource(
@@ -287,7 +288,7 @@ __kernel void addSource(
 	real2 xmax,
 	const __global real* dt)
 {
-return;
+#if 0
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	if (i.x >= size.x || i.y >= size.y) return;
 
@@ -316,6 +317,7 @@ return;
 	energyTotal = energyInternal + energyKinetic;
 
 	stateBuffer[index].s0123 = (real4)(1.f, velocity.x, velocity.y, energyTotal) * density;
+#endif
 }
 
 

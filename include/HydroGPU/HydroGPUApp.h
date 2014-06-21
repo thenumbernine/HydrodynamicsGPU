@@ -20,8 +20,8 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	std::string configString;
 	std::string solverName;
 	int dim;
-	cl_int3 size;
-	real3 xmin, xmax;
+	cl_int4 size;
+	real4 xmin, xmax;
 	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
 	int maxFrames;	//run this far and pause.  -1 = forever = default
 	int currentFrame;
@@ -34,7 +34,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	bool useGravity;
 	double gamma;
 	LuaCxx::State lua;
-	real3 dx;
+	real4 dx;
 	
 	//input
 	bool leftButtonDown;
@@ -61,12 +61,12 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	virtual void sdlEvent(SDL_Event &event);
 };
 
-inline std::ostream& operator<<(std::ostream& o, real3 v) {
-	return o << v.s[0] << ", " << v.s[1] << ", " << v.s[2];
+inline std::ostream& operator<<(std::ostream& o, real4 v) {
+	return o << v.s[0] << ", " << v.s[1] << ", " << v.s[2] << ", " << v.s[3];
 }
 
-inline std::ostream& operator<<(std::ostream& o, cl_int3 v) {
-	return o << v.s[0] << ", " << v.s[1] << ", " << v.s[2];
+inline std::ostream& operator<<(std::ostream& o, cl_int4 v) {
+	return o << v.s[0] << ", " << v.s[1] << ", " << v.s[2] << ", " << v.s[3];
 }
 
 inline std::ostream& operator<<(std::ostream& o, cl::NDRange &range) {

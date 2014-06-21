@@ -31,16 +31,26 @@ RoeSolver2D::RoeSolver2D(
 	fluxBuffer = clAlloc(sizeof(real8) * volume * app.dim);
 	
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
-	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer, app.size);
+	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.size, app.dx, app.cfl);
+	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.dx, app.cfl);
 	
 	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
-	app.setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer, app.size, app.dx);
+	app.setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer, app.dx);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app.setArgs(calcFluxKernel,fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, app.size, app.dx, dtBuffer);
+	//cl.hpp...
+	//app.setArgs(calcFluxKernel,fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, app.dx, dtBuffer);
+	//just in case it is using a sizeof() or something and CL isn't bounds checking the memory being written to (esp when writing app.dx which is a real3)
+	clSetKernelArg(calcFluxKernel(), 0, sizeof(cl_mem), &fluxBuffer());
+	clSetKernelArg(calcFluxKernel(), 1, sizeof(cl_mem), &stateBuffer());
+	clSetKernelArg(calcFluxKernel(), 2, sizeof(cl_mem), &eigenvaluesBuffer());
+	clSetKernelArg(calcFluxKernel(), 3, sizeof(cl_mem), &eigenvectorsBuffer());
+	clSetKernelArg(calcFluxKernel(), 4, sizeof(cl_mem), &eigenvectorsInverseBuffer());
+	clSetKernelArg(calcFluxKernel(), 5, sizeof(cl_mem), &deltaQTildeBuffer());
+	clSetKernelArg(calcFluxKernel(), 6, sizeof(real4), &app.dx);
+	clSetKernelArg(calcFluxKernel(), 7, sizeof(cl_mem), &dtBuffer());
 	
 	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
 	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, app.size, app.dx, dtBuffer);

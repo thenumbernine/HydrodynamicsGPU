@@ -14,10 +14,10 @@
 
 //helper functions
 namespace LuaCxx {
-template<> void fromC<real3> (lua_State *L, const real3& value) { 
+template<> void fromC<real4> (lua_State *L, const real4& value) { 
 	lua_newtable(L);
 	int t = lua_gettop(L);
-	for (int i = 0; i < 3; ++i) {
+	for (int i = 0; i < 4; ++i) {
 		lua_pushnumber(L, value.s[i]);
 		lua_rawseti(L, t, i+1);
 	}
@@ -78,7 +78,7 @@ HydroGPUApp::HydroGPUApp()
 , rightGuiDown(false)
 , showTimestep(false)
 {
-	for (int i = 0; i < 3; ++i) {
+	for (int i = 0; i < 4; ++i) {
 		size.s[i] = 1;	//default each dimension to a point.  so if lua doesn't define it then the dimension will be ignored
 		xmin.s[i] = -.5f;
 		xmax.s[i] = .5f;
@@ -254,10 +254,11 @@ void HydroGPUApp::resetState() {
 	for (index[2] = 0; index[2] < size.s[2]; ++index[2]) {
 		for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
 			for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++state) {
-				real3 pos;
+				real4 pos;
 				for (int i = 0; i < 3; ++i) {
 					pos.s[i] = real(xmax.s[i] - xmin.s[i]) * (real(index[i]) + .5) / real(size.s[i]) + real(xmin.s[i]);
 				}
+				pos.s[3] = 0;
 				*state = lua["initState"].call<real8>(pos);
 			}
 		}

@@ -25,8 +25,8 @@ RoeSolver3D::RoeSolver3D(
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
 	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
-	eigenvectorsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * app.dim * 2);
-	eigenvectorsInverseBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * volume * app.dim * 2);
+	eigenvectorsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * 2 * volume * app.dim);
+	eigenvectorsInverseBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * 2 * volume * app.dim);
 	deltaQTildeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
 	

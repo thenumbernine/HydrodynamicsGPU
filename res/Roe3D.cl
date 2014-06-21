@@ -20,23 +20,22 @@ real8 matmul(real16 ma, real16 mb, real8 v) {
 //crashing when compiled ...
 __kernel void calcEigenBasis(
 	__global real8* eigenvaluesBuffer,
-	__global real16* eigenvectorsBuffer,
-	__global real16* eigenvectorsInverseBuffer,
+	__global real4* eigenvectorsBuffer,
+	__global real4* eigenvectorsInverseBuffer,
 	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer,
 	int3 size)
 {
-#if 0
 	int3 i = (int3)(get_global_id(0), get_global_id(1), get_global_id(2));
 	if (i.x < 2 || i.y < 2 || i.z < 2 || i.x >= size.x - 1 || i.y >= size.y - 1 || i.z >= size.z - 1) return;
 	int index = INDEXV(i);
 
-	for (int side = 0; side < 3; ++side) {	
+	for (int side = 0; side < DIM; ++side) {	
 		int3 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 
-		int interfaceIndex = side + 3 * index;
+		int interfaceIndex = side + DIM * index;
 
 		real8 stateL = stateBuffer[indexPrev];
 		real8 stateR = stateBuffer[index];
@@ -86,92 +85,106 @@ __kernel void calcEigenBasis(
 		//eigenvalues
 
 		real8 eigenvalues;
-		eigenvalues.s0123 = (real4)(
+		eigenvaluesBuffer[interfaceIndex] = (real8)(
 			velocityN - speedOfSound,
 			velocityN,
 			velocityN,
-			velocityN);
-		eigenvalues.s4 = velocityN + speedOfSound;
-		eigenvaluesBuffer[interfaceIndex] = eigenvalues;
+			velocityN,
+			velocityN + speedOfSound,
+			0.f, 0.f, 0.f);
 
 		//eigenvectors
 
 		//specify transposed
 		real16 eigenvectorsA, eigenvectorsB;
 		//min col 
-		eigenvectorsA[0] = 1.f;
-		eigenvectorsA[5] = velocity.x - speedOfSound * normal.x;
-		eigenvectorsA[10] = velocity.y - speedOfSound * normal.y;
-		eigenvectorsA[15] = velocity.z - speedOfSound * normal.z;
-		eigenvectorsB[20-16] = enthalpyTotal - speedOfSound * velocityN;
+		eigenvectorsA.s0 = 1.f;
+		eigenvectorsA.s5 = velocity.x - speedOfSound * normal.x;
+		eigenvectorsA.sA = velocity.y - speedOfSound * normal.y;
+		eigenvectorsA.sF = velocity.z - speedOfSound * normal.z;
+		eigenvectorsB.s4 = enthalpyTotal - speedOfSound * velocityN;
 		//mid col (normal)
-		eigenvectorsA[1] = 1.f;
-		eigenvectorsA[6] = velocity.x;
-		eigenvectorsA[11] = velocity.y;
-		eigenvectorsB[16-16] = velocity.z;
-		eigenvectorsB[21-16] = .5f * velocitySq;
+		eigenvectorsA.s1 = 1.f;
+		eigenvectorsA.s6 = velocity.x;
+		eigenvectorsA.sB = velocity.y;
+		eigenvectorsB.s0 = velocity.z;
+		eigenvectorsB.s5 = .5f * velocitySq;
 		//mid col (tangent A)
-		eigenvectorsA[2] = 0.f;
-		eigenvectorsA[7] = tangentA.x;
-		eigenvectorsA[12] = tangentA.y;
-		eigenvectorsB[17-16] = tangentA.z;
-		eigenvectorsB[22-16] = velocityTA;
+		eigenvectorsA.s2 = 0.f;
+		eigenvectorsA.s7 = tangentA.x;
+		eigenvectorsA.sC = tangentA.y;
+		eigenvectorsB.s1 = tangentA.z;
+		eigenvectorsB.s6 = velocityTA;
 		//mid col (tangent B)
-		eigenvectorsA[3] = 0.f;
-		eigenvectorsA[8] = tangentB.x;
-		eigenvectorsA[13] = tangentB.y;
-		eigenvectorsB[18-16] = tangentB.z;
-		eigenvectorsB[23-16] = velocityTB;
+		eigenvectorsA.s3 = 0.f;
+		eigenvectorsA.s8 = tangentB.x;
+		eigenvectorsA.sC = tangentB.y;
+		eigenvectorsB.s2 = tangentB.z;
+		eigenvectorsB.s7 = velocityTB;
 		//max col 
-		eigenvectorsA[4] = 1.f;
-		eigenvectorsA[9] = velocity.x + speedOfSound * normal.x;
-		eigenvectorsA[14] = velocity.y + speedOfSound * normal.y;
-		eigenvectorsB[19-16] = velocity.z + speedOfSound * normal.z;
-		eigenvectorsB[24-16] = enthalpyTotal + speedOfSound * velocityN;
+		eigenvectorsA.s4 = 1.f;
+		eigenvectorsA.s9 = velocity.x + speedOfSound * normal.x;
+		eigenvectorsA.sD = velocity.y + speedOfSound * normal.y;
+		eigenvectorsB.s3 = velocity.z + speedOfSound * normal.z;
+		eigenvectorsB.s8 = enthalpyTotal + speedOfSound * velocityN;
 
-		eigenvectorsBuffer[0 + 2 * interfaceIndex] = eigenvectorsA;
-		eigenvectorsBuffer[1 + 2 * interfaceIndex] = eigenvectorsB;
-
+		eigenvectorsBuffer[0 + 8 * interfaceIndex] = eigenvectorsA.s0123;
+		eigenvectorsBuffer[1 + 8 * interfaceIndex] = eigenvectorsA.s4567;
+		eigenvectorsBuffer[2 + 8 * interfaceIndex] = eigenvectorsA.s89AB;
+		eigenvectorsBuffer[3 + 8 * interfaceIndex] = eigenvectorsA.sCDEF;
+		eigenvectorsBuffer[4 + 8 * interfaceIndex] = eigenvectorsB.s0123;
+		eigenvectorsBuffer[5 + 8 * interfaceIndex] = eigenvectorsB.s4567;
+		eigenvectorsBuffer[6 + 8 * interfaceIndex] = eigenvectorsB.s89AB;
+		eigenvectorsBuffer[7 + 8 * interfaceIndex] = eigenvectorsB.sCDEF;
 
 		//calculate eigenvector inverses ... 
 		real invDenom = .5f / (speedOfSound * speedOfSound);
-		real16 eigenvectorsInverseA, eigenvectorsInverseB;
-		eigenvectorsInverseA = (real16)( 
+		real16 eigenvectorsInverseA;
+		real16 eigenvectorsInverseB;
 		//min row
-			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom,
-			-(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
-			-(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom,
-			-(normal.z * speedOfSound + (GAMMA - 1.f) * velocity.z) * invDenom,
-			(GAMMA - 1.f) * invDenom,
+		eigenvectorsInverseA.s0 = (.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom;
+		eigenvectorsInverseA.s1 = -(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom;
+		eigenvectorsInverseA.s2 = -(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom;
+		eigenvectorsInverseA.s3 = -(normal.z * speedOfSound + (GAMMA - 1.f) * velocity.z) * invDenom;
+		eigenvectorsInverseA.s4 = (GAMMA - 1.f) * invDenom;
 		//mid normal row
-			1.f - (GAMMA - 1.f) * velocitySq * invDenom,
-			(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
-			(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
-			(GAMMA - 1.f) * velocity.z * 2.f * invDenom,
-			-(GAMMA - 1.f) * 2.f * invDenom,
+		eigenvectorsInverseA.s5 = 1.f - (GAMMA - 1.f) * velocitySq * invDenom;
+		eigenvectorsInverseA.s6 = (GAMMA - 1.f) * velocity.x * 2.f * invDenom;
+		eigenvectorsInverseA.s7 = (GAMMA - 1.f) * velocity.y * 2.f * invDenom;
+		eigenvectorsInverseA.s8 = (GAMMA - 1.f) * velocity.z * 2.f * invDenom;
+		eigenvectorsInverseA.s9 = -(GAMMA - 1.f) * 2.f * invDenom;
 		//mid tangent A row
-			-velocityTA,
-			tangentA.x,
-			tangentA.y,
-			tangentA.z,
-			0.f,
+		eigenvectorsInverseA.sA = -velocityTA;
+		eigenvectorsInverseA.sB = tangentA.x;
+		eigenvectorsInverseA.sC = tangentA.y;
+		eigenvectorsInverseA.sD = tangentA.z;
+		eigenvectorsInverseA.sE = 0.f;
 		//mid tangent B row
-			-velocityTB);
-		eigenvectorsInverseB.s01234567 = (real8)(
-			tangentB.x,
-			tangentB.y,
-			tangentB.z,
-			0.f,
+		eigenvectorsInverseA.sF = -velocityTB;
+		eigenvectorsInverseB.s0 = tangentB.x;
+		eigenvectorsInverseB.s1 = tangentB.y;
+		eigenvectorsInverseB.s2 = tangentB.z;
+		eigenvectorsInverseB.s3 = 0.f;
 		//max row
-			(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom,
-			(normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
-			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
-			(normal.z * speedOfSound - (GAMMA - 1.f) * velocity.z) * invDenom);
-		eigenvectorsB.s8 =
-			(GAMMA - 1.f) * invDenom;
+		eigenvectorsInverseB.s4 = (.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom;
+		eigenvectorsInverseB.s5 = (normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom;
+		eigenvectorsInverseB.s6 = (normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom;
+		eigenvectorsInverseB.s7 = (normal.z * speedOfSound - (GAMMA - 1.f) * velocity.z) * invDenom;
+		eigenvectorsInverseB.s8 = (GAMMA - 1.f) * invDenom;
+		eigenvectorsInverseB.s9 = 0.f;
+		eigenvectorsInverseB.sA = 0.f;
+		eigenvectorsInverseB.sB = 0.f;
+		eigenvectorsInverseB.sC = 0.f;
+		eigenvectorsInverseB.sD = 0.f;
+		eigenvectorsInverseB.sE = 0.f;
+		eigenvectorsInverseB.sF = 0.f;
 
-		eigenvectorsInverseBuffer[0 + 2 * interfaceIndex] = eigenvectorsInverseA;
+		eigenvectorsInverseBuffer[0 + 8 * interfaceIndex] = eigenvectorsInverseA.s0123;
+#if 0
+		//writing to these upper 4 causes it to crash
+		eigenvectorsInverseBuffer[0 + 2 * interfaceIndex].s4567 = eigenvectorsInverseA.s4567;
 		eigenvectorsInverseBuffer[1 + 2 * interfaceIndex] = eigenvectorsInverseB;
+#endif
 #endif
 
 
@@ -268,7 +281,6 @@ __kernel void calcEigenBasis(
 		eigenvectorsInverseBuffer[interfaceIndex] = eigenvectorsInverse;
 #endif
 	}
-#endif
 }
 
 __kernel void calcCFL(
