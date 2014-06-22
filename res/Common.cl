@@ -146,12 +146,15 @@ __kernel void convertToTex(
 
 #if DIM == 1
 	real density = state.s0;
-	real velocity = length(state.s123) / density;
+	real4 velocity = (real4)(state.s1, state.s2, state.s3, 0.f) / density;
+	real velocityMagn = length(velocity);
 	real energyTotal = state.s4 / density;
-	real energyKinetic = .5f * velocity * velocity;
+	real energyKinetic = .5f * velocityMagn * velocityMagn;
 	real energyPotential = gravityPotentialBuffer[index];
 	real energyInternal = energyTotal - energyKinetic - energyPotential;
-	float4 color = (float4)(density, velocity, energyInternal, 0.f) * displayScale;
+	real4 magnetism = (real4)(state.s5, state.s6, state.s7, 0.f);
+	real magnetismMagn = length(magnetism);
+	float4 color = (float4)(density, velocityMagn, energyInternal, magnetismMagn) * displayScale;
 #else
 	real value;
 	switch (displayMethod) {

@@ -273,10 +273,18 @@ void Solver3D::display() {
 		glPushMatrix();
 		glTranslatef(-viewPos(0), -viewPos(1), 0);
 		glScalef(viewZoom, viewZoom, viewZoom);
-		
+	
+		static float colors[][3] = {
+			{1,0,0},
+			{0,1,0},
+			{0,.5,1},
+			{1,.5,0}
+		};
+
 		glBindTexture(GL_TEXTURE_2D, fluidTex);
 		shader->use();
-		for (int channel = 0; channel < 3; ++channel) {
+		for (int channel = 0; channel < 4; ++channel) {
+			glColor3fv(colors[channel]);
 			shader->setUniform<int>("channel", channel);
 			glBegin(GL_LINE_STRIP);
 			for (int i = 2; i < app.size.s[0]-2; ++i) {
@@ -399,9 +407,116 @@ void Solver3D::addDrop() {
 }
 
 void Solver3D::screenshot() {
+	for (int i = 0; i < 1000; ++i) {
+		std::string filename = std::string("screenshot") + std::to_string(i) + "layer0.png";
+		if (!Common::File::exists(filename)) {
+			std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(
+				Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]),
+				nullptr, 3);
+			switch (app.dim) {
+			case 1:
+				std::cout << "take a picture, it'll last longer" << std::endl;
+				break;
+			case 2:
+				glBindTexture(GL_TEXTURE_2D, fluidTex);
+				glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, image->getData());
+				glBindTexture(GL_TEXTURE_2D, 0);
+				Image::system->write(filename, image);
+				break;
+			case 3:
+				size_t volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
+				std::vector<char> buffer(volume);
+				glBindTexture(GL_TEXTURE_3D, fluidTex);
+				glGetTexImage(GL_TEXTURE_3D, 0, GL_RGB, GL_UNSIGNED_BYTE, &buffer[0]);
+				glBindTexture(GL_TEXTURE_3D, 0);
+				std::vector<char>::iterator iter = buffer.begin();
+				size_t sliceSize = app.size.s[0] * app.size.s[1];
+				for (int z = 0; z < app.size.s[2]; ++z) {
+					std::copy(iter, iter + sliceSize, image->getData());
+					iter += sliceSize;
+					filename = std::string("screenshot") + std::to_string(i) + "layer" + std::to_string(z) + ".png";
+					Image::system->write(filename, image);
+				}
+				break;
+			}
+			return;
+		}
+	}
+	throw Common::Exception() << "couldn't find an available filename";
 }
 
 void Solver3D::save() {
+	std::vector<std::string> channelNames = {
+		"density",
+		"velocityX",
+		"velocityY",
+		"velocityZ",
+		"energyInternal",
+		"magneticX",
+		"magneticY",
+		"magneticZ",
+		"gravitationalPotential"
+	};
+
+	for (int i = 0; i < 1000; ++i) {
+		std::string filename = channelNames[0] + std::to_string(i) + ".fits";
+		if (!Common::File::exists(filename)) {
+			
+			//hmm, rather than a plane per variable, now that I'm saving 3D stuff,
+			// how about a plane per 3rd dim, and separate save files per variable?
+			std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]), nullptr, 1, app.size.s[2]);
+			
+			std::vector<real8> stateVec(app.size.s[0] * app.size.s[1]);
+			app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * stateVec.size(), &stateVec[0]);
+			
+			std::vector<real> gravVec(app.size.s[0] * app.size.s[1]);
+			app.commands.enqueueReadBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * gravVec.size(), &gravVec[0]);
+			
+			app.commands.finish();
+			
+			for (int channel = 0; channel < 9; ++channel) {
+				for (int z = 0; z < app.size.s[2]; ++z) {	
+					for (int y = 0; y < app.size.s[1]; ++y) {
+						for (int x = 0; x < app.size.s[0]; ++x) {
+							real8 *state = &stateVec[x + app.size.s[0] * y];
+							real grav = gravVec[x + app.size.s[0] * y];
+							switch (channel) {
+							case 0:
+								(*image)(x,y,0,z) = state->s[0];
+								break;
+							case 1:
+								(*image)(x,y,0,z) = state->s[1] / state->s[0];
+								break;
+							case 2:
+								(*image)(x,y,0,z) = state->s[2] / state->s[0];
+								break;
+							case 3:
+								(*image)(x,y,0,z) = state->s[3] / state->s[0];
+								break;
+							case 4:
+								(*image)(x,y,0,z) = state->s[4] / state->s[0];
+								break;
+							case 5:
+								(*image)(x,y,0,z) = state->s[5];
+								break;
+							case 6:
+								(*image)(x,y,0,z) = state->s[6];
+								break;
+							case 7:
+								(*image)(x,y,0,z) = state->s[7];
+								break;
+							case 8:
+								(*image)(x,y,0,z) = grav;
+								break;
+							}
+						}
+					}
+				}
+				Image::system->write(channelNames[channel] + std::to_string(i) + ".fits", image); 
+			}
+			return;
+		}
+	}
 }
 
 void Solver3D::mouseMove(int x, int y, int dx, int dy) {

@@ -6,7 +6,7 @@
 solverName = 'Roe'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
---maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -106,7 +106,7 @@ function initState(x)
 end
 --]]	
 
--- [[ Sod test
+--[[ Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x)
 	local inside = x[1] <= 0 and x[2] <= 0 and x[3] <= 0
@@ -117,8 +117,9 @@ function initState(x)
 end
 --]]
 
---[[ Brio Wu
+-- [[ Brio Wu
 gamma = 2
+boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x)
 	local lhs = x[1] < 0
 	return buildState{

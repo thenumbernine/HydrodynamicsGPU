@@ -10,8 +10,7 @@ void main() {
 	vec3 vertex = gl_Vertex.xyz;
 	vertex.y = texture2D(tex, vertex.xy)[channel];
 	vertex.x = vertex.x * (xmax - xmin) + xmin;
-	color = vec3(0.);
-	color[channel] = 1.;
+	color = gl_Color.rgb;
 	gl_Position = gl_ModelViewProjectionMatrix * vec4(vertex, 1.);
 }
 
