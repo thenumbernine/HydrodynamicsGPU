@@ -1,9 +1,9 @@
-#include "HydroGPU/BurgersSolver3D.h"
+#include "HydroGPU/Burgers.h"
 #include "HydroGPU/HydroGPUApp.h"
 
-BurgersSolver3D::BurgersSolver3D(
+Burgers::Burgers(
 	HydroGPUApp &app_)
-: Super(app_, "Burgers3D.cl")
+: Super(app_, "Burgers.cl")
 , calcCFLEvent("calcCFL")
 , calcInterfaceVelocityEvent("calcInterfaceVelocity")
 , calcFluxEvent("calcFlux")
@@ -62,12 +62,12 @@ BurgersSolver3D::BurgersSolver3D(
 	app.setArgs(diffuseWorkKernel, stateBuffer, pressureBuffer, dtBuffer);
 }
 
-void BurgersSolver3D::calcTimestep() {
+void Burgers::calcTimestep() {
 	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
-void BurgersSolver3D::step() {
+void Burgers::step() {
 	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
 	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);

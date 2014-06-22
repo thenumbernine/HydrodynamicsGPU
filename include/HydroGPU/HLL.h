@@ -1,11 +1,11 @@
 #pragma once
 
-#include "HydroGPU/Solver2D.h"
+#include "HydroGPU/Solver3D.h"
 
 struct HydroGPUApp;
 
-struct RoeSolver2D : public Solver2D {
-	typedef Solver2D Super;
+struct HLL : public Solver3D {
+	typedef Solver3D Super;
 
 	cl::Buffer eigenvaluesBuffer;
 	cl::Buffer eigenvectorsBuffer;
@@ -15,17 +15,13 @@ struct RoeSolver2D : public Solver2D {
 	
 	cl::Kernel calcEigenBasisKernel;
 	cl::Kernel calcCFLKernel;
-	cl::Kernel calcDeltaQTildeKernel;
-	cl::Kernel calcFluxKernel;
 	cl::Kernel integrateFluxKernel;
 	
 	EventProfileEntry calcEigenBasisEvent;
 	EventProfileEntry calcCFLEvent;
-	EventProfileEntry calcDeltaQTildeEvent;
-	EventProfileEntry calcFluxEvent;
 	EventProfileEntry integrateFluxEvent;
 	
-	RoeSolver2D(HydroGPUApp &app);
+	HLL(HydroGPUApp &app);
 
 protected:
 	virtual void initStep();

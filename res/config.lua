@@ -6,7 +6,7 @@
 solverName = 'Roe'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
-maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+--maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}

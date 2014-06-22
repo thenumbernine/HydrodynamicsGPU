@@ -4,7 +4,6 @@
 #include "Profiler/Stat.h"
 #include "Shader/Program.h"
 #include "Tensor/Quat.h"
-#include "HydroGPU/Shared/Common3D.h"
 #include <OpenCL/cl.hpp>
 #include <vector>
 

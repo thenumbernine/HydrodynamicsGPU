@@ -26,13 +26,12 @@ template<> std::string toNumericString<float>(float value) {
 
 Solver::Solver(
 	HydroGPUApp& app_,
-	const std::vector<std::string>& programFilenames)
+	const std::string& programFilename)
 : app(app_)
 , commands(app.commands)
 , totalAlloc(0)
 {
 	cl::Device device = app.device;
-	cl::Context context = app.context;
 	
 	stateBoundaryKernels.resize(NUM_BOUNDARY_METHODS);
 	for (std::vector<cl::Kernel>& v : stateBoundaryKernels) {
@@ -94,14 +93,13 @@ Solver::Solver(
 			std::string() + "#define DY " + toNumericString<real>(app.dx.s[1]) + "\n" +
 			std::string() + "#define DZ " + toNumericString<real>(app.dx.s[2]) + "\n"
 		};
-		for (const std::string& programFilename : programFilenames) {
-			kernelSources.push_back(Common::File::read(programFilename));
-		}
+		kernelSources.push_back(Common::File::read("Common.cl"));
+		kernelSources.push_back(Common::File::read(programFilename));
 		std::vector<std::pair<const char *, size_t>> sources;
 		for (const std::string &s : kernelSources) {
 			sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));
 		}
-		program = cl::Program(context, sources);
+		program = cl::Program(app.context, sources);
 	}
 
 	try {

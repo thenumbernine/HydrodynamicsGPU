@@ -33,7 +33,7 @@ struct Solver {
 
 	size_t totalAlloc;
 
-	Solver(HydroGPUApp& app, const std::vector<std::string>& programFilenames);
+	Solver(HydroGPUApp& app, const std::string& programFilename);
 	virtual ~Solver() {}
 	
 	virtual void initKernels();

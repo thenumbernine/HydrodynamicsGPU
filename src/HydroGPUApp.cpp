@@ -1,8 +1,7 @@
 #include "HydroGPU/HydroGPUApp.h"
-#include "HydroGPU/RoeSolver2D.h"
-#include "HydroGPU/HLLSolver2D.h"
-#include "HydroGPU/BurgersSolver3D.h"
-#include "HydroGPU/RoeSolver3D.h"
+#include "HydroGPU/HLL.h"
+#include "HydroGPU/Burgers.h"
+#include "HydroGPU/Roe.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -198,36 +197,11 @@ void HydroGPUApp::init() {
 
 	//construct the solver
 	if (solverName == "Burgers") {
-		switch (dim) {
-		case 1:
-		case 2:
-		case 3:
-			solver = std::make_shared<BurgersSolver3D>(*this);
-			break;
-		default:
-			throw Common::Exception() << "solver " << solverName << " can't handle dim " << dim;
-		}
+		solver = std::make_shared<Burgers>(*this);
 	} else if (solverName == "Roe") {
-		switch (dim) {
-		case 1:
-		case 2:
-			solver = std::make_shared<RoeSolver2D>(*this);
-			break;
-		case 3:
-			solver = std::make_shared<RoeSolver3D>(*this);	//broken
-			break;
-		default:
-			throw Common::Exception() << "solver " << solverName << " can't handle dim " << dim;
-		}
+		solver = std::make_shared<Roe>(*this);	//broken
 	} else if (solverName == "HLL") {
-		switch (dim) {
-		case 1:
-		case 2:
-			solver = std::make_shared<HLLSolver2D>(*this);
-			break;
-		default:
-			throw Common::Exception() << "solver " << solverName << " can't handle dim " << dim;
-		}
+		solver = std::make_shared<HLL>(*this);
 	} else {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}

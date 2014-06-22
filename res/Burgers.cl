@@ -1,4 +1,4 @@
-#include "HydroGPU/Shared/Common3D.h"
+#include "HydroGPU/Shared/Common.h"
 
 real8 slopeLimiter(real8 r);
 

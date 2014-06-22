@@ -1,8 +1,6 @@
-#include "HydroGPU/Shared/Common2D.h"
+#include "HydroGPU/Shared/Common.h"
 
 real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v);
-real mat44det(real16 m);
-real16 mat44inv(real16 m);
 real8 slopeLimiter(real8 r);
 
 real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v) {
@@ -19,36 +17,6 @@ real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v) {
 		dot(md.s89AB, v.s0123) + dot(md.sCDEF, v.s4567));
 }
 
-real mat44det(real16 m) {
-	return m[0+4*3]*m[1+4*2]*m[2+4*1]*m[3+4*0] - m[0+4*2]*m[1+4*3]*m[2+4*1]*m[3+4*0] - m[0+4*3]*m[1+4*1]*m[2+4*2]*m[3+4*0] + m[0+4*1]*m[1+4*3]*m[2+4*2]*m[3+4*0]+
-		m[0+4*2]*m[1+4*1]*m[2+4*3]*m[3+4*0] - m[0+4*1]*m[1+4*2]*m[2+4*3]*m[3+4*0] - m[0+4*3]*m[1+4*2]*m[2+4*0]*m[3+4*1] + m[0+4*2]*m[1+4*3]*m[2+4*0]*m[3+4*1]+
-		m[0+4*3]*m[1+4*0]*m[2+4*2]*m[3+4*1] - m[0+4*0]*m[1+4*3]*m[2+4*2]*m[3+4*1] - m[0+4*2]*m[1+4*0]*m[2+4*3]*m[3+4*1] + m[0+4*0]*m[1+4*2]*m[2+4*3]*m[3+4*1]+
-		m[0+4*3]*m[1+4*1]*m[2+4*0]*m[3+4*2] - m[0+4*1]*m[1+4*3]*m[2+4*0]*m[3+4*2] - m[0+4*3]*m[1+4*0]*m[2+4*1]*m[3+4*2] + m[0+4*0]*m[1+4*3]*m[2+4*1]*m[3+4*2]+
-		m[0+4*1]*m[1+4*0]*m[2+4*3]*m[3+4*2] - m[0+4*0]*m[1+4*1]*m[2+4*3]*m[3+4*2] - m[0+4*2]*m[1+4*1]*m[2+4*0]*m[3+4*3] + m[0+4*1]*m[1+4*2]*m[2+4*0]*m[3+4*3]+
-		m[0+4*2]*m[1+4*0]*m[2+4*1]*m[3+4*3] - m[0+4*0]*m[1+4*2]*m[2+4*1]*m[3+4*3] - m[0+4*1]*m[1+4*0]*m[2+4*2]*m[3+4*3] + m[0+4*0]*m[1+4*1]*m[2+4*2]*m[3+4*3];
-}
-
-real16 mat44inv(real16 m) {
-	real16 r;
-	r[0+4*0] = m[1+4*2]*m[2+4*3]*m[3+4*1] - m[1+4*3]*m[2+4*2]*m[3+4*1] + m[1+4*3]*m[2+4*1]*m[3+4*2] - m[1+4*1]*m[2+4*3]*m[3+4*2] - m[1+4*2]*m[2+4*1]*m[3+4*3] + m[1+4*1]*m[2+4*2]*m[3+4*3];
-	r[0+4*1] = m[0+4*3]*m[2+4*2]*m[3+4*1] - m[0+4*2]*m[2+4*3]*m[3+4*1] - m[0+4*3]*m[2+4*1]*m[3+4*2] + m[0+4*1]*m[2+4*3]*m[3+4*2] + m[0+4*2]*m[2+4*1]*m[3+4*3] - m[0+4*1]*m[2+4*2]*m[3+4*3];
-	r[0+4*2] = m[0+4*2]*m[1+4*3]*m[3+4*1] - m[0+4*3]*m[1+4*2]*m[3+4*1] + m[0+4*3]*m[1+4*1]*m[3+4*2] - m[0+4*1]*m[1+4*3]*m[3+4*2] - m[0+4*2]*m[1+4*1]*m[3+4*3] + m[0+4*1]*m[1+4*2]*m[3+4*3];
-	r[0+4*3] = m[0+4*3]*m[1+4*2]*m[2+4*1] - m[0+4*2]*m[1+4*3]*m[2+4*1] - m[0+4*3]*m[1+4*1]*m[2+4*2] + m[0+4*1]*m[1+4*3]*m[2+4*2] + m[0+4*2]*m[1+4*1]*m[2+4*3] - m[0+4*1]*m[1+4*2]*m[2+4*3];
-	r[1+4*0] = m[1+4*3]*m[2+4*2]*m[3+4*0] - m[1+4*2]*m[2+4*3]*m[3+4*0] - m[1+4*3]*m[2+4*0]*m[3+4*2] + m[1+4*0]*m[2+4*3]*m[3+4*2] + m[1+4*2]*m[2+4*0]*m[3+4*3] - m[1+4*0]*m[2+4*2]*m[3+4*3];
-	r[1+4*1] = m[0+4*2]*m[2+4*3]*m[3+4*0] - m[0+4*3]*m[2+4*2]*m[3+4*0] + m[0+4*3]*m[2+4*0]*m[3+4*2] - m[0+4*0]*m[2+4*3]*m[3+4*2] - m[0+4*2]*m[2+4*0]*m[3+4*3] + m[0+4*0]*m[2+4*2]*m[3+4*3];
-	r[1+4*2] = m[0+4*3]*m[1+4*2]*m[3+4*0] - m[0+4*2]*m[1+4*3]*m[3+4*0] - m[0+4*3]*m[1+4*0]*m[3+4*2] + m[0+4*0]*m[1+4*3]*m[3+4*2] + m[0+4*2]*m[1+4*0]*m[3+4*3] - m[0+4*0]*m[1+4*2]*m[3+4*3];
-	r[1+4*3] = m[0+4*2]*m[1+4*3]*m[2+4*0] - m[0+4*3]*m[1+4*2]*m[2+4*0] + m[0+4*3]*m[1+4*0]*m[2+4*2] - m[0+4*0]*m[1+4*3]*m[2+4*2] - m[0+4*2]*m[1+4*0]*m[2+4*3] + m[0+4*0]*m[1+4*2]*m[2+4*3];
-	r[2+4*0] = m[1+4*1]*m[2+4*3]*m[3+4*0] - m[1+4*3]*m[2+4*1]*m[3+4*0] + m[1+4*3]*m[2+4*0]*m[3+4*1] - m[1+4*0]*m[2+4*3]*m[3+4*1] - m[1+4*1]*m[2+4*0]*m[3+4*3] + m[1+4*0]*m[2+4*1]*m[3+4*3];
-	r[2+4*1] = m[0+4*3]*m[2+4*1]*m[3+4*0] - m[0+4*1]*m[2+4*3]*m[3+4*0] - m[0+4*3]*m[2+4*0]*m[3+4*1] + m[0+4*0]*m[2+4*3]*m[3+4*1] + m[0+4*1]*m[2+4*0]*m[3+4*3] - m[0+4*0]*m[2+4*1]*m[3+4*3];
-	r[2+4*2] = m[0+4*1]*m[1+4*3]*m[3+4*0] - m[0+4*3]*m[1+4*1]*m[3+4*0] + m[0+4*3]*m[1+4*0]*m[3+4*1] - m[0+4*0]*m[1+4*3]*m[3+4*1] - m[0+4*1]*m[1+4*0]*m[3+4*3] + m[0+4*0]*m[1+4*1]*m[3+4*3];
-	r[2+4*3] = m[0+4*3]*m[1+4*1]*m[2+4*0] - m[0+4*1]*m[1+4*3]*m[2+4*0] - m[0+4*3]*m[1+4*0]*m[2+4*1] + m[0+4*0]*m[1+4*3]*m[2+4*1] + m[0+4*1]*m[1+4*0]*m[2+4*3] - m[0+4*0]*m[1+4*1]*m[2+4*3];
-	r[3+4*0] = m[1+4*2]*m[2+4*1]*m[3+4*0] - m[1+4*1]*m[2+4*2]*m[3+4*0] - m[1+4*2]*m[2+4*0]*m[3+4*1] + m[1+4*0]*m[2+4*2]*m[3+4*1] + m[1+4*1]*m[2+4*0]*m[3+4*2] - m[1+4*0]*m[2+4*1]*m[3+4*2];
-	r[3+4*1] = m[0+4*1]*m[2+4*2]*m[3+4*0] - m[0+4*2]*m[2+4*1]*m[3+4*0] + m[0+4*2]*m[2+4*0]*m[3+4*1] - m[0+4*0]*m[2+4*2]*m[3+4*1] - m[0+4*1]*m[2+4*0]*m[3+4*2] + m[0+4*0]*m[2+4*1]*m[3+4*2];
-	r[3+4*2] = m[0+4*2]*m[1+4*1]*m[3+4*0] - m[0+4*1]*m[1+4*2]*m[3+4*0] - m[0+4*2]*m[1+4*0]*m[3+4*1] + m[0+4*0]*m[1+4*2]*m[3+4*1] + m[0+4*1]*m[1+4*0]*m[3+4*2] - m[0+4*0]*m[1+4*1]*m[3+4*2];
-	r[3+4*3] = m[0+4*1]*m[1+4*2]*m[2+4*0] - m[0+4*2]*m[1+4*1]*m[2+4*0] + m[0+4*2]*m[1+4*0]*m[2+4*1] - m[0+4*0]*m[1+4*2]*m[2+4*1] - m[0+4*1]*m[1+4*0]*m[2+4*2] + m[0+4*0]*m[1+4*1]*m[2+4*2];
-	return r * (1.f / mat44det(m));
-}
-
 __kernel void calcEigenBasis(
 	__global real8* eigenvaluesBuffer,
 	__global real16* eigenvectorsBuffer,
@@ -56,16 +24,19 @@ __kernel void calcEigenBasis(
 	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer)
 {
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
 	int index = INDEXV(i);
 
 	for (int side = 0; side < DIM; ++side) {	
-		int2 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 
@@ -188,7 +159,6 @@ __kernel void calcEigenBasis(
 		eigenvectorsBuffer[2 + 4 * interfaceIndex] = eigenvectorsC;
 		eigenvectorsBuffer[3 + 4 * interfaceIndex] = eigenvectorsD;
 
-#if 1	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
 		//calculate eigenvector inverses ... 
 		real invDenom = .5f / (speedOfSound * speedOfSound);
 		eigenvectorsInverseBuffer[0 + 4 * interfaceIndex] = (real16)( 
@@ -267,59 +237,105 @@ __kernel void calcEigenBasis(
 			0.f,
 			0.f);
 #endif
-#if 0 //numerically solve for the inverse
-		eigenvectorsInverseBuffer[4 * interfaceIndex] = mat44inv(eigenvectorsBuffer[4 * interfaceIndex]);
-#endif
-#endif
 
 
 #if 0	//calculate flux in x-axis and rotate into normal
 
 		if (side == 1) {
-			velocity.xy = (real2)(velocity.y, -velocity.x);	// -90' rotation to put the y axis contents into the x axis
+			velocity = (real4)(velocity.y, -velocity.x, velocity.z, 0.f);	// -90' rotation to put the y axis contents into the x axis
+		} else if (side == 2) {
+			velocity = (real4)(velocity.z, velocity.y, -velocity.x, 0.f);	//-90' rotation to put the z axis in the x axis
 		}
 
 		//eigenvalues
 
-		eigenvaluesBuffer[interfaceIndex].s0123 = (real4)(
+		eigenvaluesBuffer[interfaceIndex] = (real8)(
 			velocity.x - speedOfSound,
 			velocity.x,
 			velocity.x,
-			velocity.x + speedOfSound);
+			velocity.x,
+			velocity.x + speedOfSound,
+			0.f,
+			0.f,
+			0.f);
 
 		//eigenvectors
 
 		//specify transposed
-		real16 eigenvectors = (real16)(
+		real16 eigenvectorsA = (real16)(
 		//min col 
 			1.f,
 			velocity.x - speedOfSound,
 			velocity.y,
+			velocity.z,
 			enthalpyTotal - speedOfSound * velocity.x,
+			0.f,
+			0.f,
+			0.f
 		//mid col (normal)
 			1.f,
 			velocity.x,
 			velocity.y,
+			velocity.z,
 			.5f * velocitySq,
-		//mid col (tangent)
+			0.f,
+			0.f,
+			0.f);
+		real16 eigenvectorsB = (real16)(
+		//mid col (tangent A)
 			0.f,
 			0.f,
 			1.f,
+			0.f,
 			velocity.y,
+			0.f,
+			0.f,
+			0.f,
+		//mid col (tangent B)
+			0.f,
+			0.f,
+			0.f,
+			1.f,
+			velocity.z,
+			0.f,
+			0.f,
+			0.f);
+		real16 eigenvectorsC = (real16)(
 		//max col 
 			1.f,
 			velocity.x + speedOfSound,
 			velocity.y,
-			enthalpyTotal + speedOfSound * velocity.x);
+			velocity.z,
+			enthalpyTotal + speedOfSound * velocity.x,
+			0.f,
+			0.f,
+			0.f,
+		//padding
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f);
+		real16 eigenvectorsD = 0.f;
 
 		//transpose and store
-		eigenvectors = (real16)(
-			eigenvectors.s048C,
-			eigenvectors.s159D,
-			eigenvectors.s26AE,
-			eigenvectors.s37BF);
+		eigenvectorsBuffer[0 + 4 * interfaceIndex] = (real16)(
+			eigenvectorsA.s08, eigenvectorsB.s08, eigenvectorsC.s08, eigenvectorsD.s08,
+			eigenvectorsA.s19, eigenvectorsB.s19, eigenvectorsC.s19, eigenvectorsD.s19);
+		eigenvectorsBuffer[1 + 4 * interfaceIndex] = (real16)(
+			eigenvectorsA.s2A, eigenvectorsB.s2A, eigenvectorsC.s2A, eigenvectorsD.s2A,
+			eigenvectorsA.s3B, eigenvectorsB.s3B, eigenvectorsC.s3B, eigenvectorsD.s3B);
+		eigenvectorsBuffer[2 + 4 * interfaceIndex] = (real16)(
+			eigenvectorsA.s4C, eigenvectorsB.s4C, eigenvectorsC.s4C, eigenvectorsD.s4C,
+			eigenvectorsA.s5D, eigenvectorsB.s5D, eigenvectorsC.s5D, eigenvectorsD.s5D);
+		eigenvectorsBuffer[3 + 4 * interfaceIndex] = (real16)(
+			eigenvectorsA.s6E, eigenvectorsB.s6E, eigenvectorsC.s6E, eigenvectorsD.s6E,
+			eigenvectorsA.s7F, eigenvectorsB.s7F, eigenvectorsC.s7F, eigenvectorsD.s7F);
 
-#if 1	//analytical eigenvalues.  getting worse results on double precision on my CPU-driven hydrodynamics program
+#error TODO
 		//calculate eigenvector inverses ... 
 		real invDenom = .5f / (speedOfSound * speedOfSound);
 		real16 eigenvectorsInverse = (real16)( 
@@ -343,10 +359,6 @@ __kernel void calcEigenBasis(
 			(speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
 			-(GAMMA - 1.f) * velocity.y * invDenom,
 			(GAMMA - 1.f) * invDenom);
-#endif
-#if 0 //numerically solve for the inverse
-		real16 eigenvectorsInverse = mat44inv(eigenvectors);
-#endif
 
 		if (side == 1) {
 			//-90' rotation applied to the LHS of incoming velocity vectors, to move their y axis into the x axis
@@ -374,12 +386,15 @@ __kernel void calcCFL(
 	const __global real8* eigenvaluesBuffer,
 	real cfl)
 {
-	real2 dx = (real2)(DX, DY);
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	real4 dx = (real4)(DX, DY, DZ, 1.f);
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
 #endif
 	) {
 		cflBuffer[index] = INFINITY;
@@ -388,7 +403,7 @@ __kernel void calcCFL(
 
 	real result = INFINITY;
 	for (int side = 0; side < DIM; ++side) {
-		int2 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
@@ -431,16 +446,19 @@ __kernel void calcDeltaQTilde(
 	const __global real16* eigenvectorsInverseBuffer,
 	const __global real8* stateBuffer)
 {
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1
+#endif
+#if DIM > 1
+		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
 	int index = INDEXV(i);
 
 	for (int side = 0; side < DIM; ++side) {
-		int2 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 				
@@ -481,23 +499,26 @@ __kernel void calcFlux(
 {
 #ifdef ONLY_WORKING_IN_1D
 	float dt = dtBuffer[0];
-	real2 dt_dx = (real2)(dt / DX, dt / DY);
+	real4 dt_dx = (real4)(dt / DX, dt / DY, dt / DZ, dt);
 #endif
 
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1
+#endif
+#if DIM > 1
+		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
 	int index = INDEXV(i);
 	
 	for (int side = 0; side < DIM; ++side) {	
-		int2 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 
-		int2 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 	
@@ -609,20 +630,23 @@ __kernel void integrateFlux(
 	const __global real8* fluxBuffer,
 	const __global real* dtBuffer)
 {
-	real2 dx = (real2)(DX, DY);
+	real4 dx = (real4)(DX, DY, DZ, 1.f);
 	real dt = dtBuffer[0];
-	real2 dt_dx = dt / dx;
+	real4 dt_dx = dt / dx;
 	
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2
+#endif
+#if DIM > 1
+		|| i.z < 2 || i.z >= SIZE_Z - 2
 #endif
 	) return;
 	int index = INDEXV(i);
 	
 	for (int side = 0; side < DIM; ++side) {	
-		int2 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		

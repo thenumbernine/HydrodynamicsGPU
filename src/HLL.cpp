@@ -1,9 +1,9 @@
-#include "HydroGPU/HLLSolver2D.h"
+#include "HydroGPU/HLL.h"
 #include "HydroGPU/HydroGPUApp.h"
 
-HLLSolver2D::HLLSolver2D(
+HLL::HLL(
 	HydroGPUApp &app_)
-: Super(app_, "HLL2D.cl")
+: Super(app_, "HLL.cl")
 , calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
 , integrateFluxEvent("integrateFlux")
@@ -28,22 +28,22 @@ HLLSolver2D::HLLSolver2D(
 	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.dx, app.cfl);
+	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.cfl);
 	
 	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
-	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, app.dx, dtBuffer);
+	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, dtBuffer);
 }	
 
-void HLLSolver2D::initStep() {
+void HLL::initStep() {
 	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 }
 
-void HLLSolver2D::calcTimestep() {
+void HLL::calcTimestep() {
 	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
-void HLLSolver2D::step() {
+void HLL::step() {
 	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
 
 	if (app.useGravity) {

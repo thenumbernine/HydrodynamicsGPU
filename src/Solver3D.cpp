@@ -61,7 +61,7 @@ std::ostream& operator<<(std::ostream& o, typename CLType<T,n>::Type v) {
 Solver3D::Solver3D(
 	HydroGPUApp &app_,
 	const std::string &programFilename)
-: Super(app_, std::vector<std::string>{"Common3D.cl", programFilename})
+: Super(app_, programFilename)
 , fluidTex(GLuint())
 , viewZoom(1.f)
 , viewDist(1.f)

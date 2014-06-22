@@ -1,9 +1,9 @@
-#include "HydroGPU/RoeSolver3D.h"
+#include "HydroGPU/Roe.h"
 #include "HydroGPU/HydroGPUApp.h"
 
-RoeSolver3D::RoeSolver3D(
+Roe::Roe(
 	HydroGPUApp &app_)
-: Super(app_, "Roe3D.cl")
+: Super(app_, "Roe.cl")
 , calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
 , calcDeltaQTildeEvent("calcDeltaQTilde")
@@ -24,38 +24,38 @@ RoeSolver3D::RoeSolver3D(
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
-	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
-	eigenvectorsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * 2 * volume * app.dim);
-	eigenvectorsInverseBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real16) * 2 * volume * app.dim);
-	deltaQTildeBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
+	eigenvaluesBuffer = clAlloc(sizeof(real8) * volume * app.dim);
+	eigenvectorsBuffer = clAlloc(sizeof(real16) * 4 * volume * app.dim);
+	eigenvectorsInverseBuffer = clAlloc(sizeof(real16) * 4 * volume * app.dim);
+	deltaQTildeBuffer = clAlloc(sizeof(real8) * volume * app.dim);
+	fluxBuffer = clAlloc(sizeof(real8) * volume * app.dim);
 	
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
-	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer, app.size);
+	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.dx, app.cfl);
+	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.cfl);
 	
 	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
-	app.setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer, app.dx);
+	app.setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app.setArgs(calcFluxKernel,fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, app.dx, dtBuffer);
+	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, dtBuffer);
 	
 	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
-	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, app.dx, dtBuffer);
+	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, dtBuffer);
 }	
 
-void RoeSolver3D::initStep() {
+void Roe::initStep() {
 	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 }
 
-void RoeSolver3D::calcTimestep() {
+void Roe::calcTimestep() {
 	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
-void RoeSolver3D::step() {
+void Roe::step() {
 	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, NULL, &calcDeltaQTildeEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
 	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);

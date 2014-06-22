@@ -1,4 +1,4 @@
-#include "HydroGPU/Shared/Common3D.h"
+#include "HydroGPU/Shared/Common.h"
 
 real8 mirrorStateX(real8 state);
 real8 mirrorStateY(real8 state);

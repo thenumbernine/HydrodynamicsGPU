@@ -1,4 +1,4 @@
-#include "HydroGPU/Shared/Common2D.h"
+#include "HydroGPU/Shared/Common.h"
 
 real4 matmul(real16 m, real4 v);
 real4 flux(real density, real2 velocity, real pressure, real enthalpyTotal, real2 normal);
