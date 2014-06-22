@@ -78,14 +78,6 @@ void Solver2D::resetState(std::vector<real8> stateVec) {
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 	if (volume != stateVec.size()) throw Common::Exception() << "state vec is of bad size";
 
-	for (int i = 0; i < volume; ++i) {
-		stateVec[i].s[2] = stateVec[i].s[3];
-		stateVec[i].s[3] = stateVec[i].s[4];
-		for (int j = 4; j < 8; ++j) {
-			stateVec[i].s[j] = 0;
-		}
-	}
-
 	//grad^2 Phi = - 4 pi G rho
 	//solve inverse discretized linear system to find Psi
 	//D_ij / (-4 pi G) Phi_j = rho_i
@@ -117,7 +109,7 @@ void Solver2D::resetState(std::vector<real8> stateVec) {
 
 		//update internal energy
 		for (int i = 0; i < volume; ++i) {
-			stateVec[i].s[3] += gravityPotentialVec[i];
+			stateVec[i].s[4] += gravityPotentialVec[i];
 		}
 	}
 	
@@ -166,10 +158,10 @@ void Solver2D::display() {
 				value = stateVec[i].s[0];
 				break;
 			case DISPLAY_VELOCITY:	//velocity
-				value = sqrt(stateVec[i].s[1] * stateVec[i].s[1] + stateVec[i].s[2] * stateVec[i].s[2]) / stateVec[i].s[0];
+				value = sqrt(stateVec[i].s[1] * stateVec[i].s[1] + stateVec[i].s[2] * stateVec[i].s[2] + stateVec[i].s[3] * stateVec[i].s[3]) / stateVec[i].s[0];
 				break;
 			case DISPLAY_PRESSURE:	//pressure
-				value = (app.gamma - 1.f) * stateVec[i].s[3] * stateVec[i].s[0];
+				value = (app.gamma - 1.f) * stateVec[i].s[4] * stateVec[i].s[0];
 				break;
 			default:
 				value = .5f;
@@ -292,7 +284,7 @@ void Solver2D::save() {
 }
 
 void Solver2D::save(std::string filename) {
-	std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]), nullptr, 1, 5);
+	std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]), nullptr, 1, 9);
 	
 	std::vector<real8> stateVec(app.size.s[0] * app.size.s[1]);
 	app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * stateVec.size(), &stateVec[0]);
@@ -310,7 +302,11 @@ void Solver2D::save(std::string filename) {
 			(*image)(i,j,0,1) = state->s[1] / state->s[0];
 			(*image)(i,j,0,2) = state->s[2] / state->s[0];
 			(*image)(i,j,0,3) = state->s[3] / state->s[0];
-			(*image)(i,j,0,4) = grav;
+			(*image)(i,j,0,4) = state->s[4] / state->s[0];
+			(*image)(i,j,0,5) = state->s[5];
+			(*image)(i,j,0,6) = state->s[6];
+			(*image)(i,j,0,7) = state->s[7];
+			(*image)(i,j,0,8) = grav;
 		}
 	}
 	Image::system->write(filename, image); 

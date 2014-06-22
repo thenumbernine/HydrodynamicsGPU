@@ -116,12 +116,13 @@ __kernel void convertToTex(
 	
 #if DIM == 1
 	real density = state.s0;
-	real velocity = length(state.s12) / density;
-	real energyTotal = state.s3 / density;
-	real energyKinetic = .5f * velocity * velocity;
+	real4 velocity = (real4)(state.s1, state.s2, state.s3, 0.f) / density;;
+	real velocityMagn = length(velocity);
+	real energyTotal = state.s4 / density;
+	real energyKinetic = .5f * dot(velocity, velocity);
 	real energyPotential = gravityPotentialBuffer[index];
 	real energyInternal = energyTotal - energyKinetic - energyPotential;
-	float4 color = (float4)(density, velocity, energyInternal, 0.f) * displayScale;
+	float4 color = (float4)(density, velocityMagn, energyInternal, 0.f) * displayScale;
 	write_imagef(fluidTex, i, color);
 #elif DIM == 2
 
@@ -136,12 +137,15 @@ __kernel void convertToTex(
 	case DISPLAY_PRESSURE:	//pressure
 		{
 			real density = state.s0;
-			real energyTotal = state.s3 / density;
-			real energyKinetic = .5f * dot(state.yz, state.s12) / (density * density);
+			real energyTotal = state.s4 / density;
+			real energyKinetic = .5f * dot(state.s123, state.s123) / (density * density);
 			real energyPotential = gravityPotentialBuffer[index];
 			real energyInternal = energyTotal - energyKinetic - energyPotential;
 			value = (GAMMA - 1.f) * energyInternal * density;
 		}
+		break;
+	case DISPLAY_MAGNETISM:
+		value = length(state.s567);
 		break;
 	case DISPLAY_GRAVITY_POTENTIAL:
 		value = gravityPotentialBuffer[index];
@@ -190,7 +194,7 @@ __kernel void poissonRelax(
 	scale *= DY;
 #endif
 
-	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * stateBuffer[index].x;
+	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * stateBuffer[index].s0;
 }
 
 __kernel void addGravity(
@@ -203,13 +207,19 @@ __kernel void addGravity(
 	real2 dt_dx = dt / dx;
 
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.y < 2 || i.x >= SIZE_X - 2 || i.y >= SIZE_Y - 2) return;
-	int index = i.x + SIZE_X * i.y;
+	if (i.x < 2 || i.x >= SIZE_X - 2
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 2
+#endif
+	) {
+		return;
+	}
+	int index = INDEXV(i);
 
 	real8 state = stateBuffer[index];
 	real density = state.x;
 
-	for (int side = 0; side < 2; ++side) {
+	for (int side = 0; side < DIM; ++side) {
 		int2 iPrev = i;
 		--iPrev[side];
 		int indexPrev = iPrev.x + SIZE_X * iPrev.y;
@@ -221,7 +231,7 @@ __kernel void addGravity(
 		real gravityGrad = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
 		
 		state[side+1] -= dt_dx[side] * density * gravityGrad;
-		state.w -= dt * density * gravityGrad * state[side+1];
+		state.s4 -= dt * density * gravityGrad * state[side+1];
 	}
 
 	stateBuffer[index] = state;

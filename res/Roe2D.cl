@@ -74,15 +74,15 @@ __kernel void calcEigenBasis(
 		real8 stateL = stateBuffer[indexPrev];
 		real8 stateR = stateBuffer[index];
 
-		real densityL = stateL.x;
+		real densityL = stateL.s0;
 		real invDensityL = 1.f / densityL;
-		real2 velocityL = stateL.yz * invDensityL;
-		real energyTotalL = stateL.w * invDensityL;
+		real4 velocityL = (real4)(stateL.s1, stateL.s2, stateL.s3, 0.f) * invDensityL;
+		real energyTotalL = stateL.s4 * invDensityL;
 
-		real densityR = stateR.x;
+		real densityR = stateR.s0;
 		real invDensityR = 1.f / densityR;
-		real2 velocityR = stateR.yz * invDensityR;
-		real energyTotalR = stateR.w * invDensityR;
+		real4 velocityR = (real4)(stateR.s1, stateR.s2, stateR.s3, 0.f) * invDensityR;
+		real energyTotalR = stateR.s4 * invDensityR;
 
 		real energyKineticL = .5f * dot(velocityL, velocityL);
 		real energyPotentialL = gravityPotentialBuffer[indexPrev];
@@ -99,7 +99,7 @@ __kernel void calcEigenBasis(
 		real weightR = sqrt(densityR);
 
 		real roeWeightNormalization = 1.f / (weightL + weightR);
-		real2 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
+		real4 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
 		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
 		
 		real velocitySq = dot(velocity, velocity);
@@ -107,20 +107,27 @@ __kernel void calcEigenBasis(
 	
 #if 1	//calculate flux based on normal
 
-		real2 normal = (real2)(0.f, 0.f);
+		real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
 		normal[side] = 1;
 	
-		real2 tangent = (real2)(-normal.y, normal.x);
+		real4 tangentA = (real4)(normal.y, normal.z, normal.x, 0.f);
+		real4 tangentB = (real4)(normal.z, normal.x, normal.y, 0.f);
 		real velocityN = dot(velocity, normal);
-		real velocityT = dot(velocity, tangent);
+		real velocityTA = dot(velocity, tangentA);
+		real velocityTB = dot(velocity, tangentB);
 	
 		//eigenvalues
 
-		eigenvaluesBuffer[interfaceIndex].s0123 = (real4)(
-			velocityN - speedOfSound,
-			velocityN,
-			velocityN,
-			velocityN + speedOfSound);
+		real8 eigenvalues;
+		eigenvalues.s0 = velocityN - speedOfSound;
+		eigenvalues.s1 = velocityN;
+		eigenvalues.s2 = velocityN;
+		eigenvalues.s3 = velocityN;
+		eigenvalues.s4 = velocityN + speedOfSound;
+		eigenvalues.s5 = 0.f;
+		eigenvalues.s6 = 0.f;
+		eigenvalues.s7 = 0.f;
+		eigenvaluesBuffer[interfaceIndex] = eigenvalues;
 
 		//eigenvectors
 
@@ -134,24 +141,48 @@ __kernel void calcEigenBasis(
 		eigenvectorsA.s0 = 1.f;
 		eigenvectorsA.s8 = velocity.x - speedOfSound * normal.x;
 		eigenvectorsB.s0 = velocity.y - speedOfSound * normal.y;
-		eigenvectorsB.s8 = enthalpyTotal - speedOfSound * velocityN;
+		eigenvectorsB.s8 = velocity.z - speedOfSound * normal.z;
+		eigenvectorsC.s0 = enthalpyTotal - speedOfSound * velocityN;
+		eigenvectorsC.s8 = 0.f;
+		eigenvectorsD.s0 = 0.f;
+		eigenvectorsD.s8 = 0.f;
 		//mid col (normal)
 		eigenvectorsA.s1 = 1.f;
 		eigenvectorsA.s9 = velocity.x;
 		eigenvectorsB.s1 = velocity.y;
-		eigenvectorsB.s9 = .5f * velocitySq;
-		//mid col (tangent)
+		eigenvectorsB.s9 = velocity.z;
+		eigenvectorsC.s1 = .5f * velocitySq;
+		eigenvectorsC.s9 = 0.f;
+		eigenvectorsD.s1 = 0.f;
+		eigenvectorsD.s9 = 0.f;
+		//mid col (tangent A)
 		eigenvectorsA.s2 = 0.f;
-		eigenvectorsA.sA = tangent.x;
-		eigenvectorsB.s2 = tangent.y;
-		eigenvectorsB.sA = velocityT;
+		eigenvectorsA.sA = tangentA.x;
+		eigenvectorsB.s2 = tangentA.y;
+		eigenvectorsB.sA = tangentA.y;
+		eigenvectorsC.s2 = velocityTA;
+		eigenvectorsC.sA = 0.f;
+		eigenvectorsD.s2 = 0.f;
+		eigenvectorsD.sA = 0.f;
+		//mid col (tangent B)
+		eigenvectorsA.s3 = 0.f;
+		eigenvectorsA.sB = tangentB.x;
+		eigenvectorsB.s3 = tangentB.y;
+		eigenvectorsB.sB = tangentB.y;
+		eigenvectorsC.s3 = velocityTB;
+		eigenvectorsC.sB = 0.f;
+		eigenvectorsD.s3 = 0.f;
+		eigenvectorsD.sB = 0.f;	
 		//max col 
-		eigenvectorsA.s3 = 1.f;
-		eigenvectorsA.sB = velocity.x + speedOfSound * normal.x;
-		eigenvectorsB.s3 = velocity.y + speedOfSound * normal.y;
-		eigenvectorsB.sB = enthalpyTotal + speedOfSound * velocityN;
+		eigenvectorsA.s4 = 1.f;
+		eigenvectorsA.sC = velocity.x + speedOfSound * normal.x;
+		eigenvectorsB.s4 = velocity.y + speedOfSound * normal.y;
+		eigenvectorsB.sC = velocity.z + speedOfSound * normal.z;
+		eigenvectorsC.s4 = enthalpyTotal + speedOfSound * velocityN;
+		eigenvectorsC.sC = 0.f;
+		eigenvectorsD.s4 = 0.f;
+		eigenvectorsD.sC = 0.f;	
 
-		//transpose and store
 		eigenvectorsBuffer[0 + 4 * interfaceIndex] = eigenvectorsA;
 		eigenvectorsBuffer[1 + 4 * interfaceIndex] = eigenvectorsB;
 		eigenvectorsBuffer[2 + 4 * interfaceIndex] = eigenvectorsC;
@@ -165,29 +196,76 @@ __kernel void calcEigenBasis(
 			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom,
 			-(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
 			-(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom,
+			-(normal.z * speedOfSound + (GAMMA - 1.f) * velocity.z) * invDenom,
 			(GAMMA - 1.f) * invDenom,
-			0.f, 0.f, 0.f, 0.f,
+			0.f,
+			0.f, 
+			0.f,
 		//mid normal row
 			1.f - (GAMMA - 1.f) * velocitySq * invDenom,
 			(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
 			(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
+			(GAMMA - 1.f) * velocity.z * 2.f * invDenom,
 			-(GAMMA - 1.f) * 2.f * invDenom,
-			0.f, 0.f, 0.f, 0.f);
-		eigenvectorsInverseBuffer[1 + 4 * interfaceIndex] = (real16)(
-		//mid tangent row
-			-velocityT, 
-			tangent.x,
-			tangent.y,
 			0.f,
-			0.f, 0.f, 0.f, 0.f,
+			0.f,
+			0.f);
+		eigenvectorsInverseBuffer[1 + 4 * interfaceIndex] = (real16)(
+		//mid tangent A row
+			-velocityTA, 
+			tangentA.x,
+			tangentA.y,
+			tangentA.z,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+		//mid tangent B row
+			-velocityTB,
+			tangentB.x,
+			tangentB.y,
+			tangentB.z,
+			0.f,
+			0.f,
+			0.f,
+			0.f);
+		eigenvectorsInverseBuffer[2 + 4 * interfaceIndex] = (real16)(
 		//max row
 			(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom,
 			(normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
 			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
+			(normal.z * speedOfSound - (GAMMA - 1.f) * velocity.z) * invDenom,
 			(GAMMA - 1.f) * invDenom,
-			0.f, 0.f, 0.f, 0.f);
-		eigenvectorsInverseBuffer[2 + 4 * interfaceIndex] = 0.f;
-		eigenvectorsInverseBuffer[3 + 4 * interfaceIndex] = 0.f;
+			0.f,
+			0.f,
+			0.f,
+			
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f);
+		eigenvectorsInverseBuffer[3 + 4 * interfaceIndex] = (real16)(
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f,
+			0.f);
 #endif
 #if 0 //numerically solve for the inverse
 		eigenvectorsInverseBuffer[4 * interfaceIndex] = mat44inv(eigenvectorsBuffer[4 * interfaceIndex]);
@@ -318,25 +396,29 @@ __kernel void calcCFL(
 		real8 eigenvaluesR = eigenvaluesBuffer[side + DIM * indexNext];
 		
 		real maxLambda = max(
-			0.f,
+			max(
+				0.f,
+				eigenvaluesL.s0),
 			max(
 				max(
-					eigenvaluesL.x,
-					eigenvaluesL.y), 
+					eigenvaluesL.s1,
+					eigenvaluesL.s2), 
 				max(
-					eigenvaluesL.z,
-					eigenvaluesL.w)));
+					eigenvaluesL.s3,
+					eigenvaluesL.s4)));
 
 		real minLambda = min(
-			0.f,
+			min(
+				0.f,
+				eigenvaluesR.s0),
 			min(
 				min(
-					eigenvaluesR.x,
-					eigenvaluesR.y),
+					eigenvaluesR.s1,
+					eigenvaluesR.s2), 
 				min(
-					eigenvaluesR.z,
-					eigenvaluesR.w)));
-
+					eigenvaluesR.s3,
+					eigenvaluesR.s4)));
+	
 		real dum = dx[side] / (maxLambda - minLambda);
 		result = min(result, dum);
 	}
@@ -398,7 +480,6 @@ __kernel void calcFlux(
 	const __global real* dtBuffer)
 {
 #ifdef ONLY_WORKING_IN_1D
-	real2 dx = (real2)(DX, DY);
 	float dt = dtBuffer[0];
 	real2 dt_dx = (real2)(dt / DX, dt / DY);
 #endif
@@ -472,7 +553,8 @@ __kernel void calcFlux(
 		real8 phi = slopeLimiter(rTilde);
 		real8 epsilon = eigenvalues * dt_dx[side];	//enabling this causes us to crash
 #else
-real8 phi = 0.f;
+real8 phi = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f);
+//real2 dx = (real2)(DX, DY);
 real8 epsilon = eigenvalues;	//either multiplying by dtBuffer[0] or dividing by dx[side] causes a crash
 #endif
 
@@ -490,8 +572,28 @@ real8 epsilon = eigenvalues;	//either multiplying by dtBuffer[0] or dividing by 
 		//		fluxTilde[i] += .5f * deltaFluxTilde[i];
 		//	}
 		//}
-		
+	
+		//with theta
 		fluxTilde -= .5f * deltaFluxTilde * .5f * phi * (epsilon - theta);
+		//without theta
+		//for (int i = 0; i < 8; ++i) {
+		//	if (eigenvalues[i] >= 0.f) {
+		//		fluxTilde[i] -= .5f * .5f * deltaFluxTilde[i] * phi[i] * (epsilon[i] - 1.f);
+		//	} else {
+		//		fluxTilde[i] -= .5f * .5f * deltaFluxTilde[i] * phi[i] * (epsilon[i] + 1.f);
+		//	}
+		//}
+
+		//combining both condition loops without theta
+		//this is crashing even without references to dtBuffer
+		//real dt_dx_side = 0.f;//dt_dx[side];
+		//for (int i = 0; i < 4; ++i) {
+		//	if (eigenvalues[i] >= 0.f) {
+		//		fluxTilde[i] -= deltaFluxTilde[i] * .5f;// * (1.f - .5f * phi[i] * (1.f - eigenvalues[i] * dt_dx_side));
+		//	} else {
+		//		fluxTilde[i] += deltaFluxTilde[i] * .5f;// * (1.f - .5f * phi[i] * (1.f + eigenvalues[i] * dt_dx_side));
+		//	}
+		//}
 		
 		fluxBuffer[side + DIM * index] = matmul(
 			eigenvectorsBuffer[0 + 4 * interfaceIndex],

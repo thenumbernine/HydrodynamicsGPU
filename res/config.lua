@@ -6,7 +6,7 @@
 solverName = 'Roe'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
---maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -18,6 +18,7 @@ displayScale = 2
 boundaryMethods = {'periodic', 'periodic', 'periodic'}
 useGravity = false 
 noise = 0	--.01
+magnetismNoise = 0
 gamma = 1.4
 
 -- the number of non-1-sized elements in 'size' determine the dimension
@@ -31,8 +32,8 @@ size = {64, 64, 64}
 -- max burgers size with 4 channels: 4096x4096
 -- max roe size with 4 channels: 1024x1024
 -- max burgers size with 8 channels: 2048x2048
--- roe with 8 channels is crashing on build, particularly in the calcFlux kernel any time the dtBuffer is read
-size = {16, 16}
+-- roe with 8 channels: 512x512 
+size = {256, 256}
 --]]
 -- [[ 1D
 size = {1024}
@@ -81,10 +82,13 @@ local function buildState(args)
 	local vx = args.vx or crand() * noise
 	local vy = dim <= 1 and 0 or (args.vy or crand() * noise)
 	local vz = dim <= 2 and 0 or (args.vz or crand() * noise)
+	local bx = args.bx or crand() * magnetismNoise
+	local by = args.by or crand() * magnetismNoise
+	local bz = args.bz or crand() * magnetismNoise
 	local energyKinetic = energyKineticForVelocity(vx, vy, vz)
 	local energyInternal = args.energyInternal or energyInternalForPressure(assert(args.pressure, "you need to provide either energyInternal or pressure"), density)
 	local energyTotal = energyKinetic + energyInternal 
-	return primsToState(density, vx, vy, vz, energyTotal)
+	return primsToState(density, vx, vy, vz, energyTotal, bx, by, bz)
 end
 
 
@@ -109,6 +113,19 @@ function initState(x)
 	return buildState{
 		density = inside and 1 or .1,
 		energyInternal = 1,
+	}
+end
+--]]
+
+--[[ Brio Wu
+gamma = 2
+function initState(x)
+	local lhs = x[1] < 0
+	return buildState{
+		density = lhs and 1 or .125,
+		pressure = lhs and 1 or .1,
+		bx = .75,
+		by = lhs and 1 or -1,
 	}
 end
 --]]

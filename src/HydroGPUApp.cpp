@@ -44,6 +44,7 @@ std::vector<std::string> displayMethodNames = std::vector<std::string>{
 	"density",
 	"velocity",
 	"pressure",
+	"magnetism",
 	"gravity potential",
 };
 
