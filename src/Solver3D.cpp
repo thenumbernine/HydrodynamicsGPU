@@ -165,7 +165,7 @@ Solver3D::Solver3D(
 	initKernels();
 }
 
-void Solver3D::resetState(std::vector<real8> stateVec) {	
+void Solver3D::resetState(std::vector<real8> stateVec) {
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 	if (volume != stateVec.size()) throw Common::Exception() << "got a state vec with a bad length";
 
@@ -197,7 +197,7 @@ void Solver3D::resetState(std::vector<real8> stateVec) {
 			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 
-		//update internal energy
+		//update total energy
 		for (int i = 0; i < volume; ++i) {
 			stateVec[i].s[4] += gravityPotentialVec[i];
 		}

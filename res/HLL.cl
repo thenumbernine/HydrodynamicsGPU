@@ -1,121 +1,156 @@
 #include "HydroGPU/Shared/Common.h"
 
-real4 matmul(real16 m, real4 v);
-real4 flux(real density, real2 velocity, real pressure, real enthalpyTotal, real2 normal);
-real4 slopeLimiter(real4 r);
+real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v);
+real8 flux(real density, real4 velocity, real pressure, real enthalpyTotal, real4 normal);
+real8 slopeLimiter(real8 r);
 
-real4 matmul(real16 m, real4 v) {
-	return (real4)(
-		dot(m.s0123, v),
-		dot(m.s4567, v),
-		dot(m.s89AB, v),
-		dot(m.sCDEF, v));
+real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v) {
+	return (real8)(
+		//I would use dot products of real8's
+		// but that causes an error
+		dot(ma.s0123, v.s0123) + dot(ma.s4567, v.s4567),
+		dot(ma.s89AB, v.s0123) + dot(ma.sCDEF, v.s4567),
+		dot(mb.s0123, v.s0123) + dot(mb.s4567, v.s4567),
+		dot(mb.s89AB, v.s0123) + dot(mb.sCDEF, v.s4567),
+		dot(mc.s0123, v.s0123) + dot(mc.s4567, v.s4567),
+		dot(mc.s89AB, v.s0123) + dot(mc.sCDEF, v.s4567),
+		dot(md.s0123, v.s0123) + dot(md.s4567, v.s4567),
+		dot(md.s89AB, v.s0123) + dot(md.sCDEF, v.s4567));
 }
 
-real4 flux(real density, real2 velocity, real pressure, real enthalpyTotal, real2 normal) {
+real8 flux(real density, real4 velocity, real pressure, real enthalpyTotal, real4 normal) {
 	real velocityN = dot(velocity, normal);
-	return (real4)(
-		density * enthalpyTotal * velocityN,
+	return (real8)(
+		density * velocityN,
 		density * velocity.x * velocityN + pressure * normal.x,
 		density * velocity.y * velocityN + pressure * normal.y,
-		density * velocityN);
+		density * velocity.z * velocityN + pressure * normal.z,
+		density * enthalpyTotal * velocityN,
+		0.f,
+		0.f,
+		0.f);
 }
 
 __kernel void calcEigenvalues(
-	__global real4* eigenvaluesBuffer,
-	__global real4* fluxBuffer,
-	const __global real4* stateBuffer,
+	__global real8* eigenvaluesBuffer,
+	__global real8* fluxBuffer,
+	const __global real8* stateBuffer,
 	const __global real* gravityPotentialBuffer)
 {
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
 	int index = INDEXV(i);
 
 	for (int side = 0; side < DIM; ++side) {	
-		int2 iPrev = i;
+		int4 iPrev = i;
 		--iPrev[side];
 		int indexPrev = INDEXV(iPrev);
 		
-		real2 normal = (real2)(0.f, 0.f);
-		normal[side] = 1.f;
+		int interfaceIndex = side + DIM * index;
 
-		int interfaceIndex = side + 2 * index;
+		real8 stateL = stateBuffer[indexPrev];
+		real8 stateR = stateBuffer[index];
+		
+		real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
+		normal[side] = 1;
 
-		real4 stateL = stateBuffer[indexPrev];
-		real4 stateR = stateBuffer[index];
-
-		real densityL = stateL.x;
+		real densityL = stateL.s0;
 		real invDensityL = 1.f / densityL;
-		real2 velocityL = stateL.yz * invDensityL;
-		real velocityNL = dot(velocityL, normal);
+		real4 velocityL = (real4)(stateL.s1, stateL.s2, stateL.s3, 0.f) * invDensityL;
 		real velocitySqL = dot(velocityL, velocityL);
-		real energyTotalL = stateL.w * invDensityL;
+		real velocityNL = dot(velocityL, normal);
+		real energyTotalL = stateL.s4 * invDensityL;
 		real energyKineticL = .5f * dot(velocityL, velocityL);
 		real energyPotentialL = gravityPotentialBuffer[indexPrev];
 		real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 		real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
 		real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
+		real weightL = sqrt(densityL);
 		real speedOfSoundL = sqrt((GAMMA - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
-		real4 eigenvaluesL = (real4)(
+		real8 eigenvaluesL = (real8)(
 			velocityNL - speedOfSoundL,
 			velocityNL,
 			velocityNL,
-			velocityNL + speedOfSoundL);
-		real weightL = sqrt(densityL);
+			velocityNL,
+			velocityNL + speedOfSoundL,
+			0.f,
+			0.f,
+			0.f);
 
-		real densityR = stateR.x;
+		real densityR = stateR.s0;
 		real invDensityR = 1.f / densityR;
-		real2 velocityR = stateR.yz * invDensityR;
-		real velocityNR = dot(velocityR, normal);
+		real4 velocityR = (real4)(stateR.s1, stateR.s2, stateR.s3, 0.f) * invDensityR;
 		real velocitySqR = dot(velocityR, velocityR);
-		real energyTotalR = stateR.w * invDensityR;
+		real velocityNR = dot(velocityR, normal);
+		real energyTotalR = stateR.s4 * invDensityR;
 		real energyKineticR = .5f * dot(velocityR, velocityR);
 		real energyPotentialR = gravityPotentialBuffer[index];
 		real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 		real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
 		real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
+		real weightR = sqrt(densityR);
 		real speedOfSoundR = sqrt((GAMMA - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
-		real4 eigenvaluesR = (real4)(
+		real8 eigenvaluesR = (real8)(
 			velocityNR - speedOfSoundR,
 			velocityNR,
 			velocityNR,
-			velocityNR + speedOfSoundR);
-		real weightR = sqrt(densityR);
-
-		//Roe averaging
-		real roeWeightNormalization = 1.f / (weightL + weightR);
-		real2 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
-		real velocityN = dot(velocity, normal);
-		real velocitySq = dot(velocity, velocity);
-		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
-		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
-		real4 eigenvaluesRoe = (real4)(
-			velocityN - speedOfSound,
-			velocityN,
-			velocityN,
-			velocityN + speedOfSound);
+			velocityNR,
+			velocityNR + speedOfSoundR,
+			0.f,
+			0.f,
+			0.f);
 		
-		eigenvaluesBuffer[interfaceIndex] = eigenvaluesRoe;
+		real roeWeightNormalization = 1.f / (weightL + weightR);
+		real4 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
+		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
+		
+		real velocitySq = dot(velocity, velocity);
+		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
+		real velocityN = dot(velocity, normal);
 	
+		//eigenvalues
+		
+		real8 eigenvalues;
+		eigenvalues.s0 = velocityN - speedOfSound;
+		eigenvalues.s1 = velocityN;
+		eigenvalues.s2 = velocityN;
+		eigenvalues.s3 = velocityN;
+		eigenvalues.s4 = velocityN + speedOfSound;
+		eigenvalues.s5 = 0.f;
+		eigenvalues.s6 = 0.f;
+		eigenvalues.s7 = 0.f;
+		eigenvaluesBuffer[interfaceIndex] = eigenvalues;
+
 		//flux
 
-		real4 fluxL = flux(densityL, velocityL, pressureL, enthalpyTotalL, normal);
-		real4 fluxR = flux(densityR, velocityR, pressureR, enthalpyTotalR, normal);
-	
-		real sl = min(eigenvaluesL.s0, eigenvaluesRoe.s0);
-		real sr = max(eigenvaluesR.s3, eigenvaluesRoe.s3);
+		real8 fluxL = flux(densityL, velocityL, pressureL, enthalpyTotalL, normal);
+		real8 fluxR = flux(densityR, velocityR, pressureR, enthalpyTotalR, normal);
 
-		real4 flux;
-		if (sl < 0.f) {
+#if 0	//Davis direct
+		real sl = eigenvaluesL.s0;
+		real sr = eigenvaluesR.s4;
+#endif
+#if 1	//Davis direct bounded
+		real sl = min(eigenvaluesL.s0, eigenvalues.s0);
+		real sr = max(eigenvaluesR.s4, eigenvalues.s4);
+#endif
+#if 0	//Bounded single S+
+		
+#endif
+		real8 flux;
+		if (sl >= 0.f) {
 			flux = fluxL;
-		} else if (sr > 0.f) {
-			flux = fluxR;
-		} else {
+		} else if (sl <= 0.f && sr >= 0.f) {
 			flux = (sr * fluxL - sl * fluxR + sl * sr * (stateR - stateL)) / (sr - sl);
+		} else if (sr <= 0.f) {
+			flux = fluxR;
 		}
 
 		fluxBuffer[interfaceIndex] = flux;
@@ -126,15 +161,18 @@ __kernel void calcEigenvalues(
 // esp when the flux values are computed from cell wavespeeds
 __kernel void calcCFL(
 	__global real* cflBuffer,
-	const __global real4* eigenvaluesBuffer,
-	real2 dx,
+	const __global real8* eigenvaluesBuffer,
 	real cfl)
 {
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	real4 dx = (real4)(DX, DY, DZ, 1.f);
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
-	if (i.x < 2 || i.x >= SIZE_X - 2 
+	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 2
+		|| i.y < 2 || i.y >= SIZE_Y - 1
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) {
 		cflBuffer[index] = INFINITY;
@@ -143,32 +181,36 @@ __kernel void calcCFL(
 
 	real result = INFINITY;
 	for (int side = 0; side < DIM; ++side) {
-		int2 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
-		real4 eigenvaluesL = eigenvaluesBuffer[side + 2 * index];
-		real4 eigenvaluesR = eigenvaluesBuffer[side + 2 * indexNext];
+		real8 eigenvaluesL = eigenvaluesBuffer[side + DIM * index];
+		real8 eigenvaluesR = eigenvaluesBuffer[side + DIM * indexNext];
 		
 		real maxLambda = max(
-			0.f,
+			max(
+				0.f,
+				eigenvaluesL.s0),
 			max(
 				max(
-					eigenvaluesL.x,
-					eigenvaluesL.y), 
+					eigenvaluesL.s1,
+					eigenvaluesL.s2), 
 				max(
-					eigenvaluesL.z,
-					eigenvaluesL.w)));
+					eigenvaluesL.s3,
+					eigenvaluesL.s4)));
 
 		real minLambda = min(
-			0.f,
+			min(
+				0.f,
+				eigenvaluesR.s0),
 			min(
 				min(
-					eigenvaluesR.x,
-					eigenvaluesR.y),
+					eigenvaluesR.s1,
+					eigenvaluesR.s2),
 				min(
-					eigenvaluesR.z,
-					eigenvaluesR.w)));
+					eigenvaluesR.s3,
+					eigenvaluesR.s4)));
 
 		real dum = dx[side] / (maxLambda - minLambda);
 		result = min(result, dum);
@@ -177,38 +219,41 @@ __kernel void calcCFL(
 	cflBuffer[index] = cfl * result;
 }
 
-real4 slopeLimiter(real4 r) {
+real8 slopeLimiter(real8 r) {
 	//donor cell
-	//return (real4)(0.f, 0.f, 0.f, 0.f);
+	//return 0.f;
 	//superbee
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
 __kernel void integrateFlux(
-	__global real4* stateBuffer,
-	const __global real4* fluxBuffer,
-	real2 dx,
-	const __global real* dt)
+	__global real8* stateBuffer,
+	const __global real8* fluxBuffer,
+	const __global real* dtBuffer)
 {
-	real2 dt_dx = *dt / dx;
-	
-	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	if (i.x < 2 || i.x >= SIZE_X - 2 
+	float dt = dtBuffer[0];
+	real4 dt_dx = (real4)(dt / DX, dt / DY, dt / DZ, dt);
+
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 2
+		|| i.y < 2 || i.y >= SIZE_Y - 1
+#endif
+#if DIM > 1
+		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
 	int index = INDEXV(i);
-	
+
 	for (int side = 0; side < DIM; ++side) {	
-		int2 iNext = i;
+		int4 iNext = i;
 		++iNext[side];
 		int indexNext = INDEXV(iNext);
 		
-		real4 fluxL = fluxBuffer[side + 2 * index];
-		real4 fluxR = fluxBuffer[side + 2 * indexNext];
+		real8 fluxL = fluxBuffer[side + DIM * index];
+		real8 fluxR = fluxBuffer[side + DIM * indexNext];
 
-		real4 df = fluxR - fluxL;
+		real8 df = fluxR - fluxL;
 		stateBuffer[index] -= df * dt_dx[side];
 	}
 }

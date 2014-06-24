@@ -3,10 +3,10 @@
 	-- solver variables
 
 
-solverName = 'Roe'
+solverName = 'HLL'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
-maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+--maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -95,6 +95,17 @@ end
 	-- initial state descriptions
 
 
+-- [[ 1D advect wave
+function initState(x)
+	local rSq = x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
+	return buildState{
+		vx = 1,
+		density = math.exp(-100*rSq) + 1,
+		pressure = 1,
+	}
+end
+--]]
+
 --[[ circle -- http://www.cfd-online.com/Wiki/Explosion_test_in_2-D
 function initState(x)
 	local rSq = x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
@@ -117,7 +128,8 @@ function initState(x)
 end
 --]]
 
--- [[ Brio Wu
+--[[ Brio Wu
+-- http://www.astro.uni-bonn.de/~jmackey/jmac/node7.html
 gamma = 2
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x)

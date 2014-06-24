@@ -484,9 +484,9 @@ real8 slopeLimiter(real8 r) {
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
-#if DIM == 1
+//#if DIM == 1
 #define ONLY_WORKING_IN_1D
-#endif
+//#endif
 
 __kernel void calcFlux(
 	__global real8* fluxBuffer,
