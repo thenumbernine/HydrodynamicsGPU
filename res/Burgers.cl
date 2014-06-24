@@ -149,7 +149,7 @@ __kernel void calcFlux(
 		real8 delta = phi * deltaState;
 
 		real8 flux = mix(stateR, stateL, theta) * interfaceVelocity;
-		flux += delta * .5f * (.5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])));
+		flux += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])) / (float)DIM;
 			
 		fluxBuffer[side + DIM * index] = flux;
 	}
@@ -219,7 +219,7 @@ __kernel void computePressure(
 	real energyInternal = energyTotal - energyKinetic - energyPotential;
 	
 	real pressure = (GAMMA - 1.f) * density * energyInternal;
-#if 0
+	
 	//von Neumann-Richtmyer artificial viscosity
 	real deltaVelocitySq = 0.f;
 	for (int side = 0; side < DIM; ++side) {
@@ -238,7 +238,7 @@ __kernel void computePressure(
 		deltaVelocitySq += deltaVelocity * deltaVelocity; 
 	}
 	pressure += deltaVelocitySq * density;
-#endif	
+	
 	pressureBuffer[index] = pressure;
 }
 

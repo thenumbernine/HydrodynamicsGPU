@@ -1,22 +1,7 @@
 #include "HydroGPU/Shared/Common.h"
 
-real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v);
 real8 flux(real density, real4 velocity, real pressure, real enthalpyTotal, real4 normal);
 real8 slopeLimiter(real8 r);
-
-real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v) {
-	return (real8)(
-		//I would use dot products of real8's
-		// but that causes an error
-		dot(ma.s0123, v.s0123) + dot(ma.s4567, v.s4567),
-		dot(ma.s89AB, v.s0123) + dot(ma.sCDEF, v.s4567),
-		dot(mb.s0123, v.s0123) + dot(mb.s4567, v.s4567),
-		dot(mb.s89AB, v.s0123) + dot(mb.sCDEF, v.s4567),
-		dot(mc.s0123, v.s0123) + dot(mc.s4567, v.s4567),
-		dot(mc.s89AB, v.s0123) + dot(mc.sCDEF, v.s4567),
-		dot(md.s0123, v.s0123) + dot(md.s4567, v.s4567),
-		dot(md.s89AB, v.s0123) + dot(md.sCDEF, v.s4567));
-}
 
 real8 flux(real density, real4 velocity, real pressure, real enthalpyTotal, real4 normal) {
 	real velocityN = dot(velocity, normal);
@@ -31,7 +16,14 @@ real8 flux(real density, real4 velocity, real pressure, real enthalpyTotal, real
 		0.f);
 }
 
-__kernel void calcEigenvalues(
+real8 slopeLimiter(real8 r) {
+	//donor cell
+	//return 0.f;
+	//superbee
+	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
+}
+
+__kernel void calcFluxAndEigenvalues(
 	__global real8* eigenvaluesBuffer,
 	__global real8* fluxBuffer,
 	const __global real8* stateBuffer,
@@ -141,9 +133,7 @@ __kernel void calcEigenvalues(
 		real sl = min(eigenvaluesL.s0, eigenvalues.s0);
 		real sr = max(eigenvaluesR.s4, eigenvalues.s4);
 #endif
-#if 0	//Bounded single S+
 		
-#endif
 		real8 flux;
 		if (sl >= 0.f) {
 			flux = fluxL;
@@ -217,13 +207,6 @@ __kernel void calcCFL(
 	}
 		
 	cflBuffer[index] = cfl * result;
-}
-
-real8 slopeLimiter(real8 r) {
-	//donor cell
-	//return 0.f;
-	//superbee
-	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
 __kernel void integrateFlux(

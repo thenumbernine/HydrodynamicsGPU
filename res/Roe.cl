@@ -4,9 +4,8 @@ real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v);
 real8 slopeLimiter(real8 r);
 
 real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v) {
+	//why do the specs say no dot product exists for float8, but with double or half extension you get dot for double8 or half8?
 	return (real8)(
-		//I would use dot products of real8's
-		// but that causes an error
 		dot(ma.s0123, v.s0123) + dot(ma.s4567, v.s4567),
 		dot(ma.s89AB, v.s0123) + dot(ma.sCDEF, v.s4567),
 		dot(mb.s0123, v.s0123) + dot(mb.s4567, v.s4567),
@@ -595,7 +594,7 @@ real8 epsilon = eigenvalues;	//either multiplying by dtBuffer[0] or dividing by 
 		//}
 	
 		//with theta
-		fluxTilde -= .5f * deltaFluxTilde * .5f * phi * (epsilon - theta);
+		fluxTilde -= .5f * deltaFluxTilde * phi * (epsilon - theta) / (float)DIM;
 		//without theta
 		//for (int i = 0; i < 8; ++i) {
 		//	if (eigenvalues[i] >= 0.f) {

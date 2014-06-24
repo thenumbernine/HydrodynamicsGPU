@@ -23,8 +23,8 @@ HLL::HLL(
 	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real8) * volume * app.dim);
 	
-	calcEigenBasisKernel = cl::Kernel(program, "calcEigenvalues");
-	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer);
+	calcFluxAndEigenvaluesKernel = cl::Kernel(program, "calcFluxAndEigenvalues");
+	app.setArgs(calcFluxAndEigenvaluesKernel, eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
 	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.cfl);
@@ -34,7 +34,7 @@ HLL::HLL(
 }	
 
 void HLL::initStep() {
-	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcFluxAndEigenvaluesKernel, offsetNd, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 }
 
 void HLL::calcTimestep() {

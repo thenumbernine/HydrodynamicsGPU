@@ -13,7 +13,7 @@ struct HLL : public Solver3D {
 	cl::Buffer deltaQTildeBuffer;
 	cl::Buffer fluxBuffer;
 	
-	cl::Kernel calcEigenBasisKernel;
+	cl::Kernel calcFluxAndEigenvaluesKernel;
 	cl::Kernel calcCFLKernel;
 	cl::Kernel integrateFluxKernel;
 	

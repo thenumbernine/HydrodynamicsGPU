@@ -3,7 +3,7 @@
 	-- solver variables
 
 
-solverName = 'HLL'
+solverName = 'Roe'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
 --maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
@@ -28,14 +28,14 @@ gamma = 1.4
 -- burgers 3d with flux limiter is crashing on build, but without flux limiter works fine
 size = {64, 64, 64}
 --]]
---[[ 2D
+-- [[ 2D
 -- max burgers size with 4 channels: 4096x4096
 -- max roe size with 4 channels: 1024x1024
 -- max burgers size with 8 channels: 2048x2048
 -- roe with 8 channels: 512x512 
 size = {256, 256}
 --]]
--- [[ 1D
+--[[ 1D
 size = {1024}
 displayScale = .25
 --]]
@@ -95,7 +95,7 @@ end
 	-- initial state descriptions
 
 
--- [[ 1D advect wave
+--[[ 1D advect wave
 function initState(x)
 	local rSq = x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
 	return buildState{
@@ -117,7 +117,7 @@ function initState(x)
 end
 --]]	
 
---[[ Sod test
+-- [[ Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x)
 	local inside = x[1] <= 0 and x[2] <= 0 and x[3] <= 0
