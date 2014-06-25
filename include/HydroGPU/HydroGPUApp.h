@@ -3,7 +3,8 @@
 #include "HydroGPU/Solver.h"
 #include "CLApp/CLApp.h"
 #include "LuaCxx/State.h"
-#include "LuaCxx/Value.h"
+#include "LuaCxx/GlobalTable.h"
+#include "LuaCxx/Ref.h"
 #include "Tensor/Vector.h"
 
 struct HydroGPUApp : public ::CLApp::CLApp {

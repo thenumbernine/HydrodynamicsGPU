@@ -105,35 +105,35 @@ void HydroGPUApp::init() {
 		lua.loadString(configString);
 	}
 	
-	lua["useGPU"] >> useGPU;
+	lua.ref()["useGPU"] >> useGPU;
 	for (int i = 0; i < 3; ++i) {
-		if (!lua["size"].isNil()) lua["size"][i+1] >> size.s[i];
-		if (!lua["xmin"].isNil()) lua["xmin"][i+1] >> xmin.s[i];
-		if (!lua["xmax"].isNil()) lua["xmax"][i+1] >> xmax.s[i];
-		if (!lua["boundaryMethods"].isNil()) {
+		if (!lua.ref()["size"].isNil()) lua.ref()["size"][i+1] >> size.s[i];
+		if (!lua.ref()["xmin"].isNil()) lua.ref()["xmin"][i+1] >> xmin.s[i];
+		if (!lua.ref()["xmax"].isNil()) lua.ref()["xmax"][i+1] >> xmax.s[i];
+		if (!lua.ref()["boundaryMethods"].isNil()) {
 			std::string boundaryMethodName;
-			if ((lua["boundaryMethods"][i+1] >> boundaryMethodName).good()) {
+			if ((lua.ref()["boundaryMethods"][i+1] >> boundaryMethodName).good()) {
 				boundaryMethods(i) = std::find(boundaryMethodNames.begin(), boundaryMethodNames.end(), boundaryMethodName) - boundaryMethodNames.begin();
 				if (boundaryMethods(i) == NUM_BOUNDARY_METHODS) throw Common::Exception() << "couldn't interpret boundary method " << boundaryMethodName;
 			}
 		}
 	}
-	lua["maxFrames"] >> maxFrames;
-	lua["showTimestep"] >> showTimestep;
-	lua["solverName"] >> solverName;
-	lua["useFixedDT"] >> useFixedDT;
-	lua["fixedDT"] >> fixedDT;
-	lua["cfl"] >> cfl;
-	lua["gamma"] >> gamma;
+	lua.ref()["maxFrames"] >> maxFrames;
+	lua.ref()["showTimestep"] >> showTimestep;
+	lua.ref()["solverName"] >> solverName;
+	lua.ref()["useFixedDT"] >> useFixedDT;
+	lua.ref()["fixedDT"] >> fixedDT;
+	lua.ref()["cfl"] >> cfl;
+	lua.ref()["gamma"] >> gamma;
 	{
 		std::string displayMethodName;
-		if ((lua["displayMethod"] >> displayMethodName).good()) {
+		if ((lua.ref()["displayMethod"] >> displayMethodName).good()) {
 			displayMethod = std::find(displayMethodNames.begin(), displayMethodNames.end(), displayMethodName) - displayMethodNames.begin();
 			if (displayMethod == NUM_DISPLAY_METHODS) throw Common::Exception() << "couldn't interpret display method " << displayMethodName;
 		}
 	}
-	lua["displayScale"] >> displayScale;
-	lua["useGravity"] >> useGravity;
+	lua.ref()["displayScale"] >> displayScale;
+	lua.ref()["useGravity"] >> useGravity;
 
 	//store dimension as last non-1 size
 	for (dim = 3; dim > 0; --dim) {
@@ -221,7 +221,7 @@ void HydroGPUApp::shutdown() {
 void HydroGPUApp::resetState() {
 	std::vector<real8> stateVec(size.s[0] * size.s[1] * size.s[2]);
 		
-	if (!lua["initState"].isFunction()) throw Common::Exception() << "expected initState function";
+	if (!lua.ref()["initState"].isFunction()) throw Common::Exception() << "expected initState function";
 	
 	std::cout << "initializing..." << std::endl;
 	real8* state = &stateVec[0];	
@@ -235,7 +235,7 @@ void HydroGPUApp::resetState() {
 				}
 				pos.s[3] = 0;
 				
-				LuaCxx::Value stateRef = lua["initState"].call(pos);
+				LuaCxx::Ref stateRef = lua.ref()["initState"](pos);
 				stateRef["density"] >> state->s[0];
 				stateRef["velocity"][1] >> state->s[1];
 				stateRef["velocity"][2] >> state->s[2];
