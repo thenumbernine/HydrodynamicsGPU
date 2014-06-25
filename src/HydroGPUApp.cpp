@@ -43,7 +43,7 @@ std::vector<std::string> displayMethodNames = std::vector<std::string>{
 	"density",
 	"velocity",
 	"pressure",
-	"magnetism",
+	"magnetic field",
 	"gravity potential",
 };
 
@@ -234,7 +234,17 @@ void HydroGPUApp::resetState() {
 					pos.s[i] = real(xmax.s[i] - xmin.s[i]) * (real(index[i]) + .5) / real(size.s[i]) + real(xmin.s[i]);
 				}
 				pos.s[3] = 0;
-				*state = lua["initState"].call<real8>(pos);
+				
+				LuaCxx::Value stateRef = lua["initState"].call(pos);
+				stateRef["density"] >> state->s[0];
+				stateRef["velocity"][1] >> state->s[1];
+				stateRef["velocity"][2] >> state->s[2];
+				stateRef["velocity"][3] >> state->s[3];
+				stateRef["energyTotal"] >> state->s[4];
+				//for now, though I'll change this soon 
+				stateRef["magneticField"][1] >> state->s[5];
+				stateRef["magneticField"][2] >> state->s[6];
+				stateRef["magneticField"][3] >> state->s[7];
 			}
 		}
 	}

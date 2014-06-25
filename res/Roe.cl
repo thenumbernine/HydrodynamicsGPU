@@ -450,7 +450,7 @@ __kernel void calcDeltaQTilde(
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1
 #endif
-#if DIM > 1
+#if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
@@ -483,9 +483,7 @@ real8 slopeLimiter(real8 r) {
 	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
-//#if DIM == 1
 #define ONLY_WORKING_IN_1D
-//#endif
 
 __kernel void calcFlux(
 	__global real8* fluxBuffer,
@@ -506,7 +504,7 @@ __kernel void calcFlux(
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1
 #endif
-#if DIM > 1
+#if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
@@ -524,13 +522,21 @@ __kernel void calcFlux(
 		real8 stateL = stateBuffer[indexPrev];
 		real8 stateR = stateBuffer[index];
 
+#ifdef ONLY_WORKING_IN_1D
 		int interfaceLIndex = side + DIM * indexPrev;
+#endif
 		int interfaceIndex = side + DIM * index;
+#ifdef ONLY_WORKING_IN_1D
 		int interfaceRIndex = side + DIM * indexNext;
+#endif
 
+#ifdef ONLY_WORKING_IN_1D
 		real8 deltaQTildeL = deltaQTildeBuffer[interfaceLIndex];
+#endif
 		real8 deltaQTilde = deltaQTildeBuffer[interfaceIndex];
+#ifdef ONLY_WORKING_IN_1D
 		real8 deltaQTildeR = deltaQTildeBuffer[interfaceRIndex];
+#endif
 
 		real8 eigenvalues = eigenvaluesBuffer[interfaceIndex];
 
@@ -572,10 +578,6 @@ __kernel void calcFlux(
 #ifdef ONLY_WORKING_IN_1D
 		real8 phi = slopeLimiter(rTilde);
 		real8 epsilon = eigenvalues * dt_dx[side];	//enabling this causes us to crash
-#else
-real8 phi = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f);
-//real2 dx = (real2)(DX, DY);
-real8 epsilon = eigenvalues;	//either multiplying by dtBuffer[0] or dividing by dx[side] causes a crash
 #endif
 
 		real8 fluxTilde = fluxAvgTilde; 
@@ -638,7 +640,7 @@ __kernel void integrateFlux(
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2
 #endif
-#if DIM > 1
+#if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 2
 #endif
 	) return;

@@ -3,7 +3,7 @@
 	-- solver variables
 
 
-solverName = 'Roe'
+solverName = 'Burgers'
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
 --maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
@@ -18,7 +18,7 @@ displayScale = 2
 boundaryMethods = {'periodic', 'periodic', 'periodic'}
 useGravity = false 
 noise = 0	--.01
-magnetismNoise = 0
+magneticFieldNoise = 0
 gamma = 1.4
 
 -- the number of non-1-sized elements in 'size' determine the dimension
@@ -33,7 +33,7 @@ size = {64, 64, 64}
 -- max roe size with 4 channels: 1024x1024
 -- max burgers size with 8 channels: 2048x2048
 -- roe with 8 channels: 512x512 
-size = {256, 256}
+size = {1024, 1024}
 --]]
 --[[ 1D
 size = {1024}
@@ -57,38 +57,50 @@ local function crand() return math.random() * 2 - 1 end
 
 local function clamp(x,min,max) return math.max(min, math.min(max, x)) end
 
-local function energyKineticForVelocity(vx, vy, vz)
-	return .5  * (vx * vx + vy * vy + vz * vz)
+local function getSpecificEnergyKinetic(velocityX, velocityY, velocityZ)
+	return .5  * (velocityX * velocityX + velocityY * velocityY + velocityZ * velocityZ)
 end
 
-local function energyInternalForPressure(pressure, density)
+local function getSpecificEnergyInternalForPressure(pressure, density)
 	return pressure / ((gamma - 1) * density)
 end
 
-local function primsToState(density, vx, vy, vz, energyTotal)
-	return {density, vx * density, vy * density, vz * density, energyTotal * density}
+local MU0 = 1
+local function getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFieldZ)
+	return .5 * (magneticFieldX * magneticFieldX + magneticFieldY * magneticFieldY + magneticFieldZ * magneticFieldZ) / MU0
+end
+
+local function primsToState(density, velocityX, velocityY, velocityZ, magneticFieldX, magneticFieldY, magneticFieldZ, energyTotal)
+	return {density, velocityX * density, velocityY * density, velocityZ * density, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ}
 end
 
 --[=[
 table-driven so may be slower, but much more readable 
 args:
 	density (required)
-	vx, vy (optional) velocity
-	pressure		\_ one of these two
-	energyInternal	/
+	velocityX, velocityY (optional) velocity
+	pressure				\_ one of these two
+	specificEnergyInternal	/
 --]=]
 local function buildState(args)
 	local density = assert(args.density)
-	local vx = args.vx or crand() * noise
-	local vy = dim <= 1 and 0 or (args.vy or crand() * noise)
-	local vz = dim <= 2 and 0 or (args.vz or crand() * noise)
-	local bx = args.bx or crand() * magnetismNoise
-	local by = args.by or crand() * magnetismNoise
-	local bz = args.bz or crand() * magnetismNoise
-	local energyKinetic = energyKineticForVelocity(vx, vy, vz)
-	local energyInternal = args.energyInternal or energyInternalForPressure(assert(args.pressure, "you need to provide either energyInternal or pressure"), density)
-	local energyTotal = energyKinetic + energyInternal 
-	return primsToState(density, vx, vy, vz, energyTotal, bx, by, bz)
+	local velocityX = args.velocityX or crand() * noise
+	local velocityY = dim <= 1 and 0 or (args.velocityY or crand() * noise)
+	local velocityZ = dim <= 2 and 0 or (args.velocityZ or crand() * noise)
+	local magneticFieldX = args.magneticFieldX or crand() * magneticFieldNoise
+	local magneticFieldY = args.magneticFieldY or crand() * magneticFieldNoise
+	local magneticFieldZ = args.magneticFieldZ or crand() * magneticFieldNoise
+	local specificEnergyKinetic = getSpecificEnergyKinetic(velocityX, velocityY, velocityZ)
+	local specificEnergyInternal = args.specificEnergyInternal or getSpecificEnergyInternalForPressure(assert(args.pressure, "you need to provide either specificEnergyInternal or pressure"), density)
+	local magneticFieldEnergy = getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFieldZ)
+	local energyTotal = density * (specificEnergyKinetic + specificEnergyInternal) + magneticFieldEnergy
+	return {
+		density = density,
+		velocity = {velocityX, velocityY, velocityZ},
+		magneticField = {magneticFieldX, magneticFieldY, magneticFieldZ},
+		energyTotal = energyTotal,
+	}
+	--return primsToState(density, velocityX, velocityY, velocityZ, magneticFieldX, magneticFieldY, magneticFieldZ, energyTotal)
 end
 
 
@@ -99,7 +111,7 @@ end
 function initState(x)
 	local rSq = x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
 	return buildState{
-		vx = 1,
+		velocityX = 1,
 		density = math.exp(-100*rSq) + 1,
 		pressure = 1,
 	}
@@ -123,7 +135,7 @@ function initState(x)
 	local inside = x[1] <= 0 and x[2] <= 0 and x[3] <= 0
 	return buildState{
 		density = inside and 1 or .1,
-		energyInternal = 1,
+		specificEnergyInternal = 1,
 	}
 end
 --]]
@@ -137,8 +149,8 @@ function initState(x)
 	return buildState{
 		density = lhs and 1 or .125,
 		pressure = lhs and 1 or .1,
-		bx = .75,
-		by = lhs and 1 or -1,
+		magneticFieldX = .75,
+		magneticFieldY = lhs and 1 or -1,
 	}
 end
 --]]
@@ -156,7 +168,7 @@ function initState(x)
 	end
 	return buildState{
 		density = 1,
-		vx = 0, vy = 0, vz = 0,
+		velocityX = 0, velocityY = 0, velocityZ = 0,
 		pressure = pressure,
 	}
 end
@@ -173,9 +185,9 @@ function initState(x)
 	end
 	return buildState{
 		density = inside and 2 or 1,
-		vx = math.cos(theta) * noise + (inside and -.5 or .5),
-		vy = math.sin(theta) * noise,
-		vz = math.sin(theta) * noise,
+		velocityX = math.cos(theta) * noise + (inside and -.5 or .5),
+		velocityY = math.sin(theta) * noise,
+		velocityZ = math.sin(theta) * noise,
 		pressure = 2.5,
 	}
 end
@@ -228,9 +240,9 @@ function initState(pos)
 	return buildState{
 		density = inside and 1 or .1,
 		pressure = 1,
-		vx = .01 * noise * crand(),
-		vy = .01 * noise * crand(),
-		vz = .01 * noise * crand(),
+		velocityX = .01 * noise * crand(),
+		velocityY = .01 * noise * crand(),
+		velocityZ = .01 * noise * crand(),
 	}
 end
 --]]

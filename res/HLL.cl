@@ -59,7 +59,7 @@ __kernel void calcFluxAndEigenvalues(
 		real velocitySqL = dot(velocityL, velocityL);
 		real velocityNL = dot(velocityL, normal);
 		real energyTotalL = stateL.s4 * invDensityL;
-		real energyKineticL = .5f * dot(velocityL, velocityL);
+		real energyKineticL = .5f * velocitySqL;
 		real energyPotentialL = gravityPotentialBuffer[indexPrev];
 		real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 		real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
@@ -82,7 +82,7 @@ __kernel void calcFluxAndEigenvalues(
 		real velocitySqR = dot(velocityR, velocityR);
 		real velocityNR = dot(velocityR, normal);
 		real energyTotalR = stateR.s4 * invDensityR;
-		real energyKineticR = .5f * dot(velocityR, velocityR);
+		real energyKineticR = .5f * velocitySqR;
 		real energyPotentialR = gravityPotentialBuffer[index];
 		real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 		real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;

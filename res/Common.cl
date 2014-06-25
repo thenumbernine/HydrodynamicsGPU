@@ -152,9 +152,9 @@ __kernel void convertToTex(
 	real energyKinetic = .5f * velocityMagn * velocityMagn;
 	real energyPotential = gravityPotentialBuffer[index];
 	real energyInternal = energyTotal - energyKinetic - energyPotential;
-	real4 magnetism = (real4)(state.s5, state.s6, state.s7, 0.f);
-	real magnetismMagn = length(magnetism);
-	float4 color = (float4)(density, velocityMagn, energyInternal, magnetismMagn) * displayScale;
+	real4 magneticField = (real4)(state.s5, state.s6, state.s7, 0.f);
+	real magneticFieldMagn = length(magneticField);
+	float4 color = (float4)(density, velocityMagn, energyInternal, magneticFieldMagn) * displayScale;
 #else
 	real value;
 	switch (displayMethod) {
