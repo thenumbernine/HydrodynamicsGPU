@@ -70,8 +70,8 @@ local function getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFi
 	return .5 * (magneticFieldX * magneticFieldX + magneticFieldY * magneticFieldY + magneticFieldZ * magneticFieldZ) / MU0
 end
 
-local function primsToState(density, velocityX, velocityY, velocityZ, magneticFieldX, magneticFieldY, magneticFieldZ, energyTotal)
-	return {density, velocityX * density, velocityY * density, velocityZ * density, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ}
+local function primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ)
+	return density, velocityX * density, velocityY * density, velocityZ * density, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ
 end
 
 --[=[
@@ -94,13 +94,7 @@ local function buildState(args)
 	local specificEnergyInternal = args.specificEnergyInternal or getSpecificEnergyInternalForPressure(assert(args.pressure, "you need to provide either specificEnergyInternal or pressure"), density)
 	local magneticFieldEnergy = getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFieldZ)
 	local energyTotal = density * (specificEnergyKinetic + specificEnergyInternal) + magneticFieldEnergy
-	return {
-		density = density,
-		velocity = {velocityX, velocityY, velocityZ},
-		magneticField = {magneticFieldX, magneticFieldY, magneticFieldZ},
-		energyTotal = energyTotal,
-	}
-	--return primsToState(density, velocityX, velocityY, velocityZ, magneticFieldX, magneticFieldY, magneticFieldZ, energyTotal)
+	return primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ)
 end
 
 
@@ -131,8 +125,8 @@ end
 
 -- [[ Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
-function initState(x)
-	local inside = x[1] <= 0 and x[2] <= 0 and x[3] <= 0
+function initState(x,y,z)
+	local inside = x <= 0 and y <= 0 and z <= 0
 	return buildState{
 		density = inside and 1 or .1,
 		specificEnergyInternal = 1,
@@ -144,8 +138,8 @@ end
 -- http://www.astro.uni-bonn.de/~jmackey/jmac/node7.html
 gamma = 2
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
-function initState(x)
-	local lhs = x[1] < 0
+function initState(x,y,z)
+	local lhs = x < 0
 	return buildState{
 		density = lhs and 1 or .125,
 		pressure = lhs and 1 or .1,
@@ -157,11 +151,11 @@ end
 
 --[[ Colella-Woodward interacting blast wave problem
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
-function initState(x)
+function initState(x,y,z)
 	local pressure
-	if x[1] < -.4 then
+	if x < -.4 then
 		pressure = 1000
-	elseif x[1] < .4 then
+	elseif x < .4 then
 		pressure = .01
 	else
 		pressure = 100
@@ -177,11 +171,11 @@ end
 --[[ Kelvin-Hemholtz
 noise = size[1] * 2e-5
 --solverName = 'Roe'	--Burgers is having trouble... hmm...
-function initState(x)
-	local inside = x[2] > -.25 and x[2] < .25
-	local theta = (x[1] - xmin[1]) / (xmax[1] - xmin[1]) * 2 * math.pi
+function initState(x,y,z)
+	local inside = y > -.25 and y < .25
+	local theta = (x - xmin[1]) / (xmax[1] - xmin[1]) * 2 * math.pi
 	if dim >= 3 then 
-		theta = theta * (x[3] - xmin[3]) / (xmax[3] - xmin[3]) 
+		theta = theta * (z - xmin[3]) / (xmax[3] - xmin[3]) 
 	end
 	return buildState{
 		density = inside and 2 or 1,
@@ -212,8 +206,7 @@ local sources = {
 	{-.25, -.25, 0, radius = .1},
 --]=]
 }
-function initState(pos)
-	local x, y, z = unpack(pos)
+function initState(x,y,z)
 	local minDistSq = math.huge
 	local minSource
 	local inside = false

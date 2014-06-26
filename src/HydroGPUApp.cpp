@@ -218,11 +218,10 @@ void HydroGPUApp::shutdown() {
 	glDeleteTextures(1, &gradientTex);
 }
 
+#include "Common/Test.h"
 void HydroGPUApp::resetState() {
 	std::vector<real8> stateVec(size.s[0] * size.s[1] * size.s[2]);
-		
-	if (!lua.ref()["initState"].isFunction()) throw Common::Exception() << "expected initState function";
-	
+
 	std::cout << "initializing..." << std::endl;
 	real8* state = &stateVec[0];	
 	int index[3];
@@ -234,17 +233,16 @@ void HydroGPUApp::resetState() {
 					pos.s[i] = real(xmax.s[i] - xmin.s[i]) * (real(index[i]) + .5) / real(size.s[i]) + real(xmin.s[i]);
 				}
 				pos.s[3] = 0;
+			
+				LuaCxx::Stack stack = lua.stack();
 				
-				LuaCxx::Ref stateRef = lua.ref()["initState"](pos);
-				stateRef["density"] >> state->s[0];
-				stateRef["velocity"][1] >> state->s[1];
-				stateRef["velocity"][2] >> state->s[2];
-				stateRef["velocity"][3] >> state->s[3];
-				stateRef["energyTotal"] >> state->s[4];
-				//for now, though I'll change this soon 
-				stateRef["magneticField"][1] >> state->s[5];
-				stateRef["magneticField"][2] >> state->s[6];
-				stateRef["magneticField"][3] >> state->s[7];
+				stack
+				.getGlobal("initState")
+				.push(pos.s[0], pos.s[1], pos.s[2])
+				.call(3,8);
+				for (int i = 0; i < 8; ++i) {
+					stack.pop(state->s[8-i-1]);
+				}
 			}
 		}
 	}
