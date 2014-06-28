@@ -1,7 +1,5 @@
 #include "HydroGPU/Shared/Common.h"
 
-real8 slopeLimiter(real8 r);
-
 __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real8* stateBuffer,
@@ -71,15 +69,6 @@ __kernel void calcInterfaceVelocity(
 		
 		interfaceVelocityBuffer[side + DIM * index] = .5f * (velocityL + velocityR);
 	}
-}
-
-real8 slopeLimiter(real8 r) {
-	//donor cell
-	//return (real8)(0.f);
-	//Lax-Wendroff
-	//return (real8)(1.f);
-	//superbee
-	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
 __kernel void calcFlux(

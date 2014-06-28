@@ -1,7 +1,6 @@
 #include "HydroGPU/Shared/Common.h"
 
 real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v);
-void mat8inverse(real16* ia, real16* ib, real16* ic, real16* id, real16 ma, real16 mb, real16 mc, real16 md);
 real8 slopeLimiter(real8 r);
 
 real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v) {
@@ -15,96 +14,6 @@ real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v) {
 		dot(mc.s89AB, v.s0123) + dot(mc.sCDEF, v.s4567),
 		dot(md.s0123, v.s0123) + dot(md.s4567, v.s4567),
 		dot(md.s89AB, v.s0123) + dot(md.sCDEF, v.s4567));
-}
-
-void mat8inverse(
-	real16* ia,
-	real16* ib,
-	real16* ic,
-	real16* id,
-	real16 ma,
-	real16 mb,
-	real16 mc,
-	real16 md)
-{
-	real8 input[8] = {
-		ma.s01234567,
-		ma.s89ABCDEF,
-		mb.s01234567,
-		mb.s89ABCDEF,
-		mc.s01234567,
-		mc.s89ABCDEF,
-		md.s01234567,
-		md.s89ABCDEF
-	};
-	int indxc[8], indxr[8], ipiv[8];
-	int i, icol = 0, irow = 0, j, k, l, ll;
-	real big, dum, pivinv, temp;
-	for (j = 0; j < 8; ++j) {
-		ipiv[j] = 0;
-	}
-	for (i = 0; i < 8; ++i) {
-		big = 0.f;
-		for ( j = 0; j < 8; ++j) {
-			if (ipiv[j] != 1) {
-				for (k = 0; k < 8; ++k) {
-					if (ipiv[k] == 0) {
-						if (fabs(input[j][k]) >= big) {
-							big = fabs(input[j][k]);
-							irow = j;
-							icol = k;
-						}
-					} else {
-						if(ipiv[k] > 1) {
-							return;	//singular
-						}
-					}
-				}
-			}
-		}
-		++ipiv[icol];
-		if(irow != icol) {
-			for (int k = 0; k < 8; ++k) {
-				temp = input[irow][k];
-				input[irow][k] = input[icol][k];
-				input[icol][k] = temp;
-			}
-		}
-		indxr[i] = irow;
-		indxc[i] = icol;
-		if(input[icol][icol] == 0.f) {
-			return;	//singular	
-		}
-		pivinv = 1.f / input[icol][icol];
-		input[icol][icol] = 1.f;
-		for (l = 0; l < 8; ++l) {
-			input[icol][l] *= pivinv;
-		}
-		for (ll = 0; ll < 8; ++ll) {
-			if (ll != icol) {
-				dum = input[ll][icol];
-				input[ll][icol] = 0.f;
-				for (l = 0; l < 8; ++l) {
-					input[ll][l] -= input[icol][l] * dum;
-				}
-			}
-		}
-	}
-	
-	for (l = 8-1; l >= 0; --l) {
-		if (indxr[l] != indxc[l]) {
-			for (k = 0; k < 8; ++k) {
-				temp = input[k][indxr[l]];
-				input[k][indxr[l]] = input[k][indxc[l]];
-				input[k][indxc[l]] = temp;
-			}
-		}
-	}
-
-	*ia = (real16)(input[0], input[1]);
-	*ib = (real16)(input[2], input[3]);
-	*ic = (real16)(input[4], input[5]);
-	*id = (real16)(input[6], input[7]);
 }
 
 __kernel void calcEigenBasis(
@@ -213,7 +122,7 @@ __kernel void calcEigenBasis(
 		real sqrtDensity = sqrt(density);
 		real magneticFieldNSign = step(0.f, magneticFieldN) * 2.f - 1.f;
 		real4 magneticFieldCrossN = cross(magneticField, normal);
-		//col 
+		//fast magnetoacoustic col 
 		eigenvectorsA.s0 = (density * fastSpeedSq - magneticFieldSq) / speedOfSoundSq;
 		eigenvectorsA.s8 = -fastSpeed * normal.x + magneticField.x * magneticFieldN / (density * fastSpeed);
 		eigenvectorsB.s0 = -fastSpeed * normal.y + magneticField.y * magneticFieldN / (density * fastSpeed);
@@ -222,7 +131,7 @@ __kernel void calcEigenBasis(
 		eigenvectorsC.s8 = magneticField.y - normal.y * magneticFieldN;
 		eigenvectorsD.s0 = magneticField.z - normal.z * magneticFieldN;
 		eigenvectorsD.s8 = density * fastSpeedSq - magneticFieldSq;
-		//col
+		//Alfven col
 		eigenvectorsA.s1 = 0.f;
 		eigenvectorsA.s9 = magneticFieldCrossN.x * magneticFieldNSign;
 		eigenvectorsB.s1 = magneticFieldCrossN.y * magneticFieldNSign;
@@ -231,7 +140,7 @@ __kernel void calcEigenBasis(
 		eigenvectorsC.s9 = magneticFieldCrossN.y * sqrtDensity;
 		eigenvectorsD.s1 = magneticFieldCrossN.z * sqrtDensity;
 		eigenvectorsD.s9 = 0.f;
-		//col
+		//slow magnetoacoustic col
 		eigenvectorsA.s2 = (density * slowSpeedSq - magneticFieldSq) / speedOfSoundSq;
 		eigenvectorsA.sA = -normal.x * slowSpeed + magneticField.x * magneticFieldN / (density * slowSpeed);
 		eigenvectorsB.s2 = -normal.y * slowSpeed + magneticField.y * magneticFieldN / (density * slowSpeed);
@@ -240,7 +149,7 @@ __kernel void calcEigenBasis(
 		eigenvectorsC.sA = magneticField.y - normal.y * magneticFieldN;
 		eigenvectorsD.s2 = magneticField.z - normal.z * magneticFieldN;
 		eigenvectorsD.sA = density * slowSpeedSq - magneticFieldSq;
-		//col
+		//entropy col
 		eigenvectorsA.s3 = 1.f;
 		eigenvectorsA.sB = 0.f; 
 		eigenvectorsB.s3 = 0.f;
@@ -249,7 +158,7 @@ __kernel void calcEigenBasis(
 		eigenvectorsC.sB = 0.f;
 		eigenvectorsD.s3 = 0.f;
 		eigenvectorsD.sB = 0.f;	
-		//col 
+		//entropy col 
 		eigenvectorsA.s4 = 0.f;
 		eigenvectorsA.sC = 0.f;
 		eigenvectorsB.s4 = 0.f;
@@ -258,7 +167,7 @@ __kernel void calcEigenBasis(
 		eigenvectorsC.sC = normal.y;
 		eigenvectorsD.s4 = normal.z;
 		eigenvectorsD.sC = 0.f;
-		//col
+		//slow magnetoacoustic col
 		eigenvectorsA.s5 = (density * slowSpeedSq - magneticFieldSq) / speedOfSoundSq;
 		eigenvectorsA.sD = normal.x * slowSpeed - magneticField.x * magneticFieldN / (density * slowSpeed);
 		eigenvectorsB.s5 = normal.y * slowSpeed - magneticField.y * magneticFieldN / (density * slowSpeed);
@@ -267,7 +176,7 @@ __kernel void calcEigenBasis(
 		eigenvectorsC.sD = magneticField.y - normal.y * magneticFieldN;
 		eigenvectorsD.s5 = magneticField.z - normal.z * magneticFieldN;
 		eigenvectorsD.sD = density * slowSpeedSq - magneticFieldSq;
-		//col
+		//Alfven col
 		eigenvectorsA.s6 = 0.f;
 		eigenvectorsA.sE = -magneticFieldCrossN.x * magneticFieldNSign;
 		eigenvectorsB.s6 = -magneticFieldCrossN.y * magneticFieldNSign;
@@ -276,7 +185,7 @@ __kernel void calcEigenBasis(
 		eigenvectorsC.sE = magneticFieldCrossN.y * sqrtDensity;
 		eigenvectorsD.s6 = magneticFieldCrossN.z * sqrtDensity;
 		eigenvectorsD.sE = 0.f;
-		//col
+		//fast magnetoacoustic col
 		eigenvectorsA.s7 = (density * fastSpeedSq - magneticFieldSq) / speedOfSoundSq;
 		eigenvectorsA.sF = normal.x * fastSpeed - magneticField.x * magneticFieldN / (density * fastSpeed);
 		eigenvectorsB.s7 = normal.y * fastSpeed - magneticField.y * magneticFieldN / (density * fastSpeed);
@@ -292,25 +201,23 @@ __kernel void calcEigenBasis(
 		eigenvectorsBuffer[3 + 4 * interfaceIndex] = eigenvectorsD;
 
 		//eigenvectors inverse
-
-		real16 eigenvectorsInverseA;
-		real16 eigenvectorsInverseB;
-		real16 eigenvectorsInverseC;
-		real16 eigenvectorsInverseD;
-		mat8inverse(
-			&eigenvectorsInverseA,
-			&eigenvectorsInverseB,
-			&eigenvectorsInverseC,
-			&eigenvectorsInverseD,
-			eigenvectorsA,
-			eigenvectorsB,
-			eigenvectorsC,
-			eigenvectorsD);
 			
-		eigenvectorsInverseBuffer[0 + 4 * interfaceIndex] = eigenvectorsInverseA;
-		eigenvectorsInverseBuffer[1 + 4 * interfaceIndex] = eigenvectorsInverseB;
-		eigenvectorsInverseBuffer[2 + 4 * interfaceIndex] = eigenvectorsInverseC;
-		eigenvectorsInverseBuffer[3 + 4 * interfaceIndex] = eigenvectorsInverseD;
+		eigenvectorsInverseBuffer[0 + 4 * interfaceIndex] = (real16)(
+			//fast magnetoacoustic row
+			//Alfven row
+		);
+		eigenvectorsInverseBuffer[1 + 4 * interfaceIndex] = (real16)(
+			//slow magnetoacoustic row
+			//entropy
+		);
+		eigenvectorsInverseBuffer[2 + 4 * interfaceIndex] = (real16)(
+			//entropy
+			//slow magnetoacoustic row
+		);
+		eigenvectorsInverseBuffer[3 + 4 * interfaceIndex] = (real16)(
+			//Alfven row
+			//fast magnetoacoustic row
+		);
 	}
 }
 

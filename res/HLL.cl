@@ -1,7 +1,6 @@
 #include "HydroGPU/Shared/Common.h"
 
 real8 flux(real density, real4 velocity, real pressure, real enthalpyTotal, real4 normal);
-real8 slopeLimiter(real8 r);
 
 real8 flux(real density, real4 velocity, real pressure, real enthalpyTotal, real4 normal) {
 	real velocityN = dot(velocity, normal);
@@ -14,13 +13,6 @@ real8 flux(real density, real4 velocity, real pressure, real enthalpyTotal, real
 		0.f,
 		0.f,
 		0.f);
-}
-
-real8 slopeLimiter(real8 r) {
-	//donor cell
-	//return 0.f;
-	//superbee
-	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
 __kernel void calcFluxAndEigenvalues(

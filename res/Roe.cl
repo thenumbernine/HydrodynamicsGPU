@@ -1,7 +1,6 @@
 #include "HydroGPU/Shared/Common.h"
 
 real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v);
-real8 slopeLimiter(real8 r);
 
 real8 matmul(real16 ma, real16 mb, real16 mc, real16 md, real8 v) {
 	//why do the specs say no dot product exists for float8, but with double or half extension you get dot for double8 or half8?
@@ -474,13 +473,6 @@ __kernel void calcDeltaQTilde(
 			eigenvectorsInverseBuffer[3 + 4 * interfaceIndex], 
 			deltaQ);
 	}
-}
-
-real8 slopeLimiter(real8 r) {
-	//donor cell
-	//return (real8)(0.f);
-	//superbee
-	return max(0.f, max(min(1.f, 2.f * r), min(2.f, r)));
 }
 
 #define ONLY_WORKING_IN_1D

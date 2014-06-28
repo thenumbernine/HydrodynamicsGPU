@@ -91,9 +91,11 @@ Solver::Solver(
 			std::string() + "#define SIZE_Z " + std::to_string(app.size.s[2]) + "\n" +
 			std::string() + "#define DX " + toNumericString<real>(app.dx.s[0]) + "\n" +
 			std::string() + "#define DY " + toNumericString<real>(app.dx.s[1]) + "\n" +
-			std::string() + "#define DZ " + toNumericString<real>(app.dx.s[2]) + "\n"
+			std::string() + "#define DZ " + toNumericString<real>(app.dx.s[2]) + "\n" +
+			std::string() + "#define SLOPE_LIMITER_" + app.slopeLimiterName + "\n"
 		};
 		kernelSources.push_back(Common::File::read("Common.cl"));
+		kernelSources.push_back(Common::File::read("SlopeLimiter.cl"));
 		kernelSources.push_back(Common::File::read(programFilename));
 		std::vector<std::pair<const char *, size_t>> sources;
 		for (const std::string &s : kernelSources) {

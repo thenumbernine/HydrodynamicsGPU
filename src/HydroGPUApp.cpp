@@ -11,32 +11,6 @@
 #include <OpenGL/OpenGL.h>
 #include <iostream>
 
-//helper functions
-namespace LuaCxx {
-template<> void fromC<real4> (lua_State *L, const real4& value) { 
-	lua_newtable(L);
-	int t = lua_gettop(L);
-	for (int i = 0; i < 4; ++i) {
-		lua_pushnumber(L, value.s[i]);
-		lua_rawseti(L, t, i+1);
-	}
-}
-
-template<> real8 toC<real8>(lua_State *L, int loc) {
-	real8 result; 
-	for (int i = 0; i < 8; ++i) { 
-		lua_rawgeti(L, loc, i+1); 
-		if (lua_isnil(L, -1)) {
-			result.s[i] = 0;
-		} else {
-			result.s[i] = lua_tonumber(L, -1);
-		}
-		lua_pop(L,1);
-	}
-	return result;
-}
-}
-
 //have to keep these updated with HydroGPU/Shared/Common.h
 
 std::vector<std::string> displayMethodNames = std::vector<std::string>{
@@ -58,6 +32,7 @@ HydroGPUApp::HydroGPUApp()
 , gradientTex(GLuint())
 , configFilename("config.lua")
 , solverName("Burgers")
+, slopeLimiterName("Superbee")
 , dim(0)
 , doUpdate(1)
 , maxFrames(-1)
@@ -121,6 +96,7 @@ void HydroGPUApp::init() {
 	lua.ref()["maxFrames"] >> maxFrames;
 	lua.ref()["showTimestep"] >> showTimestep;
 	lua.ref()["solverName"] >> solverName;
+	lua.ref()["slopeLimiterName"] >> slopeLimiterName;
 	lua.ref()["useFixedDT"] >> useFixedDT;
 	lua.ref()["fixedDT"] >> fixedDT;
 	lua.ref()["cfl"] >> cfl;

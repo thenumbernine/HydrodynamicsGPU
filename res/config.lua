@@ -2,8 +2,40 @@
 
 	-- solver variables
 
+--[[
+options:
+Burgers	- works for 1D, 2D, 3D
+Roe - works for 1D
+HLL - works for 1D
+--]]
+solverName = 'Roe'
 
-solverName = 'Burgers'
+--[[
+options:
+DonorCell
+Superbee
+LaxWendroff
+BeamWarming
+Fromm
+CHARM
+HCUS
+HQUICK
+Koren
+MinMod
+Oshker
+Ospre
+Smart
+Sweby
+UMIST
+VanAlbada1
+VanAlbada2
+VanLeer
+MonotizedCentral
+Superbee
+BarthJespersen
+--]]
+slopeLimiterName = 'Superbee'
+
 useGPU = true
 -- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
 --maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
@@ -28,14 +60,14 @@ gamma = 1.4
 -- burgers 3d with flux limiter is crashing on build, but without flux limiter works fine
 size = {64, 64, 64}
 --]]
--- [[ 2D
+--[[ 2D
 -- max burgers size with 4 channels: 4096x4096
 -- max roe size with 4 channels: 1024x1024
 -- max burgers size with 8 channels: 2048x2048
 -- roe with 8 channels: 512x512 
 size = {1024, 1024}
 --]]
---[[ 1D
+-- [[ 1D
 size = {1024}
 displayScale = .25
 --]]
@@ -136,6 +168,7 @@ end
 
 --[[ Brio Wu
 -- http://www.astro.uni-bonn.de/~jmackey/jmac/node7.html
+-- still in the works
 gamma = 2
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x,y,z)
