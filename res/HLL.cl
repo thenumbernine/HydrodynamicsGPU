@@ -101,15 +101,15 @@ __kernel void calcFluxAndEigenvalues(
 	
 		//eigenvalues
 		
-		real8 eigenvalues;
-		eigenvalues.s0 = velocityN - speedOfSound;
-		eigenvalues.s1 = velocityN;
-		eigenvalues.s2 = velocityN;
-		eigenvalues.s3 = velocityN;
-		eigenvalues.s4 = velocityN + speedOfSound;
-		eigenvalues.s5 = 0.f;
-		eigenvalues.s6 = 0.f;
-		eigenvalues.s7 = 0.f;
+		real8 eigenvalues = (real8)(
+			velocityN - speedOfSound,
+			velocityN,
+			velocityN,
+			velocityN,
+			velocityN + speedOfSound,
+			0.f,
+			0.f,
+			0.f);
 		eigenvaluesBuffer[interfaceIndex] = eigenvalues;
 
 		//flux

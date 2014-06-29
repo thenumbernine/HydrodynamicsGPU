@@ -4,6 +4,10 @@
 
 struct HydroGPUApp;
 
+/*
+General Roe solver
+Missing calcEigenBasis
+*/
 struct Roe : public Solver3D {
 	typedef Solver3D Super;
 
@@ -25,7 +29,7 @@ struct Roe : public Solver3D {
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry integrateFluxEvent;
 	
-	Roe(HydroGPUApp &app);
+	Roe(HydroGPUApp& app, std::vector<std::string> programSources);
 
 protected:
 	virtual void initStep();

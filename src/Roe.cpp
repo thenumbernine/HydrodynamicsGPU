@@ -1,9 +1,15 @@
 #include "HydroGPU/Roe.h"
 #include "HydroGPU/HydroGPUApp.h"
 
+static std::vector<std::string> push(std::vector<std::string> v, std::string s) {
+	v.push_back(s);
+	return v;
+}
+
 Roe::Roe(
-	HydroGPUApp &app_)
-: Super(app_, "Roe.cl")
+	HydroGPUApp &app_,
+	std::vector<std::string> programSources)
+: Super(app_, push(programSources, "Roe.cl"))
 , calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
 , calcDeltaQTildeEvent("calcDeltaQTilde")

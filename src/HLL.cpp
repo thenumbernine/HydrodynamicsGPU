@@ -3,7 +3,7 @@
 
 HLL::HLL(
 	HydroGPUApp &app_)
-: Super(app_, "HLL.cl")
+: Super(app_, {"HLL.cl"})
 , calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
 , integrateFluxEvent("integrateFlux")

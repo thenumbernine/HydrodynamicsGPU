@@ -1,7 +1,9 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/HLL.h"
 #include "HydroGPU/Burgers.h"
-#include "HydroGPU/Roe.h"
+#include "HydroGPU/RoeEuler.h"
+#include "HydroGPU/RoeMHD.h"
+#include "HydroGPU/RoeADM.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -174,8 +176,12 @@ void HydroGPUApp::init() {
 	//construct the solver
 	if (solverName == "Burgers") {
 		solver = std::make_shared<Burgers>(*this);
-	} else if (solverName == "Roe") {
-		solver = std::make_shared<Roe>(*this);	//broken
+	} else if (solverName == "RoeEuler") {
+		solver = std::make_shared<RoeEuler>(*this);
+	} else if (solverName == "RoeMHD") {
+		solver = std::make_shared<RoeMHD>(*this);	//broken
+	} else if (solverName == "RoeADM") {
+		solver = std::make_shared<RoeADM>(*this);
 	} else if (solverName == "HLL") {
 		solver = std::make_shared<HLL>(*this);
 	} else {

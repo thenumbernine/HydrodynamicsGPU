@@ -27,41 +27,10 @@ static int quads[] = {
 	2,3,7,6,
 };
 
-#if 0
-template<typename T, int n> struct CLType;
-
-#define DEFINE_CL_PRIM_TEMPLATE(type,cltypesuffix)	\
-/*template<> struct CLType<type,1> { typedef cl_##cltypesuffix Type; };*/	\
-template<> struct CLType<type,2> { typedef cl_##cltypesuffix##2 Type; };	\
-template<> struct CLType<type,4> { typedef cl_##cltypesuffix##4 Type; };	\
-template<> struct CLType<type,8> { typedef cl_##cltypesuffix##8 Type; };	\
-template<> struct CLType<type,16> { typedef cl_##cltypesuffix##16 Type; };
-
-#define DEFINE_CL_PRIM_TEMPLATE_SU(type)	\
-DEFINE_CL_PRIM_TEMPLATE(type, type)	\
-DEFINE_CL_PRIM_TEMPLATE(unsigned type, u##type)
-
-DEFINE_CL_PRIM_TEMPLATE_SU(char)
-DEFINE_CL_PRIM_TEMPLATE_SU(short)
-DEFINE_CL_PRIM_TEMPLATE_SU(int)
-DEFINE_CL_PRIM_TEMPLATE_SU(long)
-DEFINE_CL_PRIM_TEMPLATE(float, float)
-
-template<typename T, int n>
-std::ostream& operator<<(std::ostream& o, typename CLType<T,n>::Type v) {
-	const char* comma = "";
-	for (int i = 0; i < n; ++i) {
-		o << comma << v.s[i];
-		comma = ", ";
-	}
-	return o;
-}
-#endif
-
 Solver3D::Solver3D(
 	HydroGPUApp &app_,
-	const std::string &programFilename)
-: Super(app_, programFilename)
+	std::vector<std::string> programFilenames)
+: Super(app_, programFilenames)
 , fluidTex(GLuint())
 , viewZoom(1.f)
 , viewDist(1.f)

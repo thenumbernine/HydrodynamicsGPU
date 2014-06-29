@@ -26,7 +26,7 @@ template<> std::string toNumericString<float>(float value) {
 
 Solver::Solver(
 	HydroGPUApp& app_,
-	const std::string& programFilename)
+	std::vector<std::string> programFilenames)
 : app(app_)
 , commands(app.commands)
 , totalAlloc(0)
@@ -96,7 +96,9 @@ Solver::Solver(
 		};
 		kernelSources.push_back(Common::File::read("Common.cl"));
 		kernelSources.push_back(Common::File::read("SlopeLimiter.cl"));
-		kernelSources.push_back(Common::File::read(programFilename));
+		for (const std::string& filename : programFilenames) {
+			kernelSources.push_back(Common::File::read(filename));
+		}
 		std::vector<std::pair<const char *, size_t>> sources;
 		for (const std::string &s : kernelSources) {
 			sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));

@@ -4,6 +4,7 @@
 #include "Tensor/Vector.h"
 #include <OpenCL/cl.hpp>
 #include <vector>
+#include <string>
 
 struct HydroGPUApp;
 struct Solver {
@@ -33,7 +34,7 @@ struct Solver {
 
 	size_t totalAlloc;
 
-	Solver(HydroGPUApp& app, const std::string& programFilename);
+	Solver(HydroGPUApp& app, std::vector<std::string> programFilenames);
 	virtual ~Solver() {}
 	
 	virtual void initKernels();

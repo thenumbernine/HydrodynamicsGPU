@@ -6,6 +6,7 @@
 #include "Tensor/Quat.h"
 #include <OpenCL/cl.hpp>
 #include <vector>
+#include <string>
 
 struct HydroGPUApp;
 
@@ -34,7 +35,7 @@ struct Solver3D : public Solver {
 	Tensor::Quat<float> viewAngle;
 	float viewDist;
 
-	Solver3D(HydroGPUApp &app, const std::string &programFilename);
+	Solver3D(HydroGPUApp &app, std::vector<std::string> programFilenames);
 	virtual ~Solver3D();
 	
 	virtual void resetState(std::vector<real8> stateVec);

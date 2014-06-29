@@ -3,7 +3,7 @@
 
 Burgers::Burgers(
 	HydroGPUApp &app_)
-: Super(app_, "Burgers.cl")
+: Super(app_, {"Burgers.cl"})
 , calcCFLEvent("calcCFL")
 , calcInterfaceVelocityEvent("calcInterfaceVelocity")
 , calcFluxEvent("calcFlux")

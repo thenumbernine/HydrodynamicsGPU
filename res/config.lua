@@ -5,10 +5,10 @@
 --[[
 options:
 Burgers	- works for 1D, 2D, 3D
-Roe - works for 1D
+RoeEuler - works for 1D
 HLL - works for 1D
 --]]
-solverName = 'Roe'
+solverName = 'RoeADM'
 
 --[[
 options:
@@ -48,8 +48,10 @@ cfl = .5
 displayMethod = 'density'
 displayScale = 2
 boundaryMethods = {'periodic', 'periodic', 'periodic'}
+
+-- gravity is specific to the Euler fluid equation solver
 useGravity = false 
-noise = 0	--.01
+
 magneticFieldNoise = 0
 gamma = 1.4
 
@@ -72,12 +74,6 @@ size = {1024}
 displayScale = .25
 --]]
 
-
---[[ testing HLL
-solverName = 'HLL'
-useFixedDT = true
-fixedDT = .01
---]]
 
 
 local dim = #size
@@ -111,10 +107,12 @@ table-driven so may be slower, but much more readable
 args:
 	density (required)
 	velocityX, velocityY (optional) velocity
+	noise (optional) noise to add to velocity
 	pressure				\_ one of these two
 	specificEnergyInternal	/
 --]=]
-local function buildState(args)
+local function buildStateEuler(args)
+	local noise = args.noise or 0
 	local density = assert(args.density)
 	local velocityX = args.velocityX or crand() * noise
 	local velocityY = dim <= 1 and 0 or (args.velocityY or crand() * noise)
@@ -130,13 +128,13 @@ local function buildState(args)
 end
 
 
-	-- initial state descriptions
+	-- Euler equation initial states
 
 
 --[[ 1D advect wave
 function initState(x)
 	local rSq = x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
-	return buildState{
+	return buildStateEuler{
 		velocityX = 1,
 		density = math.exp(-100*rSq) + 1,
 		pressure = 1,
@@ -148,18 +146,18 @@ end
 function initState(x)
 	local rSq = x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
 	local inside = rSq <= .2*.2
-	return buildState{
+	return buildStateEuler{
 		density = inside and 1 or .1,
 		pressure = inside and 1 or .5,	--1 : .1 works for 2d but not 3d
 	}
 end
 --]]	
 
--- [[ Sod test
+--[[ Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x,y,z)
 	local inside = x <= 0 and y <= 0 and z <= 0
-	return buildState{
+	return buildStateEuler{
 		density = inside and 1 or .1,
 		specificEnergyInternal = 1,
 	}
@@ -173,7 +171,7 @@ gamma = 2
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x,y,z)
 	local lhs = x < 0
-	return buildState{
+	return buildStateEuler{
 		density = lhs and 1 or .125,
 		pressure = lhs and 1 or .1,
 		magneticFieldX = .75,
@@ -193,7 +191,7 @@ function initState(x,y,z)
 	else
 		pressure = 100
 	end
-	return buildState{
+	return buildStateEuler{
 		density = 1,
 		velocityX = 0, velocityY = 0, velocityZ = 0,
 		pressure = pressure,
@@ -202,7 +200,6 @@ end
 --]]
 
 --[[ Kelvin-Hemholtz
-noise = size[1] * 2e-5
 --solverName = 'Roe'	--Burgers is having trouble... hmm...
 function initState(x,y,z)
 	local inside = y > -.25 and y < .25
@@ -210,7 +207,8 @@ function initState(x,y,z)
 	if dim >= 3 then 
 		theta = theta * (z - xmin[3]) / (xmax[3] - xmin[3]) 
 	end
-	return buildState{
+	return buildStateEuler{
+		noise = size[1] * 2e-5,
 		density = inside and 2 or 1,
 		velocityX = math.cos(theta) * noise + (inside and -.5 or .5),
 		velocityY = math.sin(theta) * noise,
@@ -223,7 +221,6 @@ end
 --[[ gravity potential test - equilibrium - some Rayleigh-Taylor
 useGravity = true
 boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
-noise = 0	--noise must be 0 at borders with freeflow or we'll get waves at the edges
 local sources = {
 -- [=[ single source
 	{0, 0, 0, radius = .2},
@@ -258,12 +255,11 @@ function initState(x,y,z)
 			end
 		end
 	end
-	--noise must be 0 at borders with freeflow or we'll get waves at the edges
 	local dx = x - minSource[1]
 	local dy = y - minSource[2]
 	local dz = z - minSource[3]
 	local noise = math.exp(-100 * (dx * dx + dy * dy + dz * dz))
-	return buildState{
+	return buildStateEuler{
 		density = inside and 1 or .1,
 		pressure = 1,
 		velocityX = .01 * noise * crand(),
@@ -272,4 +268,23 @@ function initState(x,y,z)
 	}
 end
 --]]
+
+
+		-- 1D ADM equation initial state
+
+xmin = {-30, -30, -30}
+xmax = {30, 30, 30}
+local xmid = (xmax + xmin) * .5
+function initState(x,y,z)
+	x = (x - xmid) / ((xmax - xmid) / 3)
+	local h = math.exp(-x*x); 
+	local dh_dx = -2 * x * h;
+	local d2h_dx2 = 2 * h * (2 * x * x - 1);
+	local g = 1 - dh_dx * dh_dx;
+	local D_g = -2 * dh_dx * d2h_dx2 / g;
+	local KTilde = -d2h_dx2 / g;
+	local f = adm_BonaMasso_f;
+	local D_alpha = math.sqrt(f) * KTilde;
+	return D_alpha, D_g, KTilde, 0, 0, 0, 0, 0	
+end
 
