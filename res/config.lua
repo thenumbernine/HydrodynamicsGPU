@@ -64,14 +64,14 @@ gamma = 1.4
 -- burgers 3d with flux limiter is crashing on build, but without flux limiter works fine
 size = {128, 128, 128}
 --]]
--- [[ 2D
+--[[ 2D
 -- max burgers size with 4 channels: 4096x4096
 -- max roe size with 4 channels: 1024x1024
 -- max burgers size with 8 channels: 2048x2048
 -- roe with 8 channels: 512x512 
 size = {512, 512}
 --]]
---[[ 1D
+-- [[ 1D
 size = {1024}
 displayScale = .25
 --]]
