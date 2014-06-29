@@ -40,7 +40,6 @@ struct Solver3D : public Solver {
 
 	virtual void init();
 
-	virtual void resetState();
 	virtual void display();
 	virtual void resize();
 

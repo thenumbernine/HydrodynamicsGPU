@@ -62,16 +62,16 @@ gamma = 1.4
 --[[ 3D
 -- roe 3d is crashing on build.
 -- burgers 3d with flux limiter is crashing on build, but without flux limiter works fine
-size = {64, 64, 64}
+size = {128, 128, 128}
 --]]
---[[ 2D
+-- [[ 2D
 -- max burgers size with 4 channels: 4096x4096
 -- max roe size with 4 channels: 1024x1024
 -- max burgers size with 8 channels: 2048x2048
 -- roe with 8 channels: 512x512 
-size = {1024, 1024}
+size = {512, 512}
 --]]
--- [[ 1D
+--[[ 1D
 size = {1024}
 displayScale = .25
 --]]
@@ -101,7 +101,7 @@ local function getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFi
 end
 
 local function primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ)
-	return density, velocityX * density, velocityY * density, velocityZ * density, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ
+	return density, velocityX * density, velocityY * density, velocityZ * density, energyTotal	--, magneticFieldX, magneticFieldY, magneticFieldZ
 end
 
 --[=[
@@ -134,8 +134,8 @@ end
 
 
 --[[ 1D advect wave
-function initState(x)
-	local rSq = x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
+function initState(x,y,z)
+	local rSq = x * x + y * y + z * z
 	return buildStateEuler{
 		velocityX = 1,
 		density = math.exp(-100*rSq) + 1,
@@ -209,8 +209,8 @@ function initState(x,y,z)
 	if dim >= 3 then 
 		theta = theta * (z - xmin[3]) / (xmax[3] - xmin[3]) 
 	end
+	local noise = size[1] * 2e-5
 	return buildStateEuler{
-		noise = size[1] * 2e-5,
 		density = inside and 2 or 1,
 		velocityX = math.cos(theta) * noise + (inside and -.5 or .5),
 		velocityY = math.sin(theta) * noise,

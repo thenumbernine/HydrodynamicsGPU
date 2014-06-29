@@ -1,13 +1,13 @@
 #include "HydroGPU/Shared/Common.h"
 
-real8 slopeLimiter(real8 r);
+real slopeLimiter(real r);
 
-real8 slopeLimiter(real8 r) {
+real slopeLimiter(real r) {
 #ifdef SLOPE_LIMITER_DonorCell
-	return (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f);
+	return 0.f;
 #endif
 #ifdef SLOPE_LIMITER_LaxWendroff
-	return (real8)(1.f);
+	return 1.f;
 #endif
 #ifdef SLOPE_LIMITER_BeamWarming
 	return r;

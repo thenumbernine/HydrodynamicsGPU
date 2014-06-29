@@ -28,6 +28,7 @@ Solver::Solver(
 	HydroGPUApp& app_)
 : app(app_)
 , commands(app.commands)
+, numStates(2 + app.dim)	//for Euler at least. TODO get rid of this in favor of sizeof shared defined structure
 , totalAlloc(0)
 {
 }
@@ -125,6 +126,7 @@ void Solver::init() {
 	cflSwapBuffer = clAlloc(sizeof(real) * volume / localSize[0]);
 	dtBuffer = clAlloc(sizeof(real16));
 	gravityPotentialBuffer = clAlloc(sizeof(real) * volume);
+	stateBuffer = clAlloc(sizeof(real) * numStates * volume);
 	
 	//get the edges, so reduction doesn't
 	{
@@ -139,20 +141,132 @@ void Solver::init() {
 }
 
 std::vector<std::string> Solver::getProgramSources() {
+	//Euler only
+	std::ostringstream stateEnumSS;
+	stateEnumSS << "enum {\n";
+	stateEnumSS << "\tSTATE_DENSITY,\n";
+	stateEnumSS << "\tSTATE_VELOCITY_X,\n";
+	if (app.dim > 1) {
+		stateEnumSS << "\tSTATE_VELOCITY_Y,\n";
+	}
+	if (app.dim > 2) {
+		stateEnumSS << "\tSTATE_VELOCITY_Z,\n";
+	}
+	stateEnumSS << "\tSTATE_ENERGY_TOTAL\n";
+	stateEnumSS << "};";
+
 	std::vector<std::string> sourceStrs = std::vector<std::string>{
-		std::string() + "#define GAMMA " + toNumericString<real>(app.gamma) + "\n" +
-		std::string() + "#define DIM " + std::to_string(app.dim) + "\n" +
-		std::string() + "#define SIZE_X " + std::to_string(app.size.s[0]) + "\n" +
-		std::string() + "#define SIZE_Y " + std::to_string(app.size.s[1]) + "\n" +
-		std::string() + "#define SIZE_Z " + std::to_string(app.size.s[2]) + "\n" +
-		std::string() + "#define DX " + toNumericString<real>(app.dx.s[0]) + "\n" +
-		std::string() + "#define DY " + toNumericString<real>(app.dx.s[1]) + "\n" +
-		std::string() + "#define DZ " + toNumericString<real>(app.dx.s[2]) + "\n" +
-		std::string() + "#define SLOPE_LIMITER_" + app.slopeLimiterName + "\n"
+		std::string() +
+		"#define GAMMA " + toNumericString<real>(app.gamma) + "\n" +
+		"#define DIM " + std::to_string(app.dim) + "\n" +
+		"#define SIZE_X " + std::to_string(app.size.s[0]) + "\n" +
+		"#define SIZE_Y " + std::to_string(app.size.s[1]) + "\n" +
+		"#define SIZE_Z " + std::to_string(app.size.s[2]) + "\n" +
+		"#define STEP_X 1\n" +
+		"#define STEP_Y " + std::to_string(app.size.s[0]) + "\n" +
+		"#define STEP_Z " + std::to_string(app.size.s[0] * app.size.s[1]) + "\n" +
+		"#define STEP_W " + std::to_string(app.size.s[0] * app.size.s[1] * app.size.s[2]) + "\n" +
+		"#define DX " + toNumericString<real>(app.dx.s[0]) + "\n" +
+		"#define DY " + toNumericString<real>(app.dx.s[1]) + "\n" +
+		"#define DZ " + toNumericString<real>(app.dx.s[2]) + "\n" +
+		"#define SLOPE_LIMITER_" + app.slopeLimiterName + "\n" +
+		"#define NUM_STATES " + std::to_string(numStates) + "\n" +
+		stateEnumSS.str() + "\n"
 	};
 	sourceStrs.push_back(Common::File::read("Common.cl"));
 	sourceStrs.push_back(Common::File::read("SlopeLimiter.cl"));
 	return sourceStrs;
+}
+
+//gravity stuff is Euler-specific
+void Solver::resetState() {
+	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
+
+	std::vector<real> stateVec(numStates * volume);
+
+	if (!app.lua.ref()["initState"].isFunction()) throw Common::Exception() << "expected initState to be defined in config file";
+
+	std::cout << "initializing..." << std::endl;
+	real* state = &stateVec[0];	
+	int index[3];
+	for (index[2] = 0; index[2] < app.size.s[2]; ++index[2]) {
+		for (index[1] = 0; index[1] < app.size.s[1]; ++index[1]) {
+			for (index[0] = 0; index[0] < app.size.s[0]; ++index[0], state += numStates) {
+				real4 pos;
+				for (int i = 0; i < 3; ++i) {
+					pos.s[i] = real(app.xmax.s[i] - app.xmin.s[i]) * (real(index[i]) + .5) / real(app.size.s[i]) + real(app.xmin.s[i]);
+				}
+				pos.s[3] = 0;
+			
+				LuaCxx::Stack stack = app.lua.stack();
+				
+				stack
+				.getGlobal("initState")
+				.push(pos.s[0], pos.s[1], pos.s[2])
+				.call(3,5);	//TODO multret and have each equation interpret the results
+			
+				real density;
+				real velocityX, velocityY, velocityZ;
+				real energyTotal;
+				
+				stack
+				.pop(energyTotal)
+				.pop(velocityZ)
+				.pop(velocityY)
+				.pop(velocityX)
+				.pop(density);
+				state[0] = density;
+				state[1] = velocityX;
+				if (app.dim > 1) {
+					state[2] = velocityY;
+				}
+				if (app.dim > 2) {
+					state[3] = velocityZ;
+				}
+				state[app.dim+1] = energyTotal;
+			}
+		}
+	}
+	std::cout << "...done" << std::endl;
+
+	//grad^2 Phi = - 4 pi G rho
+	//solve inverse discretized linear system to find Psi
+	//D_ij / (-4 pi G) Phi_j = rho_i
+	//once you get that, plug it into the total energy
+	
+	//write state density first for gravity potential, to then update energy
+	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * numStates * volume, &stateVec[0]);
+	
+	//here's our initial guess to sor
+	std::vector<real> gravityPotentialVec(volume);
+	for (size_t i = 0; i < volume; ++i) {
+		if (app.useGravity) {
+			gravityPotentialVec[i] = stateVec[0 + numStates * i];
+		} else {
+			gravityPotentialVec[i] = 0.;
+		}
+	}
+	
+	commands.enqueueWriteBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &gravityPotentialVec[0]);
+
+	if (app.useGravity) {
+		int energyTotalIndex = 1 + app.dim;
+
+		setPoissonRelaxRepeatArg();
+		
+		//solve for gravitational potential via gauss seidel
+		for (int i = 0; i < 20; ++i) {
+			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
+		}
+
+		//update total energy
+		for (int i = 0; i < volume; ++i) {
+			stateVec[energyTotalIndex + numStates * i] += gravityPotentialVec[i];
+		}
+	}
+	
+	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * numStates * volume, &stateVec[0]);
+	commands.finish();
 }
 
 void Solver::initKernels() {

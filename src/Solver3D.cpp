@@ -42,8 +42,6 @@ void Solver3D::init() {
 	//memory
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
-	
-	stateBuffer = clAlloc(sizeof(real8) * volume);
 
 	switch (app.dim) {
 	case 1:
@@ -135,78 +133,6 @@ void Solver3D::init() {
 	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, fluidTexMem, app.gradientTexMem);
 
 	initKernels();
-}
-
-//gravity stuff is Euler-specific
-void Solver3D::resetState() {
-	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
-
-	std::vector<real8> stateVec(volume);
-
-	if (!app.lua.ref()["initState"].isFunction()) throw Common::Exception() << "expected initState to be defined in config file";
-
-	std::cout << "initializing..." << std::endl;
-	real8* state = &stateVec[0];	
-	int index[3];
-	for (index[2] = 0; index[2] < app.size.s[2]; ++index[2]) {
-		for (index[1] = 0; index[1] < app.size.s[1]; ++index[1]) {
-			for (index[0] = 0; index[0] < app.size.s[0]; ++index[0], ++state) {
-				real4 pos;
-				for (int i = 0; i < 3; ++i) {
-					pos.s[i] = real(app.xmax.s[i] - app.xmin.s[i]) * (real(index[i]) + .5) / real(app.size.s[i]) + real(app.xmin.s[i]);
-				}
-				pos.s[3] = 0;
-			
-				LuaCxx::Stack stack = app.lua.stack();
-				
-				stack
-				.getGlobal("initState")
-				.push(pos.s[0], pos.s[1], pos.s[2])
-				.call(3,8);
-				for (int i = 0; i < 8; ++i) {
-					stack.pop(state->s[8-i-1]);
-				}
-			}
-		}
-	}
-	std::cout << "...done" << std::endl;
-
-	//grad^2 Phi = - 4 pi G rho
-	//solve inverse discretized linear system to find Psi
-	//D_ij / (-4 pi G) Phi_j = rho_i
-	//once you get that, plug it into the total energy
-	
-	//write state density first for gravity potential, to then update energy
-	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * volume, &stateVec[0]);
-	
-	//here's our initial guess to sor
-	std::vector<real> gravityPotentialVec(volume);
-	for (size_t i = 0; i < volume; ++i) {
-		if (app.useGravity) {
-			gravityPotentialVec[i] = stateVec[i].s[0];
-		} else {
-			gravityPotentialVec[i] = 0.;
-		}
-	}
-	
-	commands.enqueueWriteBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &gravityPotentialVec[0]);
-
-	if (app.useGravity) {
-		setPoissonRelaxRepeatArg();
-		
-		//solve for gravitational potential via gauss seidel
-		for (int i = 0; i < 20; ++i) {
-			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
-		}
-
-		//update total energy
-		for (int i = 0; i < volume; ++i) {
-			stateVec[i].s[4] += gravityPotentialVec[i];
-		}
-	}
-	
-	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * volume, &stateVec[0]);
-	commands.finish();
 }
 
 Solver3D::~Solver3D() {
@@ -448,6 +374,7 @@ void Solver3D::screenshot() {
 }
 
 void Solver3D::save() {
+throw Common::Exception() << "out of order";
 	std::vector<std::string> channelNames = {
 		"density",
 		"velocityX",

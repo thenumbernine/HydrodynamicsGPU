@@ -1,8 +1,6 @@
 #include "HydroGPU/Shared/Common.h"
 
-real8 mirrorStateX(real8 state);
-real8 mirrorStateY(real8 state);
-real8 mirrorStateZ(real8 state);
+constant int4 stepsize = (int4)(STEP_X, STEP_Y, STEP_Z, STEP_W);
 
 //http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 __kernel void calcCFLMinReduce(
@@ -40,99 +38,119 @@ __kernel void calcCFLMinReduce(
 //periodic
 
 __kernel void stateBoundaryPeriodicX(
-	__global real8* stateBuffer)
+	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(0, i.x, i.y)] = stateBuffer[INDEX(SIZE_X - 4, i.x, i.y)];
-	stateBuffer[INDEX(1, i.x, i.y)] = stateBuffer[INDEX(SIZE_X - 3, i.x, i.y)];
-	stateBuffer[INDEX(SIZE_X - 2, i.x, i.y)] = stateBuffer[INDEX(2, i.x, i.y)];
-	stateBuffer[INDEX(SIZE_X - 1, i.x, i.y)] = stateBuffer[INDEX(3, i.x, i.y)];
+	for (int j = 0; j < NUM_STATES; ++j) {
+		stateBuffer[j + NUM_STATES * INDEX(0, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 4, i.x, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(1, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 3, i.x, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 2, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(2, i.x, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 1, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(3, i.x, i.y)];
+	}
 }
 
 __kernel void stateBoundaryPeriodicY(
-	__global real8* stateBuffer)
+	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(i.x, 0, i.y)] = stateBuffer[INDEX(i.x, SIZE_Y - 4, i.y)];
-	stateBuffer[INDEX(i.x, 1, i.y)] = stateBuffer[INDEX(i.x, SIZE_Y - 3, i.y)];
-	stateBuffer[INDEX(i.x, SIZE_Y - 2, i.y)] = stateBuffer[INDEX(i.x, 2, i.y)];
-	stateBuffer[INDEX(i.x, SIZE_Y - 1, i.y)] = stateBuffer[INDEX(i.x, 3, i.y)];
+	for (int j = 0; j < NUM_STATES; ++j) {
+		stateBuffer[j + NUM_STATES * INDEX(i.x, 0, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 4, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, 1, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 3, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 2, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 2, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 1, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 3, i.y)];
+	}
 }
 
 __kernel void stateBoundaryPeriodicZ(
-	__global real8* stateBuffer)
+	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(i.x, i.y, 0)] = stateBuffer[INDEX(i.x, i.y, SIZE_Z - 4)];
-	stateBuffer[INDEX(i.x, i.y, 1)] = stateBuffer[INDEX(i.x, i.y, SIZE_Z - 3)];
-	stateBuffer[INDEX(i.x, i.y, SIZE_Z - 2)] = stateBuffer[INDEX(i.x, i.y, 2)];
-	stateBuffer[INDEX(i.x, i.y, SIZE_Z - 1)] = stateBuffer[INDEX(i.x, i.y, 3)];
+	for (int j = 0; j < NUM_STATES; ++j) {
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 0)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 4)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 1)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 3)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 2)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 2)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 1)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 3)];
+	}
 }
 
 //mirror
 
-real8 mirrorStateX(real8 state) { state.s1 = -state.s1; return state; }
-real8 mirrorStateY(real8 state) { state.s2 = -state.s2; return state; }
-real8 mirrorStateZ(real8 state) { state.s3 = -state.s3; return state; }
-
 __kernel void stateBoundaryMirrorX(
-	__global real8* stateBuffer)
+	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(0, i.x, i.y)] = mirrorStateX(stateBuffer[INDEX(3, i.x, i.y)]);
-	stateBuffer[INDEX(1, i.x, i.y)] = mirrorStateX(stateBuffer[INDEX(2, i.x, i.y)]);
-	stateBuffer[INDEX(SIZE_X - 1, i.x, i.y)] = mirrorStateX(stateBuffer[INDEX(SIZE_X - 4, i.x, i.y)]);
-	stateBuffer[INDEX(SIZE_X - 2, i.x, i.y)] = mirrorStateX(stateBuffer[INDEX(SIZE_X - 3, i.x, i.y)]);
+	for (int j = 0; j < NUM_STATES; ++j) {
+		real scale = j == 1 ? -1.f : 1.f;
+		stateBuffer[j + NUM_STATES * INDEX(0, i.x, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(3, i.x, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(1, i.x, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(2, i.x, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 1, i.x, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 4, i.x, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 2, i.x, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 3, i.x, i.y)];
+	}
 }
 
 __kernel void stateBoundaryMirrorY(
-	__global real8* stateBuffer)
+	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(i.x, 0, i.y)] = mirrorStateY(stateBuffer[INDEX(i.x, 3, i.y)]);
-	stateBuffer[INDEX(i.x, 1, i.y)] = mirrorStateY(stateBuffer[INDEX(i.x, 2, i.y)]);
-	stateBuffer[INDEX(i.x, SIZE_Y - 1, i.y)] = mirrorStateY(stateBuffer[INDEX(i.x, SIZE_Y - 4, i.y)]);
-	stateBuffer[INDEX(i.x, SIZE_Y - 2, i.y)] = mirrorStateY(stateBuffer[INDEX(i.x, SIZE_Y - 3, i.y)]);
+	for (int j = 0; j < NUM_STATES; ++j) {
+		real scale = j == 2 ? -1.f : 1.f;
+		stateBuffer[j + NUM_STATES * INDEX(i.x, 0, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, 3, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, 1, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, 2, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 1, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 4, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 2, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 3, i.y)];
+	}
 }
 
 __kernel void stateBoundaryMirrorZ(
-	__global real8* stateBuffer)
+	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(i.x, i.y, 0)] = mirrorStateZ(stateBuffer[INDEX(i.x, i.y, 3)]);
-	stateBuffer[INDEX(i.x, i.y, 1)] = mirrorStateZ(stateBuffer[INDEX(i.x, i.y, 2)]);
-	stateBuffer[INDEX(i.x, i.y, SIZE_Z - 1)] = mirrorStateZ(stateBuffer[INDEX(i.x, i.y, SIZE_Z - 4)]);
-	stateBuffer[INDEX(i.x, i.y, SIZE_Z - 2)] = mirrorStateZ(stateBuffer[INDEX(i.x, i.y, SIZE_Z - 3)]);
+	for (int j = 0; j < NUM_STATES; ++j) {
+		real scale = j == 3 ? -1.f : 1.f;
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 0)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 3)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 1)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 2)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 1)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 4)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 2)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 3)];
+	}
 }
 
 //freeflow
 
 __kernel void stateBoundaryFreeFlowX(
-	__global real8* stateBuffer)
+	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(0, i.x, i.y)] = stateBuffer[INDEX(2, i.x, i.y)] = stateBuffer[INDEX(2, i.x, i.y)];
-	stateBuffer[INDEX(SIZE_X - 1, i.x, i.y)] = stateBuffer[INDEX(SIZE_X - 3, i.x, i.y)] = stateBuffer[INDEX(SIZE_X - 3, i.x, i.y)];
+	for (int j = 0; j < NUM_STATES; ++j) {
+		stateBuffer[j + NUM_STATES * INDEX(0, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(2, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(2, i.x, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 1, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 3, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 3, i.x, i.y)];
+	}
 }
 
 __kernel void stateBoundaryFreeFlowY(
-	__global real8* stateBuffer)
+	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(i.x, 0, i.y)] = stateBuffer[INDEX(i.x, 2, i.y)] = stateBuffer[INDEX(i.x, 2, i.y)];
-	stateBuffer[INDEX(i.x, SIZE_Y - 1, i.y)] = stateBuffer[INDEX(i.x, SIZE_Y - 3, i.y)] = stateBuffer[INDEX(i.x, SIZE_Y - 3, i.y)];
+	for (int j = 0; j < NUM_STATES; ++j) {
+		stateBuffer[j + NUM_STATES * INDEX(i.x, 0, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 2, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 2, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 1, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 3, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 3, i.y)];
+	}
 }
 
 __kernel void stateBoundaryFreeFlowZ(
-	__global real8* stateBuffer)
+	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	stateBuffer[INDEX(i.x, i.y, 0)] = stateBuffer[INDEX(i.x, i.y, 2)] = stateBuffer[INDEX(i.x, i.y, 2)];
-	stateBuffer[INDEX(i.x, i.y, SIZE_Z - 1)] = stateBuffer[INDEX(i.x, i.y, SIZE_Z - 3)] = stateBuffer[INDEX(i.x, i.y, SIZE_Z - 3)];
+	for (int j = 0; j < NUM_STATES; ++j) {
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 0)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 2)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 2)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 1)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 3)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 3)];
+	}
 }
 
+real square(real x);
+real square(real x) { return x * x; }
+
 __kernel void convertToTex(
-	const __global real8* stateBuffer,
+	const __global real* stateBuffer,
 	const __global real* gravityPotentialBuffer,
 	__write_only image3d_t fluidTex,
 	__read_only image1d_t gradientTex,
@@ -142,37 +160,40 @@ __kernel void convertToTex(
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	
-	real8 state = stateBuffer[index];
+	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
+	real energyTotal = stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index];
+	real velocitySq = square(stateBuffer[STATE_VELOCITY_X + NUM_STATES * index]);
+#if DIM > 1
+	velocitySq += square(stateBuffer[STATE_VELOCITY_Y + NUM_STATES * index]);
+#endif
+#if DIM > 2
+	velocitySq += square(stateBuffer[STATE_VELOCITY_Z + NUM_STATES * index]);
+#endif
+	real velocity = sqrt(velocitySq);
+	real specificEnergyTotal = energyTotal / density;
+	real specificEnergyKinetic = .5f * velocitySq;
+	real specificEnergyPotential = gravityPotentialBuffer[index];
+	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
 
 #if DIM == 1
-	real density = state.s0;
-	real4 velocity = (real4)(state.s1, state.s2, state.s3, 0.f) / density;
-	real velocityMagn = length(velocity);
-	real energyTotal = state.s4 / density;
-	real energyKinetic = .5f * velocityMagn * velocityMagn;
-	real energyPotential = gravityPotentialBuffer[index];
-	real energyInternal = energyTotal - energyKinetic - energyPotential;
-	real4 magneticField = (real4)(state.s5, state.s6, state.s7, 0.f);
+#if NUM_STATES == 8	//MHD
+	real4 magneticField = (real4)(stateBuffer[5 + NUM_STATES * index], stateBuffer[6 + NUM_STATES * index], stateBuffer[7 + NUM_STATES * index], 0.f);
 	real magneticFieldMagn = length(magneticField);
-	float4 color = (float4)(density, velocityMagn, energyInternal, magneticFieldMagn) * displayScale;
+#else
+	real magneticFieldMagn = 0.f;
+#endif
+	float4 color = (float4)(density, velocity, specificEnergyInternal, magneticFieldMagn) * displayScale;
 #else
 	real value;
 	switch (displayMethod) {
 	case DISPLAY_DENSITY:	//density
-		value = state.s0;
+		value = density;
 		break;
 	case DISPLAY_VELOCITY:	//velocity
-		value = length(state.s123) / state.s0;
+		value = velocity;
 		break;
 	case DISPLAY_PRESSURE:	//pressure
-		{
-			real density = state.s0;
-			real energyTotal = state.s4 / density;
-			real energyKinetic = .5f * dot(state.s123, state.s123) / (density * density);
-			real energyPotential = gravityPotentialBuffer[index];
-			real energyInternal = energyTotal - energyKinetic - energyPotential;
-			value = (GAMMA - 1.f) * energyInternal * density;
-		}
+		value = (GAMMA - 1.f) * specificEnergyInternal * density;
 		break;
 	case DISPLAY_GRAVITY_POTENTIAL:
 		value = gravityPotentialBuffer[index];
@@ -190,7 +211,7 @@ __kernel void convertToTex(
 
 __kernel void poissonRelax(
 	__global real* gravityPotentialBuffer,
-	const __global real8* stateBuffer,
+	const __global real* stateBuffer,
 	int4 repeat)
 {
 	int4 size = (int4)(SIZE_X, SIZE_Y, SIZE_Z, 0);
@@ -218,17 +239,17 @@ __kernel void poissonRelax(
 	real scale = M_PI * GRAVITY_CONSTANT * DX;
 #if DIM > 1
 	scale *= DY; 
+#endif
 #if DIM > 2
 	scale *= DZ; 
 #endif
-#endif
-	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * stateBuffer[index].s0;
+	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
+	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * density;
 }
 
 __kernel void addGravity(
-	__global real8* stateBuffer,
+	__global real* stateBuffer,
 	const __global real* gravityPotentialBuffer,
-	int4 size,
 	const __global real* dtBuffer)
 {
 	real dt = dtBuffer[0];
@@ -239,33 +260,25 @@ __kernel void addGravity(
 	if (i.x < 2 || i.x >= SIZE_X - 2
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
 #endif
 	) {
 		return;
 	}
 	int index = INDEXV(i);
 
-	real8 state = stateBuffer[index];
-	real density = state.x;
+	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
 
 	for (int side = 0; side < DIM; ++side) {
-		int4 iPrev = i;
-		--iPrev[side];
-		int indexPrev = INDEXV(iPrev);
-		
-		int4 iNext = i;
-		++iNext[side];
-		int indexNext = INDEXV(iNext);
+		int indexL = index - stepsize[side];
+		int indexR = index + stepsize[side];
 	
-		real gravityGrad = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
+		real gravityGrad = .5f * (gravityPotentialBuffer[indexR] - gravityPotentialBuffer[indexL]);
 		
-		state[side+1] -= dt_dx[side] * density * gravityGrad;
-		state.s4 -= dt * density * gravityGrad * state[side+1];
+		stateBuffer[side+1 + NUM_STATES * index] -= dt_dx[side] * density * gravityGrad;
+		stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index] -= dt * density * gravityGrad * stateBuffer[side+1 + NUM_STATES * index];
 	}
-
-	stateBuffer[index] = state;
 }
 

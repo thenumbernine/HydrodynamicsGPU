@@ -2,7 +2,7 @@
 
 __kernel void calcCFL(
 	__global real* cflBuffer,
-	const __global real8* stateBuffer,
+	const __global real* stateBuffer,
 	const __global real* gravityPotentialBuffer,
 	real cfl)
 {
@@ -21,59 +21,71 @@ __kernel void calcCFL(
 		return;
 	}
 
-	real8 state = stateBuffer[index];
-	real density = state.s0;
-	real4 velocity = (real4)(state.s1, state.s2, state.s3, 0.f) / density;
-	real specificTotalEnergy = state.s4 / density;
-	real specificKineticEnergy = .5f * dot(velocity, velocity);
-	real specificPotentialEnergy = gravityPotentialBuffer[index]; 
-	real specificInternalEnergy = specificTotalEnergy - specificKineticEnergy - specificPotentialEnergy;
-	real speedOfSound = sqrt(GAMMA * (GAMMA - 1.f) * specificInternalEnergy);
+	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
+	real energyTotal = stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index];
+#if DIM == 1
+	real velocity = stateBuffer[STATE_VELOCITY_X + NUM_STATES * index] / density;
+#elif DIM == 2
+	real2 velocity = (real2)(stateBuffer[STATE_VELOCITY_X + NUM_STATES * index], stateBuffer[STATE_VELOCITY_Y + NUM_STATES * index]) / density;
+#elif DIM == 3
+	real4 velocity = (real4)(
+		stateBuffer[STATE_VELOCITY_X + NUM_STATES * index],
+		stateBuffer[STATE_VELOCITY_Y + NUM_STATES * index],
+		stateBuffer[STATE_VELOCITY_Z + NUM_STATES * index],
+		0.f) / density;
+#endif
+	real specificEnergyTotal = energyTotal / density;
+	real specificEnergyKinetic = .5f * dot(velocity, velocity);
+	real specificEnergyPotential = gravityPotentialBuffer[index];
+	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
+
+	real speedOfSound = sqrt(GAMMA * (GAMMA - 1.f) * specificEnergyInternal);
+#if DIM == 1
+	real result = dx.s0 / (speedOfSound + fabs(velocity));
+#else
 	real result = dx.s0 / (speedOfSound + fabs(velocity.s0));
 	for (int side = 1; side < DIM; ++side) {
 		real dum = dx[side] / (speedOfSound + fabs(velocity[side]));
 		result = min(result, dum);
 	}
+#endif
 	cflBuffer[index] = cfl * result;
 }
 
 __kernel void calcInterfaceVelocity(
 	__global real* interfaceVelocityBuffer,
-	const __global real8* stateBuffer)
+	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 1
-#endif
 #endif
 	) {
 		return;
 	}
 	int index = INDEXV(i);
-	
+	int indexR = index;
+
 	for (int side = 0; side < DIM; ++side) {
-		int4 iPrev = i;
-		--iPrev[side];
-		int indexPrev = INDEXV(iPrev);
+		int indexL = index - stepsize[side];
 		
-		real8 stateL = stateBuffer[indexPrev];
-		real densityL = stateL.s0;
-		real velocityL = stateL[side+1] / densityL;
+		real densityL = stateBuffer[STATE_DENSITY + NUM_STATES * indexL];
+		real velocityL = stateBuffer[side+1 + NUM_STATES * indexL] / densityL;
 		
-		real8 stateR = stateBuffer[index];
-		real densityR = stateR.s0;
-		real velocityR = stateR[side+1] / densityR;
+		real densityR = stateBuffer[STATE_DENSITY + NUM_STATES * indexR];
+		real velocityR = stateBuffer[side+1 + NUM_STATES * indexR] / densityR;
 		
 		interfaceVelocityBuffer[side + DIM * index] = .5f * (velocityL + velocityR);
 	}
 }
 
 __kernel void calcFlux(
-	__global real8* fluxBuffer,
-	const __global real8* stateBuffer,
+	__global real* fluxBuffer,
+	const __global real* stateBuffer,
 	const __global real* interfaceVelocityBuffer,
 	const __global real* dtBuffer)
 {
@@ -93,60 +105,55 @@ __kernel void calcFlux(
 		return;
 	}
 	int index = INDEXV(i);
-	
+	int indexR = index;
+
 	for (int side = 0; side < DIM; ++side) {	
-		int4 iPrev = i;
-		iPrev[side] = iPrev[side]- 1;
-		int indexPrev = INDEXV(iPrev);
-	
-		int4 iPrev2 = iPrev;
-		--iPrev2[side];
-		int indexPrev2 = INDEXV(iPrev2);
-		
-		int4 iNext = i;
-		++iNext[side];
-		int indexNext = INDEXV(iNext);
-
-		int indexL1 = indexPrev;
-		int indexR1 = index;
-		int indexL2 = indexPrev2;
-		int indexR2 = indexNext;
-
-		real8 stateL = stateBuffer[indexL1];
-		real8 stateR = stateBuffer[indexR1];
-		real8 stateL2 = stateBuffer[indexL2];
-		real8 stateR2 = stateBuffer[indexR2];
-
-		real8 deltaStateL = stateL - stateL2;
-		real8 deltaState = stateR - stateL;
-		real8 deltaStateR = stateR2 - stateR;
+		int indexL = index - stepsize[side];
+		int indexL2 = indexL - stepsize[side];
+		int indexR2 = index + stepsize[side];
 
 		real interfaceVelocity = interfaceVelocityBuffer[side + DIM * index];
-		real theta = step(0.f, interfaceVelocity);
+		//real theta = step(0.f, interfaceVelocity);
 	
-		//this line crashes when compiling on my Intel HD4000 only for the 3D case
-		//real8 stateSlopeRatio = mix(deltaStateR, deltaStateL, theta) / deltaState;
-		//...but writing it out explicitly works fine
-		real8 stateSlopeRatio;
-		if (interfaceVelocity >= 0.f) {
-			stateSlopeRatio = deltaStateL / deltaState;
-		} else {
-			stateSlopeRatio = deltaStateR / deltaState;
-		}
-		
-		real8 phi = slopeLimiter(stateSlopeRatio);
-		real8 delta = phi * deltaState;
-
-		real8 flux = mix(stateR, stateL, theta) * interfaceVelocity;
-		flux += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])) / (float)DIM;
+		for (int j = 0; j < NUM_STATES; ++j) {
+			real stateR2 = stateBuffer[j + NUM_STATES * indexR2];
+			real stateR = stateBuffer[j + NUM_STATES * indexR];
+			real stateL = stateBuffer[j + NUM_STATES * indexL];
+			real stateL2 = stateBuffer[j + NUM_STATES * indexL2];
 			
-		fluxBuffer[side + DIM * index] = flux;
+			real deltaStateL = stateL - stateL2;
+			real deltaState = stateR - stateL;
+			real deltaStateR = stateR2 - stateR;
+			
+			//3D case crashes?
+			//real flux = mix(stateR, stateL, theta) * interfaceVelocity;
+
+			//this line crashes when compiling on my Intel HD4000 only for the 3D case
+			//real stateSlopeRatio = mix(deltaStateR, deltaStateL, theta) / deltaState;
+			//...but writing it out explicitly works fine
+			real stateSlopeRatio;
+			real flux;
+			if (interfaceVelocity >= 0.f) {
+				stateSlopeRatio = deltaStateL / deltaState;
+				flux = stateL * interfaceVelocity;
+			} else {
+				stateSlopeRatio = deltaStateR / deltaState;
+				flux = stateR * interfaceVelocity;
+			}
+
+			//2nd order
+			real phi = slopeLimiter(stateSlopeRatio);
+			real delta = phi * deltaState;
+			flux += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])) / (float)DIM;
+			
+			fluxBuffer[j + NUM_STATES * (side + DIM * index)] = flux;
+		}
 	}
 }
 
 __kernel void integrateFlux(
-	__global real8* stateBuffer,
-	const __global real8* fluxBuffer,
+	__global real* stateBuffer,
+	const __global real* fluxBuffer,
 	const __global real* dtBuffer)
 {
 	real4 dx = (real4)(DX, DY, DZ, 1.f);
@@ -165,23 +172,23 @@ __kernel void integrateFlux(
 		return;
 	}
 	int index = INDEXV(i);
-	
+	int indexL = index;
+
 	for (int side = 0; side < DIM; ++side) {
-		int4 iNext = i;
-		++iNext[side];
-		int indexNext = INDEXV(iNext);
-		
-		real8 fluxL = fluxBuffer[side + DIM * index];
-		real8 fluxR = fluxBuffer[side + DIM * indexNext];
+		int indexR = index + stepsize[side];
 	
-		real8 df = fluxR - fluxL;
-		stateBuffer[index] -= df * dt_dx[side];
+		for (int j = 0; j < NUM_STATES; ++j) {
+			real fluxL = fluxBuffer[j + NUM_STATES * (side + DIM * indexL)];
+			real fluxR = fluxBuffer[j + NUM_STATES * (side + DIM * indexR)];
+			real deltaFlux = fluxR - fluxL;
+			stateBuffer[j + NUM_STATES * index] -= deltaFlux * dt_dx[side];
+		}
 	}
 }
 
 __kernel void computePressure(
 	__global real* pressureBuffer,
-	const __global real8* stateBuffer,
+	const __global real* stateBuffer,
 	const __global real* gravityPotentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -196,43 +203,43 @@ __kernel void computePressure(
 		return;
 	}
 	int index = INDEXV(i);
-	
-	real8 state = stateBuffer[index];
-	
-	real density = state.s0;
-	real4 velocity = (real4)(state.s1, state.s2, state.s3, 0.f) / density;
-	real energyTotal = state.s4 / density;
-	
-	real energyKinetic = .5f * dot(velocity, velocity);
-	real energyPotential = gravityPotentialBuffer[index];
-	real energyInternal = energyTotal - energyKinetic - energyPotential;
-	
-	real pressure = (GAMMA - 1.f) * density * energyInternal;
-	
+
+	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
+	real energyTotal = stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index];
+#if DIM == 1
+	real velocity = stateBuffer[STATE_VELOCITY_X + NUM_STATES * index] / density;
+#elif DIM == 2
+	real2 velocity = (real2)(stateBuffer[STATE_VELOCITY_X + NUM_STATES * index], stateBuffer[STATE_VELOCITY_Y + NUM_STATES * index]) / density;
+#elif DIM == 3
+	real4 velocity = (real4)(
+		stateBuffer[STATE_VELOCITY_X + NUM_STATES * index],
+		stateBuffer[STATE_VELOCITY_Y + NUM_STATES * index],
+		stateBuffer[STATE_VELOCITY_Z + NUM_STATES * index],
+		0.f) / density;
+#endif
+	real specificEnergyTotal = energyTotal / density;
+	real specificEnergyKinetic = .5f * dot(velocity, velocity);
+	real specificEnergyPotential = gravityPotentialBuffer[index];
+	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
+	real pressure = (GAMMA - 1.f) * density * specificEnergyInternal;
 	//von Neumann-Richtmyer artificial viscosity
 	real deltaVelocitySq = 0.f;
 	for (int side = 0; side < DIM; ++side) {
-		int4 iPrev = i;
-		--iPrev[side];
-		int indexPrev = INDEXV(iPrev);
-		
-		int4 iNext = i;
-		++iNext[side];
-		int indexNext = INDEXV(iNext);
+		int indexL = index - stepsize[side];
+		int indexR = index + stepsize[side];	
 
-		real velocityL = stateBuffer[indexPrev][side+1];
-		real velocityR = stateBuffer[indexNext][side+1];
+		real velocityL = stateBuffer[side+1 + NUM_STATES * indexL];
+		real velocityR = stateBuffer[side+1 + NUM_STATES * indexR];
 		const float ZETA = 2.f;
 		real deltaVelocity = ZETA * .5f * (velocityR - velocityL);
 		deltaVelocitySq += deltaVelocity * deltaVelocity; 
 	}
 	pressure += deltaVelocitySq * density;
-	
 	pressureBuffer[index] = pressure;
 }
 
 __kernel void diffuseMomentum(
-	__global real8* stateBuffer,
+	__global real* stateBuffer,
 	const __global real* pressureBuffer,
 	const __global real* dtBuffer)
 {
@@ -254,24 +261,19 @@ __kernel void diffuseMomentum(
 	int index = INDEXV(i);
 
 	for (int side = 0; side < DIM; ++side) {
-		int4 iPrev = i;
-		--iPrev[side];
-		int indexPrev = INDEXV(iPrev);
-		
-		int4 iNext = i;
-		++iNext[side];
-		int indexNext = INDEXV(iNext);
+		int indexL = index - stepsize[side];
+		int indexR = index + stepsize[side];	
 
-		real pressureL = pressureBuffer[indexPrev];
-		real pressureR = pressureBuffer[indexNext];
+		real pressureL = pressureBuffer[indexL];
+		real pressureR = pressureBuffer[indexR];
 
 		real deltaPressure = .5f * (pressureR - pressureL);
-		stateBuffer[index][side+1] -= deltaPressure * dt_dx[side];
+		stateBuffer[side+1 + NUM_STATES * index] -= deltaPressure * dt_dx[side];
 	}
 }
 
 __kernel void diffuseWork(
-	__global real8* stateBuffer,
+	__global real* stateBuffer,
 	const __global real* pressureBuffer,
 	const __global real* dtBuffer)
 {
@@ -293,26 +295,18 @@ __kernel void diffuseWork(
 	int index = INDEXV(i);
 
 	for (int side = 0; side < DIM; ++side) {
-		int4 iPrev = i;
-		--iPrev[side];
-		int indexPrev = INDEXV(iPrev);
-		
-		int4 iNext = i;
-		++iNext[side];
-		int indexNext = INDEXV(iNext);
+		int indexL = index - stepsize[side];
+		int indexR = index + stepsize[side];
 
-		real8 stateL = stateBuffer[indexPrev];
-		real8 stateR = stateBuffer[indexNext];
-
-		real velocityL = stateL[side+1] / stateL.s0;
-		real velocityR = stateR[side+1] / stateR.s0;
+		real velocityL = stateBuffer[side+1 + NUM_STATES * indexL] / stateBuffer[STATE_DENSITY + NUM_STATES * indexL];
+		real velocityR = stateBuffer[side+1 + NUM_STATES * indexR] / stateBuffer[STATE_DENSITY + NUM_STATES * indexR];
 		
-		real pressureL = pressureBuffer[indexPrev];
-		real pressureR = pressureBuffer[indexNext];
+		real pressureL = pressureBuffer[indexL];
+		real pressureR = pressureBuffer[indexR];
 
 		real deltaWork = .5f * (pressureR * velocityR - pressureL * velocityL);
 
-		stateBuffer[index].s4 -= deltaWork * dt_dx[side];
+		stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index] -= deltaWork * dt_dx[side];
 	}
 }
 

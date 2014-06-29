@@ -32,6 +32,8 @@ struct Solver {
 	cl::NDRange offset1d;
 	cl::NDRange offsetNd;
 
+	int numStates;	//experimenting
+
 	size_t totalAlloc;
 
 	Solver(HydroGPUApp& app);
@@ -60,7 +62,7 @@ public:
 	virtual void mousePan(int dx, int dy) = 0;
 	virtual void mouseZoom(int dz) = 0;
 
-	virtual void resetState() = 0;
+	virtual void resetState();
 	virtual void addDrop() = 0;
 	virtual void screenshot() = 0;
 	virtual void save() = 0;
