@@ -60,7 +60,7 @@ public:
 	virtual void mousePan(int dx, int dy) = 0;
 	virtual void mouseZoom(int dz) = 0;
 
-	virtual void resetState(std::vector<real8> stateVec) = 0;
+	virtual void resetState() = 0;
 	virtual void addDrop() = 0;
 	virtual void screenshot() = 0;
 	virtual void save() = 0;

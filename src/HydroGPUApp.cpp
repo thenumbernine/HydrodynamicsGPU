@@ -188,8 +188,7 @@ void HydroGPUApp::init() {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}
 	solver->init();	//..now that the vtable is in place
-
-	resetState();
+	solver->resetState();
 
 	int err = glGetError();
 	if (err) throw Common::Exception() << "GL error " << err;
@@ -199,40 +198,6 @@ void HydroGPUApp::init() {
 
 void HydroGPUApp::shutdown() {
 	glDeleteTextures(1, &gradientTex);
-}
-
-void HydroGPUApp::resetState() {
-	std::vector<real8> stateVec(size.s[0] * size.s[1] * size.s[2]);
-
-	if (!lua.ref()["initState"].isFunction()) throw Common::Exception() << "expected initState to be defined in config file";
-
-	std::cout << "initializing..." << std::endl;
-	real8* state = &stateVec[0];	
-	int index[3];
-	for (index[2] = 0; index[2] < size.s[2]; ++index[2]) {
-		for (index[1] = 0; index[1] < size.s[1]; ++index[1]) {
-			for (index[0] = 0; index[0] < size.s[0]; ++index[0], ++state) {
-				real4 pos;
-				for (int i = 0; i < 3; ++i) {
-					pos.s[i] = real(xmax.s[i] - xmin.s[i]) * (real(index[i]) + .5) / real(size.s[i]) + real(xmin.s[i]);
-				}
-				pos.s[3] = 0;
-			
-				LuaCxx::Stack stack = lua.stack();
-				
-				stack
-				.getGlobal("initState")
-				.push(pos.s[0], pos.s[1], pos.s[2])
-				.call(3,8);
-				for (int i = 0; i < 8; ++i) {
-					stack.pop(state->s[8-i-1]);
-				}
-			}
-		}
-	}
-	std::cout << "...done" << std::endl;
-
-	solver->resetState(stateVec);
 }
 
 void HydroGPUApp::resize(int width, int height) {
@@ -368,7 +333,7 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				}
 			}
 		} else if (event.key.keysym.sym == SDLK_r) {
-			resetState();
+			solver->resetState();
 		} else if (event.key.keysym.sym == SDLK_t) {
 			showTimestep = !showTimestep;
 		}

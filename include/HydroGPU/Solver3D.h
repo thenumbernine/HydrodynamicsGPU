@@ -40,7 +40,7 @@ struct Solver3D : public Solver {
 
 	virtual void init();
 
-	virtual void resetState(std::vector<real8> stateVec);
+	virtual void resetState();
 	virtual void display();
 	virtual void resize();
 

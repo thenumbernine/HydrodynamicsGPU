@@ -137,9 +137,39 @@ void Solver3D::init() {
 	initKernels();
 }
 
-void Solver3D::resetState(std::vector<real8> stateVec) {
+//gravity stuff is Euler-specific
+void Solver3D::resetState() {
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
-	if (volume != stateVec.size()) throw Common::Exception() << "got a state vec with a bad length";
+
+	std::vector<real8> stateVec(volume);
+
+	if (!app.lua.ref()["initState"].isFunction()) throw Common::Exception() << "expected initState to be defined in config file";
+
+	std::cout << "initializing..." << std::endl;
+	real8* state = &stateVec[0];	
+	int index[3];
+	for (index[2] = 0; index[2] < app.size.s[2]; ++index[2]) {
+		for (index[1] = 0; index[1] < app.size.s[1]; ++index[1]) {
+			for (index[0] = 0; index[0] < app.size.s[0]; ++index[0], ++state) {
+				real4 pos;
+				for (int i = 0; i < 3; ++i) {
+					pos.s[i] = real(app.xmax.s[i] - app.xmin.s[i]) * (real(index[i]) + .5) / real(app.size.s[i]) + real(app.xmin.s[i]);
+				}
+				pos.s[3] = 0;
+			
+				LuaCxx::Stack stack = app.lua.stack();
+				
+				stack
+				.getGlobal("initState")
+				.push(pos.s[0], pos.s[1], pos.s[2])
+				.call(3,8);
+				for (int i = 0; i < 8; ++i) {
+					stack.pop(state->s[8-i-1]);
+				}
+			}
+		}
+	}
+	std::cout << "...done" << std::endl;
 
 	//grad^2 Phi = - 4 pi G rho
 	//solve inverse discretized linear system to find Psi

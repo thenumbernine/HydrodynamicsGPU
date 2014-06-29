@@ -57,7 +57,6 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	virtual int main(const std::vector<std::string>& args);
 	virtual void init();
 	virtual void shutdown();
-	virtual void resetState();
 	virtual void resize(int width, int height);
 	virtual void update();
 	virtual void sdlEvent(SDL_Event &event);

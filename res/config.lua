@@ -5,12 +5,12 @@
 --[[
 options:
 EulerBurgers	- works for 1D, 2D, 3D
-EulerRoe - works for 1D, timestep is stuck for 2D, compiler crashes for 3D
+EulerRoe - works for 1D, compiler crashes for 2D and 3D
 EulerHLL - works for 1D, compiler crashes for 2D and 3D
 MHDRoe - left eigenvectors not finished
 ADMRoe - compiler crashes
 --]]
-solverName = 'EulerRoe'
+solverName = 'EulerHLL'
 
 --[[
 options:
