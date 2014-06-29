@@ -26,7 +26,7 @@ __kernel void calcEigenBasis(
 #endif
 	) return;
 	int index = INDEXV(i);
-
+#if 0
 	for (int side = 0; side < DIM; ++side) {	
 		int4 iPrev = i;
 		--iPrev[side];
@@ -226,5 +226,6 @@ __kernel void calcEigenBasis(
 			0.f,
 			0.f);
 	}
+#endif
 }
 

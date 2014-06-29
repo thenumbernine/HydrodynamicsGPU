@@ -1,13 +1,19 @@
-#include "HydroGPU/HLL.h"
+#include "HydroGPU/EulerHLL.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "Common/File.h"
 
-HLL::HLL(
+EulerHLL::EulerHLL(
 	HydroGPUApp &app_)
-: Super(app_, {"HLL.cl"})
+: Super(app_)
 , calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
 , integrateFluxEvent("integrateFlux")
 {
+}
+
+void EulerHLL::init() {
+	Super::init();
+
 	cl::Context context = app.context;
 
 	entries.push_back(&calcEigenBasisEvent);
@@ -32,17 +38,23 @@ HLL::HLL(
 	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
 	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, dtBuffer);
 }	
+	
+std::vector<std::string> EulerHLL::getProgramSources() {
+	std::vector<std::string> sources = Super::getProgramSources();
+	sources.push_back(Common::File::read("EulerHLL.cl"));
+	return sources;
+}
 
-void HLL::initStep() {
+void EulerHLL::initStep() {
 	commands.enqueueNDRangeKernel(calcFluxAndEigenvaluesKernel, offsetNd, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 }
 
-void HLL::calcTimestep() {
+void EulerHLL::calcTimestep() {
 	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
-void HLL::step() {
+void EulerHLL::step() {
 	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
 
 	if (app.useGravity) {

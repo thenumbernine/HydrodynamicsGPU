@@ -5,7 +5,7 @@
 
 struct HydroGPUApp;
 
-struct Burgers : public Solver3D {
+struct EulerBurgers : public Solver3D {
 	typedef Solver3D Super;
 
 	cl::Buffer interfaceVelocityBuffer;
@@ -28,9 +28,10 @@ struct Burgers : public Solver3D {
 	EventProfileEntry diffuseMomentumEvent;
 	EventProfileEntry diffuseWorkEvent;
 
-	Burgers(HydroGPUApp &app);
-
+	EulerBurgers(HydroGPUApp &app);
+	virtual void init();	
 protected:
+	virtual std::vector<std::string> getProgramSources();
 	virtual void calcTimestep();
 	virtual void step();
 };

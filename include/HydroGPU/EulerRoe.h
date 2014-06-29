@@ -7,8 +7,10 @@ struct HydroGPU;
 /*
 Roe solver for Euler equations
 */
-struct RoeEuler : public Roe {
+struct EulerRoe : public Roe {
 	typedef Roe Super;
-	RoeEuler(HydroGPUApp& app);
+	using Super::Super;
+protected:
+	virtual std::vector<std::string> getProgramSources();
 };
 

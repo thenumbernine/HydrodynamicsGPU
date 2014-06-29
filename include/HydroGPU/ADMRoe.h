@@ -7,8 +7,10 @@ struct HydroGPU;
 /*
 Roe solver for ADM equations
 */
-struct RoeADM : public Roe {
+struct ADMRoe : public Roe {
 	typedef Roe Super;
-	RoeADM(HydroGPUApp& app);
+	using Super::Super;
+protected:
+	virtual std::vector<std::string> getProgramSources();
 };
 

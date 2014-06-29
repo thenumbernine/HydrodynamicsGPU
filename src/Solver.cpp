@@ -25,12 +25,14 @@ template<> std::string toNumericString<float>(float value) {
 }
 
 Solver::Solver(
-	HydroGPUApp& app_,
-	std::vector<std::string> programFilenames)
+	HydroGPUApp& app_)
 : app(app_)
 , commands(app.commands)
 , totalAlloc(0)
 {
+}
+
+void Solver::init() {
 	cl::Device device = app.device;
 	
 	stateBoundaryKernels.resize(NUM_BOUNDARY_METHODS);
@@ -83,24 +85,9 @@ Solver::Solver(
 	std::cout << "local_size\t" << localSize << std::endl;
 	
 	{
-		std::vector<std::string> kernelSources = std::vector<std::string>{
-			std::string() + "#define GAMMA " + toNumericString<real>(app.gamma) + "\n" +
-			std::string() + "#define DIM " + std::to_string(app.dim) + "\n" +
-			std::string() + "#define SIZE_X " + std::to_string(app.size.s[0]) + "\n" +
-			std::string() + "#define SIZE_Y " + std::to_string(app.size.s[1]) + "\n" +
-			std::string() + "#define SIZE_Z " + std::to_string(app.size.s[2]) + "\n" +
-			std::string() + "#define DX " + toNumericString<real>(app.dx.s[0]) + "\n" +
-			std::string() + "#define DY " + toNumericString<real>(app.dx.s[1]) + "\n" +
-			std::string() + "#define DZ " + toNumericString<real>(app.dx.s[2]) + "\n" +
-			std::string() + "#define SLOPE_LIMITER_" + app.slopeLimiterName + "\n"
-		};
-		kernelSources.push_back(Common::File::read("Common.cl"));
-		kernelSources.push_back(Common::File::read("SlopeLimiter.cl"));
-		for (const std::string& filename : programFilenames) {
-			kernelSources.push_back(Common::File::read(filename));
-		}
+		std::vector<std::string> sourceStrs = getProgramSources();
 		std::vector<std::pair<const char *, size_t>> sources;
-		for (const std::string &s : kernelSources) {
+		for (const std::string &s : sourceStrs) {
 			sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));
 		}
 		program = cl::Program(app.context, sources);
@@ -149,6 +136,23 @@ Solver::Solver(
 	if (app.useFixedDT) {
 		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app.fixedDT);
 	}
+}
+
+std::vector<std::string> Solver::getProgramSources() {
+	std::vector<std::string> sourceStrs = std::vector<std::string>{
+		std::string() + "#define GAMMA " + toNumericString<real>(app.gamma) + "\n" +
+		std::string() + "#define DIM " + std::to_string(app.dim) + "\n" +
+		std::string() + "#define SIZE_X " + std::to_string(app.size.s[0]) + "\n" +
+		std::string() + "#define SIZE_Y " + std::to_string(app.size.s[1]) + "\n" +
+		std::string() + "#define SIZE_Z " + std::to_string(app.size.s[2]) + "\n" +
+		std::string() + "#define DX " + toNumericString<real>(app.dx.s[0]) + "\n" +
+		std::string() + "#define DY " + toNumericString<real>(app.dx.s[1]) + "\n" +
+		std::string() + "#define DZ " + toNumericString<real>(app.dx.s[2]) + "\n" +
+		std::string() + "#define SLOPE_LIMITER_" + app.slopeLimiterName + "\n"
+	};
+	sourceStrs.push_back(Common::File::read("Common.cl"));
+	sourceStrs.push_back(Common::File::read("SlopeLimiter.cl"));
+	return sourceStrs;
 }
 
 void Solver::initKernels() {

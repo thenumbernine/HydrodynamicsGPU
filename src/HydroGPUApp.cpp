@@ -1,9 +1,9 @@
 #include "HydroGPU/HydroGPUApp.h"
-#include "HydroGPU/HLL.h"
-#include "HydroGPU/Burgers.h"
-#include "HydroGPU/RoeEuler.h"
-#include "HydroGPU/RoeMHD.h"
-#include "HydroGPU/RoeADM.h"
+#include "HydroGPU/EulerHLL.h"
+#include "HydroGPU/EulerBurgers.h"
+#include "HydroGPU/EulerRoe.h"
+#include "HydroGPU/MHDRoe.h"
+#include "HydroGPU/ADMRoe.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -33,7 +33,7 @@ HydroGPUApp::HydroGPUApp()
 : Super()
 , gradientTex(GLuint())
 , configFilename("config.lua")
-, solverName("Burgers")
+, solverName("EulerBurgers")
 , slopeLimiterName("Superbee")
 , dim(0)
 , doUpdate(1)
@@ -174,19 +174,20 @@ void HydroGPUApp::init() {
 	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_1D, 0, gradientTex);
 
 	//construct the solver
-	if (solverName == "Burgers") {
-		solver = std::make_shared<Burgers>(*this);
-	} else if (solverName == "RoeEuler") {
-		solver = std::make_shared<RoeEuler>(*this);
-	} else if (solverName == "RoeMHD") {
-		solver = std::make_shared<RoeMHD>(*this);	//broken
-	} else if (solverName == "RoeADM") {
-		solver = std::make_shared<RoeADM>(*this);
-	} else if (solverName == "HLL") {
-		solver = std::make_shared<HLL>(*this);
+	if (solverName == "EulerBurgers") {
+		solver = std::make_shared<EulerBurgers>(*this);
+	} else if (solverName == "EulerRoe") {
+		solver = std::make_shared<EulerRoe>(*this);
+	} else if (solverName == "MHDRoe") {
+		solver = std::make_shared<MHDRoe>(*this);	//broken
+	} else if (solverName == "ADMRoe") {
+		solver = std::make_shared<ADMRoe>(*this);
+	} else if (solverName == "EulerHLL") {
+		solver = std::make_shared<EulerHLL>(*this);
 	} else {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}
+	solver->init();	//..now that the vtable is in place
 
 	resetState();
 
@@ -200,9 +201,10 @@ void HydroGPUApp::shutdown() {
 	glDeleteTextures(1, &gradientTex);
 }
 
-#include "Common/Test.h"
 void HydroGPUApp::resetState() {
 	std::vector<real8> stateVec(size.s[0] * size.s[1] * size.s[2]);
+
+	if (!lua.ref()["initState"].isFunction()) throw Common::Exception() << "expected initState to be defined in config file";
 
 	std::cout << "initializing..." << std::endl;
 	real8* state = &stateVec[0];	

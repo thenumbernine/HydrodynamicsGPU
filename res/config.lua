@@ -4,11 +4,13 @@
 
 --[[
 options:
-Burgers	- works for 1D, 2D, 3D
-RoeEuler - works for 1D
-HLL - works for 1D
+EulerBurgers	- works for 1D, 2D, 3D
+EulerRoe - works for 1D, timestep is stuck for 2D, compiler crashes for 3D
+EulerHLL - works for 1D, compiler crashes for 2D and 3D
+MHDRoe - left eigenvectors not finished
+ADMRoe - compiler crashes
 --]]
-solverName = 'RoeADM'
+solverName = 'EulerRoe'
 
 --[[
 options:
@@ -37,7 +39,7 @@ BarthJespersen
 slopeLimiterName = 'Superbee'
 
 useGPU = true
--- Burgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
+-- EulerBurgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
 --maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
@@ -153,7 +155,7 @@ function initState(x)
 end
 --]]	
 
---[[ Sod test
+-- [[ Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x,y,z)
 	local inside = x <= 0 and y <= 0 and z <= 0
@@ -200,7 +202,7 @@ end
 --]]
 
 --[[ Kelvin-Hemholtz
---solverName = 'Roe'	--Burgers is having trouble... hmm...
+--solverName = 'Roe'	--EulerBurgers is having trouble... hmm...
 function initState(x,y,z)
 	local inside = y > -.25 and y < .25
 	local theta = (x - xmin[1]) / (xmax[1] - xmin[1]) * 2 * math.pi
@@ -272,11 +274,13 @@ end
 
 		-- 1D ADM equation initial state
 
+--[[
 xmin = {-30, -30, -30}
 xmax = {30, 30, 30}
-local xmid = (xmax + xmin) * .5
+local xmid = (xmax[1] + xmin[1]) * .5
+adm_BonaMasso_f = 1
 function initState(x,y,z)
-	x = (x - xmid) / ((xmax - xmid) / 3)
+	x = (x - xmid) / ((xmax[1] - xmid) / 3)
 	local h = math.exp(-x*x); 
 	local dh_dx = -2 * x * h;
 	local d2h_dx2 = 2 * h * (2 * x * x - 1);
@@ -287,4 +291,5 @@ function initState(x,y,z)
 	local D_alpha = math.sqrt(f) * KTilde;
 	return D_alpha, D_g, KTilde, 0, 0, 0, 0, 0	
 end
+--]]
 

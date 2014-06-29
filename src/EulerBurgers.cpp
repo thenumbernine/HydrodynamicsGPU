@@ -1,9 +1,10 @@
-#include "HydroGPU/Burgers.h"
+#include "HydroGPU/EulerBurgers.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "Common/File.h"
 
-Burgers::Burgers(
+EulerBurgers::EulerBurgers(
 	HydroGPUApp &app_)
-: Super(app_, {"Burgers.cl"})
+: Super(app_)
 , calcCFLEvent("calcCFL")
 , calcInterfaceVelocityEvent("calcInterfaceVelocity")
 , calcFluxEvent("calcFlux")
@@ -12,6 +13,11 @@ Burgers::Burgers(
 , diffuseMomentumEvent("diffuseMomentum")
 , diffuseWorkEvent("diffuseWork")
 {
+}
+
+void EulerBurgers::init() {
+	Super::init();
+
 	cl::Context context = app.context;
 	
 	if (!app.useFixedDT) {
@@ -62,12 +68,18 @@ Burgers::Burgers(
 	app.setArgs(diffuseWorkKernel, stateBuffer, pressureBuffer, dtBuffer);
 }
 
-void Burgers::calcTimestep() {
+std::vector<std::string> EulerBurgers::getProgramSources() {
+	std::vector<std::string> sources = Super::getProgramSources();
+	sources.push_back(Common::File::read("EulerBurgers.cl"));
+	return sources;
+}
+
+void EulerBurgers::calcTimestep() {
 	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
-void Burgers::step() {
+void EulerBurgers::step() {
 	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
 	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);

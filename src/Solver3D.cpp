@@ -28,14 +28,17 @@ static int quads[] = {
 };
 
 Solver3D::Solver3D(
-	HydroGPUApp &app_,
-	std::vector<std::string> programFilenames)
-: Super(app_, programFilenames)
+	HydroGPUApp &app_)
+: Super(app_)
 , fluidTex(GLuint())
 , viewZoom(1.f)
 , viewDist(1.f)
 {
+}
 
+void Solver3D::init() {
+	Super::init();
+	
 	//memory
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];

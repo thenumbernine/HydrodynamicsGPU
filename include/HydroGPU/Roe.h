@@ -29,9 +29,10 @@ struct Roe : public Solver3D {
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry integrateFluxEvent;
 	
-	Roe(HydroGPUApp& app, std::vector<std::string> programSources);
-
+	Roe(HydroGPUApp& app);
+	virtual void init();
 protected:
+	virtual std::vector<std::string> getProgramSources();
 	virtual void initStep();
 	virtual void calcTimestep();
 	virtual void step();

@@ -4,7 +4,7 @@
 
 struct HydroGPUApp;
 
-struct HLL : public Solver3D {
+struct EulerHLL : public Solver3D {
 	typedef Solver3D Super;
 
 	cl::Buffer eigenvaluesBuffer;
@@ -21,9 +21,11 @@ struct HLL : public Solver3D {
 	EventProfileEntry calcCFLEvent;
 	EventProfileEntry integrateFluxEvent;
 	
-	HLL(HydroGPUApp &app);
+	EulerHLL(HydroGPUApp &app);
+	virtual void init();
 
 protected:
+	virtual std::vector<std::string> getProgramSources();
 	virtual void initStep();
 	virtual void calcTimestep();
 	virtual void step();

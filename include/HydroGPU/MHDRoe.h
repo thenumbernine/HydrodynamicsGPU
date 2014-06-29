@@ -7,8 +7,10 @@ struct HydroGPU;
 /*
 Roe solver for MHD equations
 */
-struct RoeMHD : public Roe {
+struct MHDRoe : public Roe {
 	typedef Roe Super;
-	RoeMHD(HydroGPUApp& app);
+	using Super::Super;
+protected:
+	virtual std::vector<std::string> getProgramSources();
 };
 

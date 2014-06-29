@@ -1,21 +1,21 @@
 #include "HydroGPU/Roe.h"
 #include "HydroGPU/HydroGPUApp.h"
-
-static std::vector<std::string> push(std::vector<std::string> v, std::string s) {
-	v.push_back(s);
-	return v;
-}
+#include "Common/File.h"
 
 Roe::Roe(
-	HydroGPUApp &app_,
-	std::vector<std::string> programSources)
-: Super(app_, push(programSources, "Roe.cl"))
+	HydroGPUApp &app_)
+: Super(app_)
 , calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
 , calcDeltaQTildeEvent("calcDeltaQTilde")
 , calcFluxEvent("calcFlux")
 , integrateFluxEvent("integrateFlux")
 {
+}
+
+void Roe::init() {
+	Super::init();
+	
 	cl::Context context = app.context;
 
 	entries.push_back(&calcEigenBasisEvent);
@@ -51,6 +51,12 @@ Roe::Roe(
 	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
 	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, dtBuffer);
 }	
+
+std::vector<std::string> Roe::getProgramSources() {
+	std::vector<std::string> sources = Super::getProgramSources();
+	sources.push_back(Common::File::read("Roe.cl"));
+	return sources;
+}
 
 void Roe::initStep() {
 	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);

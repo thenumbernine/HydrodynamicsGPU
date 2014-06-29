@@ -35,9 +35,11 @@ struct Solver3D : public Solver {
 	Tensor::Quat<float> viewAngle;
 	float viewDist;
 
-	Solver3D(HydroGPUApp &app, std::vector<std::string> programFilenames);
+	Solver3D(HydroGPUApp &app);
 	virtual ~Solver3D();
-	
+
+	virtual void init();
+
 	virtual void resetState(std::vector<real8> stateVec);
 	virtual void display();
 	virtual void resize();

@@ -34,9 +34,12 @@ struct Solver {
 
 	size_t totalAlloc;
 
-	Solver(HydroGPUApp& app, std::vector<std::string> programFilenames);
+	Solver(HydroGPUApp& app);
 	virtual ~Solver() {}
-	
+
+	virtual void init();	//...because I'm using virtual function calls in here
+protected:
+	virtual std::vector<std::string> getProgramSources();
 	virtual void initKernels();
 	cl::Buffer clAlloc(size_t size);
 	
@@ -47,6 +50,7 @@ struct Solver {
 	virtual void boundary() = 0;
 	virtual void step() = 0;
 	virtual void calcTimestep() = 0;
+public:
 	virtual void update();
 	
 	virtual void display() = 0;
