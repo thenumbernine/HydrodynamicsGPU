@@ -16,15 +16,14 @@ void calcFluxAndEigenvaluesSide(
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
-	int indexR = index;
-	int indexL = index - stepsize[side];
+	int indexPrev = index - stepsize[side];
 	int interfaceIndex = side + DIM * index;
 
 	real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
 	normal[side] = 1;
 
-	const __global real* stateL = stateBuffer + NUM_STATES * indexL;
-	const __global real* stateR = stateBuffer + NUM_STATES * indexR;
+	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
+	const __global real* stateR = stateBuffer + NUM_STATES * index;
 
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
@@ -36,7 +35,7 @@ void calcFluxAndEigenvaluesSide(
 	real velocityNL = dot(velocityL, normal);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
 	real energyKineticL = .5f * velocitySqL;
-	real energyPotentialL = gravityPotentialBuffer[indexL];
+	real energyPotentialL = gravityPotentialBuffer[indexPrev];
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
@@ -51,7 +50,7 @@ void calcFluxAndEigenvaluesSide(
 	real velocityNR = dot(velocityR, normal);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
 	real energyKineticR = .5f * velocitySqR;
-	real energyPotentialR = gravityPotentialBuffer[indexR];
+	real energyPotentialR = gravityPotentialBuffer[index];
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 	real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
@@ -62,9 +61,10 @@ void calcFluxAndEigenvaluesSide(
 	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
 	real4 velocity = (roeWeightL * velocityL + roeWeightR * velocityR) * roeWeightNormalization;
 	real enthalpyTotal = (roeWeightL * enthalpyTotalL + roeWeightR * enthalpyTotalR) * roeWeightNormalization;
+	real energyPotential = (roeWeightL * energyPotentialL + roeWeightR * energyPotentialR) * roeWeightNormalization; 
 	
 	real velocitySq = dot(velocity, velocity);
-	real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
+	real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
 	real velocityN = dot(velocity, normal);
 
 	//eigenvalues
@@ -153,9 +153,13 @@ __kernel void calcFluxAndEigenvalues(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	for (int side = 0; side < DIM; ++side) {
-		calcFluxAndEigenvaluesSide(eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer, side);
-	}
+	calcFluxAndEigenvaluesSide(eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer, 0);
+#if DIM > 1
+	calcFluxAndEigenvaluesSide(eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer, 1);
+#endif
+#if DIM > 2
+	calcFluxAndEigenvaluesSide(eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer, 2);
+#endif
 }
 
 //do we want to use interface wavespeeds to calculate cfl?
@@ -178,14 +182,13 @@ __kernel void calcCFL(
 		cflBuffer[index] = INFINITY;
 		return;
 	}
-	int indexL = index;
 
 	real result = INFINITY;
 	for (int side = 0; side < DIM; ++side) {
-		int indexR = index + stepsize[side];
+		int indexNext = index + stepsize[side];
 		
-		const __global real* eigenvaluesL = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexL);
-		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexR);
+		const __global real* eigenvaluesL = eigenvaluesBuffer + NUM_STATES * (side + DIM * index);
+		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexNext);
 
 		real minLambda = 0.f;
 		real maxLambda = 0.f;
@@ -219,12 +222,11 @@ __kernel void integrateFlux(
 #endif
 	) return;
 	int index = INDEXV(i);
-	int indexL = index;
 
 	for (int side = 0; side < DIM; ++side) {
-		int indexR = index + stepsize[side];
-		const __global real* fluxL = fluxBuffer + NUM_STATES * (side + DIM * indexL);
-		const __global real* fluxR = fluxBuffer + NUM_STATES * (side + DIM * indexR);
+		int indexNext = index + stepsize[side];
+		const __global real* fluxL = fluxBuffer + NUM_STATES * (side + DIM * index);
+		const __global real* fluxR = fluxBuffer + NUM_STATES * (side + DIM * indexNext);
 		__global real* state = stateBuffer + NUM_STATES * index;
 		for (int j = 0; j < NUM_STATES; ++j) {
 			real deltaFlux = fluxR[j] - fluxL[j];

@@ -46,7 +46,7 @@ void calcEigenBasisSide(
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
-	real weightL = sqrt(densityL);
+	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[0];
 	real invDensityR = 1.f / densityR;
@@ -57,12 +57,12 @@ void calcEigenBasisSide(
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 	real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
-	real weightR = sqrt(densityR);
+	real roeWeightR = sqrt(densityR);
 
-	real roeWeightNormalization = 1.f / (weightL + weightR);
-	real4 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
-	real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
-	real energyPotential = (weightL * energyPotentialL + weightR * energyPotentialR) * roeWeightNormalization; 
+	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
+	real4 velocity = (roeWeightL * velocityL + roeWeightR * velocityR) * roeWeightNormalization;
+	real enthalpyTotal = (roeWeightL * enthalpyTotalL + roeWeightR * enthalpyTotalR) * roeWeightNormalization;
+	real energyPotential = (roeWeightL * energyPotentialL + roeWeightR * energyPotentialR) * roeWeightNormalization; 
 	
 	real velocitySq = dot(velocity, velocity);
 	real speedOfSound = sqrt((enthalpyTotal - .5f * velocitySq - energyPotential) * (GAMMA - 1.f));
