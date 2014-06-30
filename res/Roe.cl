@@ -101,7 +101,16 @@ __kernel void calcFlux(
 	) return;
 	int index = INDEXV(i);
 	int indexR = index;	
-	for (int side = 0; side < DIM; ++side) {
+	
+	//this loop succeeds when DIM == 1 and fails when DIM > 1
+//fails
+//	for (int side = 0; side < DIM; ++side) {
+//fails
+//#pragma unroll(DIM)
+//	for (int side = 0; side < DIM; ++side) {
+//however manually unrolling the loop works...
+	{const int side = 0;
+
 		int indexL = index - stepsize[side];
 		int indexR2 = index + stepsize[side];
 	
@@ -155,6 +164,122 @@ __kernel void calcFlux(
 			flux[i] = sum;
 		}
 	}
+
+#if DIM > 1
+	{const int side = 1;
+
+		int indexL = index - stepsize[side];
+		int indexR2 = index + stepsize[side];
+	
+		int interfaceLIndex = side + DIM * indexL;
+		int interfaceIndex = side + DIM * indexR;
+		int interfaceRIndex = side + DIM * indexR2;
+		
+		const __global real* stateL = stateBuffer + NUM_STATES * indexL;
+		const __global real* stateR = stateBuffer + NUM_STATES * indexR;
+		
+		const __global real* deltaQTildeL = deltaQTildeBuffer + NUM_STATES * interfaceLIndex;
+		const __global real* deltaQTilde = deltaQTildeBuffer + NUM_STATES * interfaceIndex;
+		const __global real* deltaQTildeR = deltaQTildeBuffer + NUM_STATES * interfaceRIndex;
+		
+		const __global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
+		const __global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+		const __global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+		__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
+	
+		real fluxTilde[NUM_STATES];
+		for (int i = 0; i < NUM_STATES; ++i) {
+			real eigenvalue = eigenvalues[i];
+			
+			real sum = 0.f;
+			for (int j = 0; j < NUM_STATES; ++j) {
+				sum += eigenvectorsInverse[i + NUM_STATES * j] * (stateR[j] + stateL[j]);
+			}
+			fluxTilde[i] = .5f * sum * eigenvalue;
+
+			real rTilde;
+			real theta;
+			if (eigenvalue >= 0.f) {
+				rTilde = deltaQTildeL[i] / deltaQTilde[i];
+				theta = 1.f;
+			} else {
+				rTilde = deltaQTildeR[i] / deltaQTilde[i];
+				theta = -1.f;
+			}
+			real phi = slopeLimiter(rTilde);
+			real epsilon = eigenvalue * dt_dx[side];
+
+			real deltaFluxTilde = eigenvalue * deltaQTilde[i];
+			fluxTilde[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta) / (float)DIM);
+		}
+
+		for (int i = 0; i < NUM_STATES; ++i) {
+			real sum = 0.f;
+			for (int j = 0; j < NUM_STATES; ++j) {
+				sum += eigenvectors[i + NUM_STATES * j] * fluxTilde[j];
+			}
+			flux[i] = sum;
+		}
+	}
+#endif
+
+#if DIM > 2
+	{const int side = 2;
+
+		int indexL = index - stepsize[side];
+		int indexR2 = index + stepsize[side];
+	
+		int interfaceLIndex = side + DIM * indexL;
+		int interfaceIndex = side + DIM * indexR;
+		int interfaceRIndex = side + DIM * indexR2;
+		
+		const __global real* stateL = stateBuffer + NUM_STATES * indexL;
+		const __global real* stateR = stateBuffer + NUM_STATES * indexR;
+		
+		const __global real* deltaQTildeL = deltaQTildeBuffer + NUM_STATES * interfaceLIndex;
+		const __global real* deltaQTilde = deltaQTildeBuffer + NUM_STATES * interfaceIndex;
+		const __global real* deltaQTildeR = deltaQTildeBuffer + NUM_STATES * interfaceRIndex;
+		
+		const __global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
+		const __global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+		const __global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+		__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
+	
+		real fluxTilde[NUM_STATES];
+		for (int i = 0; i < NUM_STATES; ++i) {
+			real eigenvalue = eigenvalues[i];
+			
+			real sum = 0.f;
+			for (int j = 0; j < NUM_STATES; ++j) {
+				sum += eigenvectorsInverse[i + NUM_STATES * j] * (stateR[j] + stateL[j]);
+			}
+			fluxTilde[i] = .5f * sum * eigenvalue;
+
+			real rTilde;
+			real theta;
+			if (eigenvalue >= 0.f) {
+				rTilde = deltaQTildeL[i] / deltaQTilde[i];
+				theta = 1.f;
+			} else {
+				rTilde = deltaQTildeR[i] / deltaQTilde[i];
+				theta = -1.f;
+			}
+			real phi = slopeLimiter(rTilde);
+			real epsilon = eigenvalue * dt_dx[side];
+
+			real deltaFluxTilde = eigenvalue * deltaQTilde[i];
+			fluxTilde[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta) / (float)DIM);
+		}
+
+		for (int i = 0; i < NUM_STATES; ++i) {
+			real sum = 0.f;
+			for (int j = 0; j < NUM_STATES; ++j) {
+				sum += eigenvectors[i + NUM_STATES * j] * fluxTilde[j];
+			}
+			flux[i] = sum;
+		}
+	}
+#endif
 }
 
 __kernel void integrateFlux(
@@ -177,17 +302,14 @@ __kernel void integrateFlux(
 		return;
 	}
 	int index = INDEXV(i);
-	int indexL = index;
-
+	__global real* state = stateBuffer + NUM_STATES * index;
 	for (int side = 0; side < DIM; ++side) {
-		int indexR = index + stepsize[side];
-		int interfaceIndexL = side + DIM * indexL;
-		int interfaceIndexR = side + DIM * indexR;
+		int indexNext = index + stepsize[side];
+		const __global real* fluxL = fluxBuffer + NUM_STATES * (side + DIM * index); 
+		const __global real* fluxR = fluxBuffer + NUM_STATES * (side + DIM * indexNext); 
 		for (int j = 0; j < NUM_STATES; ++j) {
-			real fluxL = fluxBuffer[j + NUM_STATES * interfaceIndexL];
-			real fluxR = fluxBuffer[j + NUM_STATES * interfaceIndexR];
-			real deltaFlux = fluxR - fluxL;
-			stateBuffer[j + NUM_STATES * index] -= deltaFlux * dt_dx[side];
+			real deltaFlux = fluxR[j] - fluxL[j];
+			state[j] -= deltaFlux * dt_dx[side];
 		}
 	}
 }

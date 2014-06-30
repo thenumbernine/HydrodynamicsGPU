@@ -1,3 +1,4 @@
+require 'util'	--holds helper functions
 
 
 	-- solver variables
@@ -10,15 +11,14 @@ EulerHLL - works for 1D, 2D, compiler crashes 3D
 MHDRoe - left eigenvectors not finished
 ADMRoe - compiler crashes
 --]]
-solverName = 'EulerHLL'
+solverName = 'EulerRoe'
 
 --[[
 options:
 DonorCell
-Superbee
 LaxWendroff
 BeamWarming
-Fromm
+Fromm		-- not behaving correctly
 CHARM
 HCUS
 HQUICK
@@ -65,64 +65,14 @@ size = {64, 64, 64}
 size = {256, 256}
 --]]
 --[[ 1D
-size = {1024}
+size = {2048}
 displayScale = .25
 --]]
 
 
 
-local dim = #size
 
-	-- helper functions
-
-
-local function crand() return math.random() * 2 - 1 end
-
-local function clamp(x,min,max) return math.max(min, math.min(max, x)) end
-
-local function getSpecificEnergyKinetic(velocityX, velocityY, velocityZ)
-	return .5  * (velocityX * velocityX + velocityY * velocityY + velocityZ * velocityZ)
-end
-
-local function getSpecificEnergyInternalForPressure(pressure, density)
-	return pressure / ((gamma - 1) * density)
-end
-
-local MU0 = 1
-local function getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFieldZ)
-	return .5 * (magneticFieldX * magneticFieldX + magneticFieldY * magneticFieldY + magneticFieldZ * magneticFieldZ) / MU0
-end
-
-local function primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ)
-	return density, velocityX * density, velocityY * density, velocityZ * density, energyTotal	--, magneticFieldX, magneticFieldY, magneticFieldZ
-end
-
---[=[
-table-driven so may be slower, but much more readable 
-args:
-	density (required)
-	velocityX, velocityY (optional) velocity
-	noise (optional) noise to add to velocity
-	pressure				\_ one of these two
-	specificEnergyInternal	/
---]=]
-local function buildStateEuler(args)
-	local noise = args.noise or 0
-	local density = assert(args.density)
-	local velocityX = args.velocityX or crand() * noise
-	local velocityY = dim <= 1 and 0 or (args.velocityY or crand() * noise)
-	local velocityZ = dim <= 2 and 0 or (args.velocityZ or crand() * noise)
-	local magneticFieldX = args.magneticFieldX or crand() * magneticFieldNoise
-	local magneticFieldY = args.magneticFieldY or crand() * magneticFieldNoise
-	local magneticFieldZ = args.magneticFieldZ or crand() * magneticFieldNoise
-	local specificEnergyKinetic = getSpecificEnergyKinetic(velocityX, velocityY, velocityZ)
-	local specificEnergyInternal = args.specificEnergyInternal or getSpecificEnergyInternalForPressure(assert(args.pressure, "you need to provide either specificEnergyInternal or pressure"), density)
-	local magneticFieldEnergy = getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFieldZ)
-	local energyTotal = density * (specificEnergyKinetic + specificEnergyInternal) + magneticFieldEnergy
-	return primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ)
-end
-
-
+	
 	-- Euler equation initial states
 
 
@@ -162,25 +112,9 @@ end
 -- 2D tests described in Alexander Kurganov, Eitan Tadmor, Solution of Two-Dimensional Riemann Problems for Gas Dynamics without Riemann Problem Solvers
 --  which says it is compared with  C. W. Schulz-Rinne, J. P. Collins, and H. M. Glaz, Numerical solution of the Riemann problem for two-dimensional gas dynamics
 -- and I can't find that paper right now
--- [=[
+--[[ configuration 1
 cfl = .475
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
-local function buildStateEulerQuadrant(x,y,z,args)
-	if y > 0 then
-		if x > 0 then
-			return buildStateEuler(args.q1)
-		else
-			return buildStateEuler(args.q2)
-		end
-	else
-		if x < 0 then
-			return buildStateEuler(args.q3)
-		else
-			return buildStateEuler(args.q4)
-		end
-	end
-end
---[[ configuration 1
 function initState(x,y,z)
 	return buildStateEulerQuadrant(x,y,z,{
 		q1 = {density=1, pressure=1, velocityX=0, velocityY=0},
@@ -191,6 +125,8 @@ function initState(x,y,z)
 end
 --]]
 --[[ configuration 2
+cfl = .475
+boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x,y,z)
 	return buildStateEulerQuadrant(x,y,z,{
 		q1 = {density=1, pressure=1, velocityX=0, velocityY=0},
@@ -200,7 +136,10 @@ function initState(x,y,z)
 	})
 end
 --]]
--- [[ configuration 3
+--[[ configuration 3
+-- using Superbee flux limiter, working with HLL (2nd order not implemented), breaking with Burgers and Roe
+cfl = .475
+boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x,y,z)
 	return buildStateEulerQuadrant(x,y,z,{
 		q1 = {density=1.5, pressure=1.5, velocityX=0, velocityY=0},
@@ -210,9 +149,9 @@ function initState(x,y,z)
 	})
 end
 --]]
---]=]
 
 --[[ Sedov shock wave
+-- looks good for HLL, Roe not so much (wave moves faster along axii)
 local xmid = {
 	(xmax[1] + xmin[1]) * .5,
 	(xmax[2] + xmin[2]) * .5,
@@ -276,9 +215,10 @@ function initState(x,y,z)
 end
 --]]
 
---[[ Kelvin-Hemholtz
+-- [[ Kelvin-Hemholtz
 --solverName = 'Roe'	--EulerBurgers is having trouble... hmm...
 function initState(x,y,z)
+	local dim = #size
 	local inside = y > -.25 and y < .25
 	local theta = (x - xmin[1]) / (xmax[1] - xmin[1]) * 2 * math.pi
 	if dim >= 3 then 

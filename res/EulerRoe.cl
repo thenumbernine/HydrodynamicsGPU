@@ -23,7 +23,7 @@ __kernel void calcEigenBasis(
 	) return;
 	int index = INDEXV(i);
 	int indexR = index;
-	for (int side = 0; side < DIM; ++side) {	
+	for (int side = 0; side < DIM; ++side) {
 		int indexL = index - stepsize[side];
 
 		int interfaceIndex = side + DIM * index;
@@ -196,8 +196,6 @@ __kernel void calcEigenBasis(
 #endif
 #endif
 		eigenvectorsInverse[(DIM+1) + NUM_STATES * (DIM+1)] = (GAMMA - 1.f) * invDenom;
-
-
 #endif
 
 
