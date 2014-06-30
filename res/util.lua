@@ -1,7 +1,7 @@
 
-local function crand() return math.random() * 2 - 1 end
+function crand() return math.random() * 2 - 1 end
 
-local function clamp(x,min,max) return math.max(min, math.min(max, x)) end
+function clamp(x,min,max) return math.max(min, math.min(max, x)) end
 
 local function getSpecificEnergyKinetic(velocityX, velocityY, velocityZ)
 	return .5  * (velocityX * velocityX + velocityY * velocityY + velocityZ * velocityZ)

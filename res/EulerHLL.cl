@@ -138,7 +138,7 @@ __kernel void calcFluxAndEigenvalues(
 	const __global real* gravityPotentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 1 
+	if (i.x < 2 || i.x >= SIZE_X - 1
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1
 #endif

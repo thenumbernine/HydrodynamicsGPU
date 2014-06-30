@@ -51,17 +51,17 @@ displayScale = 2
 boundaryMethods = {'periodic', 'periodic', 'periodic'}
 
 -- gravity is specific to the Euler fluid equation solver
-useGravity = false 
+useGravity = true
 
 magneticFieldNoise = 0
 gamma = 1.4
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
--- [[ 3D
+--[[ 3D
 size = {64, 64, 64}
 --]]
---[[ 2D
+-- [[ 2D
 size = {256, 256}
 --]]
 --[[ 1D
@@ -88,8 +88,8 @@ end
 --]]
 
 --[[ circle -- http://www.cfd-online.com/Wiki/Explosion_test_in_2-D
-function initState(x)
-	local rSq = x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
+function initState(x,y,z)
+	local rSq = x * x + y * y + z * z
 	local inside = rSq <= .2*.2
 	return buildStateEuler{
 		density = inside and 1 or .1,
@@ -98,7 +98,7 @@ function initState(x)
 end
 --]]	
 
--- [[ Sod test
+--[[ Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x,y,z)
 	local inside = x <= 0 and y <= 0 and z <= 0
@@ -235,7 +235,7 @@ function initState(x,y,z)
 end
 --]]
 
---[[ gravity potential test - equilibrium - some Rayleigh-Taylor
+-- [[ gravity potential test - equilibrium - some Rayleigh-Taylor
 useGravity = true
 boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
 local sources = {
