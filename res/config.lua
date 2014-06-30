@@ -31,7 +31,7 @@ Sweby
 UMIST
 VanAlbada1
 VanAlbada2
-VanLeer
+VanLeer		-- not behaving correctly
 MonotizedCentral
 Superbee
 BarthJespersen
@@ -59,7 +59,7 @@ gamma = 1.4
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
 --[[ 3D
-size = {128, 128, 128}
+size = {64, 64, 64}
 --]]
 -- [[ 2D
 size = {256, 256}
@@ -148,7 +148,7 @@ function initState(x)
 end
 --]]	
 
--- [[ Sod test
+--[[ Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x,y,z)
 	local inside = x <= 0 and y <= 0 and z <= 0
@@ -162,7 +162,7 @@ end
 -- 2D tests described in Alexander Kurganov, Eitan Tadmor, Solution of Two-Dimensional Riemann Problems for Gas Dynamics without Riemann Problem Solvers
 --  which says it is compared with  C. W. Schulz-Rinne, J. P. Collins, and H. M. Glaz, Numerical solution of the Riemann problem for two-dimensional gas dynamics
 -- and I can't find that paper right now
---[=[
+-- [=[
 cfl = .475
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 local function buildStateEulerQuadrant(x,y,z,args)
@@ -190,7 +190,7 @@ function initState(x,y,z)
 	})
 end
 --]]
--- [[ configuration 2
+--[[ configuration 2
 function initState(x,y,z)
 	return buildStateEulerQuadrant(x,y,z,{
 		q1 = {density=1, pressure=1, velocityX=0, velocityY=0},
@@ -200,13 +200,13 @@ function initState(x,y,z)
 	})
 end
 --]]
---[[ configuration 3
+-- [[ configuration 3
 function initState(x,y,z)
 	return buildStateEulerQuadrant(x,y,z,{
 		q1 = {density=1.5, pressure=1.5, velocityX=0, velocityY=0},
 		q2 = {density=.5323, pressure=.3, velocityX=1.206, velocityY=0},
 		q3 = {density=.138, pressure=.029, velocityX=1.206, velocityY=1.206},
-		q4 = {density=.5323, pressure=.138, velocityX=0, velocityY=1.206},
+		q4 = {density=.5323, pressure=.3, velocityX=0, velocityY=1.206},
 	})
 end
 --]]
