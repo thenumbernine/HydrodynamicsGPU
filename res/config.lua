@@ -48,7 +48,7 @@ fixedDT = .01
 cfl = .5
 displayMethod = 'density'
 displayScale = 2
-boundaryMethods = {'periodic', 'periodic', 'periodic'}
+boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false 
@@ -99,7 +99,7 @@ end
 --]]	
 
 -- [[ Sod test
-boundaryMethods = {'mirror', 'mirror', 'mirror'}
+--boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x,y,z)
 	local inside = x <= 0 and y <= 0 and z <= 0
 	return buildStateEuler{
@@ -216,7 +216,7 @@ end
 --]]
 
 --[[ Kelvin-Hemholtz
---solverName = 'Roe'	--EulerBurgers is having trouble... hmm...
+--EulerBurgers is having trouble.  EulerRoe at high resolutions after a long time shows some waves and then blows up.
 function initState(x,y,z)
 	local dim = #size
 	local inside = y > -.25 and y < .25
@@ -235,7 +235,7 @@ function initState(x,y,z)
 end
 --]]
 
--- [[ gravity potential test - equilibrium - some Rayleigh-Taylor
+--[[ gravity potential test - equilibrium - some Rayleigh-Taylor
 useGravity = true
 boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
 local sources = {

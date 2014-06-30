@@ -131,8 +131,8 @@ __kernel void stateBoundaryFreeFlowX(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	for (int j = 0; j < NUM_STATES; ++j) {
-		stateBuffer[j + NUM_STATES * INDEX(0, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(2, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(2, i.x, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 1, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 3, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 3, i.x, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(0, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(1, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(2, i.x, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 1, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 2, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 3, i.x, i.y)];
 	}
 }
 
@@ -141,8 +141,8 @@ __kernel void stateBoundaryFreeFlowY(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	for (int j = 0; j < NUM_STATES; ++j) {
-		stateBuffer[j + NUM_STATES * INDEX(i.x, 0, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 2, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 2, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 1, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 3, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 3, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, 0, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 1, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 2, i.y)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 1, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 2, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 3, i.y)];
 	}
 }
 
@@ -151,8 +151,8 @@ __kernel void stateBoundaryFreeFlowZ(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	for (int j = 0; j < NUM_STATES; ++j) {
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 0)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 2)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 2)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 1)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 3)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 3)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 0)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 1)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 2)];
+		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 1)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 2)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 3)];
 	}
 }
 
