@@ -7,11 +7,11 @@ require 'util'	--holds helper functions
 options:
 EulerBurgers	- works for 1D, 2D, 3D
 EulerRoe - works for 1D, compiler crashes for 2D and 3D
-EulerHLL - works for 1D, 2D, compiler crashes 3D
+EulerHLL - works for 1D, 2D, 3D
 MHDRoe - left eigenvectors not finished
 ADMRoe - compiler crashes
 --]]
-solverName = 'EulerRoe'
+solverName = 'EulerHLL'
 
 --[[
 options:
@@ -58,10 +58,10 @@ gamma = 1.4
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
---[[ 3D
+-- [[ 3D
 size = {64, 64, 64}
 --]]
--- [[ 2D
+--[[ 2D
 size = {256, 256}
 --]]
 --[[ 1D
@@ -98,7 +98,7 @@ function initState(x)
 end
 --]]	
 
---[[ Sod test
+-- [[ Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x,y,z)
 	local inside = x <= 0 and y <= 0 and z <= 0
@@ -215,7 +215,7 @@ function initState(x,y,z)
 end
 --]]
 
--- [[ Kelvin-Hemholtz
+--[[ Kelvin-Hemholtz
 --solverName = 'Roe'	--EulerBurgers is having trouble... hmm...
 function initState(x,y,z)
 	local dim = #size
