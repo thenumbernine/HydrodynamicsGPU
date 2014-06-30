@@ -1,8 +1,11 @@
 OpenCL Riemann solver for computational fluid dynamics.
 Check out the Makefile for a list of its dependent projects.
 
-Burgers or Roe solver in 2D, Burgers solver in 3D
-Superbee slope limiter
-Periodic, Mirror, and free-flow boundary methods
+Burgers, Roe, HLL solver in 1D, 2D, 3D
+slope limiter working on Burgers and Roe solvers
+Periodic, Mirror, and Free-Flow boundary methods
 Self-gravity option
 
+Working on 1D ADM simulation
+Should be working on other explicit integration methods like RK3, RK4, and ICN3
+Might even get around to Jacobi method of Backward Euler implicit integration
