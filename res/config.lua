@@ -6,8 +6,8 @@ require 'util'	--holds helper functions
 --[[
 options:
 EulerBurgers	- works for 1D, 2D, 3D
-EulerRoe - works for 1D, compiler crashes for 2D and 3D
-EulerHLL - works for 1D, 2D, 3D
+EulerRoe - works for 1D, 2D, compiler crashes for 3D
+EulerHLL - works for 1D, 2D, 3D.  self-gravity pulling towards the positive...
 MHDRoe - left eigenvectors not finished
 ADMRoe - compiler crashes
 --]]
@@ -51,7 +51,7 @@ displayScale = 2
 boundaryMethods = {'periodic', 'periodic', 'periodic'}
 
 -- gravity is specific to the Euler fluid equation solver
-useGravity = true
+useGravity = false 
 
 magneticFieldNoise = 0
 gamma = 1.4
@@ -98,7 +98,7 @@ function initState(x,y,z)
 end
 --]]	
 
---[[ Sod test
+-- [[ Sod test
 boundaryMethods = {'mirror', 'mirror', 'mirror'}
 function initState(x,y,z)
 	local inside = x <= 0 and y <= 0 and z <= 0

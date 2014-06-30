@@ -46,6 +46,8 @@ std::vector<std::string> EulerHLL::getProgramSources() {
 }
 
 void EulerHLL::initStep() {
+	//TODO calculate what's needed for the CFL here
+	// for Roe solvers this is the wavespeeds (eigenvalues) 
 	commands.enqueueNDRangeKernel(calcFluxAndEigenvaluesKernel, offsetNd, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
 }
 
@@ -55,6 +57,8 @@ void EulerHLL::calcTimestep() {
 }
 
 void EulerHLL::step() {
+	//TODO if we ever advance past Euler explicit integrators,
+	// recalculate wavespeeds here
 	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
 
 	if (app.useGravity) {

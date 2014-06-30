@@ -5,6 +5,13 @@ void calcFluxAndEigenvaluesSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* gravityPotentialBuffer,
+	int side);
+
+void calcFluxAndEigenvaluesSide(
+	__global real* eigenvaluesBuffer,
+	__global real* fluxBuffer,
+	const __global real* stateBuffer,
+	const __global real* gravityPotentialBuffer,
 	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
