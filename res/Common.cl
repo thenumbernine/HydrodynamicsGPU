@@ -1,6 +1,16 @@
 #include "HydroGPU/Shared/Common.h"
 
+//velocity
+#if DIM == 1
+#define VELOCITY(ptr)	((real4)((ptr)[STATE_VELOCITY_X], 0.f, 0.f, 0.f) / (ptr)[STATE_DENSITY])
+#elif DIM == 2
+#define VELOCITY(ptr)	((real4)((ptr)[STATE_VELOCITY_X], (ptr)[STATE_VELOCITY_Y], 0.f, 0.f) / (ptr)[STATE_DENSITY])
+#elif DIM == 3
+#define VELOCITY(ptr)	((real4)((ptr)[STATE_VELOCITY_X], (ptr)[STATE_VELOCITY_Y], (ptr)[STATE_VELOCITY_Z], 0.f) / (ptr)[STATE_DENSITY])
+#endif
+
 constant int4 stepsize = (int4)(STEP_X, STEP_Y, STEP_Z, STEP_W);
+constant real4 dx = (real4)(DX, DY, DZ, 1.f);
 
 //http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 __kernel void calcCFLMinReduce(
@@ -169,6 +179,7 @@ __kernel void convertToTex(
 #if DIM > 2
 	velocitySq += square(stateBuffer[STATE_VELOCITY_Z + NUM_STATES * index]);
 #endif
+	velocitySq /= density * density;
 	real velocity = sqrt(velocitySq);
 	real specificEnergyTotal = energyTotal / density;
 	real specificEnergyKinetic = .5f * velocitySq;
@@ -253,7 +264,6 @@ __kernel void addGravity(
 	const __global real* dtBuffer)
 {
 	real dt = dtBuffer[0];
-	real4 dx = (real4)(DX, DY, DZ, 1.f);
 	real4 dt_dx = dt / dx;
 
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);

@@ -6,10 +6,10 @@ paritcularly the spectral decomposition
 #include "HydroGPU/Shared/Common.h"
 
 __kernel void calcEigenBasis(
-	__global real8* eigenvaluesBuffer,
-	__global real16* eigenvectorsBuffer,
-	__global real16* eigenvectorsInverseBuffer,
-	const __global real8* stateBuffer,
+	__global real* eigenvaluesBuffer,
+	__global real* eigenvectorsBuffer,
+	__global real* eigenvectorsInverseBuffer,
+	const __global real* stateBuffer,
 	const __global real* gravityPotentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -22,36 +22,36 @@ __kernel void calcEigenBasis(
 #endif
 	) return;
 	int index = INDEXV(i);
-
+	int indexR = index;
 	for (int side = 0; side < DIM; ++side) {	
-		int4 iPrev = i;
-		--iPrev[side];
-		int indexPrev = INDEXV(iPrev);
+		int indexL = index - stepsize[side];
 
 		int interfaceIndex = side + DIM * index;
 
-		real8 stateL = stateBuffer[indexPrev];
-		real8 stateR = stateBuffer[index];
+		const __global real* stateL = stateBuffer + NUM_STATES * indexL;
+		const __global real* stateR = stateBuffer + NUM_STATES * indexR;
+		
+		__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
+		__global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+		__global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
 
-		real densityL = stateL.s0;
+		real densityL = stateL[0];
 		real invDensityL = 1.f / densityL;
-		real4 velocityL = (real4)(stateL.s1, stateL.s2, stateL.s3, 0.f) * invDensityL;
-		real energyTotalL = stateL.s4 * invDensityL;
-
-		real densityR = stateR.s0;
-		real invDensityR = 1.f / densityR;
-		real4 velocityR = (real4)(stateR.s1, stateR.s2, stateR.s3, 0.f) * invDensityR;
-		real energyTotalR = stateR.s4 * invDensityR;
-
+		real4 velocityL = VELOCITY(stateL);
+		real energyTotalL = stateL[DIM+1] * invDensityL;
 		real energyKineticL = .5f * dot(velocityL, velocityL);
-		real energyPotentialL = gravityPotentialBuffer[indexPrev];
+		real energyPotentialL = gravityPotentialBuffer[indexL];
 		real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 		real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
 		real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
 		real weightL = sqrt(densityL);
 
+		real densityR = stateR[0];
+		real invDensityR = 1.f / densityR;
+		real4 velocityR = VELOCITY(stateR);
+		real energyTotalR = stateR[DIM+1] * invDensityR;
 		real energyKineticR = .5f * dot(velocityR, velocityR);
-		real energyPotentialR = gravityPotentialBuffer[index];
+		real energyPotentialR = gravityPotentialBuffer[indexR];
 		real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 		real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
 		real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
@@ -69,162 +69,138 @@ __kernel void calcEigenBasis(
 		real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
 		normal[side] = 1;
 	
-		real4 tangentA = (real4)(normal.y, normal.z, normal.x, 0.f);
-		real4 tangentB = (real4)(normal.z, normal.x, normal.y, 0.f);
 		real velocityN = dot(velocity, normal);
+#if DIM > 1
+		real4 tangentA = (real4)(normal.y, normal.z, normal.x, 0.f);
 		real velocityTA = dot(velocity, tangentA);
+#if DIM > 2
+		real4 tangentB = (real4)(normal.z, normal.x, normal.y, 0.f);
 		real velocityTB = dot(velocity, tangentB);
+#endif
+#endif
 	
 		//eigenvalues
 
-		real8 eigenvalues;
-		eigenvalues.s0 = velocityN - speedOfSound;
-		eigenvalues.s1 = velocityN;
-		eigenvalues.s2 = velocityN;
-		eigenvalues.s3 = velocityN;
-		eigenvalues.s4 = velocityN + speedOfSound;
-		eigenvalues.s5 = 0.f;
-		eigenvalues.s6 = 0.f;
-		eigenvalues.s7 = 0.f;
-		eigenvaluesBuffer[interfaceIndex] = eigenvalues;
+		eigenvalues[0] = velocityN - speedOfSound;
+		eigenvalues[1] = velocityN;
+#if DIM > 1
+		eigenvalues[2] = velocityN;
+#if DIM > 2
+		eigenvalues[3] = velocityN;
+#endif
+#endif
+		eigenvalues[DIM+1] = velocityN + speedOfSound;
 
 		//eigenvectors
 
-		//specify transposed
-		real16 eigenvectorsA;
-		real16 eigenvectorsB;
-		real16 eigenvectorsC;
-		real16 eigenvectorsD;
-		
-		//min col 
-		eigenvectorsA.s0 = 1.f;
-		eigenvectorsA.s8 = velocity.x - speedOfSound * normal.x;
-		eigenvectorsB.s0 = velocity.y - speedOfSound * normal.y;
-		eigenvectorsB.s8 = velocity.z - speedOfSound * normal.z;
-		eigenvectorsC.s0 = enthalpyTotal - speedOfSound * velocityN;
-		eigenvectorsC.s8 = 0.f;
-		eigenvectorsD.s0 = 0.f;
-		eigenvectorsD.s8 = 0.f;
-		//mid col (normal)
-		eigenvectorsA.s1 = 1.f;
-		eigenvectorsA.s9 = velocity.x;
-		eigenvectorsB.s1 = velocity.y;
-		eigenvectorsB.s9 = velocity.z;
-		eigenvectorsC.s1 = .5f * velocitySq;
-		eigenvectorsC.s9 = 0.f;
-		eigenvectorsD.s1 = 0.f;
-		eigenvectorsD.s9 = 0.f;
-		//mid col (tangent A)
-		eigenvectorsA.s2 = 0.f;
-		eigenvectorsA.sA = tangentA.x;
-		eigenvectorsB.s2 = tangentA.y;
-		eigenvectorsB.sA = tangentA.y;
-		eigenvectorsC.s2 = velocityTA;
-		eigenvectorsC.sA = 0.f;
-		eigenvectorsD.s2 = 0.f;
-		eigenvectorsD.sA = 0.f;
-		//mid col (tangent B)
-		eigenvectorsA.s3 = 0.f;
-		eigenvectorsA.sB = tangentB.x;
-		eigenvectorsB.s3 = tangentB.y;
-		eigenvectorsB.sB = tangentB.y;
-		eigenvectorsC.s3 = velocityTB;
-		eigenvectorsC.sB = 0.f;
-		eigenvectorsD.s3 = 0.f;
-		eigenvectorsD.sB = 0.f;	
-		//max col 
-		eigenvectorsA.s4 = 1.f;
-		eigenvectorsA.sC = velocity.x + speedOfSound * normal.x;
-		eigenvectorsB.s4 = velocity.y + speedOfSound * normal.y;
-		eigenvectorsB.sC = velocity.z + speedOfSound * normal.z;
-		eigenvectorsC.s4 = enthalpyTotal + speedOfSound * velocityN;
-		eigenvectorsC.sC = 0.f;
-		eigenvectorsD.s4 = 0.f;
-		eigenvectorsD.sC = 0.f;	
 
-		eigenvectorsBuffer[0 + 4 * interfaceIndex] = eigenvectorsA;
-		eigenvectorsBuffer[1 + 4 * interfaceIndex] = eigenvectorsB;
-		eigenvectorsBuffer[2 + 4 * interfaceIndex] = eigenvectorsC;
-		eigenvectorsBuffer[3 + 4 * interfaceIndex] = eigenvectorsD;
+		//min col 
+		eigenvectors[0 + NUM_STATES * 0] = 1.f;
+		eigenvectors[1 + NUM_STATES * 0] = velocity.x - speedOfSound * normal.x;
+#if DIM > 1
+		eigenvectors[2 + NUM_STATES * 0] = velocity.y - speedOfSound * normal.y;
+#if DIM > 2
+		eigenvectors[3 + NUM_STATES * 0] = velocity.z - speedOfSound * normal.z;
+#endif
+#endif
+		eigenvectors[(DIM+1) + NUM_STATES * 0] = enthalpyTotal - speedOfSound * velocityN;
+		//mid col (normal)
+		eigenvectors[0 + NUM_STATES * 1] = 1.f;
+		eigenvectors[1 + NUM_STATES * 1] = velocity.x;
+#if DIM > 1
+		eigenvectors[2 + NUM_STATES * 1] = velocity.y;
+#if DIM > 2
+		eigenvectors[3 + NUM_STATES * 1] = velocity.z;
+#endif
+#endif
+		eigenvectors[(DIM+1) + NUM_STATES * 1] = .5f * velocitySq;
+		//mid col (tangent A)
+#if DIM > 1
+		eigenvectors[0 + NUM_STATES * 2] = 0.f;
+		eigenvectors[1 + NUM_STATES * 2] = tangentA.x;
+		eigenvectors[2 + NUM_STATES * 2] = tangentA.y;
+#if DIM > 2
+		eigenvectors[3 + NUM_STATES * 2] = tangentA.z;
+#endif
+		eigenvectors[(DIM+1) + NUM_STATES * 2] = velocityTA;
+#endif
+		//mid col (tangent B)
+#if DIM > 2
+		eigenvectors[0 + NUM_STATES * 3] = 0.f;
+		eigenvectors[1 + NUM_STATES * 3] = tangentB.x;
+		eigenvectors[2 + NUM_STATES * 3] = tangentB.y;
+		eigenvectors[3 + NUM_STATES * 3] = tangentB.z;
+		eigenvectors[(DIM+1) + NUM_STATES * 3] = velocityTB;
+#endif
+		//max col 
+		eigenvectors[0 + NUM_STATES * (DIM+1)] = 1.f;
+		eigenvectors[1 + NUM_STATES * (DIM+1)] = velocity.x + speedOfSound * normal.x;
+#if DIM > 1
+		eigenvectors[2 + NUM_STATES * (DIM+1)] = velocity.y + speedOfSound * normal.y;
+#if DIM > 2
+		eigenvectors[3 + NUM_STATES * (DIM+1)] = velocity.z + speedOfSound * normal.z;
+#endif
+#endif
+		eigenvectors[(DIM+1) + NUM_STATES * (DIM+1)] = enthalpyTotal + speedOfSound * velocityN;
+		
 
 		//calculate eigenvector inverses ... 
 		real invDenom = .5f / (speedOfSound * speedOfSound);
-		eigenvectorsInverseBuffer[0 + 4 * interfaceIndex] = (real16)( 
+		
 		//min row
-			(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom,
-			-(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
-			-(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom,
-			-(normal.z * speedOfSound + (GAMMA - 1.f) * velocity.z) * invDenom,
-			(GAMMA - 1.f) * invDenom,
-			0.f,
-			0.f, 
-			0.f,
-		//mid normal row
-			1.f - (GAMMA - 1.f) * velocitySq * invDenom,
-			(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
-			(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
-			(GAMMA - 1.f) * velocity.z * 2.f * invDenom,
-			-(GAMMA - 1.f) * 2.f * invDenom,
-			0.f,
-			0.f,
-			0.f);
-		eigenvectorsInverseBuffer[1 + 4 * interfaceIndex] = (real16)(
-		//mid tangent A row
-			-velocityTA, 
-			tangentA.x,
-			tangentA.y,
-			tangentA.z,
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-		//mid tangent B row
-			-velocityTB,
-			tangentB.x,
-			tangentB.y,
-			tangentB.z,
-			0.f,
-			0.f,
-			0.f,
-			0.f);
-		eigenvectorsInverseBuffer[2 + 4 * interfaceIndex] = (real16)(
-		//max row
-			(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom,
-			(normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
-			(normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom,
-			(normal.z * speedOfSound - (GAMMA - 1.f) * velocity.z) * invDenom,
-			(GAMMA - 1.f) * invDenom,
-			0.f,
-			0.f,
-			0.f,
-			
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f);
-		eigenvectorsInverseBuffer[3 + 4 * interfaceIndex] = (real16)(
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f);
+		eigenvectorsInverse[0 + NUM_STATES * 0] = (.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom;
+		eigenvectorsInverse[0 + NUM_STATES * 1] = -(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom;
+#if DIM > 1
+		eigenvectorsInverse[0 + NUM_STATES * 2] = -(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom;
+#if DIM > 2
+		eigenvectorsInverse[0 + NUM_STATES * 3] = -(normal.z * speedOfSound + (GAMMA - 1.f) * velocity.z) * invDenom;
 #endif
+#endif
+		eigenvectorsInverse[0 + NUM_STATES * (DIM+1)] = (GAMMA - 1.f) * invDenom;
+		//mid normal row
+		eigenvectorsInverse[1 + NUM_STATES * 0] = 1.f - (GAMMA - 1.f) * velocitySq * invDenom;
+		eigenvectorsInverse[1 + NUM_STATES * 1] = (GAMMA - 1.f) * velocity.x * 2.f * invDenom;
+#if DIM > 1
+		eigenvectorsInverse[1 + NUM_STATES * 2] = (GAMMA - 1.f) * velocity.y * 2.f * invDenom;
+#if DIM > 2
+		eigenvectorsInverse[1 + NUM_STATES * 3] = (GAMMA - 1.f) * velocity.z * 2.f * invDenom;
+#endif
+#endif
+		eigenvectorsInverse[1 + NUM_STATES * (DIM+1)] = -(GAMMA - 1.f) * 2.f * invDenom;
+		//mid tangent A row
+#if DIM > 1
+		eigenvectorsInverse[2 + NUM_STATES * 0] = -velocityTA; 
+		eigenvectorsInverse[2 + NUM_STATES * 1] = tangentA.x;
+		eigenvectorsInverse[2 + NUM_STATES * 2] = tangentA.y;
+#if DIM > 2
+		eigenvectorsInverse[2 + NUM_STATES * 3] = tangentA.z;
+#endif
+		eigenvectorsInverse[2 + NUM_STATES * (DIM+1)] = 0.f;
+#endif
+		//mid tangent B row
+#if DIM > 2
+		eigenvectorsInverse[3 + NUM_STATES * 0] = -velocityTB;
+		eigenvectorsInverse[3 + NUM_STATES * 1] = tangentB.x;
+		eigenvectorsInverse[3 + NUM_STATES * 2] = tangentB.y;
+		eigenvectorsInverse[3 + NUM_STATES * 3] = tangentB.z;
+		eigenvectorsInverse[3 + NUM_STATES * (DIM+1)] = 0.f;
+#endif
+		//max row
+		eigenvectorsInverse[(DIM+1) + NUM_STATES * 0] = (.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom;
+		eigenvectorsInverse[(DIM+1) + NUM_STATES * 1] = (normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom;
+#if DIM > 1
+		eigenvectorsInverse[(DIM+1) + NUM_STATES * 2] = (normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom;
+#if DIM > 2
+		eigenvectorsInverse[(DIM+1) + NUM_STATES * 3] = (normal.z * speedOfSound - (GAMMA - 1.f) * velocity.z) * invDenom;
+#endif
+#endif
+		eigenvectorsInverse[(DIM+1) + NUM_STATES * (DIM+1)] = (GAMMA - 1.f) * invDenom;
+
+
+#endif
+
+
+
 
 
 #if 0	//calculate flux in x-axis and rotate into normal

@@ -6,7 +6,6 @@ __kernel void calcCFL(
 	const __global real* gravityPotentialBuffer,
 	real cfl)
 {
-	real4 dx = (real4)(DX, DY, DZ, 1.f);
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
@@ -89,7 +88,6 @@ __kernel void calcFlux(
 	const __global real* interfaceVelocityBuffer,
 	const __global real* dtBuffer)
 {
-	real4 dx = (real4)(DX, DY, DZ, 1.f);
 	real dt = dtBuffer[0];
 	real4 dt_dx = dt / dx;
 	
@@ -156,7 +154,6 @@ __kernel void integrateFlux(
 	const __global real* fluxBuffer,
 	const __global real* dtBuffer)
 {
-	real4 dx = (real4)(DX, DY, DZ, 1.f);
 	real dt = dtBuffer[0];
 	real4 dt_dx = dt / dx;
 	
@@ -243,7 +240,6 @@ __kernel void diffuseMomentum(
 	const __global real* pressureBuffer,
 	const __global real* dtBuffer)
 {
-	real4 dx = (real4)(DX, DY, DZ, 1.f);
 	real dt = dtBuffer[0];
 	real4 dt_dx = dt / dx;
 	
@@ -277,7 +273,6 @@ __kernel void diffuseWork(
 	const __global real* pressureBuffer,
 	const __global real* dtBuffer)
 {
-	real4 dx = (real4)(DX, DY, DZ, 1.f);
 	real dt = dtBuffer[0];
 	real4 dt_dx = dt / dx;
 	

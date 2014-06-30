@@ -10,7 +10,7 @@ EulerHLL - works for 1D, compiler crashes for 2D and 3D
 MHDRoe - left eigenvectors not finished
 ADMRoe - compiler crashes
 --]]
-solverName = 'EulerHLL'
+solverName = 'EulerRoe'
 
 --[[
 options:
