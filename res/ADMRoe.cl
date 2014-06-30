@@ -31,7 +31,8 @@ __kernel void calcEigenBasis(
 #error only supports 1D 
 #endif
 	
-	for (int side = 0; side < DIM; ++side) {	
+	//for (int side = 0; side < DIM; ++side) {
+{const int side = 0;
 		int indexPrev = index - stepsize[side];
 		int indexPrev2 = indexPrev - stepsize[side];
 		int indexNext = indexNext + stepsize[side];

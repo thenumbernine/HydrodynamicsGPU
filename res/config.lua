@@ -11,7 +11,7 @@ EulerHLL - works for 1D, 2D, 3D.  self-gravity pulling towards the positive...
 MHDRoe - left eigenvectors not finished
 ADMRoe - compiler crashes
 --]]
-solverName = 'EulerHLL'
+solverName = 'EulerRoe'
 
 --[[
 options:
@@ -48,7 +48,7 @@ fixedDT = .01
 cfl = .5
 displayMethod = 'density'
 displayScale = 2
-boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
+boundaryMethods = {'mirror', 'mirror', 'mirror'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false 
@@ -58,10 +58,10 @@ gamma = 1.4
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
---[[ 3D
+-- [[ 3D
 size = {64, 64, 64}
 --]]
--- [[ 2D
+--[[ 2D
 size = {256, 256}
 --]]
 --[[ 1D
@@ -289,11 +289,13 @@ end
 
 		-- 1D ADM equation initial state
 
+
 --[[
 xmin = {-30, -30, -30}
 xmax = {30, 30, 30}
 local xmid = (xmax[1] + xmin[1]) * .5
 adm_BonaMasso_f = 1
+boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
 function initState(x,y,z)
 	x = (x - xmid) / ((xmax[1] - xmid) / 3)
 	local h = math.exp(-x*x); 

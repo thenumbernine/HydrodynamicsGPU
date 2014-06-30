@@ -41,6 +41,37 @@ __kernel void calcCFL(
 	cflBuffer[index] = cfl * result;
 }
 
+void calcDeltaQTildeSide(
+	__global real* deltaQTildeBuffer,
+	const __global real* eigenvectorsInverseBuffer,
+	const __global real* stateBuffer,
+	int side);
+
+void calcDeltaQTildeSide(
+	__global real* deltaQTildeBuffer,
+	const __global real* eigenvectorsInverseBuffer,
+	const __global real* stateBuffer,
+	int side)
+{
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	int index = INDEXV(i);
+	int indexPrev = index - stepsize[side];
+	int interfaceIndex = side + DIM * index;
+			
+	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
+	const __global real* stateR = stateBuffer + NUM_STATES * index;
+	const __global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+	__global real* deltaQTilde = deltaQTildeBuffer + NUM_STATES * interfaceIndex;
+
+	for (int i = 0; i < NUM_STATES; ++i) {
+		real sum = 0.f;
+		for (int j = 0; j < NUM_STATES; ++j) {
+			sum += eigenvectorsInverse[i + NUM_STATES * j] * (stateR[j] - stateL[j]);
+		}
+		deltaQTilde[i] = sum;
+	}
+}
+
 __kernel void calcDeltaQTilde(
 	__global real* deltaQTildeBuffer,
 	const __global real* eigenvectorsInverseBuffer,
@@ -55,27 +86,13 @@ __kernel void calcDeltaQTilde(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	int index = INDEXV(i);
-	int indexR = index;
-	for (int side = 0; side < DIM; ++side) {
-		int indexL = index - stepsize[side];
-
-		int interfaceIndex = side + DIM * index;
-				
-		const __global real* stateL = stateBuffer + NUM_STATES * indexL;
-		const __global real* stateR = stateBuffer + NUM_STATES * indexR;
-
-		const __global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
-		__global real* deltaQTilde = deltaQTildeBuffer + NUM_STATES * interfaceIndex;
-
-		for (int i = 0; i < NUM_STATES; ++i) {
-			real sum = 0.f;
-			for (int j = 0; j < NUM_STATES; ++j) {
-				sum += eigenvectorsInverse[i + NUM_STATES * j] * (stateR[j] - stateL[j]);
-			}
-			deltaQTilde[i] = sum;
-		}
-	}
+	calcDeltaQTildeSide(deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer, 0);
+#if DIM > 1
+	calcDeltaQTildeSide(deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer, 1);
+#endif
+#if DIM > 2
+	calcDeltaQTildeSide(deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer, 2);
+#endif
 }
 
 void calcFluxSide(
