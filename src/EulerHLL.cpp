@@ -63,9 +63,7 @@ void EulerHLL::step() {
 		for (int i = 0; i < maxIter; ++i) {
 			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
-	}	
 	
-	if (app.useGravity) {
 		commands.enqueueNDRangeKernel(addGravityKernel, offsetNd, globalSize, localSize);
 		boundary();	
 	}

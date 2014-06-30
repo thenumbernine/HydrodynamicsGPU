@@ -159,6 +159,7 @@ __kernel void stateBoundaryFreeFlowZ(
 real square(real x);
 real square(real x) { return x * x; }
 
+//specific to Euler equations
 __kernel void convertToTex(
 	const __global real* stateBuffer,
 	const __global real* gravityPotentialBuffer,

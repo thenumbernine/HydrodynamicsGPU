@@ -1,32 +1,5 @@
 #include "HydroGPU/Shared/Common.h"
 
-//flux
-#if DIM == 1
-#define FLUX(density, velocity, velocityN, pressure, enthalpyTotal, normal)	\
-{	\
-	density * velocityN,	\
-	density * velocity.x * velocityN + pressure,	\
-	density * enthalpyTotal * velocityN	\
-}
-#elif DIM == 2
-#define FLUX(density, velocity, velocityN, pressure, enthalpyTotal, normal)	\
-{	\
-	density * velocityN,	\
-	density * velocity.x * velocityN + pressure * normal.x,	\
-	density * velocity.y * velocityN + pressure * normal.y,	\
-	density * enthalpyTotal * velocityN	\
-}
-#elif DIM == 3
-#define FLUX(density, velocity, velocityN, pressure, enthalpyTotal, normal)	\
-{	\
-	density * velocityN,	\
-	density * velocity.x * velocityN + pressure * normal.x,	\
-	density * velocity.y * velocityN + pressure * normal.y,	\
-	density * velocity.z * velocityN + pressure * normal.z,	\
-	density * enthalpyTotal * velocityN	\
-}
-#endif
-
 __kernel void calcFluxAndEigenvalues(
 	__global real* eigenvaluesBuffer,
 	__global real* fluxBuffer,
@@ -44,7 +17,7 @@ __kernel void calcFluxAndEigenvalues(
 	) return;
 	int index = INDEXV(i);
 	int indexR = index;
-	for (int side = 0; side < DIM; ++side) {	
+	for (int side = 0; side < DIM; ++side) {
 		int indexL = index - stepsize[side];
 		int interfaceIndex = side + DIM * index;
 
@@ -53,6 +26,9 @@ __kernel void calcFluxAndEigenvalues(
 
 		const __global real* stateL = stateBuffer + NUM_STATES * indexL;
 		const __global real* stateR = stateBuffer + NUM_STATES * indexR;
+	
+		__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
+		__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
 
 		real densityL = stateL[STATE_DENSITY];
 		real invDensityL = 1.f / densityL;
@@ -65,7 +41,7 @@ __kernel void calcFluxAndEigenvalues(
 		real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 		real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
 		real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
-		real weightL = sqrt(densityL);
+		real roeWeightL = sqrt(densityL);
 		real speedOfSoundL = sqrt((GAMMA - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
 		real eigenvaluesMinL = velocityNL - speedOfSoundL;
 
@@ -80,21 +56,19 @@ __kernel void calcFluxAndEigenvalues(
 		real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 		real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
 		real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
-		real weightR = sqrt(densityR);
+		real roeWeightR = sqrt(densityR);
 		real speedOfSoundR = sqrt((GAMMA - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
 		real eigenvaluesMaxR = velocityNR + speedOfSoundR;
 		
-		real roeWeightNormalization = 1.f / (weightL + weightR);
-		real4 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
-		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
+		real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
+		real4 velocity = (roeWeightL * velocityL + roeWeightR * velocityR) * roeWeightNormalization;
+		real enthalpyTotal = (roeWeightL * enthalpyTotalL + roeWeightR * enthalpyTotalR) * roeWeightNormalization;
 		
 		real velocitySq = dot(velocity, velocity);
 		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
 		real velocityN = dot(velocity, normal);
 	
 		//eigenvalues
-	
-		__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 
 		eigenvalues[0] = velocityN - speedOfSound;
 		eigenvalues[1] = velocityN;
@@ -108,27 +82,59 @@ __kernel void calcFluxAndEigenvalues(
 
 		//flux
 
-		real fluxL[NUM_STATES] = FLUX(densityL, velocityL, velocityNL, pressureL, enthalpyTotalL, normal);
-		//the following line crashes the compiler
-		real fluxR[NUM_STATES] = FLUX(densityR, velocityR, velocityNR, pressureR, enthalpyTotalR, normal);
-
 #if 0	//Davis direct
 		real sl = eigenvaluesMinL;
-		real sr = eigenvaluesR[NUM_STATES-1];
+		real sr = eigenvaluesMaxR;
 #endif
 #if 1	//Davis direct bounded
 		real sl = min(eigenvaluesMinL, eigenvalues[0]);
 		real sr = max(eigenvaluesMaxR, eigenvalues[NUM_STATES-1]);
 #endif
-	
-		for (int j = 0; j < NUM_STATES; ++j) {
-			if (sl >= 0.f) {
-				fluxBuffer[j + NUM_STATES * interfaceIndex] = fluxL[j];
-			} else if (sl <= 0.f && sr >= 0.f) {
-				fluxBuffer[j + NUM_STATES * interfaceIndex] = (sr * fluxL[j] - sl * fluxR[j] + sl * sr * (stateR[j] - stateL[j])) / (sr - sl);
-			} else if (sr <= 0.f) {
-				fluxBuffer[j + NUM_STATES * interfaceIndex] = fluxR[j];
-			}
+		
+		if (sl >= 0.f) {
+			//fluxL
+			flux[0] = densityL * velocityNL;
+			flux[1] = densityL * velocityL.x * velocityNL + normal.x * pressureL;
+#if DIM > 1
+			flux[2] = densityL * velocityL.y * velocityNL + normal.y * pressureL;
+#endif
+#if DIM > 2
+			flux[3] = densityL * velocityL.z * velocityNL + normal.z * pressureL;
+#endif
+			flux[DIM+1] = densityL * enthalpyTotalL * velocityNL;
+		} else if (sl <= 0.f && sr >= 0.f) {
+			//(sr * fluxL[j] - sl * fluxR[j] + sl * sr * (stateR[j] - stateL[j])) / (sr - sl)
+			real invDenom = 1.f / (sr - sl);
+			flux[0] = (sr * densityL * velocityNL
+					- sl * densityR * velocityNR
+					+ sl * sr * (densityR - densityL)) * invDenom;
+			flux[1] = (sr * (densityL * velocityL.x * velocityNL + normal.x * pressureL)
+					- sl * (densityR * velocityR.x * velocityNR + normal.x * pressureR)
+					+ sl * sr * (densityR * velocityR.x - densityL * velocityL.x)) * invDenom;
+#if DIM > 1
+			flux[2] = (sr * (densityL * velocityL.y * velocityNL + normal.y * pressureL)
+					- sl * (densityR * velocityR.y * velocityNR + normal.y * pressureR)
+					+ sl * sr * (densityR * velocityR.y - densityL * velocityL.y)) * invDenom;
+#endif
+#if DIM > 2
+			flux[3] = (sr * (densityL * velocityL.z * velocityNL + normal.z * pressureL)
+					- sl * (densityR * velocityR.z * velocityNR + normal.z * pressureR)
+					+ sl * sr * (densityR * velocityR.z - densityL * velocityL.z)) * invDenom;
+#endif
+			flux[DIM+1] = (sr * (densityL * enthalpyTotalL * velocityNL)
+						- sl * (densityR * enthalpyTotalR * velocityNR)
+						+ sl * sr * (densityR * energyTotalR - densityL * energyTotalL)) * invDenom;
+		} else if (sr <= 0.f) {
+			//fluxR
+			flux[0] = densityR * velocityNR;
+			flux[1] = densityR * velocityR.x * velocityNR + normal.x * pressureR;
+#if DIM > 1
+			flux[2] = densityR * velocityR.y * velocityNR + normal.y * pressureR;
+#endif
+#if DIM > 2
+			flux[3] = densityR * velocityR.z * velocityNR + normal.z * pressureR;
+#endif
+			flux[DIM+1] = densityR * enthalpyTotalR * velocityNR;	
 		}
 	}
 }
@@ -189,7 +195,7 @@ __kernel void integrateFlux(
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1
 #endif
-#if DIM > 1
+#if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
@@ -198,12 +204,12 @@ __kernel void integrateFlux(
 
 	for (int side = 0; side < DIM; ++side) {
 		int indexR = index + stepsize[side];
-		
+		const __global real* fluxL = fluxBuffer + NUM_STATES * (side + DIM * indexL);
+		const __global real* fluxR = fluxBuffer + NUM_STATES * (side + DIM * indexR);
+		__global real* state = stateBuffer + NUM_STATES * index;
 		for (int j = 0; j < NUM_STATES; ++j) {
-			real fluxL = fluxBuffer[j + NUM_STATES * (side + DIM * indexL)];
-			real fluxR = fluxBuffer[j + NUM_STATES * (side + DIM * indexR)];
-			real deltaFlux = fluxR - fluxL;
-			stateBuffer[j + NUM_STATES * index] -= deltaFlux * dt_dx[side];
+			real deltaFlux = fluxR[j] - fluxL[j];
+			state[j] -= deltaFlux * dt_dx[side];
 		}
 	}
 }

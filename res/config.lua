@@ -6,11 +6,11 @@
 options:
 EulerBurgers	- works for 1D, 2D, 3D
 EulerRoe - works for 1D, compiler crashes for 2D and 3D
-EulerHLL - works for 1D, compiler crashes for 2D and 3D
+EulerHLL - works for 1D, 2D, compiler crashes 3D
 MHDRoe - left eigenvectors not finished
 ADMRoe - compiler crashes
 --]]
-solverName = 'EulerRoe'
+solverName = 'EulerHLL'
 
 --[[
 options:
@@ -39,7 +39,6 @@ BarthJespersen
 slopeLimiterName = 'Superbee'
 
 useGPU = true
--- EulerBurgers is running 1024x1024 at 35fps, Roe is running 512x512 at 35fps
 --maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
@@ -60,18 +59,12 @@ gamma = 1.4
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
 --[[ 3D
--- roe 3d is crashing on build.
--- burgers 3d with flux limiter is crashing on build, but without flux limiter works fine
 size = {128, 128, 128}
 --]]
---[[ 2D
--- max burgers size with 4 channels: 4096x4096
--- max roe size with 4 channels: 1024x1024
--- max burgers size with 8 channels: 2048x2048
--- roe with 8 channels: 512x512 
-size = {512, 512}
+-- [[ 2D
+size = {256, 256}
 --]]
--- [[ 1D
+--[[ 1D
 size = {1024}
 displayScale = .25
 --]]
@@ -163,6 +156,88 @@ function initState(x,y,z)
 		density = inside and 1 or .1,
 		specificEnergyInternal = 1,
 	}
+end
+--]]
+
+-- 2D tests described in Alexander Kurganov, Eitan Tadmor, Solution of Two-Dimensional Riemann Problems for Gas Dynamics without Riemann Problem Solvers
+--  which says it is compared with  C. W. Schulz-Rinne, J. P. Collins, and H. M. Glaz, Numerical solution of the Riemann problem for two-dimensional gas dynamics
+-- and I can't find that paper right now
+--[=[
+cfl = .475
+boundaryMethods = {'mirror', 'mirror', 'mirror'}
+local function buildStateEulerQuadrant(x,y,z,args)
+	if y > 0 then
+		if x > 0 then
+			return buildStateEuler(args.q1)
+		else
+			return buildStateEuler(args.q2)
+		end
+	else
+		if x < 0 then
+			return buildStateEuler(args.q3)
+		else
+			return buildStateEuler(args.q4)
+		end
+	end
+end
+--[[ configuration 1
+function initState(x,y,z)
+	return buildStateEulerQuadrant(x,y,z,{
+		q1 = {density=1, pressure=1, velocityX=0, velocityY=0},
+		q2 = {density=.5197, pressure=.4, velocityX=-.7259, velocityY=0},
+		q3 = {density=.1072, pressure=.0439, velocityX=-.7259, velocityY=-1.4045},
+		q4 = {density=.2579, pressure=.15, velocityX=0, velocityY=-1.4045},
+	})
+end
+--]]
+-- [[ configuration 2
+function initState(x,y,z)
+	return buildStateEulerQuadrant(x,y,z,{
+		q1 = {density=1, pressure=1, velocityX=0, velocityY=0},
+		q2 = {density=.5197, pressure=.4, velocityX=-.7259, velocityY=0},
+		q3 = {density=1, pressure=1, velocityX=-.7259, velocityY=-.7259},
+		q4 = {density=.5197, pressure=.4, velocityX=0, velocityY=-.7259},
+	})
+end
+--]]
+--[[ configuration 3
+function initState(x,y,z)
+	return buildStateEulerQuadrant(x,y,z,{
+		q1 = {density=1.5, pressure=1.5, velocityX=0, velocityY=0},
+		q2 = {density=.5323, pressure=.3, velocityX=1.206, velocityY=0},
+		q3 = {density=.138, pressure=.029, velocityX=1.206, velocityY=1.206},
+		q4 = {density=.5323, pressure=.138, velocityX=0, velocityY=1.206},
+	})
+end
+--]]
+--]=]
+
+--[[ Sedov shock wave
+local xmid = {
+	(xmax[1] + xmin[1]) * .5,
+	(xmax[2] + xmin[2]) * .5,
+	(xmax[3] + xmin[3]) * .5,
+}
+local dx = {
+	(xmax[1] - xmin[1]) / size[1],
+	(xmax[2] - xmin[2]) / (size[2] or 1),
+	(xmax[3] - xmin[3]) / (size[3] or 1),
+}
+function initState(x,y,z)
+	local x = x - xmid[1]
+	local y = y - xmid[2]
+	local z = z - xmid[3]
+	local state = {buildStateEuler{
+		density = 1,
+		pressure = 1e-5,
+	}}
+	if math.abs(x) < dx[1]
+	and math.abs(y) < dx[2]
+	and math.abs(z) < dx[3]
+	then
+		state[5] = 1e+5
+	end
+	return unpack(state)
 end
 --]]
 

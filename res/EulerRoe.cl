@@ -60,9 +60,10 @@ __kernel void calcEigenBasis(
 		real roeWeightNormalization = 1.f / (weightL + weightR);
 		real4 velocity = (weightL * velocityL + weightR * velocityR) * roeWeightNormalization;
 		real enthalpyTotal = (weightL * enthalpyTotalL + weightR * enthalpyTotalR) * roeWeightNormalization;
+		real energyPotential = (weightL * energyPotentialL + weightR * energyPotentialR) * roeWeightNormalization; 
 		
 		real velocitySq = dot(velocity, velocity);
-		real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
+		real speedOfSound = sqrt((enthalpyTotal - .5f * velocitySq - energyPotential) * (GAMMA - 1.f));
 	
 #if 1	//calculate flux based on normal
 

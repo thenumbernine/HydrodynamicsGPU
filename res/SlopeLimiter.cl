@@ -52,7 +52,9 @@ real slopeLimiter(real r) {
 	return 2.f * r / (r * r + 1.f);
 #endif
 #ifdef SLOPE_LIMITER_VanLeer
-	return (r + fabs(r)) / (1.f + fabs(r));
+	//Why isn't this working like it is in the JavaScript code?
+	return max(0.f, r) * 2.f / (1.f + r);
+	//return (r + fabs(r)) / (1.f + fabs(r));
 #endif
 #ifdef SLOPE_LIMITER_MonotizedCentral
 	return max(0.f, min(2.f, min(.5f * (1.f + r), 2.f * r)));

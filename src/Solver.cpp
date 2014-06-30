@@ -8,22 +8,6 @@ cl::Buffer Solver::clAlloc(size_t size) {
 	return cl::Buffer(app.context, CL_MEM_READ_WRITE, size);
 }
 
-template<typename T> std::string toNumericString(T value);
-
-template<> std::string toNumericString<double>(double value) {
-	std::string s = std::to_string(value);
-	if (s.find("e") == std::string::npos) {
-		if (s.find(".") == std::string::npos) {
-			s += ".";
-		}
-	}
-	return s;
-}
-
-template<> std::string toNumericString<float>(float value) {
-	return toNumericString<double>(value) + "f";
-}
-
 Solver::Solver(
 	HydroGPUApp& app_)
 : app(app_)
@@ -141,7 +125,7 @@ void Solver::init() {
 }
 
 std::vector<std::string> Solver::getProgramSources() {
-	//Euler only
+	//TODO Euler only
 	std::ostringstream stateEnumSS;
 	stateEnumSS << "enum {\n";
 	stateEnumSS << "\tSTATE_DENSITY,\n";
@@ -178,7 +162,7 @@ std::vector<std::string> Solver::getProgramSources() {
 	return sourceStrs;
 }
 
-//gravity stuff is Euler-specific
+//Euler-specific
 void Solver::resetState() {
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
@@ -206,22 +190,22 @@ void Solver::resetState() {
 				.call(3,5);	//TODO multret and have each equation interpret the results
 			
 				real density;
-				real velocityX, velocityY, velocityZ;
+				real momentumX, momentumY, momentumZ;
 				real energyTotal;
 				
 				stack
 				.pop(energyTotal)
-				.pop(velocityZ)
-				.pop(velocityY)
-				.pop(velocityX)
+				.pop(momentumZ)
+				.pop(momentumY)
+				.pop(momentumX)
 				.pop(density);
 				state[0] = density;
-				state[1] = velocityX;
+				state[1] = momentumX;
 				if (app.dim > 1) {
-					state[2] = velocityY;
+					state[2] = momentumY;
 				}
 				if (app.dim > 2) {
-					state[3] = velocityZ;
+					state[3] = momentumZ;
 				}
 				state[app.dim+1] = energyTotal;
 			}
