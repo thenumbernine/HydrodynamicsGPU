@@ -34,7 +34,6 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	float displayScale;
 	Tensor::Vector<int,3> boundaryMethods;
 	bool useGravity;
-	double gamma;
 	LuaCxx::State lua;
 	real4 dx;
 	

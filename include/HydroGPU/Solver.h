@@ -1,15 +1,19 @@
 #pragma once
 
+#include "HydroGPU/Equation.h"
 #include "HydroGPU/Shared/Common.h"	//cl shared header
 #include "Tensor/Vector.h"
 #include <OpenCL/cl.hpp>
 #include <vector>
 #include <string>
+#include <memory>
 
 struct HydroGPUApp;
 struct Solver {
+	//public for Equation...
 	HydroGPUApp &app;
 	
+protected:
 	cl::Program program;
 	cl::CommandQueue commands;
 
@@ -32,9 +36,10 @@ struct Solver {
 	cl::NDRange offset1d;
 	cl::NDRange offsetNd;
 
-	int numStates;	//experimenting
-
 	size_t totalAlloc;
+	std::shared_ptr<Equation> equation;
+
+public:
 
 	Solver(HydroGPUApp& app);
 	virtual ~Solver() {}

@@ -24,36 +24,33 @@ void calcEigenBasisSide(
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 
 	int index = INDEXV(i);
-	int indexR = index;
-		
-	int indexL = index - stepsize[side];
-
+	int indexPrev = index - stepsize[side];
 	int interfaceIndex = side + DIM * index;
 
-	const __global real* stateL = stateBuffer + NUM_STATES * indexL;
-	const __global real* stateR = stateBuffer + NUM_STATES * indexR;
+	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
+	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 	__global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
 	__global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
 
-	real densityL = stateL[0];
+	real densityL = stateL[STATE_DENSITY];
 	real invDensityL = 1.f / densityL;
 	real4 velocityL = VELOCITY(stateL);
-	real energyTotalL = stateL[DIM+1] * invDensityL;
+	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
 	real energyKineticL = .5f * dot(velocityL, velocityL);
-	real energyPotentialL = gravityPotentialBuffer[indexL];
+	real energyPotentialL = gravityPotentialBuffer[indexPrev];
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
 	real roeWeightL = sqrt(densityL);
 
-	real densityR = stateR[0];
+	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
 	real4 velocityR = VELOCITY(stateR);
-	real energyTotalR = stateR[DIM+1] * invDensityR;
+	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
 	real energyKineticR = .5f * dot(velocityR, velocityR);
-	real energyPotentialR = gravityPotentialBuffer[indexR];
+	real energyPotentialR = gravityPotentialBuffer[index];
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 	real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;

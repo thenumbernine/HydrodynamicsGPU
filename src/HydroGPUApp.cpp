@@ -46,7 +46,6 @@ HydroGPUApp::HydroGPUApp()
 , displayScale(2.f)
 , boundaryMethods(BOUNDARY_PERIODIC, BOUNDARY_PERIODIC, BOUNDARY_PERIODIC)
 , useGravity(false)
-, gamma(1.4)
 , leftButtonDown(false)
 , rightButtonDown(false)
 , leftShiftDown(false)
@@ -102,7 +101,6 @@ void HydroGPUApp::init() {
 	lua.ref()["useFixedDT"] >> useFixedDT;
 	lua.ref()["fixedDT"] >> fixedDT;
 	lua.ref()["cfl"] >> cfl;
-	lua.ref()["gamma"] >> gamma;
 	{
 		std::string displayMethodName;
 		if ((lua.ref()["displayMethod"] >> displayMethodName).good()) {

@@ -1,14 +1,5 @@
 #include "HydroGPU/Shared/Common.h"
 
-//velocity
-#if DIM == 1
-#define VELOCITY(ptr)	((real4)((ptr)[STATE_VELOCITY_X], 0.f, 0.f, 0.f) / (ptr)[STATE_DENSITY])
-#elif DIM == 2
-#define VELOCITY(ptr)	((real4)((ptr)[STATE_VELOCITY_X], (ptr)[STATE_VELOCITY_Y], 0.f, 0.f) / (ptr)[STATE_DENSITY])
-#elif DIM == 3
-#define VELOCITY(ptr)	((real4)((ptr)[STATE_VELOCITY_X], (ptr)[STATE_VELOCITY_Y], (ptr)[STATE_VELOCITY_Z], 0.f) / (ptr)[STATE_DENSITY])
-#endif
-
 constant int4 stepsize = (int4)(STEP_X, STEP_Y, STEP_Z, STEP_W);
 constant real4 dx = (real4)(DX, DY, DZ, 1.f);
 
@@ -90,7 +81,10 @@ __kernel void stateBoundaryMirrorX(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	for (int j = 0; j < NUM_STATES; ++j) {
+		
+		//specific to Euler
 		real scale = j == 1 ? -1.f : 1.f;
+
 		stateBuffer[j + NUM_STATES * INDEX(0, i.x, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(3, i.x, i.y)];
 		stateBuffer[j + NUM_STATES * INDEX(1, i.x, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(2, i.x, i.y)];
 		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 1, i.x, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 4, i.x, i.y)];
@@ -103,7 +97,10 @@ __kernel void stateBoundaryMirrorY(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	for (int j = 0; j < NUM_STATES; ++j) {
+		
+		//specific to Euler
 		real scale = j == 2 ? -1.f : 1.f;
+		
 		stateBuffer[j + NUM_STATES * INDEX(i.x, 0, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, 3, i.y)];
 		stateBuffer[j + NUM_STATES * INDEX(i.x, 1, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, 2, i.y)];
 		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 1, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 4, i.y)];
@@ -116,7 +113,10 @@ __kernel void stateBoundaryMirrorZ(
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	for (int j = 0; j < NUM_STATES; ++j) {
+		
+		//specific to Euler
 		real scale = j == 3 ? -1.f : 1.f;
+		
 		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 0)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 3)];
 		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 1)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 2)];
 		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 1)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 4)];
@@ -156,70 +156,7 @@ __kernel void stateBoundaryFreeFlowZ(
 	}
 }
 
-real square(real x);
-real square(real x) { return x * x; }
-
-//specific to Euler equations
-__kernel void convertToTex(
-	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
-	__write_only image3d_t fluidTex,
-	__read_only image1d_t gradientTex,
-	int displayMethod,
-	float displayScale)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	int index = INDEXV(i);
-	
-	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
-	real energyTotal = stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index];
-	real velocitySq = square(stateBuffer[STATE_VELOCITY_X + NUM_STATES * index]);
-#if DIM > 1
-	velocitySq += square(stateBuffer[STATE_VELOCITY_Y + NUM_STATES * index]);
-#endif
-#if DIM > 2
-	velocitySq += square(stateBuffer[STATE_VELOCITY_Z + NUM_STATES * index]);
-#endif
-	velocitySq /= density * density;
-	real velocity = sqrt(velocitySq);
-	real specificEnergyTotal = energyTotal / density;
-	real specificEnergyKinetic = .5f * velocitySq;
-	real specificEnergyPotential = gravityPotentialBuffer[index];
-	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
-
-#if DIM == 1
-#if NUM_STATES == 8	//MHD
-	real4 magneticField = (real4)(stateBuffer[5 + NUM_STATES * index], stateBuffer[6 + NUM_STATES * index], stateBuffer[7 + NUM_STATES * index], 0.f);
-	real magneticFieldMagn = length(magneticField);
-#else
-	real magneticFieldMagn = 0.f;
-#endif
-	float4 color = (float4)(density, velocity, specificEnergyInternal, magneticFieldMagn) * displayScale;
-#else
-	real value;
-	switch (displayMethod) {
-	case DISPLAY_DENSITY:	//density
-		value = density;
-		break;
-	case DISPLAY_VELOCITY:	//velocity
-		value = velocity;
-		break;
-	case DISPLAY_PRESSURE:	//pressure
-		value = (GAMMA - 1.f) * specificEnergyInternal * density;
-		break;
-	case DISPLAY_GRAVITY_POTENTIAL:
-		value = gravityPotentialBuffer[index];
-		break;
-	default:
-		value = .5f;
-		break;
-	}
-	value *= displayScale;
-
-	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value).bgra;
-#endif
-	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
-}
+// the following self-gravitation kernels are specific to Euler but being bound in all solvers 
 
 __kernel void poissonRelax(
 	__global real* gravityPotentialBuffer,

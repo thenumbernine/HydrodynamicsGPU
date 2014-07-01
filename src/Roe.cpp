@@ -30,11 +30,11 @@ void Roe::init() {
 
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
-	eigenvaluesBuffer = clAlloc(sizeof(real) * numStates * volume * app.dim);
-	eigenvectorsBuffer = clAlloc(sizeof(real) * numStates * numStates * volume * app.dim);
-	eigenvectorsInverseBuffer = clAlloc(sizeof(real) * numStates * numStates * volume * app.dim);
-	deltaQTildeBuffer = clAlloc(sizeof(real) * numStates * volume * app.dim);
-	fluxBuffer = clAlloc(sizeof(real) * numStates * volume * app.dim);
+	eigenvaluesBuffer = clAlloc(sizeof(real) * equation->numStates * volume * app.dim);
+	eigenvectorsBuffer = clAlloc(sizeof(real) * equation->numStates * equation->numStates * volume * app.dim);
+	eigenvectorsInverseBuffer = clAlloc(sizeof(real) * equation->numStates * equation->numStates * volume * app.dim);
+	deltaQTildeBuffer = clAlloc(sizeof(real) * equation->numStates * volume * app.dim);
+	fluxBuffer = clAlloc(sizeof(real) * equation->numStates * volume * app.dim);
 	
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
 	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer);

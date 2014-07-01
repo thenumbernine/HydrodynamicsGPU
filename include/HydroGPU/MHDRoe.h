@@ -2,14 +2,14 @@
 
 #include "HydroGPU/Roe.h"
 
-struct HydroGPU;
+struct HydroGPUApp;
 
 /*
 Roe solver for MHD equations
 */
 struct MHDRoe : public Roe {
 	typedef Roe Super;
-	using Super::Super;
+	MHDRoe(HydroGPUApp& app);
 protected:
 	virtual std::vector<std::string> getProgramSources();
 };

@@ -1,4 +1,5 @@
 #include "HydroGPU/EulerBurgers.h"
+#include "HydroGPU/EulerEquation.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 
@@ -13,6 +14,7 @@ EulerBurgers::EulerBurgers(
 , diffuseMomentumEvent("diffuseMomentum")
 , diffuseWorkEvent("diffuseWork")
 {
+	equation = std::make_shared<EulerEquation>(*this);
 }
 
 void EulerBurgers::init() {
@@ -36,14 +38,14 @@ void EulerBurgers::init() {
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
 	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume * app.dim);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates * volume * app.dim);
+	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * equation->numStates * volume * app.dim);
 	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 
 	{
 		//zero interface and flux
-		std::vector<real> zero(volume * app.dim * numStates);
+		std::vector<real> zero(volume * app.dim * equation->numStates);
 		commands.enqueueWriteBuffer(interfaceVelocityBuffer, CL_TRUE, 0, sizeof(real) * volume * app.dim, &zero[0]);
-		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real) * numStates * volume * app.dim, &zero[0]);
+		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real) * equation->numStates * volume * app.dim, &zero[0]);
 	}
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
