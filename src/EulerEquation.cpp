@@ -7,28 +7,26 @@ EulerEquation::EulerEquation(Solver& solver) {
 	numStates = 2 + solver.app.dim;
 }
 
-std::string EulerEquation::getSource(Solver& solver) {
+void EulerEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
 	real gamma = 1.4f;
 	solver.app.lua.ref()["gamma"] >> gamma;
 	
-	std::string source = 
+	sources[0] +=
 		"enum {\n"
 		"\tSTATE_DENSITY,\n"
 		"\tSTATE_VELOCITY_X,\n";
 	if (solver.app.dim > 1) {
-		source += "\tSTATE_VELOCITY_Y,\n";
+		sources[0] += "\tSTATE_VELOCITY_Y,\n";
 	}
 	if (solver.app.dim > 2) {
-		source += "\tSTATE_VELOCITY_Z,\n";
+		sources[0] += "\tSTATE_VELOCITY_Z,\n";
 	}
-	source += 
+	sources[0] += 
 		"\tSTATE_ENERGY_TOTAL\n"
 		"};\n";
 	
-	source += "#define GAMMA " + toNumericString<real>(gamma) + "\n";
+	sources[0] += "#define GAMMA " + toNumericString<real>(gamma) + "\n";
 
-	source += Common::File::read("EulerMHDCommon.cl");
-
-	return source;
+	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
 }
 

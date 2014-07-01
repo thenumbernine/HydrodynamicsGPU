@@ -140,9 +140,9 @@ std::vector<std::string> Solver::getProgramSources() {
 		"#define SLOPE_LIMITER_" + app.slopeLimiterName + "\n" +
 		"#define NUM_STATES " + std::to_string(equation->numStates) + "\n"
 	};
-	sourceStrs[0] += equation->getSource(*this);
-	sourceStrs.push_back(Common::File::read("Common.cl"));
 	sourceStrs.push_back(Common::File::read("SlopeLimiter.cl"));
+	sourceStrs.push_back(Common::File::read("Common.cl"));
+	equation->getProgramSources(*this, sourceStrs);
 	return sourceStrs;
 }
 

@@ -73,3 +73,75 @@ __kernel void convertToTex(
 	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
 }
 
+__kernel void poissonRelax(
+	__global real* gravityPotentialBuffer,
+	const __global real* stateBuffer,
+	int4 repeat)
+{
+	int4 size = (int4)(SIZE_X, SIZE_Y, SIZE_Z, 0);
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	int index = INDEXV(i);
+
+	real sum = 0.f;
+	for (int side = 0; side < DIM; ++side) {
+		int4 iprev = i;
+		int4 inext = i;
+		if (repeat[side]) {
+			iprev[side] = (iprev[side] + size[side] - 1) % size[side];
+			inext[side] = (inext[side] + 1) % size[side];
+		} else {
+			iprev[side] = max(iprev[side] - 1, 0);
+			inext[side] = min(inext[side] + 1, size[side] - 1);
+		}
+		int indexPrev = INDEXV(iprev);
+		int indexNext = INDEXV(inext);
+		sum += gravityPotentialBuffer[indexPrev] + gravityPotentialBuffer[indexNext];
+	}
+	
+#define M_PI 3.141592653589793115997963468544185161590576171875f
+#define GRAVITY_CONSTANT 1.f		//6.67384e-11 m^3 / (kg s^2)
+	real scale = M_PI * GRAVITY_CONSTANT * DX;
+#if DIM > 1
+	scale *= DY; 
+#endif
+#if DIM > 2
+	scale *= DZ; 
+#endif
+	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
+	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * density;
+}
+
+__kernel void addGravity(
+	__global real* stateBuffer,
+	const __global real* gravityPotentialBuffer,
+	const __global real* dtBuffer)
+{
+	real dt = dtBuffer[0];
+	real4 dt_dx = dt / dx;
+
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 2
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 2
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
+#endif
+	) {
+		return;
+	}
+	int index = INDEXV(i);
+
+	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
+
+	for (int side = 0; side < DIM; ++side) {
+		int indexL = index - stepsize[side];
+		int indexR = index + stepsize[side];
+	
+		real gravityGrad = .5f * (gravityPotentialBuffer[indexR] - gravityPotentialBuffer[indexL]);
+		
+		stateBuffer[side+1 + NUM_STATES * index] -= dt_dx[side] * density * gravityGrad;
+		stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index] -= dt * density * gravityGrad * stateBuffer[side+1 + NUM_STATES * index];
+	}
+}
+

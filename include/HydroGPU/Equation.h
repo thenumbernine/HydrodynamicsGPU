@@ -1,11 +1,12 @@
 #pragma once
 
+#include <vector>
 #include <string>
 
 struct Solver;
 
 struct Equation {
 	int numStates;
-	virtual std::string getSource(Solver& solver) = 0;
+	virtual void getProgramSources(Solver& solver, std::vector<std::string>& sources) = 0;
 };
 

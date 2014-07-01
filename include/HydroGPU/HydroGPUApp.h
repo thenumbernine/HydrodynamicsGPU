@@ -30,7 +30,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	bool useFixedDT;
 	real fixedDT;
 	real cfl;
-	int displayMethod;
+	int displayMethod;	//TODO the enumeration of these values is dependent on the solver equation 
 	float displayScale;
 	Tensor::Vector<int,3> boundaryMethods;
 	bool useGravity;

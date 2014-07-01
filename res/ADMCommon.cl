@@ -24,35 +24,33 @@ __kernel void convertToTex(
 	const __global real* state = stateBuffer + NUM_STATES * index;
 	const __global real* stateR = stateBuffer + NUM_STATES * indexNext;
 
+	const int side = 0;
+
 	real ln_alpha = (stateR[STATE_DX_LN_ALPHA] - stateL[STATE_DX_LN_ALPHA]) / (2.f * dx[side]);
 	real alpha = exp(ln_alpha);
 	real ln_g = (stateR[STATE_DX_LN_G] - stateL[STATE_DX_LN_G]) / (2.f * dx[side]);
 	real g = exp(ln_g);
-	real KTilde = state[STATE_KTILDE];
+	real KTilde = state[STATE_K_TILDE];
 	real K = KTilde / sqrt(g);
-
+	
 	float4 color = (float4)(alpha, g, K, 0.f) * displayScale;
-	real value;
-	switch (displayMethod) {
-	case DISPLAY_DENSITY:	//density
-		value = density;
-		break;
-	case DISPLAY_VELOCITY:	//velocity
-		value = velocity;
-		break;
-	case DISPLAY_PRESSURE:	//pressure
-		value = (GAMMA - 1.f) * specificEnergyInternal * density;
-		break;
-	case DISPLAY_GRAVITY_POTENTIAL:
-		value = gravityPotentialBuffer[index];
-		break;
-	default:
-		value = .5f;
-		break;
-	}
-	value *= displayScale;
-
-	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value).bgra;
 	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
+}
+
+//no support for this in ADMEquation
+//TODO shouldn't even be linking it
+
+__kernel void poissonRelax(
+	__global real* gravityPotentialBuffer,
+	const __global real* stateBuffer,
+	int4 repeat)
+{
+}
+
+__kernel void addGravity(
+	__global real* stateBuffer,
+	const __global real* gravityPotentialBuffer,
+	const __global real* dtBuffer)
+{
 }
 

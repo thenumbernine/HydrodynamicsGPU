@@ -11,7 +11,7 @@ EulerHLL - works for 1D, 2D, 3D.  self-gravity pulling towards the positive...
 MHDRoe - left eigenvectors not finished
 ADMRoe - compiler crashes
 --]]
-solverName = 'EulerRoe'
+solverName = 'ADMRoe'
 
 --[[
 options:
@@ -65,11 +65,11 @@ size = {64, 64, 64}
 size = {512, 512}
 --]]
 -- [[ 1D
-size = {2048}
+size = {1024}
 displayScale = .25
 --]]
 
 
 -- see initState for a list of options
-configurations['Sod']()
+configurations['ADM-1D']()
 

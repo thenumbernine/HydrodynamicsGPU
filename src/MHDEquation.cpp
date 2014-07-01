@@ -7,8 +7,11 @@ MHDEquation::MHDEquation(Solver& solver) {
 	numStates = 8;
 }
 
-std::string MHDEquation::getSource(Solver& solver) {
-	std::string source = std::string() +
+void MHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+	real gamma = 1.4f;
+	solver.app.lua.ref()["gamma"] >> gamma;
+	
+	sources[0] += 
 	"enum {\n"
 	"\tSTATE_DENSITY,\n"
 	"\tSTATE_VELOCITY_X,\n"
@@ -20,8 +23,8 @@ std::string MHDEquation::getSource(Solver& solver) {
 	"\tSTATE_ENERGY_TOTAL,\n"
 	"};\n";
 	
-	source += Common::File::read("EulerMHDCommon.cl");
-
-	return source;
+	sources[0] += "#define GAMMA " + toNumericString<real>(gamma) + "\n";
+	
+	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
 }
 

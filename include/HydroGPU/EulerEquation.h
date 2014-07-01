@@ -6,6 +6,6 @@ struct Solver;
 
 struct EulerEquation : public Equation {
 	EulerEquation(Solver& solver);
-	virtual std::string getSource(Solver& solver);
+	virtual void getProgramSources(Solver& solver, std::vector<std::string>& sources);
 };
 
