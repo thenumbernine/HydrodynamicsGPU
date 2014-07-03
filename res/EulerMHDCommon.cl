@@ -140,8 +140,8 @@ __kernel void addGravity(
 	
 		real gravityGrad = .5f * (gravityPotentialBuffer[indexR] - gravityPotentialBuffer[indexL]);
 		
-		stateBuffer[side+1 + NUM_STATES * index] -= dt_dx[side] * density * gravityGrad;
-		stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index] -= dt * density * gravityGrad * stateBuffer[side+1 + NUM_STATES * index];
+		stateBuffer[side+STATE_VELOCITY_X + NUM_STATES * index] -= dt_dx[side] * density * gravityGrad;
+		stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index] -= dt * density * gravityGrad * stateBuffer[side+STATE_VELOCITY_X + NUM_STATES * index];
 	}
 }
 

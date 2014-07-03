@@ -11,7 +11,7 @@ EulerHLL - works for 1D, 2D, 3D.  self-gravity pulling towards the positive...
 MHDRoe - left eigenvectors not finished
 ADMRoe - compiler crashes
 --]]
-solverName = 'ADMRoe'
+solverName = 'EulerHLL'
 
 --[[
 options:
@@ -58,18 +58,18 @@ gamma = 1.4
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
---[[ 3D
+-- [[ 3D
 size = {64, 64, 64}
 --]]
 --[[ 2D
 size = {512, 512}
 --]]
--- [[ 1D
+--[[ 1D
 size = {1024}
 displayScale = .25
 --]]
 
 
 -- see initState for a list of options
-configurations['ADM-1D']()
+configurations['Sod']()
 
