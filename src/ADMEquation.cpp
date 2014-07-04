@@ -3,8 +3,25 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 
-ADMEquation::ADMEquation(Solver& solver) {
+ADMEquation::ADMEquation(Solver& solver) 
+: Super()
+{
 	numStates = 3;
+	
+	//TODO fixme
+	displayMethods = std::vector<std::string>{
+		"DENSITY",
+		"VELOCITY",
+		"PRESSURE",
+		"MAGNETIC_FIELD",
+		"GRAVITY_POTENTIAL"
+	};
+	
+	boundaryMethods = std::vector<std::string>{
+		"PERIODIC",
+		"MIRROR",
+		"FREEFLOW"
+	};
 }
 
 void ADMEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
@@ -18,6 +35,9 @@ void ADMEquation::getProgramSources(Solver& solver, std::vector<std::string>& so
 		"\tSTATE_DX_LN_G,\n" +
 		"\tSTATE_K_TILDE,\n" +
 		"};\n";
+	
+	sources[0] += buildEnumCode(displayMethods);
+	sources[0] += buildEnumCode(boundaryMethods);
 	
 	sources.push_back(Common::File::read("ADMCommon.cl"));
 }

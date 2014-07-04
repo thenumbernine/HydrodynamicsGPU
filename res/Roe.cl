@@ -34,7 +34,7 @@ __kernel void calcCFL(
 			minLambda = min(minLambda, eigenvaluesR[i]);
 		}
 
-		real dum = dx[side] / (maxLambda - minLambda);
+		real dum = dx[side] / (fabs(maxLambda - minLambda) + 1e-9f);
 		result = min(result, dum);
 	}
 		

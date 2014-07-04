@@ -157,10 +157,11 @@ void calcEigenBasisSide(
 	real AlfvenSpeedSq = AlfvenSpeed * AlfvenSpeed;
 	real starSpeedSq = .5f * magneticFieldSq / density + speedOfSound * speedOfSound;
 	real starSpeedToTheFourth = starSpeedSq * starSpeedSq;
-	real discriminant = sqrt(starSpeedToTheFourth - speedOfSoundSq * AlfvenSpeedSq);
-	real slowSpeedSq = starSpeedSq - discriminant;
+	real discrA = max(0.f, starSpeedToTheFourth - speedOfSoundSq * AlfvenSpeedSq);
+	real discrB = sqrt(discrA);
+	real slowSpeedSq = max(0.f, starSpeedSq - discrB);
 	real slowSpeed = sqrt(slowSpeedSq);
-	real fastSpeedSq = starSpeedSq + discriminant;
+	real fastSpeedSq = max(0.f, starSpeedSq + discrB);
 	real fastSpeed = sqrt(fastSpeedSq);
 
 	real4 tangentA = (real4)(normal.y, normal.z, normal.x, 0.f);

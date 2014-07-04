@@ -2,6 +2,7 @@
 #include "HydroGPU/EulerHLL.h"
 #include "HydroGPU/EulerBurgers.h"
 #include "HydroGPU/EulerRoe.h"
+#include "HydroGPU/SRHDRoe.h"
 #include "HydroGPU/MHDRoe.h"
 #include "HydroGPU/ADMRoe.h"
 #include "Profiler/Profiler.h"
@@ -14,20 +15,6 @@
 #include <iostream>
 
 //have to keep these updated with HydroGPU/Shared/Common.h
-
-std::vector<std::string> displayMethodNames = std::vector<std::string>{
-	"density",
-	"velocity",
-	"pressure",
-	"magnetic field",
-	"gravity potential",
-};
-
-std::vector<std::string> boundaryMethodNames = std::vector<std::string>{
-	"periodic",
-	"mirror",
-	"freeflow",
-};
 
 HydroGPUApp::HydroGPUApp()
 : Super()
@@ -42,9 +29,8 @@ HydroGPUApp::HydroGPUApp()
 , useFixedDT(false)
 , fixedDT(.001f)
 , cfl(.5f)
-, displayMethod(DISPLAY_DENSITY)
+, displayMethod(0)
 , displayScale(2.f)
-, boundaryMethods(BOUNDARY_PERIODIC, BOUNDARY_PERIODIC, BOUNDARY_PERIODIC)
 , useGravity(false)
 , leftButtonDown(false)
 , rightButtonDown(false)
@@ -86,14 +72,15 @@ void HydroGPUApp::init() {
 		if (!lua.ref()["size"].isNil()) lua.ref()["size"][i+1] >> size.s[i];
 		if (!lua.ref()["xmin"].isNil()) lua.ref()["xmin"][i+1] >> xmin.s[i];
 		if (!lua.ref()["xmax"].isNil()) lua.ref()["xmax"][i+1] >> xmax.s[i];
+	}
+	
+	std::vector<std::string> boundaryMethodNames(3);
+	for (int i = 0; i < 3; ++i) {
 		if (!lua.ref()["boundaryMethods"].isNil()) {
-			std::string boundaryMethodName;
-			if ((lua.ref()["boundaryMethods"][i+1] >> boundaryMethodName).good()) {
-				boundaryMethods(i) = std::find(boundaryMethodNames.begin(), boundaryMethodNames.end(), boundaryMethodName) - boundaryMethodNames.begin();
-				if (boundaryMethods(i) == NUM_BOUNDARY_METHODS) throw Common::Exception() << "couldn't interpret boundary method " << boundaryMethodName;
-			}
+			lua.ref()["boundaryMethods"][i+1] >> boundaryMethodNames[i];
 		}
 	}
+	
 	lua.ref()["maxFrames"] >> maxFrames;
 	lua.ref()["showTimestep"] >> showTimestep;
 	lua.ref()["solverName"] >> solverName;
@@ -101,15 +88,11 @@ void HydroGPUApp::init() {
 	lua.ref()["useFixedDT"] >> useFixedDT;
 	lua.ref()["fixedDT"] >> fixedDT;
 	lua.ref()["cfl"] >> cfl;
-	{
-		std::string displayMethodName;
-		if ((lua.ref()["displayMethod"] >> displayMethodName).good()) {
-			displayMethod = std::find(displayMethodNames.begin(), displayMethodNames.end(), displayMethodName) - displayMethodNames.begin();
-			if (displayMethod == NUM_DISPLAY_METHODS) throw Common::Exception() << "couldn't interpret display method " << displayMethodName;
-		}
-	}
 	lua.ref()["displayScale"] >> displayScale;
 	lua.ref()["useGravity"] >> useGravity;
+
+	std::string displayMethodName;
+	lua.ref()["displayMethod"] >> displayMethodName;
 
 	//store dimension as last non-1 size
 	for (dim = 3; dim > 0; --dim) {
@@ -172,21 +155,45 @@ void HydroGPUApp::init() {
 	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_1D, 0, gradientTex);
 
 	//construct the solver
+	std::cout << "solverName " << solverName << std::endl;
 	if (solverName == "EulerBurgers") {
 		solver = std::make_shared<EulerBurgers>(*this);
+	} else if (solverName == "EulerHLL") {
+		solver = std::make_shared<EulerHLL>(*this);
 	} else if (solverName == "EulerRoe") {
 		solver = std::make_shared<EulerRoe>(*this);
+	} else if (solverName == "SRHDRoe") {
+		solver = std::make_shared<SRHDRoe>(*this);	//broken
 	} else if (solverName == "MHDRoe") {
 		solver = std::make_shared<MHDRoe>(*this);	//broken
 	} else if (solverName == "ADMRoe") {
 		solver = std::make_shared<ADMRoe>(*this);
-	} else if (solverName == "EulerHLL") {
-		solver = std::make_shared<EulerHLL>(*this);
 	} else {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}
 	solver->init();	//..now that the vtable is in place
 	solver->resetState();
+
+	displayMethod = std::find(
+		solver->equation->displayMethods.begin(), 
+		solver->equation->displayMethods.end(),
+		displayMethodName) 
+		- solver->equation->displayMethods.begin();
+	if (displayMethod == solver->equation->displayMethods.size()) {
+		throw Common::Exception() << "couldn't interpret display method " << displayMethodName;
+	}
+
+	for (int i = 0; i < 3; ++i) {
+		if (boundaryMethodNames[i].empty()) continue;
+		boundaryMethods(i) = std::find(
+			solver->equation->boundaryMethods.begin(), 
+			solver->equation->boundaryMethods.end(), 
+			boundaryMethodNames[i]) 
+			- solver->equation->boundaryMethods.begin();
+		if (boundaryMethods(i) == solver->equation->boundaryMethods.size()) {
+			throw Common::Exception() << "couldn't interpret boundary method " << boundaryMethodNames[i];
+		}
+	}
 
 	int err = glGetError();
 	if (err) throw Common::Exception() << "GL error " << err;
@@ -305,21 +312,21 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 			std::cout << "displayScale " << displayScale << std::endl;
 		} else if (event.key.keysym.sym == SDLK_d) {
 			if (shiftDown) {
-				displayMethod = (displayMethod + NUM_DISPLAY_METHODS - 1) % NUM_DISPLAY_METHODS;
+				displayMethod = (displayMethod + solver->equation->displayMethods.size() - 1) % solver->equation->displayMethods.size();
 			} else {
-				displayMethod = (displayMethod + 1) % NUM_DISPLAY_METHODS;
+				displayMethod = (displayMethod + 1) % solver->equation->displayMethods.size();
 			}
-			std::cout << "display " << displayMethodNames[displayMethod] << std::endl;
+			std::cout << "display " << solver->equation->displayMethods[displayMethod] << std::endl;
 		} else if (event.key.keysym.sym == SDLK_b) {
 			if (shiftDown) {
-				boundaryMethods(0) = (boundaryMethods(0) + NUM_BOUNDARY_METHODS - 1) % NUM_BOUNDARY_METHODS;
+				boundaryMethods(0) = (boundaryMethods(0) + solver->equation->boundaryMethods.size() - 1) % solver->equation->boundaryMethods.size();
 			} else {
-				boundaryMethods(0) = (boundaryMethods(0) + 1) % NUM_BOUNDARY_METHODS;
+				boundaryMethods(0) = (boundaryMethods(0) + 1) % solver->equation->boundaryMethods.size();
 			}
 			for (int i = 1; i < 3; ++i) {
 				boundaryMethods(i) = boundaryMethods(0);
 			}
-			std::cout << "boundary " << boundaryMethodNames[boundaryMethods(0)] << std::endl;
+			std::cout << "boundary " << solver->equation->boundaryMethods[boundaryMethods(0)] << std::endl;
 		} else if (event.key.keysym.sym == SDLK_u) {
 			if (doUpdate) {
 				doUpdate = 0;

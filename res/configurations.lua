@@ -28,7 +28,7 @@ return {
 	end,
 
 	['Sod'] = function()
-		boundaryMethods = {'mirror', 'mirror', 'mirror'}
+		boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 		initState = function(x,y,z)
 			local inside = x <= 0 and y <= 0 and z <= 0
 			return buildStateEuler{
@@ -45,7 +45,7 @@ return {
 
 	['Configuration 1'] = function()
 		cfl = .475
-		boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1, pressure=1, velocityX=0, velocityY=0},
@@ -58,7 +58,7 @@ return {
 	
 	['Configuration 2'] = function()
 		cfl = .475
-		boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1, pressure=1, velocityX=0, velocityY=0},
@@ -73,7 +73,7 @@ return {
 	-- Roe gets noise along -x axis, shows antisymmetry between axii, then blows up near the noise
 	['Configuration 3'] = function()
 		cfl = .475
-		boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1.5, pressure=1.5, velocityX=0, velocityY=0},
@@ -86,7 +86,7 @@ return {
 
 	['Configuration 4'] = function()
 		cfl = .475
-		boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1.1, pressure=1.1, velocityX=0, velocityY=0},
@@ -99,7 +99,7 @@ return {
 
 	['Configuration 5'] = function()
 		cfl = .475
-		boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1, pressure=1, velocityX=-.75, velocityY=-.5},
@@ -112,7 +112,7 @@ return {
 
 	['Configuration 6'] = function()
 		cfl = .475
-		boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1, pressure=1, velocityX=.75, velocityY=-.5},
@@ -157,7 +157,7 @@ return {
 	-- http://www.astro.uni-bonn.de/~jmackey/jmac/node7.html
 	['Brio-Wu'] = function()
 		gamma = 2
-		boundaryMethods = {'mirror', 'mirror', 'mirror'}
+		boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 		initState = function(x,y,z)
 			local lhs = x < 0
 			return buildStateEuler{
@@ -171,7 +171,7 @@ return {
 
 	-- Colella-Woodward interacting blast wave problem
 	['Colella-Woodward'] = function()
-		boundaryMethods = {'mirror', 'mirror', 'mirror'}
+		boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 		initState = function(x,y,z)
 			local pressure
 			if x < -.4 then
@@ -214,7 +214,7 @@ return {
 -- gravity potential test - equilibrium - some Rayleigh-Taylor
 	['self-gravity test'] = function()
 		useGravity = true
-		boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 		local sources = {
 		-- [=[ single source
 			{0, 0, 0, radius = .2},
@@ -272,7 +272,7 @@ return {
 		xmax = {30, 30, 30}
 		local xmid = (xmax[1] + xmin[1]) * .5
 		adm_BonaMasso_f = 1
-		boundaryMethods = {'freeflow', 'freeflow', 'freeflow'}
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 		initState = function(x,y,z)
 			x = (x - xmid) / ((xmax[1] - xmid) / 3)
 			local h = math.exp(-x*x); 

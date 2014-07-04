@@ -4,9 +4,9 @@
 
 struct Solver;
 
-struct MHDEquation : public Equation {
+struct SRHDEquation : public Equation {
 	typedef Equation Super;
-	MHDEquation(Solver& solver);
+	SRHDEquation(Solver& solver);
 	virtual void getProgramSources(Solver& solver, std::vector<std::string>& sources);
 };
 

@@ -7,6 +7,7 @@
 struct Solver;
 
 struct ADMEquation : public Equation {
+	typedef Equation Super;
 	ADMEquation(Solver& solver);
 	virtual void getProgramSources(Solver& solver, std::vector<std::string>& sources);
 };

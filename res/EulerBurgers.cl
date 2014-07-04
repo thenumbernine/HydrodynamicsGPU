@@ -23,14 +23,14 @@ __kernel void calcCFL(
 	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
 	real energyTotal = stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index];
 #if DIM == 1
-	real velocity = stateBuffer[STATE_VELOCITY_X + NUM_STATES * index] / density;
+	real velocity = stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index] / density;
 #elif DIM == 2
-	real2 velocity = (real2)(stateBuffer[STATE_VELOCITY_X + NUM_STATES * index], stateBuffer[STATE_VELOCITY_Y + NUM_STATES * index]) / density;
+	real2 velocity = (real2)(stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index], stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index]) / density;
 #elif DIM == 3
 	real4 velocity = (real4)(
-		stateBuffer[STATE_VELOCITY_X + NUM_STATES * index],
-		stateBuffer[STATE_VELOCITY_Y + NUM_STATES * index],
-		stateBuffer[STATE_VELOCITY_Z + NUM_STATES * index],
+		stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index],
+		stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index],
+		stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * index],
 		0.f) / density;
 #endif
 	real specificEnergyTotal = energyTotal / density;
@@ -73,10 +73,10 @@ __kernel void calcInterfaceVelocity(
 		int indexL = index - stepsize[side];
 		
 		real densityL = stateBuffer[STATE_DENSITY + NUM_STATES * indexL];
-		real velocityL = stateBuffer[side+STATE_VELOCITY_X + NUM_STATES * indexL] / densityL;
+		real velocityL = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexL] / densityL;
 		
 		real densityR = stateBuffer[STATE_DENSITY + NUM_STATES * indexR];
-		real velocityR = stateBuffer[side+STATE_VELOCITY_X + NUM_STATES * indexR] / densityR;
+		real velocityR = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexR] / densityR;
 		
 		interfaceVelocityBuffer[side + DIM * index] = .5f * (velocityL + velocityR);
 	}
@@ -204,14 +204,14 @@ __kernel void computePressure(
 	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
 	real energyTotal = stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index];
 #if DIM == 1
-	real velocity = stateBuffer[STATE_VELOCITY_X + NUM_STATES * index] / density;
+	real velocity = stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index] / density;
 #elif DIM == 2
-	real2 velocity = (real2)(stateBuffer[STATE_VELOCITY_X + NUM_STATES * index], stateBuffer[STATE_VELOCITY_Y + NUM_STATES * index]) / density;
+	real2 velocity = (real2)(stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index], stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index]) / density;
 #elif DIM == 3
 	real4 velocity = (real4)(
-		stateBuffer[STATE_VELOCITY_X + NUM_STATES * index],
-		stateBuffer[STATE_VELOCITY_Y + NUM_STATES * index],
-		stateBuffer[STATE_VELOCITY_Z + NUM_STATES * index],
+		stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index],
+		stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index],
+		stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * index],
 		0.f) / density;
 #endif
 	real specificEnergyTotal = energyTotal / density;
@@ -225,8 +225,8 @@ __kernel void computePressure(
 		int indexL = index - stepsize[side];
 		int indexR = index + stepsize[side];	
 
-		real velocityL = stateBuffer[side+STATE_VELOCITY_X + NUM_STATES * indexL];
-		real velocityR = stateBuffer[side+STATE_VELOCITY_X + NUM_STATES * indexR];
+		real velocityL = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexL];
+		real velocityR = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexR];
 		const float ZETA = 2.f;
 		real deltaVelocity = ZETA * .5f * (velocityR - velocityL);
 		deltaVelocitySq += deltaVelocity * deltaVelocity; 
@@ -264,7 +264,7 @@ __kernel void diffuseMomentum(
 		real pressureR = pressureBuffer[indexR];
 
 		real deltaPressure = .5f * (pressureR - pressureL);
-		stateBuffer[side+STATE_VELOCITY_X + NUM_STATES * index] -= deltaPressure * dt_dx[side];
+		stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * index] -= deltaPressure * dt_dx[side];
 	}
 }
 
@@ -293,8 +293,8 @@ __kernel void diffuseWork(
 		int indexL = index - stepsize[side];
 		int indexR = index + stepsize[side];
 
-		real velocityL = stateBuffer[side+STATE_VELOCITY_X + NUM_STATES * indexL] / stateBuffer[STATE_DENSITY + NUM_STATES * indexL];
-		real velocityR = stateBuffer[side+STATE_VELOCITY_X + NUM_STATES * indexR] / stateBuffer[STATE_DENSITY + NUM_STATES * indexR];
+		real velocityL = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexL] / stateBuffer[STATE_DENSITY + NUM_STATES * indexL];
+		real velocityR = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexR] / stateBuffer[STATE_DENSITY + NUM_STATES * indexR];
 		
 		real pressureL = pressureBuffer[indexL];
 		real pressureR = pressureBuffer[indexR];

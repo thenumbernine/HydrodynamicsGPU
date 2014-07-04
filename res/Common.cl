@@ -38,7 +38,7 @@ __kernel void calcCFLMinReduce(
 
 //periodic
 
-__kernel void stateBoundaryPeriodicX(
+__kernel void stateBoundary_PERIODIC_X(
 	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
@@ -50,7 +50,7 @@ __kernel void stateBoundaryPeriodicX(
 	}
 }
 
-__kernel void stateBoundaryPeriodicY(
+__kernel void stateBoundary_PERIODIC_Y(
 	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
@@ -62,7 +62,7 @@ __kernel void stateBoundaryPeriodicY(
 	}
 }
 
-__kernel void stateBoundaryPeriodicZ(
+__kernel void stateBoundary_PERIODIC_Z(
 	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
@@ -76,7 +76,7 @@ __kernel void stateBoundaryPeriodicZ(
 
 //mirror
 
-__kernel void stateBoundaryMirrorX(
+__kernel void stateBoundary_MIRROR_X(
 	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
@@ -92,7 +92,7 @@ __kernel void stateBoundaryMirrorX(
 	}
 }
 
-__kernel void stateBoundaryMirrorY(
+__kernel void stateBoundary_MIRROR_Y(
 	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
@@ -108,7 +108,7 @@ __kernel void stateBoundaryMirrorY(
 	}
 }
 
-__kernel void stateBoundaryMirrorZ(
+__kernel void stateBoundary_MIRROR_Z(
 	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
@@ -126,7 +126,7 @@ __kernel void stateBoundaryMirrorZ(
 
 //freeflow
 
-__kernel void stateBoundaryFreeFlowX(
+__kernel void stateBoundary_FREEFLOW_X(
 	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
@@ -136,7 +136,7 @@ __kernel void stateBoundaryFreeFlowX(
 	}
 }
 
-__kernel void stateBoundaryFreeFlowY(
+__kernel void stateBoundary_FREEFLOW_Y(
 	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
@@ -146,7 +146,7 @@ __kernel void stateBoundaryFreeFlowY(
 	}
 }
 
-__kernel void stateBoundaryFreeFlowZ(
+__kernel void stateBoundary_FREEFLOW_Z(
 	__global real* stateBuffer)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));

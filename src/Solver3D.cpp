@@ -67,13 +67,14 @@ void Solver3D::init() {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			Tensor::Vector<int,3> glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
+			//specific to Euler
 			for (int i = 0; i < app.dim; ++i) {
 				switch (app.boundaryMethods(i)) {
-				case BOUNDARY_PERIODIC:
+				case 0://BOUNDARY_PERIODIC:
 					glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_REPEAT);
 					break;
-				case BOUNDARY_MIRROR:
-				case BOUNDARY_FREEFLOW:
+				case 1://BOUNDARY_MIRROR:
+				case 2://BOUNDARY_FREEFLOW:
 					glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_CLAMP_TO_EDGE);
 					break;
 				}
@@ -106,13 +107,14 @@ void Solver3D::init() {
 			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			Tensor::Vector<int,3> glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
+			//specific to Euler
 			for (int i = 0; i < app.dim; ++i) {
 				switch (app.boundaryMethods(i)) {
-				case BOUNDARY_PERIODIC:
+				case 0://BOUNDARY_PERIODIC:
 					glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_REPEAT);
 					break;
-				case BOUNDARY_MIRROR:
-				case BOUNDARY_FREEFLOW:
+				case 1://BOUNDARY_MIRROR:
+				case 2://BOUNDARY_FREEFLOW:
 					glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_CLAMP_TO_EDGE);
 					break;
 				}

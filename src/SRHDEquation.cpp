@@ -1,13 +1,13 @@
-#include "HydroGPU/EulerEquation.h"
+#include "HydroGPU/SRHDEquation.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Solver.h"
 #include "Common/File.h"
 
-EulerEquation::EulerEquation(Solver& solver) 
+SRHDEquation::SRHDEquation(Solver& solver) 
 : Super()
 {
 	numStates = 2 + solver.app.dim;
-
+	
 	displayMethods = std::vector<std::string>{
 		"DENSITY",
 		"VELOCITY",
@@ -23,29 +23,30 @@ EulerEquation::EulerEquation(Solver& solver)
 	};
 }
 
-void EulerEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+void SRHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
 	real gamma = 1.4f;
 	solver.app.lua.ref()["gamma"] >> gamma;
 	
 	sources[0] +=
 		"enum {\n"
-		"\tSTATE_DENSITY,\n"
-		"\tSTATE_MOMENTUM_X,\n";
+		"\tSTATE_REST_MASS_DENSITY,\n"
+		"\tSTATE_MOMENTUM_DENSITY_X,\n";
 	if (solver.app.dim > 1) {
-		sources[0] += "\tSTATE_MOMENTUM_Y,\n";
+		sources[0] += "\tSTATE_MOMENTUM_DENSITY_Y,\n";
 	}
 	if (solver.app.dim > 2) {
-		sources[0] += "\tSTATE_MOMENTUM_Z,\n";
+		sources[0] += "\tSTATE_MOMENTUM_DENSITY_Z,\n";
 	}
 	sources[0] += 
-		"\tSTATE_ENERGY_TOTAL\n"
+		"\tSTATE_ENERGY_DENSITY\n"
 		"};\n";
 
 	sources[0] += buildEnumCode(displayMethods);
 	sources[0] += buildEnumCode(boundaryMethods);
-	
+
 	sources[0] += "#define GAMMA " + toNumericString<real>(gamma) + "\n";
 
-	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
+	sources.push_back(Common::File::read("SRHDCommon.cl"));
 }
+
 

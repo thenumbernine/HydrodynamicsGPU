@@ -20,22 +20,6 @@ typedef cl_float8 real8;
 typedef cl_float16 real16;
 #endif
 
-enum {
-	DISPLAY_DENSITY,
-	DISPLAY_VELOCITY,
-	DISPLAY_PRESSURE,
-	DISPLAY_MAGNETIC_FIELD,
-	DISPLAY_GRAVITY_POTENTIAL,
-	NUM_DISPLAY_METHODS
-};
-
-enum {
-	BOUNDARY_PERIODIC,
-	BOUNDARY_MIRROR,
-	BOUNDARY_FREEFLOW,
-	NUM_BOUNDARY_METHODS
-};
-
 #ifdef __OPENCL_VERSION__
 #pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
 #endif

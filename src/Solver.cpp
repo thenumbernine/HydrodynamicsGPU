@@ -19,11 +19,6 @@ Solver::Solver(
 void Solver::init() {
 	cl::Device device = app.device;
 	
-	stateBoundaryKernels.resize(NUM_BOUNDARY_METHODS);
-	for (std::vector<cl::Kernel>& v : stateBoundaryKernels) {
-		v.resize(app.dim);
-	}
-	
 	// NDRanges
 
 #if 0
@@ -118,9 +113,7 @@ void Solver::init() {
 		commands.enqueueWriteBuffer(cflBuffer, CL_TRUE, 0, sizeof(real) * volume, &cflVec[0]);
 	}
 	
-	if (app.useFixedDT) {
-		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app.fixedDT);
-	}
+	commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app.fixedDT);
 }
 
 std::vector<std::string> Solver::getProgramSources() {
@@ -240,34 +233,16 @@ void Solver::resetState() {
 void Solver::initKernels() {
 	
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
-	
-	for (int boundaryIndex = 0; boundaryIndex < NUM_BOUNDARY_METHODS; ++boundaryIndex) {
+
+	stateBoundaryKernels.resize(equation->boundaryMethods.size());
+	for (std::vector<cl::Kernel>& v : stateBoundaryKernels) {
+		v.resize(app.dim);
+	}
+
+	std::vector<std::string> dimNames = {"X", "Y", "Z"};
+	for (int boundaryIndex = 0; boundaryIndex < equation->boundaryMethods.size(); ++boundaryIndex) {
 		for (int side = 0; side < app.dim; ++side) {
-			std::string name = "stateBoundary";
-			switch (boundaryIndex) {
-			case BOUNDARY_PERIODIC:
-				name += "Periodic";
-				break;
-			case BOUNDARY_MIRROR:
-				name += "Mirror";
-				break;
-			case BOUNDARY_FREEFLOW:
-				name += "FreeFlow";
-				break;
-			default:
-				throw Common::Exception() << "no kernel for boundary method " << boundaryIndex;
-			}
-			switch (side) {
-			case 0:
-				name += "X";
-				break;
-			case 1:
-				name += "Y";
-				break;
-			case 2:
-				name += "Z";
-				break;
-			}
+			std::string name = "stateBoundary_" + equation->boundaryMethods[boundaryIndex] + "_" + dimNames[side];
 			stateBoundaryKernels[boundaryIndex][side] = cl::Kernel(program, name.c_str());
 			app.setArgs(stateBoundaryKernels[boundaryIndex][side], stateBuffer);
 		}
@@ -334,15 +309,16 @@ void Solver::update() {
 
 }
 
+//TODO specific to Euler
 void Solver::setPoissonRelaxRepeatArg() {
 	cl_int4 repeat;
 	for (int i = 0; i < app.dim; ++i) {
 		switch (app.boundaryMethods(0)) {	//TODO per dimension
-		case BOUNDARY_PERIODIC:
+		case 0://BOUNDARY_PERIODIC:
 			repeat.s[i] = 1;
 			break;
-		case BOUNDARY_MIRROR:
-		case BOUNDARY_FREEFLOW:
+		case 1://BOUNDARY_MIRROR:
+		case 2://BOUNDARY_FREEFLOW:
 			repeat.s[i] = 0;
 			break;
 		default:

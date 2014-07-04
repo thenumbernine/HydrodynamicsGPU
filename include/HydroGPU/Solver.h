@@ -37,9 +37,8 @@ protected:
 	cl::NDRange offsetNd;
 
 	size_t totalAlloc;
-	std::shared_ptr<Equation> equation;
-
 public:
+	std::shared_ptr<Equation> equation;
 
 	Solver(HydroGPUApp& app);
 	virtual ~Solver() {}
