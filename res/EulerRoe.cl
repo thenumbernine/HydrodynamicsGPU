@@ -64,7 +64,9 @@ void calcEigenBasisSide(
 	real velocitySq = dot(velocity, velocity);
 	real speedOfSound = sqrt((enthalpyTotal - .5f * velocitySq - energyPotential) * (GAMMA - 1.f));
 
-#if 1	//calculate flux based on normal
+//calculate flux based on normal
+//contains subtle numerical errors along the x axis
+#if 0	
 
 	real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
 	normal[side] = 1;
@@ -200,145 +202,174 @@ void calcEigenBasisSide(
 
 
 
+//calculate flux in x-axis and rotate into normal
+//works a bit more accurately than above
+#if 1
 
-#if 0	//calculate flux in x-axis and rotate into normal
-
+#if DIM > 1
 	if (side == 1) {
 		velocity = (real4)(velocity.y, -velocity.x, velocity.z, 0.f);	// -90' rotation to put the y axis contents into the x axis
-	} else if (side == 2) {
+	} 
+#if DIM > 2
+	else if (side == 2) {
 		velocity = (real4)(velocity.z, velocity.y, -velocity.x, 0.f);	//-90' rotation to put the z axis in the x axis
 	}
+#endif
+#endif
 
 	//eigenvalues
 
-	eigenvaluesBuffer[interfaceIndex] = (real8)(
-		velocity.x - speedOfSound,
-		velocity.x,
-		velocity.x,
-		velocity.x,
-		velocity.x + speedOfSound,
-		0.f,
-		0.f,
-		0.f);
+	eigenvalues[0] = velocity.x - speedOfSound;
+	eigenvalues[1] = velocity.x;
+#if DIM > 1
+	eigenvalues[2] = velocity.x;
+#if DIM > 2
+	eigenvalues[3] = velocity.x;
+#endif
+#endif
+	eigenvalues[DIM+1] = velocity.x + speedOfSound;
 
 	//eigenvectors
 
-	//specify transposed
-	real16 eigenvectorsA = (real16)(
 	//min col 
-		1.f,
-		velocity.x - speedOfSound,
-		velocity.y,
-		velocity.z,
-		enthalpyTotal - speedOfSound * velocity.x,
-		0.f,
-		0.f,
-		0.f
+	eigenvectors[0 + NUM_STATES * 0] = 1.f;
+	eigenvectors[1 + NUM_STATES * 0] = velocity.x - speedOfSound;
+#if DIM > 1
+	eigenvectors[2 + NUM_STATES * 0] = velocity.y;
+#if DIM > 2
+	eigenvectors[3 + NUM_STATES * 0] = velocity.z;
+#endif
+#endif
+	eigenvectors[(DIM+1) + NUM_STATES * 0] = enthalpyTotal - speedOfSound * velocity.x;
 	//mid col (normal)
-		1.f,
-		velocity.x,
-		velocity.y,
-		velocity.z,
-		.5f * velocitySq,
-		0.f,
-		0.f,
-		0.f);
-	real16 eigenvectorsB = (real16)(
+	eigenvectors[0 + NUM_STATES * 1] = 1.f;
+	eigenvectors[1 + NUM_STATES * 1] = velocity.x;
+#if DIM > 1
+	eigenvectors[2 + NUM_STATES * 1] = velocity.y;
+#if DIM > 2
+	eigenvectors[3 + NUM_STATES * 1] = velocity.z;
+#endif
+#endif
+	eigenvectors[(DIM+1) + NUM_STATES * 1] = .5f * velocitySq;
 	//mid col (tangent A)
-		0.f,
-		0.f,
-		1.f,
-		0.f,
-		velocity.y,
-		0.f,
-		0.f,
-		0.f,
+#if DIM > 1
+	eigenvectors[0 + NUM_STATES * 2] = 0.f;
+	eigenvectors[1 + NUM_STATES * 2] = 0.f;
+	eigenvectors[2 + NUM_STATES * 2] = 1.f;
+#if DIM > 2
+	eigenvectors[3 + NUM_STATES * 2] = 0.f;
+#endif
+	eigenvectors[(DIM+1) + NUM_STATES * 2] = velocity.y;
+#endif
 	//mid col (tangent B)
-		0.f,
-		0.f,
-		0.f,
-		1.f,
-		velocity.z,
-		0.f,
-		0.f,
-		0.f);
-	real16 eigenvectorsC = (real16)(
+#if DIM > 2
+	eigenvectors[0 + NUM_STATES * 3] = 0.f;
+	eigenvectors[1 + NUM_STATES * 3] = 0.f;
+	eigenvectors[2 + NUM_STATES * 3] = 0.f;
+	eigenvectors[3 + NUM_STATES * 3] = 1.f;
+	eigenvectors[(DIM+1) + NUM_STATES * 3] = velocity.z;
+#endif
 	//max col 
-		1.f,
-		velocity.x + speedOfSound,
-		velocity.y,
-		velocity.z,
-		enthalpyTotal + speedOfSound * velocity.x,
-		0.f,
-		0.f,
-		0.f,
-	//padding
-		0.f,
-		0.f,
-		0.f,
-		0.f,
-		0.f,
-		0.f,
-		0.f,
-		0.f);
-	real16 eigenvectorsD = 0.f;
+	eigenvectors[0 + NUM_STATES * (DIM+1)] = 1.f;
+	eigenvectors[1 + NUM_STATES * (DIM+1)] = velocity.x + speedOfSound;
+#if DIM > 1
+	eigenvectors[2 + NUM_STATES * (DIM+1)] = velocity.y;
+#if DIM > 2
+	eigenvectors[3 + NUM_STATES * (DIM+1)] = velocity.z;
+#endif
+#endif
+	eigenvectors[(DIM+1) + NUM_STATES * (DIM+1)] = enthalpyTotal + speedOfSound * velocity.x;
 
-	//transpose and store
-	eigenvectorsBuffer[0 + 4 * interfaceIndex] = (real16)(
-		eigenvectorsA.s08, eigenvectorsB.s08, eigenvectorsC.s08, eigenvectorsD.s08,
-		eigenvectorsA.s19, eigenvectorsB.s19, eigenvectorsC.s19, eigenvectorsD.s19);
-	eigenvectorsBuffer[1 + 4 * interfaceIndex] = (real16)(
-		eigenvectorsA.s2A, eigenvectorsB.s2A, eigenvectorsC.s2A, eigenvectorsD.s2A,
-		eigenvectorsA.s3B, eigenvectorsB.s3B, eigenvectorsC.s3B, eigenvectorsD.s3B);
-	eigenvectorsBuffer[2 + 4 * interfaceIndex] = (real16)(
-		eigenvectorsA.s4C, eigenvectorsB.s4C, eigenvectorsC.s4C, eigenvectorsD.s4C,
-		eigenvectorsA.s5D, eigenvectorsB.s5D, eigenvectorsC.s5D, eigenvectorsD.s5D);
-	eigenvectorsBuffer[3 + 4 * interfaceIndex] = (real16)(
-		eigenvectorsA.s6E, eigenvectorsB.s6E, eigenvectorsC.s6E, eigenvectorsD.s6E,
-		eigenvectorsA.s7F, eigenvectorsB.s7F, eigenvectorsC.s7F, eigenvectorsD.s7F);
-
-#error TODO
+	
 	//calculate eigenvector inverses ... 
 	real invDenom = .5f / (speedOfSound * speedOfSound);
-	real16 eigenvectorsInverse = (real16)( 
-	//min row
-		(.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocity.x) * invDenom,
-		-(speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom,
-		-((GAMMA - 1.f) * velocity.y) * invDenom,
-		(GAMMA - 1.f) * invDenom,
-	//mid normal row
-		1.f - (GAMMA - 1.f) * velocitySq * invDenom,
-		(GAMMA - 1.f) * velocity.x * 2.f * invDenom,
-		(GAMMA - 1.f) * velocity.y * 2.f * invDenom,
-		-(GAMMA - 1.f) * 2.f * invDenom,
-	//mid tangent row
-		-velocity.y, 
-		0.f,
-		1.f,
-		0.f,
-	//max row
-		(.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocity.x) * invDenom,
-		(speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom,
-		-(GAMMA - 1.f) * velocity.y * invDenom,
-		(GAMMA - 1.f) * invDenom);
-
-	if (side == 1) {
-		//-90' rotation applied to the LHS of incoming velocity vectors, to move their y axis into the x axis
-		// is equivalent of a -90' rotation applied to the RHS of the flux jacobian A
-		// and A = Q V Q-1 for Q = the right eigenvectors and Q-1 the left eigenvectors
-		// so a -90' rotation applied to the RHS of A is a +90' rotation applied to the RHS of Q-1 the left eigenvectors
-		//and while a rotation applied to the LHS of a vector rotates the elements of its column vectors, a rotation applied to the RHS rotates the elements of its row vectors 
-		//each row's y <- x, x <- -y
-		eigenvectorsInverse.s159D26AE = (real8)(-eigenvectorsInverse.s26AE, eigenvectorsInverse.s159D);
-
-		//a -90' rotation applied to the RHS of A must be corrected with a 90' rotation on the LHS of A
-		//this rotates the elements of the column vectors by 90'
-		//each column's x <- y, y <- -x
-		eigenvectors.s456789AB = (real8)(-eigenvectors.s89AB, eigenvectors.s4567);
-	}
 	
-	eigenvectorsBuffer[4 * interfaceIndex] = eigenvectors;
-	eigenvectorsInverseBuffer[4 * interfaceIndex] = eigenvectorsInverse;
+	//min row
+	eigenvectorsInverse[0 + NUM_STATES * 0] = (.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocity.x) * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * 1] = -(speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom;
+#if DIM > 1
+	eigenvectorsInverse[0 + NUM_STATES * 2] = -(GAMMA - 1.f) * velocity.y * invDenom;
+#if DIM > 2
+	eigenvectorsInverse[0 + NUM_STATES * 3] = -(GAMMA - 1.f) * velocity.z * invDenom;
+#endif
+#endif
+	eigenvectorsInverse[0 + NUM_STATES * (DIM+1)] = (GAMMA - 1.f) * invDenom;
+	//mid normal row
+	eigenvectorsInverse[1 + NUM_STATES * 0] = 1.f - (GAMMA - 1.f) * velocitySq * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * 1] = (GAMMA - 1.f) * velocity.x * 2.f * invDenom;
+#if DIM > 1
+	eigenvectorsInverse[1 + NUM_STATES * 2] = (GAMMA - 1.f) * velocity.y * 2.f * invDenom;
+#if DIM > 2
+	eigenvectorsInverse[1 + NUM_STATES * 3] = (GAMMA - 1.f) * velocity.z * 2.f * invDenom;
+#endif
+#endif
+	eigenvectorsInverse[1 + NUM_STATES * (DIM+1)] = -(GAMMA - 1.f) * 2.f * invDenom;
+	//mid tangent A row
+#if DIM > 1
+	eigenvectorsInverse[2 + NUM_STATES * 0] = -velocity.y; 
+	eigenvectorsInverse[2 + NUM_STATES * 1] = 0.f;
+	eigenvectorsInverse[2 + NUM_STATES * 2] = 1.f;
+#if DIM > 2
+	eigenvectorsInverse[2 + NUM_STATES * 3] = 0.f;
+#endif
+	eigenvectorsInverse[2 + NUM_STATES * (DIM+1)] = 0.f;
+#endif
+	//mid tangent B row
+#if DIM > 2
+	eigenvectorsInverse[3 + NUM_STATES * 0] = -velocity.z;
+	eigenvectorsInverse[3 + NUM_STATES * 1] = 0.f;
+	eigenvectorsInverse[3 + NUM_STATES * 2] = 0.f;
+	eigenvectorsInverse[3 + NUM_STATES * 3] = 1.f;
+	eigenvectorsInverse[3 + NUM_STATES * (DIM+1)] = 0.f;
+#endif
+	//max row
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 0] = (.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocity.x) * invDenom;
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 1] = (speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom;
+#if DIM > 1
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 2] = -(GAMMA - 1.f) * velocity.y * invDenom;
+#if DIM > 2
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 3] = -(GAMMA - 1.f) * velocity.z * invDenom;
+#endif
+#endif
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * (DIM+1)] = (GAMMA - 1.f) * invDenom;
+
+#if DIM > 1
+	if (side == 1) {
+		for (int i = 0; i < NUM_STATES; ++i) {
+			real tmp;
+
+			//-90' rotation applied to the LHS of incoming velocity vectors, to move their y axis into the x axis
+			// is equivalent of a -90' rotation applied to the RHS of the flux jacobian A
+			// and A = Q V Q-1 for Q = the right eigenvectors and Q-1 the left eigenvectors
+			// so a -90' rotation applied to the RHS of A is a +90' rotation applied to the RHS of Q-1 the left eigenvectors
+			//and while a rotation applied to the LHS of a vector rotates the elements of its column vectors, a rotation applied to the RHS rotates the elements of its row vectors 
+			//each row's y <- x, x <- -y
+			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y] = tmp;
+			//a -90' rotation applied to the RHS of A must be corrected with a 90' rotation on the LHS of A
+			//this rotates the elements of the column vectors by 90'
+			//each column's x <- y, y <- -x
+			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = -eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i] = tmp;
+		}
+	}
+#if DIM > 2
+	else if (side == 2) {
+		for (int i = 0; i < NUM_STATES; ++i) {
+			real tmp;
+			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z] = tmp;
+			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = -eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i] = tmp;
+		}
+	}
+#endif
+#endif
+	
 #endif
 
 }

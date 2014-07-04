@@ -193,6 +193,7 @@ return {
 	--EulerHLL works fine
 	--EulerRoe at high resolutions after a long time shows some waves and then blows up
 	['Kelvin-Hemholtz'] = function()
+		boundaryMethods = {'PERIODIC', 'PERIODIC', 'PERIODIC'}
 		initState = function(x,y,z)
 			local dim = #size
 			local inside = y > -.25 and y < .25

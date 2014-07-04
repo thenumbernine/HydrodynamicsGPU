@@ -59,7 +59,7 @@ gamma = 1.4
 size = {64, 64, 64}
 --]]
 -- [[ 2D
-size = {512, 512}
+size = {256, 256}
 --]]
 --[[ 1D
 size = {1024}
@@ -68,5 +68,5 @@ displayScale = .25
 
 
 -- see initState for a list of options
-configurations['Configuration 3']()
+configurations['self-gravity test']()
 
