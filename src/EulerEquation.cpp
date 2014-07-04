@@ -12,7 +12,6 @@ EulerEquation::EulerEquation(Solver& solver)
 		"DENSITY",
 		"VELOCITY",
 		"PRESSURE",
-		"MAGNETIC_FIELD",
 		"GRAVITY_POTENTIAL"
 	};
 

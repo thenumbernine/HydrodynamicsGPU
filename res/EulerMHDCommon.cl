@@ -62,6 +62,11 @@ __kernel void convertToTex(
 	case DISPLAY_GRAVITY_POTENTIAL:
 		value = gravityPotentialBuffer[index];
 		break;
+#if NUM_STATES == 8	//MHD
+	case DISPLAY_MAGNETIC_FIELD:
+		value = magneticFieldMagn;
+		break;
+#endif
 	default:
 		value = .5f;
 		break;
@@ -78,7 +83,6 @@ __kernel void poissonRelax(
 	const __global real* stateBuffer,
 	int4 repeat)
 {
-	int4 size = (int4)(SIZE_X, SIZE_Y, SIZE_Z, 0);
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 

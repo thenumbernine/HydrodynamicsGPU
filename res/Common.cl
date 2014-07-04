@@ -1,5 +1,6 @@
 #include "HydroGPU/Shared/Common.h"
 
+constant int4 size = (int4)(SIZE_X, SIZE_Y, SIZE_Z, 0);
 constant int4 stepsize = (int4)(STEP_X, STEP_Y, STEP_Z, STEP_W);
 constant real4 dx = (real4)(DX, DY, DZ, 1.f);
 

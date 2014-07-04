@@ -78,7 +78,6 @@ __kernel void poissonRelax(
 	const __global real* stateBuffer,
 	int4 repeat)
 {
-	int4 size = (int4)(SIZE_X, SIZE_Y, SIZE_Z, 0);
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 
