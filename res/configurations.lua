@@ -28,7 +28,7 @@ return {
 	end,
 
 	['Sod'] = function()
-		boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
+		--boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 		initState = function(x,y,z)
 			local inside = x <= 0 and y <= 0 and z <= 0
 			return buildStateEuler{

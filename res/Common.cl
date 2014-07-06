@@ -38,123 +38,152 @@ __kernel void calcCFLMinReduce(
 }
 
 //periodic
+//ghost cells copy the opposite side
 
-__kernel void stateBoundary_PERIODIC_X(
-	__global real* stateBuffer)
+__kernel void stateBoundaryPeriodicX(
+	__global real* buffer,
+	int spacing,
+	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	for (int j = 0; j < NUM_STATES; ++j) {
-		stateBuffer[j + NUM_STATES * INDEX(0, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 4, i.x, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(1, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 3, i.x, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 2, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(2, i.x, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 1, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(3, i.x, i.y)];
-	}
+	buffer[offset + spacing * INDEX(0, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 4, i.x, i.y)];
+	buffer[offset + spacing * INDEX(1, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 3, i.x, i.y)];
+	buffer[offset + spacing * INDEX(SIZE_X - 2, i.x, i.y)] = buffer[offset + spacing * INDEX(2, i.x, i.y)];
+	buffer[offset + spacing * INDEX(SIZE_X - 1, i.x, i.y)] = buffer[offset + spacing * INDEX(3, i.x, i.y)];
 }
 
-__kernel void stateBoundary_PERIODIC_Y(
-	__global real* stateBuffer)
+__kernel void stateBoundaryPeriodicY(
+	__global real* buffer,
+	int spacing,
+	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	for (int j = 0; j < NUM_STATES; ++j) {
-		stateBuffer[j + NUM_STATES * INDEX(i.x, 0, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 4, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, 1, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 3, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 2, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 2, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 1, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 3, i.y)];
-	}
+	buffer[offset + spacing * INDEX(i.x, 0, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 4, i.y)];
+	buffer[offset + spacing * INDEX(i.x, 1, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 3, i.y)];
+	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 2, i.y)] = buffer[offset + spacing * INDEX(i.x, 2, i.y)];
+	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 1, i.y)] = buffer[offset + spacing * INDEX(i.x, 3, i.y)];
 }
 
-__kernel void stateBoundary_PERIODIC_Z(
-	__global real* stateBuffer)
+__kernel void stateBoundaryPeriodicZ(
+	__global real* buffer,
+	int spacing,
+	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	for (int j = 0; j < NUM_STATES; ++j) {
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 0)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 4)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 1)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 3)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 2)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 2)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 1)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 3)];
-	}
+	buffer[offset + spacing * INDEX(i.x, i.y, 0)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 4)];
+	buffer[offset + spacing * INDEX(i.x, i.y, 1)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 3)];
+	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 2)] = buffer[offset + spacing * INDEX(i.x, i.y, 2)];
+	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 1)] = buffer[offset + spacing * INDEX(i.x, i.y, 3)];
 }
 
 //mirror
+//ghost cells mirror the next adjacent cells
 
-__kernel void stateBoundary_MIRROR_X(
-	__global real* stateBuffer)
+__kernel void stateBoundaryMirrorX(
+	__global real* buffer,
+	int spacing,
+	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	for (int j = 0; j < NUM_STATES; ++j) {
-		
-		//specific to Euler
-		real scale = j == 1 ? -1.f : 1.f;
-
-		stateBuffer[j + NUM_STATES * INDEX(0, i.x, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(3, i.x, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(1, i.x, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(2, i.x, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 1, i.x, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 4, i.x, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 2, i.x, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 3, i.x, i.y)];
-	}
+	buffer[offset + spacing * INDEX(0, i.x, i.y)] = buffer[offset + spacing * INDEX(3, i.x, i.y)];
+	buffer[offset + spacing * INDEX(1, i.x, i.y)] = buffer[offset + spacing * INDEX(2, i.x, i.y)];
+	buffer[offset + spacing * INDEX(SIZE_X - 1, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 4, i.x, i.y)];
+	buffer[offset + spacing * INDEX(SIZE_X - 2, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 3, i.x, i.y)];
 }
 
-__kernel void stateBoundary_MIRROR_Y(
-	__global real* stateBuffer)
+__kernel void stateBoundaryMirrorY(
+	__global real* buffer,
+	int spacing,
+	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	for (int j = 0; j < NUM_STATES; ++j) {
-		
-		//specific to Euler
-		real scale = j == 2 ? -1.f : 1.f;
-		
-		stateBuffer[j + NUM_STATES * INDEX(i.x, 0, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, 3, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, 1, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, 2, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 1, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 4, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 2, i.y)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 3, i.y)];
-	}
+	buffer[offset + spacing * INDEX(i.x, 0, i.y)] = buffer[offset + spacing * INDEX(i.x, 3, i.y)];
+	buffer[offset + spacing * INDEX(i.x, 1, i.y)] = buffer[offset + spacing * INDEX(i.x, 2, i.y)];
+	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 1, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 4, i.y)];
+	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 2, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 3, i.y)];
 }
 
-__kernel void stateBoundary_MIRROR_Z(
-	__global real* stateBuffer)
+__kernel void stateBoundaryMirrorZ(
+	__global real* buffer,
+	int spacing,
+	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	for (int j = 0; j < NUM_STATES; ++j) {
-		
-		//specific to Euler
-		real scale = j == 3 ? -1.f : 1.f;
-		
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 0)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 3)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 1)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 2)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 1)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 4)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 2)] = scale * stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 3)];
-	}
+	buffer[offset + spacing * INDEX(i.x, i.y, 0)] = buffer[offset + spacing * INDEX(i.x, i.y, 3)];
+	buffer[offset + spacing * INDEX(i.x, i.y, 1)] = buffer[offset + spacing * INDEX(i.x, i.y, 2)];
+	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 1)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 4)];
+	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 2)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 3)];
+}
+
+//reflect
+//ghost cells are negatives of the mirror of the next adjacent cells
+
+__kernel void stateBoundaryReflectX(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	buffer[offset + spacing * INDEX(0, i.x, i.y)] = -buffer[offset + spacing * INDEX(3, i.x, i.y)];
+	buffer[offset + spacing * INDEX(1, i.x, i.y)] = -buffer[offset + spacing * INDEX(2, i.x, i.y)];
+	buffer[offset + spacing * INDEX(SIZE_X - 1, i.x, i.y)] = -buffer[offset + spacing * INDEX(SIZE_X - 4, i.x, i.y)];
+	buffer[offset + spacing * INDEX(SIZE_X - 2, i.x, i.y)] = -buffer[offset + spacing * INDEX(SIZE_X - 3, i.x, i.y)];
+}
+
+__kernel void stateBoundaryReflectY(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	buffer[offset + spacing * INDEX(i.x, 0, i.y)] = -buffer[offset + spacing * INDEX(i.x, 3, i.y)];
+	buffer[offset + spacing * INDEX(i.x, 1, i.y)] = -buffer[offset + spacing * INDEX(i.x, 2, i.y)];
+	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 1, i.y)] = -buffer[offset + spacing * INDEX(i.x, SIZE_Y - 4, i.y)];
+	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 2, i.y)] = -buffer[offset + spacing * INDEX(i.x, SIZE_Y - 3, i.y)];
+}
+
+__kernel void stateBoundaryReflectZ(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
+	buffer[offset + spacing * INDEX(i.x, i.y, 0)] = -buffer[offset + spacing * INDEX(i.x, i.y, 3)];
+	buffer[offset + spacing * INDEX(i.x, i.y, 1)] = -buffer[offset + spacing * INDEX(i.x, i.y, 2)];
+	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 1)] = -buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 4)];
+	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 2)] = -buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 3)];
 }
 
 //freeflow
+//ghost cells copy the next adjacent cell
 
-__kernel void stateBoundary_FREEFLOW_X(
-	__global real* stateBuffer)
+__kernel void stateBoundaryFreeFlowX(
+	__global real* buffer,
+	int spacing,
+	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	for (int j = 0; j < NUM_STATES; ++j) {
-		stateBuffer[j + NUM_STATES * INDEX(0, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(1, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(2, i.x, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 1, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 2, i.x, i.y)] = stateBuffer[j + NUM_STATES * INDEX(SIZE_X - 3, i.x, i.y)];
-	}
+	buffer[offset + spacing * INDEX(0, i.x, i.y)] = buffer[offset + spacing * INDEX(1, i.x, i.y)] = buffer[offset + spacing * INDEX(2, i.x, i.y)];
+	buffer[offset + spacing * INDEX(SIZE_X - 1, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 2, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 3, i.x, i.y)];
 }
 
-__kernel void stateBoundary_FREEFLOW_Y(
-	__global real* stateBuffer)
+__kernel void stateBoundaryFreeFlowY(
+	__global real* buffer,
+	int spacing,
+	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	for (int j = 0; j < NUM_STATES; ++j) {
-		stateBuffer[j + NUM_STATES * INDEX(i.x, 0, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 1, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, 2, i.y)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 1, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 2, i.y)] = stateBuffer[j + NUM_STATES * INDEX(i.x, SIZE_Y - 3, i.y)];
-	}
+	buffer[offset + spacing * INDEX(i.x, 0, i.y)] = buffer[offset + spacing * INDEX(i.x, 1, i.y)] = buffer[offset + spacing * INDEX(i.x, 2, i.y)];
+	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 1, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 2, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 3, i.y)];
 }
 
-__kernel void stateBoundary_FREEFLOW_Z(
-	__global real* stateBuffer)
+__kernel void stateBoundaryFreeFlowZ(
+	__global real* buffer,
+	int spacing,
+	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
-	for (int j = 0; j < NUM_STATES; ++j) {
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 0)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 1)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, 2)];
-		stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 1)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 2)] = stateBuffer[j + NUM_STATES * INDEX(i.x, i.y, SIZE_Z - 3)];
-	}
+	buffer[offset + spacing * INDEX(i.x, i.y, 0)] = buffer[offset + spacing * INDEX(i.x, i.y, 1)] = buffer[offset + spacing * INDEX(i.x, i.y, 2)];
+	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 1)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 2)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 3)];
 }
-
 

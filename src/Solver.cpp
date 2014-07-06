@@ -230,21 +230,28 @@ void Solver::resetState() {
 	commands.finish();
 }
 
+static std::string boundaryKernelNames[NUM_BOUNDARY_KERNELS] = {
+	"Periodic",
+	"Mirror",
+	"Reflect",
+	"FreeFlow"
+};
+
 void Solver::initKernels() {
 	
 	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
 
-	stateBoundaryKernels.resize(equation->boundaryMethods.size());
-	for (std::vector<cl::Kernel>& v : stateBoundaryKernels) {
+	boundaryKernels.resize(NUM_BOUNDARY_KERNELS);
+	for (std::vector<cl::Kernel>& v : boundaryKernels) {
 		v.resize(app.dim);
 	}
 
 	std::vector<std::string> dimNames = {"X", "Y", "Z"};
-	for (int boundaryIndex = 0; boundaryIndex < equation->boundaryMethods.size(); ++boundaryIndex) {
+	for (int boundaryIndex = 0; boundaryIndex < NUM_BOUNDARY_KERNELS; ++boundaryIndex) {
 		for (int side = 0; side < app.dim; ++side) {
-			std::string name = "stateBoundary_" + equation->boundaryMethods[boundaryIndex] + "_" + dimNames[side];
-			stateBoundaryKernels[boundaryIndex][side] = cl::Kernel(program, name.c_str());
-			app.setArgs(stateBoundaryKernels[boundaryIndex][side], stateBuffer);
+			std::string name = "stateBoundary" + boundaryKernelNames[boundaryIndex] + dimNames[side];
+			boundaryKernels[boundaryIndex][side] = cl::Kernel(program, name.c_str());
+			app.setArgs(boundaryKernels[boundaryIndex][side], stateBuffer);
 		}
 	}
 	
@@ -256,6 +263,51 @@ void Solver::initKernels() {
 	
 	addGravityKernel = cl::Kernel(program, "addGravity");
 	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, dtBuffer);
+}
+
+void Solver::boundary() {
+	switch (app.dim) {
+	case 1:
+	case 2:
+		//boundary
+		for (int i = 0; i < app.dim; ++i) {
+			cl::NDRange globalSize1d(app.size.s[i]);
+			for (int j = 0; j < equation->numStates; ++j) {
+				int boundaryKernelIndex = equation->getBoundaryKernelForBoundaryMethod(*this, i, j);
+				cl::Kernel &kernel = boundaryKernels[boundaryKernelIndex][i];
+				kernel.setArg(1, equation->numStates);
+				kernel.setArg(2, j);
+				commands.enqueueNDRangeKernel(kernel, offset1d, globalSize1d, localSize1d);
+			}
+		}
+		break;
+	case 3:
+		//boundary
+		cl::NDRange offset2d(0, 0);
+		cl::NDRange localSize2d(localSize[0], localSize[1]);
+		for (int i = 0; i < app.dim; ++i) {
+			cl::NDRange globalSize2d;
+			switch (i) {
+			case 0:
+				globalSize2d = cl::NDRange(app.size.s[0], app.size.s[1]);
+				break;
+			case 1:
+				globalSize2d = cl::NDRange(app.size.s[0], app.size.s[2]);
+				break;
+			case 2:
+				globalSize2d = cl::NDRange(app.size.s[1], app.size.s[2]);
+				break;
+			}
+			for (int j = 0; j < equation->numStates; ++j) {
+				int boundaryKernelIndex = equation->getBoundaryKernelForBoundaryMethod(*this, i, j);
+				cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i];
+				kernel.setArg(1, equation->numStates);
+				kernel.setArg(2, j);
+				commands.enqueueNDRangeKernel(kernel, offset2d, globalSize2d, localSize2d);
+			}
+		}
+		break;
+	}
 }
 
 void Solver::findMinTimestep() {

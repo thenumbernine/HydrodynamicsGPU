@@ -148,39 +148,6 @@ Solver3D::~Solver3D() {
 	}
 }
 
-void Solver3D::boundary() {
-	switch (app.dim) {
-	case 1:
-	case 2:
-		//boundary
-		for (int i = 0; i < app.dim; ++i) {
-			cl::NDRange globalSize1d(app.size.s[i]);
-			commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethods(i)][i], offset1d, globalSize1d, localSize1d);
-		}
-		break;
-	case 3:
-		//boundary
-		cl::NDRange offset2d(0, 0);
-		cl::NDRange localSize2d(localSize[0], localSize[1]);
-		for (int i = 0; i < app.dim; ++i) {
-			cl::NDRange globalSize2d;
-			switch (i) {
-			case 0:
-				globalSize2d = cl::NDRange(app.size.s[0], app.size.s[1]);
-				break;
-			case 1:
-				globalSize2d = cl::NDRange(app.size.s[0], app.size.s[2]);
-				break;
-			case 2:
-				globalSize2d = cl::NDRange(app.size.s[1], app.size.s[2]);
-				break;
-			}
-			commands.enqueueNDRangeKernel(stateBoundaryKernels[app.boundaryMethods(i)][i], offset2d, globalSize2d, localSize2d);
-		}
-		break;
-	}
-}
-
 void Solver3D::display() {
 	glFinish();
 	
@@ -395,8 +362,10 @@ void Solver3D::screenshot() {
 	throw Common::Exception() << "couldn't find an available filename";
 }
 
+//TODO this should be handled per-equation
 void Solver3D::save() {
-throw Common::Exception() << "out of order";
+std::cout << "out of order" << std::endl;
+return;
 	std::vector<std::string> channelNames = {
 		"density",
 		"velocityX",

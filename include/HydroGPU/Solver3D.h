@@ -51,8 +51,5 @@ struct Solver3D : public Solver {
 	virtual void addDrop();
 	virtual void screenshot();
 	virtual void save();
-
-protected:
-	virtual void boundary();
 };
 

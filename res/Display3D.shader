@@ -27,7 +27,7 @@ void main() {
 	vec4 result = vec4(0., 0., 0., 1.);
 	
 	vec4 voxel = texture3D(tex, p);
-	alpha = .7 * min(1., mod(voxel.r * 1.23, 3.));
+	alpha = .7 * min(1., mod(voxel.r * 4., 3.));
 	result.rgb += result.a * alpha * voxel.rgb;
 	result.a *= 1. - alpha;
 	
@@ -45,7 +45,7 @@ void main() {
 		//(as you would when rendering transparent stuff on top of each other)
 		//this will allow you to bailout early if your transparency ever hits fully opaque
 		voxel = texture3D(tex, p);
-		alpha = .7 * min(1., mod(voxel.r * 1.23, 3.));
+		alpha = .7 * min(1., mod(voxel.r * 4., 3.));
 		result.rgb += result.a * alpha * voxel.rgb;
 		result.a *= 1. - alpha;
 

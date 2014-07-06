@@ -27,7 +27,7 @@ protected:
 	cl::Kernel poissonRelaxKernel;
 	cl::Kernel addGravityKernel;
 	
-	std::vector<std::vector<cl::Kernel>> stateBoundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim];
+	std::vector<std::vector<cl::Kernel>> boundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim];
 
 	//useful to have around
 	cl::NDRange globalSize;
@@ -53,7 +53,7 @@ protected:
 	virtual void setPoissonRelaxRepeatArg();
 
 	virtual void initStep();
-	virtual void boundary() = 0;
+	virtual void boundary();
 	virtual void step() = 0;
 	virtual void calcTimestep() = 0;
 public:
@@ -90,4 +90,12 @@ template<> inline std::string toNumericString<double>(double value) {
 template<> inline std::string toNumericString<float>(float value) {
 	return toNumericString<double>(value) + "f";
 }
+
+enum {
+	BOUNDARY_KERNEL_PERIODIC,
+	BOUNDARY_KERNEL_MIRROR,		//	\_ combined to make up reflecting boundary conditions
+	BOUNDARY_KERNEL_REFLECT,	//	/
+	BOUNDARY_KERNEL_FREEFLOW,
+	NUM_BOUNDARY_KERNELS
+};
 
