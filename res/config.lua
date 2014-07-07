@@ -5,8 +5,8 @@ local configurations = require 'configurations'	--holds catalog of configuration
 	-- solver variables
 
 
---solverName = 'EulerBurgers' -- works for 1D, 2D, 3D
-solverName = 'EulerHLL' -- works for 1D, 2D, 3D.  needs 2nd order support.
+solverName = 'EulerBurgers' -- works for 1D, 2D, 3D
+--solverName = 'EulerHLL' -- works for 1D, 2D, 3D.  needs 2nd order support.
 --solverName = 'EulerRoe' -- works for 1D, 2D, compiler crashes for 3D
 --solverName = 'SRHDRoe' -- in the works
 --solverName = 'MHDRoe' -- left eigenvectors not finished, and numeric inverse not working
@@ -45,7 +45,7 @@ fixedDT = .01
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
+boundaryMethods = {'PERIODIC', 'PERIODIC', 'PERIODIC'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false 
@@ -55,11 +55,11 @@ gamma = 1.4
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
--- [[ 3D
+--[[ 3D
 size = {64, 64, 64}
 --]]
---[[ 2D
-size = {256, 256}
+-- [[ 2D
+size = {512, 512}
 --]]
 --[[ 1D
 size = {1024}

@@ -82,6 +82,27 @@ void Roe::step() {
 		//recompute poisson solution to gravitational potential
 		const int maxIter = 20;
 		for (int i = 0; i < maxIter; ++i) {
+#if 0
+			//update the boundaries
+			for (int j = 0; j < app.dim; ++j) {
+				int boundaryKernelIndex = -1;
+				switch (app.boundaryMethods(j)) {
+				case 0:	//periodic
+					boundaryKernelIndex = BOUNDARY_KERNEL_PERIODIC;
+					break;
+				case 1:	//mirror
+					boundaryKernelIndex = BOUNDARY_KERNEL_FREEFLOW;
+					break;
+				case 2:	//freeflow
+					boundaryKernelIndex = BOUNDARY_KERNEL_FREEFLOW;
+					break;
+				}
+				cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][j];
+				app.setArgs(kernel, gravityBuffer, 1, 0);
+				commands.enqueueNDRangeKernel(kernel, offsetNd, 
+			}
+#endif			
+			//perform relaxation across the grid
 			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 	

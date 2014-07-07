@@ -52,6 +52,8 @@ protected:
 	virtual void findMinTimestep();
 	virtual void setPoissonRelaxRepeatArg();
 
+	virtual void getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &global, cl::NDRange &local);
+
 	virtual void initStep();
 	virtual void boundary();
 	virtual void step() = 0;

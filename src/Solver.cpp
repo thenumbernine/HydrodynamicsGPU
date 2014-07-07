@@ -265,48 +265,46 @@ void Solver::initKernels() {
 	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, dtBuffer);
 }
 
-void Solver::boundary() {
+void Solver::getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &global, cl::NDRange &local) {
 	switch (app.dim) {
 	case 1:
 	case 2:
-		//boundary
-		for (int i = 0; i < app.dim; ++i) {
-			cl::NDRange globalSize1d(app.size.s[i]);
-			for (int j = 0; j < equation->numStates; ++j) {
-				int boundaryKernelIndex = equation->getBoundaryKernelForBoundaryMethod(*this, i, j);
-				cl::Kernel &kernel = boundaryKernels[boundaryKernelIndex][i];
-				kernel.setArg(1, equation->numStates);
-				kernel.setArg(2, j);
-				commands.enqueueNDRangeKernel(kernel, offset1d, globalSize1d, localSize1d);
-			}
-		}
+		offset = offset1d;
+		local = localSize1d;
+		global = cl::NDRange(app.size.s[dimIndex]);
 		break;
 	case 3:
-		//boundary
-		cl::NDRange offset2d(0, 0);
-		cl::NDRange localSize2d(localSize[0], localSize[1]);
-		for (int i = 0; i < app.dim; ++i) {
-			cl::NDRange globalSize2d;
-			switch (i) {
-			case 0:
-				globalSize2d = cl::NDRange(app.size.s[0], app.size.s[1]);
-				break;
-			case 1:
-				globalSize2d = cl::NDRange(app.size.s[0], app.size.s[2]);
-				break;
-			case 2:
-				globalSize2d = cl::NDRange(app.size.s[1], app.size.s[2]);
-				break;
-			}
-			for (int j = 0; j < equation->numStates; ++j) {
-				int boundaryKernelIndex = equation->getBoundaryKernelForBoundaryMethod(*this, i, j);
-				cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i];
-				kernel.setArg(1, equation->numStates);
-				kernel.setArg(2, j);
-				commands.enqueueNDRangeKernel(kernel, offset2d, globalSize2d, localSize2d);
-			}
+		offset = cl::NDRange(0, 0);
+		local = cl::NDRange(localSize[0], localSize[1]);
+		switch (dimIndex) {
+		case 0:
+			global = cl::NDRange(app.size.s[0], app.size.s[1]);
+			break;
+		case 1:
+			global = cl::NDRange(app.size.s[0], app.size.s[2]);
+			break;
+		case 2:
+			global = cl::NDRange(app.size.s[1], app.size.s[2]);
+			break;
+		default:
+			throw Common::Exception() << "can't handle dim " << dimIndex;
 		}
 		break;
+	default:
+		throw Common::Exception() << "can't handle dim " << dimIndex;
+	}
+}
+
+void Solver::boundary() {
+	cl::NDRange offset, global, local;
+	for (int i = 0; i < app.dim; ++i) {
+		getBoundaryRanges(i, offset, global, local);
+		for (int j = 0; j < equation->numStates; ++j) {
+			int boundaryKernelIndex = equation->getBoundaryKernelForBoundaryMethod(*this, i, j);
+			cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i];
+			app.setArgs(kernel, stateBuffer, equation->numStates, j);
+			commands.enqueueNDRangeKernel(kernel, offset, global, local);
+		}
 	}
 }
 
