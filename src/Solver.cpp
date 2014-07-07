@@ -212,11 +212,10 @@ void Solver::resetState() {
 
 	if (app.useGravity) {
 		int energyTotalIndex = 1 + app.dim;
-
-		setPoissonRelaxRepeatArg();
 		
 		//solve for gravitational potential via gauss seidel
-		for (int i = 0; i < 20; ++i) {
+		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
+			gravityPotentialBoundary();
 			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 
@@ -308,6 +307,28 @@ void Solver::boundary() {
 	}
 }
 
+void Solver::gravityPotentialBoundary() {
+	for (int j = 0; j < app.dim; ++j) {
+		int boundaryKernelIndex = -1;
+		switch (app.boundaryMethods(j)) {
+		case 0:	//periodic
+			boundaryKernelIndex = BOUNDARY_KERNEL_PERIODIC;
+			break;
+		case 1:	//mirror
+			boundaryKernelIndex = BOUNDARY_KERNEL_FREEFLOW;
+			break;
+		case 2:	//freeflow
+			boundaryKernelIndex = BOUNDARY_KERNEL_FREEFLOW;
+			break;
+		}
+		cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][j];
+		app.setArgs(kernel, gravityPotentialBuffer, 1, 0);
+		cl::NDRange offset, global, local;
+		getBoundaryRanges(j, offset, global, local);
+		commands.enqueueNDRangeKernel(kernel, offset, global, local);
+	}
+}
+
 void Solver::findMinTimestep() {
 	int reduceSize = app.size.s[0] * app.size.s[1] * app.size.s[2];
 	cl::Buffer dst = cflSwapBuffer;
@@ -335,8 +356,6 @@ void Solver::update() {
 		std::cout << "dt " << dt << std::endl;
 	}
 
-	setPoissonRelaxRepeatArg();
-
 	//commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize, NULL, &addSourceEvent.clEvent);
 
 	boundary();
@@ -357,24 +376,5 @@ void Solver::update() {
 	}
 */
 
-}
-
-//TODO specific to Euler
-void Solver::setPoissonRelaxRepeatArg() {
-	cl_int4 repeat;
-	for (int i = 0; i < app.dim; ++i) {
-		switch (app.boundaryMethods(0)) {	//TODO per dimension
-		case 0://BOUNDARY_PERIODIC:
-			repeat.s[i] = 1;
-			break;
-		case 1://BOUNDARY_MIRROR:
-		case 2://BOUNDARY_FREEFLOW:
-			repeat.s[i] = 0;
-			break;
-		default:
-			throw Common::Exception() << "unknown boundary method " << app.boundaryMethods(0);
-		}	
-	}	
-	poissonRelaxKernel.setArg(2, repeat);
 }
 

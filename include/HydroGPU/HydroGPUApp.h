@@ -34,6 +34,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	float displayScale;
 	Tensor::Vector<int,3> boundaryMethods;
 	bool useGravity;
+	int gaussSeidelMaxIter;	//max iterations for Gauss-Seidel max iterations
 	LuaCxx::State lua;
 	real4 dx;
 	

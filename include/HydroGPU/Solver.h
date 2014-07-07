@@ -50,12 +50,12 @@ protected:
 	cl::Buffer clAlloc(size_t size);
 	
 	virtual void findMinTimestep();
-	virtual void setPoissonRelaxRepeatArg();
 
 	virtual void getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &global, cl::NDRange &local);
+	virtual void boundary();
+	virtual void gravityPotentialBoundary();
 
 	virtual void initStep();
-	virtual void boundary();
 	virtual void step() = 0;
 	virtual void calcTimestep() = 0;
 public:

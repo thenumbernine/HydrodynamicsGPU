@@ -80,25 +80,26 @@ __kernel void convertToTex(
 
 __kernel void poissonRelax(
 	__global real* gravityPotentialBuffer,
-	const __global real* stateBuffer,
-	int4 repeat)
+	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 2
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 2
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
+#endif
+	) {
+		return;
+	}
+	
 	int index = INDEXV(i);
 
 	real sum = 0.f;
 	for (int side = 0; side < DIM; ++side) {
-		int4 iprev = i;
-		int4 inext = i;
-		if (repeat[side]) {
-			iprev[side] = (iprev[side] + size[side] - 1) % size[side];
-			inext[side] = (inext[side] + 1) % size[side];
-		} else {
-			iprev[side] = max(iprev[side] - 1, 0);
-			inext[side] = min(inext[side] + 1, size[side] - 1);
-		}
-		int indexPrev = INDEXV(iprev);
-		int indexNext = INDEXV(inext);
+		int indexPrev = index - stepsize[side];
+		int indexNext = index + stepsize[side];
 		sum += gravityPotentialBuffer[indexPrev] + gravityPotentialBuffer[indexNext];
 	}
 	
@@ -139,10 +140,10 @@ __kernel void addGravity(
 	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
 
 	for (int side = 0; side < DIM; ++side) {
-		int indexL = index - stepsize[side];
-		int indexR = index + stepsize[side];
+		int indexPrev = index - stepsize[side];
+		int indexNext = index + stepsize[side];
 	
-		real gravityGrad = .5f * (gravityPotentialBuffer[indexR] - gravityPotentialBuffer[indexL]);
+		real gravityGrad = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
 		
 		stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * index] -= dt_dx[side] * density * gravityGrad;
 		stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index] -= dt * density * gravityGrad * stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * index];

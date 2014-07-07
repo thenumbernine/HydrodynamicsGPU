@@ -64,9 +64,8 @@ void EulerHLL::step() {
 	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
 
 	if (app.useGravity) {
-		//recompute poisson solution to gravitational potential
-		const int maxIter = 20;
-		for (int i = 0; i < maxIter; ++i) {
+		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
+			gravityPotentialBoundary();
 			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 	

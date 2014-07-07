@@ -32,6 +32,7 @@ HydroGPUApp::HydroGPUApp()
 , displayMethod(0)
 , displayScale(2.f)
 , useGravity(false)
+, gaussSeidelMaxIter(20)
 , leftButtonDown(false)
 , rightButtonDown(false)
 , leftShiftDown(false)
@@ -90,6 +91,7 @@ void HydroGPUApp::init() {
 	lua.ref()["cfl"] >> cfl;
 	lua.ref()["displayScale"] >> displayScale;
 	lua.ref()["useGravity"] >> useGravity;
+	lua.ref()["gaussSeidelMaxIter"] >> gaussSeidelMaxIter;
 
 	std::string displayMethodName;
 	lua.ref()["displayMethod"] >> displayMethodName;

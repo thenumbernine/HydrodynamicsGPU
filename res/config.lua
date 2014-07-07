@@ -49,6 +49,7 @@ boundaryMethods = {'PERIODIC', 'PERIODIC', 'PERIODIC'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false 
+gaussSeidelMaxIter = 20
 
 magneticFieldNoise = 0
 gamma = 1.4
@@ -68,5 +69,5 @@ displayScale = .25
 
 
 -- see initState for a list of options
-configurations['Sod']()
+configurations['self-gravity test']()
 
