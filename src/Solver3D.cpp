@@ -31,6 +31,8 @@ Solver3D::Solver3D(
 	HydroGPUApp &app_)
 : Super(app_)
 , fluidTex(GLuint())
+, velocityFieldGLBuffer(0)
+, velocityFieldVertexCount(0)
 , viewZoom(1.f)
 , viewDist(1.f)
 {
@@ -51,16 +53,35 @@ void Solver3D::init() {
 				Shader::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
 				Shader::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
 			};
-			shader = std::make_shared<Shader::Program>(shaders);
-			shader->link();
-			shader->setUniform<int>("tex", 0);
-			shader->setUniform<float>("xmin", app.xmin.s[0]);
-			shader->setUniform<float>("xmax", app.xmax.s[0]);
-			shader->done();
+			displayShader = std::make_shared<Shader::Program>(shaders);
+			displayShader->link();
+			displayShader->setUniform<int>("tex", 0);
+			displayShader->setUniform<float>("xmin", app.xmin.s[0]);
+			displayShader->setUniform<float>("xmax", app.xmax.s[0]);
+			displayShader->done();
 		}
 		//don't break
 	case 2:
 		{
+			//create GL buffer
+			glGenBuffers(1, &velocityFieldGLBuffer);
+			glBindBuffer(GL_ARRAY_BUFFER_ARB, velocityFieldGLBuffer);
+			int velocityFieldVolume = 1;
+			for (int i = 0; i < app.dim; ++i) {
+				velocityFieldVolume *= app.velocityFieldResolution;
+			}
+			velocityFieldVertexCount = 2 * app.dim * velocityFieldVolume;
+			glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(real) * velocityFieldVertexCount, NULL, GL_DYNAMIC_DRAW_ARB);
+			totalAlloc += sizeof(real) * velocityFieldVertexCount;
+			glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
+
+			//create CL interop
+			velocityFieldVertexBuffer = cl::BufferGL(app.context, CL_MEM_READ_WRITE, velocityFieldGLBuffer);
+
+			//create transfer kernel
+			createVelocityFieldKernel = cl::Kernel(program, "createVelocityField");
+			app.setArgs(createVelocityFieldKernel, velocityFieldVertexBuffer, stateBuffer);
+
 			//get a texture going for visualizing the output
 			glGenTextures(1, &fluidTex);
 			glBindTexture(GL_TEXTURE_2D, fluidTex);
@@ -94,8 +115,8 @@ void Solver3D::init() {
 				Shader::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
 				Shader::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
 			};
-			shader = std::make_shared<Shader::Program>(shaders);
-			shader->link()
+			displayShader = std::make_shared<Shader::Program>(shaders);
+			displayShader->link()
 				.setUniform<int>("tex", 0)
 				.setUniform<int>("maxiter", std::max(app.size.s[0], std::max(app.size.s[1], app.size.s[2])))
 				.setUniform<float>("scale", app.xmax.s[0] - app.xmin.s[0], app.xmax.s[1] - app.xmin.s[1], app.xmax.s[2] - app.xmin.s[2])
@@ -139,6 +160,7 @@ void Solver3D::init() {
 
 Solver3D::~Solver3D() {
 	glDeleteTextures(1, &fluidTex);
+	glDeleteBuffers(1, &velocityFieldGLBuffer);	
 	
 	std::cout << "OpenCL profiling info:" << std::endl;
 	for (EventProfileEntry *entry : entries) {
@@ -182,10 +204,10 @@ void Solver3D::display() {
 		//render lines
 
 		glBindTexture(GL_TEXTURE_2D, fluidTex);
-		shader->use();
+		displayShader->use();
 		for (int channel = 0; channel < 4; ++channel) {
 			glColor3fv(colors[channel]);
-			shader->setUniform<int>("channel", channel);
+			displayShader->setUniform<int>("channel", channel);
 			glBegin(GL_LINE_STRIP);
 			for (int i = 2; i < app.size.s[0]-2; ++i) {
 				real x = ((real)(i) + .5f) / (real)app.size.s[0];
@@ -193,7 +215,7 @@ void Solver3D::display() {
 			}
 			glEnd();
 		}
-		shader->done();
+		displayShader->done();
 		glBindTexture(GL_TEXTURE_2D, 0);	
 
 		{
@@ -247,6 +269,27 @@ void Solver3D::display() {
 		glBindTexture(GL_TEXTURE_2D, 0);
 	
 		glPopMatrix();
+
+		if (app.showVelocityField) {
+		
+			//glFlush();
+			cl::NDRange offset(0,0);
+			cl::NDRange local(localSize[0], localSize[1]);
+			cl::NDRange global(app.velocityFieldResolution, app.velocityFieldResolution);
+			commands.enqueueNDRangeKernel(createVelocityFieldKernel, offset, global, local);
+			commands.finish();
+
+			glDisable(GL_DEPTH_TEST);
+
+			glBindBuffer(GL_ARRAY_BUFFER_ARB, velocityFieldGLBuffer);
+			glEnableClientState(GL_VERTEX_ARRAY);
+			glVertexPointer(app.dim, GL_FLOAT, 0, 0);
+			glDrawArrays(GL_LINES, 0, 2 * app.dim * velocityFieldVertexCount);
+			glDisableClientState(GL_VERTEX_ARRAY);
+			glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
+			
+			glEnable(GL_DEPTH_TEST);
+		}
 	
 		break;
 	case 3:
@@ -267,7 +310,7 @@ void Solver3D::display() {
 					glEnable(GL_DEPTH_TEST);
 					glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 					glEnable(GL_BLEND);
-					shader->use();
+					displayShader->use();
 					glBindTexture(GL_TEXTURE_3D, fluidTex);
 				}
 				glBegin(GL_QUADS);
@@ -286,7 +329,7 @@ void Solver3D::display() {
 					glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 				} else {
 					glBindTexture(GL_TEXTURE_3D, 0);
-					shader->done();
+					displayShader->done();
 					glDisable(GL_BLEND);
 					glDisable(GL_DEPTH_TEST);
 					glCullFace(GL_BACK);
@@ -364,7 +407,7 @@ void Solver3D::screenshot() {
 
 //TODO this should be handled per-equation
 void Solver3D::save() {
-std::cout << "out of order" << std::endl;
+std::cout << "save is out of order" << std::endl;
 return;
 	std::vector<std::string> channelNames = {
 		"density",

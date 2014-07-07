@@ -78,6 +78,47 @@ __kernel void convertToTex(
 	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
 }
 
+__kernel void createVelocityField(
+	__global real* velocityFieldVertexBuffer,
+	const __global real* stateBuffer)
+{
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
+	int vertexIndex = i.x + size.x * (i.y + size.y * i.z);
+	__global real* vertex = velocityFieldVertexBuffer + 2 * DIM * vertexIndex;
+	
+	float4 f = (float4)(
+		((float)i.x + .5f) / (float)size.x,
+		((float)i.y + .5f) / (float)size.y,
+		((float)i.z + .5f) / (float)size.z,
+		0.f);
+
+	//times grid size divided by velocity field size
+	float4 sf = (float4)(f.x * SIZE_X, f.y * SIZE_Y, f.z * SIZE_Z, 0.f);
+	int4 si = (int4)(sf.x, sf.y, sf.z, 0);
+	//float4 fp = (float4)(sf.x - (float)si.x, sf.y - (float)si.y, sf.z - (float)si.z, 0.f);
+	
+	int stateIndex = INDEXV(si);
+	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
+
+	vertex[0] = vertex[DIM+0] = f.x * (XMAX - XMIN) + XMIN;
+#if DIM > 1
+	vertex[1] = vertex[DIM+1] = f.y * (YMAX - YMIN) + YMIN;
+#if DIM > 2
+	vertex[2] = vertex[DIM+2] = f.z * (ZMAX - ZMIN) + ZMIN;
+#endif
+#endif
+
+	const float scale = .05f;
+	vertex[DIM+0] += state[STATE_MOMENTUM_X] / state[STATE_DENSITY] * scale;
+#if DIM > 1
+	vertex[DIM+1] += state[STATE_MOMENTUM_Y] / state[STATE_DENSITY] * scale;
+#if DIM > 2
+	vertex[DIM+2] += state[STATE_MOMENTUM_Z] / state[STATE_DENSITY] * scale;
+#endif
+#endif
+}
+
 __kernel void poissonRelax(
 	__global real* gravityPotentialBuffer,
 	const __global real* stateBuffer)

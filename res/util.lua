@@ -17,7 +17,7 @@ local function getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFi
 end
 
 local function primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ)
-	return density, velocityX * density, velocityY * density, velocityZ * density, energyTotal	--, magneticFieldX, magneticFieldY, magneticFieldZ
+	return density, velocityX * density, velocityY * density, velocityZ * density, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ
 end
 
 --[=[
@@ -32,6 +32,7 @@ args:
 function buildStateEuler(args)
 	local dim = #size
 	local noise = args.noise or 0
+	local magneticFieldNoise = args.magneticFieldNoise or 0
 	local density = assert(args.density)
 	local velocityX = args.velocityX or crand() * noise
 	local velocityY = dim <= 1 and 0 or (args.velocityY or crand() * noise)
@@ -60,5 +61,42 @@ function buildStateEulerQuadrant(x,y,z,args)
 			return buildStateEuler(args.q4)
 		end
 	end
+end
+
+function buildSelfGravitationState(x,y,z,args)
+	local minDistSq = math.huge
+	local minSource
+	local inside = false
+	for _,source in ipairs(args.sources) do
+		local sx, sy, sz = unpack(source.center)
+		local dx = sx - x
+		local dy = sy - y
+		local dz = sz - z
+		distSq = dx * dx + dy * dy + dz * dz
+		if distSq < minDistSq then
+			minDistSq = distSq
+			minSource = source
+			if distSq < source.radius * source.radius then
+				inside = true
+				break
+			end
+		end
+	end
+	local dx = x - minSource.center[1]
+	local dy = y - minSource.center[2]
+	local dz = z - minSource.center[3]
+	local noise = math.exp(-100 * (dx * dx + dy * dy + dz * dz))
+	if inside and minSource.inside then
+		return minSource.inside(dx, dy, dz)
+	end
+	return buildStateEuler{
+		density = inside and (
+				(minSource and minSource.density) or 1
+			) or .1,
+		pressure = 1,
+		velocityX = .01 * noise * crand(),
+		velocityY = .01 * noise * crand(),
+		velocityZ = .01 * noise * crand(),
+	}
 end
 

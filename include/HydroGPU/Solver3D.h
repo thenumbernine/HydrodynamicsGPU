@@ -10,6 +10,14 @@
 
 struct HydroGPUApp;
 
+/*
+This class is the remnants of when I had 3 separate CL files for each dimension of the Euler equations.
+Each dimension's CL files were instanciated by Solver1D, 2D, and 3D c++ classes, respectively.
+Each class also contained the dimension-specific rendering code.
+I then merged all the C++ up to the 3D case, got rid of all the <3D CL codes, and haven't moved this file ever since.
+Now that the CL codes are merged it might be a good idea to separate the display code into separate 1D, 2D, and 3D classes, 
+and move the non-display or non-dimension-specific code back to the Solver class.
+*/
 struct Solver3D : public Solver {
 	typedef Solver Super;
 	
@@ -27,7 +35,13 @@ struct Solver3D : public Solver {
 	cl::ImageGL fluidTexMem;		//data is written to this buffer before rendering
 	GLuint fluidTex;
 
-	std::shared_ptr<Shader::Program> shader;
+	std::shared_ptr<Shader::Program> displayShader;
+	
+	GLuint velocityFieldGLBuffer;
+	cl::BufferGL velocityFieldVertexBuffer;
+	cl::Kernel createVelocityFieldKernel;
+	int velocityFieldVertexCount;
+
 	//2D
 	Tensor::Vector<float,2> viewPos;
 	float viewZoom;

@@ -37,7 +37,8 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	int gaussSeidelMaxIter;	//max iterations for Gauss-Seidel max iterations
 	LuaCxx::State lua;
 	real4 dx;
-	
+	bool showVelocityField;
+	int velocityFieldResolution;
 	//input
 	bool leftButtonDown;
 	bool rightButtonDown;

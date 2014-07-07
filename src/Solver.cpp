@@ -130,6 +130,12 @@ std::vector<std::string> Solver::getProgramSources() {
 		"#define DX " + toNumericString<real>(app.dx.s[0]) + "\n" +
 		"#define DY " + toNumericString<real>(app.dx.s[1]) + "\n" +
 		"#define DZ " + toNumericString<real>(app.dx.s[2]) + "\n" +
+		"#define XMIN " + toNumericString<real>(app.xmin.s[0]) + "\n" +
+		"#define YMIN " + toNumericString<real>(app.xmin.s[1]) + "\n" +
+		"#define ZMIN " + toNumericString<real>(app.xmin.s[2]) + "\n" +
+		"#define XMAX " + toNumericString<real>(app.xmax.s[0]) + "\n" +
+		"#define YMAX " + toNumericString<real>(app.xmax.s[1]) + "\n" +
+		"#define ZMAX " + toNumericString<real>(app.xmax.s[2]) + "\n" +
 		"#define SLOPE_LIMITER_" + app.slopeLimiterName + "\n" +
 		"#define NUM_STATES " + std::to_string(equation->numStates) + "\n"
 	};

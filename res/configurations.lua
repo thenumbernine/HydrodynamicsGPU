@@ -212,55 +212,67 @@ return {
 		end
 	end,
 
--- gravity potential test - equilibrium - some Rayleigh-Taylor
-	['self-gravity test'] = function()
+	-- gravity potential test - equilibrium - Rayleigh-Taylor
+
+	['self-gravitation test 1'] = function()
 		useGravity = true
 		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
-		local sources = {
-		-- [=[ single source
-			{0, 0, 0, radius = .2},
-		--]=]
-		--[=[ two
-			{-.25, 0, 0, radius = .1},
-			{.25, 0, 0, radius = .1},
-		--]=]
-		--[=[ multiple sources
-			{.25, .25, 0, radius = .1},
-			{-.25, .25, 0, radius = .1},
-			{.25, -.25, 0, radius = .1},
-			{-.25, -.25, 0, radius = .1},
-		--]=]
-		}
 		initState = function(x,y,z)
-			local minDistSq = math.huge
-			local minSource
-			local inside = false
-			for _,source in ipairs(sources) do
-				local sx, sy, sz = unpack(source)
-				local dx = sx - x
-				local dy = sy - y
-				local dz = sz - z
-				distSq = dx * dx + dy * dy + dz * dz
-				if distSq < minDistSq then
-					minDistSq = distSq
-					minSource = source
-					if distSq < source.radius * source.radius then
-						inside = true
-						break
-					end
-				end
-			end
-			local dx = x - minSource[1]
-			local dy = y - minSource[2]
-			local dz = z - minSource[3]
-			local noise = math.exp(-100 * (dx * dx + dy * dy + dz * dz))
-			return buildStateEuler{
-				density = inside and 1 or .1,
-				pressure = 1,
-				velocityX = .01 * noise * crand(),
-				velocityY = .01 * noise * crand(),
-				velocityZ = .01 * noise * crand(),
-			}
+			return buildSelfGravitationState(x,y,z,{
+				sources={
+					{center={0, 0, 0}, radius = .2},
+				},
+			})
+		end
+	end,
+
+	['self-gravitation test 1 spinning'] = function()
+		useGravity = true
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		initState = function(x,y,z)
+			return buildSelfGravitationState(x,y,z,{
+				sources={
+					{
+						center={0, 0, 0}, 
+						radius = .2,
+						inside = function(dx,dy,dz)
+							return buildStateEuler{
+								velocityX = -dy,
+								velocityY = dx,
+								pressure = 1,
+								density = 1,
+							}
+						end},
+				},
+			})
+		end
+	end,
+
+	['self-gravitation test 2'] = function()
+		useGravity = true
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		initState = function(x,y,z)
+			return buildSelfGravitationState(x,y,z,{
+				sources={
+					{center={-.25, 0, 0}, radius = .1},
+					{center={.25, 0, 0}, radius = .1},
+				},
+			})
+		end
+	end,
+
+	['self-gravitation test 4'] = function()
+		useGravity = true
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		initState = function(x,y,z)
+			return buildSelfGravitationState(x,y,z,{
+				sources={
+					{center={.25, .25, 0}, radius = .1},
+					{center={-.25, .25, 0}, radius = .1},
+					{center={.25, -.25, 0}, radius = .1},
+					{center={-.25, -.25, 0}, radius = .1},
+				},
+			})
 		end
 	end,
 

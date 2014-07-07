@@ -33,6 +33,8 @@ HydroGPUApp::HydroGPUApp()
 , displayScale(2.f)
 , useGravity(false)
 , gaussSeidelMaxIter(20)
+, showVelocityField(true)
+, velocityFieldResolution(16)
 , leftButtonDown(false)
 , rightButtonDown(false)
 , leftShiftDown(false)
@@ -95,6 +97,9 @@ void HydroGPUApp::init() {
 
 	std::string displayMethodName;
 	lua.ref()["displayMethod"] >> displayMethodName;
+
+	lua.ref()["showVelocityField"] >> showVelocityField;
+	lua.ref()["velocityFieldResolution"] >> velocityFieldResolution;
 
 	//store dimension as last non-1 size
 	for (dim = 3; dim > 0; --dim) {
@@ -343,6 +348,9 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 			solver->resetState();
 		} else if (event.key.keysym.sym == SDLK_t) {
 			showTimestep = !showTimestep;
+		} else if (event.key.keysym.sym == SDLK_v) {
+			showVelocityField = !showVelocityField;
+			std::cout << "velocity field " << (showVelocityField ? "enabled" : "disabled") << std::endl;
 		}
 		break;
 	}
