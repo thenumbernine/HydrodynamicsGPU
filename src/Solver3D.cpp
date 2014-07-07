@@ -268,8 +268,6 @@ void Solver3D::display() {
 		glEnd();
 		glBindTexture(GL_TEXTURE_2D, 0);
 	
-		glPopMatrix();
-
 		if (app.showVelocityField) {
 		
 			//glFlush();
@@ -290,6 +288,8 @@ void Solver3D::display() {
 			
 			glEnable(GL_DEPTH_TEST);
 		}
+		
+		glPopMatrix();
 	
 		break;
 	case 3:

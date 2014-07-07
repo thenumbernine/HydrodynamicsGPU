@@ -72,5 +72,5 @@ displayScale = .25
 
 
 -- see initState for a list of options
-configurations['self-gravitation test 1']()
+configurations['self-gravitation test 2']()
 
