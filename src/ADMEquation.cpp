@@ -50,13 +50,28 @@ void ADMEquation::getProgramSources(Solver& solver, std::vector<std::string>& so
 	sources.push_back(Common::File::read("ADMCommon.cl"));
 }
 
-int ADMEquation::getBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
+int ADMEquation::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
 	case BOUNDARY_METHOD_MIRROR:
 		return BOUNDARY_KERNEL_MIRROR;	//which states should be negative'd and which shouldn't ...
+		break;		
+	case BOUNDARY_METHOD_FREEFLOW:
+		return BOUNDARY_KERNEL_FREEFLOW;
+		break;
+	}
+	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
+}
+
+int ADMEquation::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) {
+	switch (solver.app.boundaryMethods(dim)) {
+	case BOUNDARY_METHOD_PERIODIC:
+		return BOUNDARY_KERNEL_PERIODIC;
+		break;
+	case BOUNDARY_METHOD_MIRROR:
+		return BOUNDARY_KERNEL_FREEFLOW;
 		break;		
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;

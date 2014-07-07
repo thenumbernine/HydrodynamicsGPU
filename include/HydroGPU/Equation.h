@@ -12,7 +12,8 @@ struct Equation {
 	
 	Equation();	
 	virtual void getProgramSources(Solver& solver, std::vector<std::string>& sources) = 0;
-	virtual int getBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) = 0;
+	virtual int stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) = 0;
+	virtual int gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) = 0;
 	std::string buildEnumCode(const std::string& prefix, const std::vector<std::string>& enumStrs);
 };
 

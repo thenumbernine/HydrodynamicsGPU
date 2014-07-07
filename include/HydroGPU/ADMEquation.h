@@ -10,5 +10,6 @@ struct ADMEquation : public Equation {
 	typedef Equation Super;
 	ADMEquation(Solver& solver);
 	virtual void getProgramSources(Solver& solver, std::vector<std::string>& sources);
-	virtual int getBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state);
+	virtual int stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state);
+	virtual int gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim);
 };

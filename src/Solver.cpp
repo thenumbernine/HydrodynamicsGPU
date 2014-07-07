@@ -299,7 +299,7 @@ void Solver::boundary() {
 	for (int i = 0; i < app.dim; ++i) {
 		getBoundaryRanges(i, offset, global, local);
 		for (int j = 0; j < equation->numStates; ++j) {
-			int boundaryKernelIndex = equation->getBoundaryKernelForBoundaryMethod(*this, i, j);
+			int boundaryKernelIndex = equation->stateGetBoundaryKernelForBoundaryMethod(*this, i, j);
 			cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i];
 			app.setArgs(kernel, stateBuffer, equation->numStates, j);
 			commands.enqueueNDRangeKernel(kernel, offset, global, local);
@@ -308,23 +308,12 @@ void Solver::boundary() {
 }
 
 void Solver::gravityPotentialBoundary() {
-	for (int j = 0; j < app.dim; ++j) {
-		int boundaryKernelIndex = -1;
-		switch (app.boundaryMethods(j)) {
-		case 0:	//periodic
-			boundaryKernelIndex = BOUNDARY_KERNEL_PERIODIC;
-			break;
-		case 1:	//mirror
-			boundaryKernelIndex = BOUNDARY_KERNEL_FREEFLOW;
-			break;
-		case 2:	//freeflow
-			boundaryKernelIndex = BOUNDARY_KERNEL_FREEFLOW;
-			break;
-		}
-		cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][j];
+	cl::NDRange offset, global, local;
+	for (int i = 0; i < app.dim; ++i) {
+		int boundaryKernelIndex = equation->gravityGetBoundaryKernelForBoundaryMethod(*this, i);
+		cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i];
 		app.setArgs(kernel, gravityPotentialBuffer, 1, 0);
-		cl::NDRange offset, global, local;
-		getBoundaryRanges(j, offset, global, local);
+		getBoundaryRanges(i, offset, global, local);
 		commands.enqueueNDRangeKernel(kernel, offset, global, local);
 	}
 }

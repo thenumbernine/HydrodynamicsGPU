@@ -55,13 +55,28 @@ void MHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& so
 	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
 }
 
-int MHDEquation::getBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
+int MHDEquation::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
 	case BOUNDARY_METHOD_MIRROR:
 		return (dim + 1 == state || dim + 4 == state) ? BOUNDARY_KERNEL_REFLECT : BOUNDARY_KERNEL_MIRROR;
+		break;		
+	case BOUNDARY_METHOD_FREEFLOW:
+		return BOUNDARY_KERNEL_FREEFLOW;
+		break;
+	}
+	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
+}
+
+int MHDEquation::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) {
+	switch (solver.app.boundaryMethods(dim)) {
+	case BOUNDARY_METHOD_PERIODIC:
+		return BOUNDARY_KERNEL_PERIODIC;
+		break;
+	case BOUNDARY_METHOD_MIRROR:
+		return BOUNDARY_KERNEL_FREEFLOW;
 		break;		
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;

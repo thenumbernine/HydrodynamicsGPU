@@ -58,13 +58,28 @@ void SRHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& s
 	sources.push_back(Common::File::read("SRHDCommon.cl"));
 }
 
-int SRHDEquation::getBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
+int SRHDEquation::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
 	case BOUNDARY_METHOD_MIRROR:
 		return dim + 1 == state ? BOUNDARY_KERNEL_REFLECT : BOUNDARY_KERNEL_MIRROR;
+		break;		
+	case BOUNDARY_METHOD_FREEFLOW:
+		return BOUNDARY_KERNEL_FREEFLOW;
+		break;
+	}
+	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
+}
+
+int SRHDEquation::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) {
+	switch (solver.app.boundaryMethods(dim)) {
+	case BOUNDARY_METHOD_PERIODIC:
+		return BOUNDARY_KERNEL_PERIODIC;
+		break;
+	case BOUNDARY_METHOD_MIRROR:
+		return BOUNDARY_KERNEL_FREEFLOW;
 		break;		
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;
