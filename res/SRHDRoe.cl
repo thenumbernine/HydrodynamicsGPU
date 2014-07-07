@@ -10,7 +10,7 @@ void calcEigenBasisSide(
 	__global real* eigenvectorsBuffer,
 	__global real* eigenvectorsInverseBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real* potentialBuffer,
 	int side);
 
 void calcEigenBasisSide(
@@ -19,7 +19,7 @@ void calcEigenBasisSide(
 	__global real* eigenvectorsInverseBuffer,
 	const __global real* primitiveBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real* potentialBuffer,
 	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -283,7 +283,7 @@ __kernel void calcEigenBasis(
 	__global real* eigenvectorsInverseBuffer,
 	const __global real* primitiveBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer)
+	const __global real* potentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -294,12 +294,12 @@ __kernel void calcEigenBasis(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, gravityPotentialBuffer, 0);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, potentialBuffer, 0);
 #if DIM > 1
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, gravityPotentialBuffer, 1);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, potentialBuffer, 1);
 #endif
 #if DIM > 2
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, gravityPotentialBuffer, 2);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, potentialBuffer, 2);
 #endif
 }
 

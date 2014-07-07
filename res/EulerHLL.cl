@@ -4,14 +4,14 @@ void calcFluxAndEigenvaluesSide(
 	__global real* eigenvaluesBuffer,
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real* potentialBuffer,
 	int side);
 
 void calcFluxAndEigenvaluesSide(
 	__global real* eigenvaluesBuffer,
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real* potentialBuffer,
 	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -35,7 +35,7 @@ void calcFluxAndEigenvaluesSide(
 	real velocityNL = dot(velocityL, normal);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
 	real energyKineticL = .5f * velocitySqL;
-	real energyPotentialL = gravityPotentialBuffer[indexPrev];
+	real energyPotentialL = potentialBuffer[indexPrev];
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
@@ -50,7 +50,7 @@ void calcFluxAndEigenvaluesSide(
 	real velocityNR = dot(velocityR, normal);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
 	real energyKineticR = .5f * velocitySqR;
-	real energyPotentialR = gravityPotentialBuffer[index];
+	real energyPotentialR = potentialBuffer[index];
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 	real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
@@ -142,7 +142,7 @@ __kernel void calcFluxAndEigenvalues(
 	__global real* eigenvaluesBuffer,
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer)
+	const __global real* potentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1
@@ -153,12 +153,12 @@ __kernel void calcFluxAndEigenvalues(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	calcFluxAndEigenvaluesSide(eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer, 0);
+	calcFluxAndEigenvaluesSide(eigenvaluesBuffer, fluxBuffer, stateBuffer, potentialBuffer, 0);
 #if DIM > 1
-	calcFluxAndEigenvaluesSide(eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer, 1);
+	calcFluxAndEigenvaluesSide(eigenvaluesBuffer, fluxBuffer, stateBuffer, potentialBuffer, 1);
 #endif
 #if DIM > 2
-	calcFluxAndEigenvaluesSide(eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer, 2);
+	calcFluxAndEigenvaluesSide(eigenvaluesBuffer, fluxBuffer, stateBuffer, potentialBuffer, 2);
 #endif
 }
 

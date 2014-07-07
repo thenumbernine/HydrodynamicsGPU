@@ -21,7 +21,7 @@ protected:
 	cl::Buffer cflBuffer;
 	cl::Buffer cflSwapBuffer;
 	cl::Buffer dtBuffer;
-	cl::Buffer gravityPotentialBuffer;
+	cl::Buffer potentialBuffer;
 	
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel poissonRelaxKernel;
@@ -53,7 +53,7 @@ protected:
 
 	virtual void getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &global, cl::NDRange &local);
 	virtual void boundary();
-	virtual void gravityPotentialBoundary();
+	virtual void potentialBoundary();
 
 	virtual void initStep();
 	virtual void step() = 0;

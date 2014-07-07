@@ -80,7 +80,7 @@ or I could provide a wrapper like this ...
 //specific to Euler equations
 __kernel void convertToTex(
 	const __global real* primitiveBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real* potentialBuffer,
 	__write_only image3d_t fluidTex,
 	__read_only image1d_t gradientTex,
 	int displayMethod,
@@ -117,7 +117,7 @@ __kernel void convertToTex(
 		value = pressure;
 		break;
 	case DISPLAY_GRAVITY_POTENTIAL:
-		value = gravityPotentialBuffer[index];
+		value = potentialBuffer[index];
 		break;
 	default:
 		value = .5f;
@@ -131,7 +131,7 @@ __kernel void convertToTex(
 }
 
 __kernel void poissonRelax(
-	__global real* gravityPotentialBuffer,
+	__global real* potentialBuffer,
 	const __global real* stateBuffer,
 	int4 repeat)
 {
@@ -151,7 +151,7 @@ __kernel void poissonRelax(
 		}
 		int indexPrev = INDEXV(iprev);
 		int indexNext = INDEXV(inext);
-		sum += gravityPotentialBuffer[indexPrev] + gravityPotentialBuffer[indexNext];
+		sum += potentialBuffer[indexPrev] + potentialBuffer[indexNext];
 	}
 	
 #define M_PI 3.141592653589793115997963468544185161590576171875f
@@ -164,13 +164,13 @@ __kernel void poissonRelax(
 	scale *= DZ; 
 #endif
 	real density = stateBuffer[STATE_REST_MASS_DENSITY + NUM_STATES * index];
-	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * density;
+	potentialBuffer[index] = sum / (2.f * (float)DIM) + scale * density;
 }
 
 //TODO FIXME
 __kernel void addGravity(
 	__global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real* potentialBuffer,
 	const __global real* dtBuffer)
 {
 	real dt = dtBuffer[0];
@@ -195,7 +195,7 @@ __kernel void addGravity(
 		int indexL = index - stepsize[side];
 		int indexR = index + stepsize[side];
 	
-		real gravityGrad = .5f * (gravityPotentialBuffer[indexR] - gravityPotentialBuffer[indexL]);
+		real gravityGrad = .5f * (potentialBuffer[indexR] - potentialBuffer[indexL]);
 		
 		stateBuffer[side+STATE_MOMENTUM_DENSITY_X + NUM_STATES * index] -= dt_dx[side] * density * gravityGrad;
 		stateBuffer[STATE_TOTAL_ENERGY_DENSITY + NUM_STATES * index] -= dt * density * gravityGrad * stateBuffer[side+STATE_MOMENTUM_DENSITY_X + NUM_STATES * index];

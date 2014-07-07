@@ -32,7 +32,7 @@ void EulerHLL::init() {
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * equation->numStates * volume * app.dim);
 	
 	calcFluxAndEigenvaluesKernel = cl::Kernel(program, "calcFluxAndEigenvalues");
-	app.setArgs(calcFluxAndEigenvaluesKernel, eigenvaluesBuffer, fluxBuffer, stateBuffer, gravityPotentialBuffer);
+	app.setArgs(calcFluxAndEigenvaluesKernel, eigenvaluesBuffer, fluxBuffer, stateBuffer, potentialBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
 	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.cfl);
@@ -65,7 +65,7 @@ void EulerHLL::step() {
 
 	if (app.useGravity) {
 		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
-			gravityPotentialBoundary();
+			potentialBoundary();
 			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 	

@@ -220,7 +220,7 @@ return {
 		initState = function(x,y,z)
 			return buildSelfGravitationState(x,y,z,{
 				sources={
-					{center={0, 0, 0}, radius = .2},
+					{center={0, 0, 0}, radius = .1},
 				},
 			})
 		end
@@ -237,8 +237,8 @@ return {
 						radius = .2,
 						inside = function(dx,dy,dz)
 							return buildStateEuler{
-								velocityX = -dy,
-								velocityY = dx,
+								velocityX = -10 * dy,
+								velocityY = 10 * dx,
 								pressure = 1,
 								density = 1,
 							}

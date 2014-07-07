@@ -90,7 +90,9 @@ constant float2 offset[6] = {
 
 __kernel void createVelocityField(
 	__global real* velocityFieldVertexBuffer,
-	const __global real* stateBuffer)
+	const __global real* stateBuffer,
+	const __global real* gravityPotentialBuffer,
+	float scale)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
@@ -108,11 +110,23 @@ __kernel void createVelocityField(
 	int4 si = (int4)(sf.x, sf.y, sf.z, 0);
 	//float4 fp = (float4)(sf.x - (float)si.x, sf.y - (float)si.y, sf.z - (float)si.z, 0.f);
 	
+#if 0	//plotting velocity 
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
-
-	const float scale = .1f;
 	float4 velocity = VELOCITY(state);
+#endif
+#if 1	//plotting gravity
+	int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
+	int4 ixR = si; ixR.x = (ixR.x + 1) % SIZE_X;
+	int4 iyL = si; iyL.y = (iyL.y + SIZE_X - 1) % SIZE_X;
+	int4 iyR = si; iyR.y = (iyR.y + 1) % SIZE_X;
+	//external force is negative the potential gradient
+	float4 velocity = (float4)(
+		gravityPotentialBuffer[INDEXV(ixL)] - gravityPotentialBuffer[INDEXV(ixR)],
+		gravityPotentialBuffer[INDEXV(iyL)] - gravityPotentialBuffer[INDEXV(iyR)],
+		0.f,
+		0.f);
+#endif
 
 	for (int i = 0; i < 6; ++i) {
 		vertex[0 + DIM * i] = f.x * (XMAX - XMIN) + XMIN + scale * (offset[i].x * velocity.x - offset[i].y * velocity.y);
@@ -149,18 +163,22 @@ __kernel void poissonRelax(
 		int indexNext = index + stepsize[side];
 		sum += gravityPotentialBuffer[indexPrev] + gravityPotentialBuffer[indexNext];
 	}
-	
-#define M_PI 3.141592653589793115997963468544185161590576171875f
-#define GRAVITY_CONSTANT 1.f		//6.67384e-11 m^3 / (kg s^2)
-	real scale = M_PI * GRAVITY_CONSTANT * DX;
+
+	const real volumeElement = DX
 #if DIM > 1
-	scale *= DY; 
+		* DY 
 #endif
 #if DIM > 2
-	scale *= DZ; 
+		* DZ
 #endif
+	;
+
+	//delta^2 Phi = 4 pi G rho
+	const real pi = 3.141592653589793115997963468544185161590576171875f;
+	const real G = GRAVITATIONAL_CONSTANT;		//6.67384e-11 m^3 / (kg s^2)
+	const real fourPiGRho = 4.f * pi * G;
 	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
-	gravityPotentialBuffer[index] = sum / (2.f * (float)DIM) + scale * density;
+	gravityPotentialBuffer[index] = (fourPiGRho * density - sum / volumeElement) / (-2.f * (float)DIM / volumeElement);
 }
 
 __kernel void addGravity(
@@ -190,10 +208,11 @@ __kernel void addGravity(
 		int indexPrev = index - stepsize[side];
 		int indexNext = index + stepsize[side];
 	
-		real gravityGrad = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
-		
-		stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * index] -= dt_dx[side] * density * gravityGrad;
-		stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index] -= dt * density * gravityGrad * stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * index];
+		real gravityPotentialGradient = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
+	
+		//gravitational force = -gradient of gravitational potential
+		stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * index] -= dt_dx[side] * density * gravityPotentialGradient;
+		stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index] -= dt * density * gravityPotentialGradient * stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * index];
 	}
 }
 

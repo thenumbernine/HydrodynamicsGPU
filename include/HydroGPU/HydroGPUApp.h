@@ -20,7 +20,6 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	std::string configFilename;
 	std::string configString;
 	std::string solverName;
-	std::string slopeLimiterName;
 	int dim;
 	cl_int4 size;
 	real4 xmin, xmax;
@@ -39,6 +38,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	real4 dx;
 	bool showVelocityField;
 	int velocityFieldResolution;
+	float velocityFieldScale;
 	//input
 	bool leftButtonDown;
 	bool rightButtonDown;

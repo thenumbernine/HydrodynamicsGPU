@@ -90,7 +90,7 @@ void calcEigenBasisSide(
 	__global real* eigenvectorsBuffer,
 	__global real* eigenvectorsInverseBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real* potentialBuffer,
 	int side);
 
 void calcEigenBasisSide(
@@ -98,7 +98,7 @@ void calcEigenBasisSide(
 	__global real* eigenvectorsBuffer,
 	__global real* eigenvectorsInverseBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real* potentialBuffer,
 	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -119,7 +119,7 @@ void calcEigenBasisSide(
 	real4 velocityL = VELOCITY(stateL);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
 	real energyKineticL = .5f * dot(velocityL, velocityL);
-	real energyPotentialL = gravityPotentialBuffer[indexPrev];
+	real energyPotentialL = potentialBuffer[indexPrev];
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
@@ -131,7 +131,7 @@ void calcEigenBasisSide(
 	real4 velocityR = VELOCITY(stateR);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
 	real energyKineticR = .5f * dot(velocityR, velocityR);
-	real energyPotentialR = gravityPotentialBuffer[index];
+	real energyPotentialR = potentialBuffer[index];
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 	real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
@@ -269,7 +269,7 @@ __kernel void calcEigenBasis(
 	__global real* eigenvectorsBuffer,
 	__global real* eigenvectorsInverseBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer)
+	const __global real* potentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -280,12 +280,12 @@ __kernel void calcEigenBasis(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer, 0);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, potentialBuffer, 0);
 #if DIM > 1
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer, 1);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, potentialBuffer, 1);
 #endif
 #if DIM > 2
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer, 2);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, potentialBuffer, 2);
 #endif
 }
 

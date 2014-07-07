@@ -3,7 +3,7 @@
 __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real* potentialBuffer,
 	real cfl)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -35,7 +35,7 @@ __kernel void calcCFL(
 #endif
 	real specificEnergyTotal = energyTotal / density;
 	real specificEnergyKinetic = .5f * dot(velocity, velocity);
-	real specificEnergyPotential = gravityPotentialBuffer[index];
+	real specificEnergyPotential = potentialBuffer[index];
 	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
 
 	real speedOfSound = sqrt(GAMMA * (GAMMA - 1.f) * specificEnergyInternal);
@@ -186,7 +186,7 @@ __kernel void integrateFlux(
 __kernel void computePressure(
 	__global real* pressureBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer)
+	const __global real* potentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 1 || i.x >= SIZE_X - 1 
@@ -216,7 +216,7 @@ __kernel void computePressure(
 #endif
 	real specificEnergyTotal = energyTotal / density;
 	real specificEnergyKinetic = .5f * dot(velocity, velocity);
-	real specificEnergyPotential = gravityPotentialBuffer[index];
+	real specificEnergyPotential = potentialBuffer[index];
 	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
 	real pressure = (GAMMA - 1.f) * density * specificEnergyInternal;
 	//von Neumann-Richtmyer artificial viscosity

@@ -49,7 +49,7 @@ void EulerBurgers::init() {
 	}
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app.setArgs(calcCFLKernel, cflBuffer, stateBuffer, gravityPotentialBuffer, app.cfl);
+	app.setArgs(calcCFLKernel, cflBuffer, stateBuffer, potentialBuffer, app.cfl);
 	
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
 	app.setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer);
@@ -61,7 +61,7 @@ void EulerBurgers::init() {
 	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, dtBuffer);
 	
 	computePressureKernel = cl::Kernel(program, "computePressure");
-	app.setArgs(computePressureKernel, pressureBuffer, stateBuffer, gravityPotentialBuffer);
+	app.setArgs(computePressureKernel, pressureBuffer, stateBuffer, potentialBuffer);
 
 	diffuseMomentumKernel = cl::Kernel(program, "diffuseMomentum");
 	app.setArgs(diffuseMomentumKernel, stateBuffer, pressureBuffer, dtBuffer);
@@ -88,7 +88,7 @@ void EulerBurgers::step() {
 
 	if (app.useGravity) {
 		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
-			gravityPotentialBoundary();
+			potentialBoundary();
 			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 	}	

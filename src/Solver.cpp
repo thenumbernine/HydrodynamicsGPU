@@ -103,7 +103,7 @@ void Solver::init() {
 	cflBuffer = clAlloc(sizeof(real) * volume);
 	cflSwapBuffer = clAlloc(sizeof(real) * volume / localSize[0]);
 	dtBuffer = clAlloc(sizeof(real16));
-	gravityPotentialBuffer = clAlloc(sizeof(real) * volume);
+	potentialBuffer = clAlloc(sizeof(real) * volume);
 	stateBuffer = clAlloc(sizeof(real) * equation->numStates * volume);
 	
 	//get the edges, so reduction doesn't
@@ -136,9 +136,17 @@ std::vector<std::string> Solver::getProgramSources() {
 		"#define XMAX " + toNumericString<real>(app.xmax.s[0]) + "\n" +
 		"#define YMAX " + toNumericString<real>(app.xmax.s[1]) + "\n" +
 		"#define ZMAX " + toNumericString<real>(app.xmax.s[2]) + "\n" +
-		"#define SLOPE_LIMITER_" + app.slopeLimiterName + "\n" +
 		"#define NUM_STATES " + std::to_string(equation->numStates) + "\n"
 	};
+
+	std::string slopeLimiterName = "Superbee";
+	app.lua.ref()["slopeLimiter"] >> slopeLimiterName;
+	sourceStrs[0] += "#define SLOPE_LIMITER_" + slopeLimiterName + "\n";
+
+	real gravitationalConstant = 1.f;
+	app.lua.ref()["gravitationalConstant"] >> gravitationalConstant;
+	sourceStrs[0] += "#define GRAVITATIONAL_CONSTANT " + toNumericString<real>(gravitationalConstant) + "\n";
+
 	sourceStrs.push_back(Common::File::read("SlopeLimiter.cl"));
 	sourceStrs.push_back(Common::File::read("Common.cl"));
 	equation->getProgramSources(*this, sourceStrs);
@@ -205,29 +213,29 @@ void Solver::resetState() {
 	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * equation->numStates * volume, &stateVec[0]);
 	
 	//here's our initial guess to sor
-	std::vector<real> gravityPotentialVec(volume);
+	std::vector<real> potentialVec(volume);
 	for (size_t i = 0; i < volume; ++i) {
 		if (app.useGravity) {
-			gravityPotentialVec[i] = stateVec[0 + equation->numStates * i];
+			potentialVec[i] = stateVec[0 + equation->numStates * i];
 		} else {
-			gravityPotentialVec[i] = 0.;
+			potentialVec[i] = 0.;
 		}
 	}
 	
-	commands.enqueueWriteBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &gravityPotentialVec[0]);
+	commands.enqueueWriteBuffer(potentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &potentialVec[0]);
 
 	if (app.useGravity) {
 		int energyTotalIndex = 1 + app.dim;
 		
 		//solve for gravitational potential via gauss seidel
 		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
-			gravityPotentialBoundary();
+			potentialBoundary();
 			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 
 		//update total energy
 		for (int i = 0; i < volume; ++i) {
-			stateVec[energyTotalIndex + equation->numStates * i] += gravityPotentialVec[i];
+			stateVec[energyTotalIndex + equation->numStates * i] += potentialVec[i];
 		}
 	}
 	
@@ -264,10 +272,10 @@ void Solver::initKernels() {
 	app.setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSize[0] * sizeof(real)), volume, cflSwapBuffer);
 	
 	poissonRelaxKernel = cl::Kernel(program, "poissonRelax");
-	app.setArgs(poissonRelaxKernel, gravityPotentialBuffer, stateBuffer);
+	app.setArgs(poissonRelaxKernel, potentialBuffer, stateBuffer);
 	
 	addGravityKernel = cl::Kernel(program, "addGravity");
-	app.setArgs(addGravityKernel, stateBuffer, gravityPotentialBuffer, dtBuffer);
+	app.setArgs(addGravityKernel, stateBuffer, potentialBuffer, dtBuffer);
 }
 
 void Solver::getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &global, cl::NDRange &local) {
@@ -313,12 +321,12 @@ void Solver::boundary() {
 	}
 }
 
-void Solver::gravityPotentialBoundary() {
+void Solver::potentialBoundary() {
 	cl::NDRange offset, global, local;
 	for (int i = 0; i < app.dim; ++i) {
 		int boundaryKernelIndex = equation->gravityGetBoundaryKernelForBoundaryMethod(*this, i);
 		cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i];
-		app.setArgs(kernel, gravityPotentialBuffer, 1, 0);
+		app.setArgs(kernel, potentialBuffer, 1, 0);
 		getBoundaryRanges(i, offset, global, local);
 		commands.enqueueNDRangeKernel(kernel, offset, global, local);
 	}

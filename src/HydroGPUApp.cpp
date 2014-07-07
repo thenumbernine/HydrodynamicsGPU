@@ -21,7 +21,6 @@ HydroGPUApp::HydroGPUApp()
 , gradientTex(GLuint())
 , configFilename("config.lua")
 , solverName("EulerBurgers")
-, slopeLimiterName("Superbee")
 , dim(0)
 , doUpdate(1)
 , maxFrames(-1)
@@ -35,6 +34,7 @@ HydroGPUApp::HydroGPUApp()
 , gaussSeidelMaxIter(20)
 , showVelocityField(true)
 , velocityFieldResolution(16)
+, velocityFieldScale(.125f)
 , leftButtonDown(false)
 , rightButtonDown(false)
 , leftShiftDown(false)
@@ -87,7 +87,6 @@ void HydroGPUApp::init() {
 	lua.ref()["maxFrames"] >> maxFrames;
 	lua.ref()["showTimestep"] >> showTimestep;
 	lua.ref()["solverName"] >> solverName;
-	lua.ref()["slopeLimiterName"] >> slopeLimiterName;
 	lua.ref()["useFixedDT"] >> useFixedDT;
 	lua.ref()["fixedDT"] >> fixedDT;
 	lua.ref()["cfl"] >> cfl;
@@ -100,6 +99,7 @@ void HydroGPUApp::init() {
 
 	lua.ref()["showVelocityField"] >> showVelocityField;
 	lua.ref()["velocityFieldResolution"] >> velocityFieldResolution;
+	lua.ref()["velocityFieldScale"] >> velocityFieldScale;
 
 	//store dimension as last non-1 size
 	for (dim = 3; dim > 0; --dim) {
@@ -351,6 +351,12 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 		} else if (event.key.keysym.sym == SDLK_v) {
 			showVelocityField = !showVelocityField;
 			std::cout << "velocity field " << (showVelocityField ? "enabled" : "disabled") << std::endl;
+		} else if (event.key.keysym.sym == SDLK_c) {
+			if (shiftDown) {
+				velocityFieldScale *= .5f;
+			} else {
+				velocityFieldScale *= 2.f;
+			}
 		}
 		break;
 	}

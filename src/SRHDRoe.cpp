@@ -30,7 +30,7 @@ void SRHDRoe::initKernels() {
 
 	convertToTexKernel.setArg(0, primitiveBuffer);
 
-	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, gravityPotentialBuffer);
+	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, potentialBuffer);
 }
 
 void SRHDRoe::resetState() {

@@ -3,7 +3,7 @@
 //specific to Euler equations
 __kernel void convertToTex(
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real* potentialBuffer,
 	__write_only image3d_t fluidTex,
 	__read_only image1d_t gradientTex,
 	int displayMethod,
@@ -41,7 +41,7 @@ __kernel void convertToTex(
 //TODO shouldn't even be linking it
 
 __kernel void poissonRelax(
-	__global real* gravityPotentialBuffer,
+	__global real* potentialBuffer,
 	const __global real* stateBuffer,
 	int4 repeat)
 {
@@ -49,7 +49,7 @@ __kernel void poissonRelax(
 
 __kernel void addGravity(
 	__global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
+	const __global real* potentialBuffer,
 	const __global real* dtBuffer)
 {
 }

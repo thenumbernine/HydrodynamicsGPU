@@ -80,7 +80,7 @@ void Solver3D::init() {
 
 			//create transfer kernel
 			createVelocityFieldKernel = cl::Kernel(program, "createVelocityField");
-			app.setArgs(createVelocityFieldKernel, velocityFieldVertexBuffer, stateBuffer);
+			app.setArgs(createVelocityFieldKernel, velocityFieldVertexBuffer, stateBuffer, potentialBuffer, app.velocityFieldScale);
 
 			//get a texture going for visualizing the output
 			glGenTextures(1, &fluidTex);
@@ -153,7 +153,7 @@ void Solver3D::init() {
 	fluidTexMem = cl::ImageGL(app.context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, fluidTex);
 	
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
-	app.setArgs(convertToTexKernel, stateBuffer, gravityPotentialBuffer, fluidTexMem, app.gradientTexMem);
+	app.setArgs(convertToTexKernel, stateBuffer, potentialBuffer, fluidTexMem, app.gradientTexMem);
 
 	initKernels();
 }
@@ -274,6 +274,7 @@ void Solver3D::display() {
 			cl::NDRange offset(0,0);
 			cl::NDRange local(localSize[0], localSize[1]);
 			cl::NDRange global(app.velocityFieldResolution, app.velocityFieldResolution);
+			createVelocityFieldKernel.setArg(3, app.velocityFieldScale);
 			commands.enqueueNDRangeKernel(createVelocityFieldKernel, offset, global, local);
 			commands.finish();
 
@@ -433,7 +434,7 @@ return;
 			app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * stateVec.size(), &stateVec[0]);
 			
 			std::vector<real> gravVec(app.size.s[0] * app.size.s[1]);
-			app.commands.enqueueReadBuffer(gravityPotentialBuffer, CL_TRUE, 0, sizeof(real) * gravVec.size(), &gravVec[0]);
+			app.commands.enqueueReadBuffer(potentialBuffer, CL_TRUE, 0, sizeof(real) * gravVec.size(), &gravVec[0]);
 			
 			app.commands.finish();
 			

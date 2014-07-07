@@ -45,15 +45,16 @@ fixedDT = .01
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'PERIODIC', 'PERIODIC', 'PERIODIC'}
+boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false 
+gravitationalConstant = 100
 gaussSeidelMaxIter = 20
 
-showVelocityField = true
-velocityFieldResolution = 32
-
+showVelocityField = true	-- for one test this was 72fps with, 76fps without, so 5% perf hit
+velocityFieldResolution = 64
+velocityFieldScale = .125
 -- Euler equations' constants:
 gamma = 1.4
 
@@ -63,7 +64,7 @@ gamma = 1.4
 size = {64, 64, 64}
 --]]
 -- [[ 2D
-size = {512, 512}
+size = {256, 256}
 --]]
 --[[ 1D
 size = {1024}
@@ -72,5 +73,5 @@ displayScale = .25
 
 
 -- see initState for a list of options
-configurations['self-gravitation test 2']()
+configurations['self-gravitation test 1']()
 

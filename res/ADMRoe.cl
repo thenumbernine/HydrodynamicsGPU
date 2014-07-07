@@ -12,7 +12,7 @@ __kernel void calcEigenBasis(
 	__global real* eigenvectorsBuffer,
 	__global real* eigenvectorsInverseBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer)
+	const __global real* potentialBuffer)
 {
 	real4 dx = (real4)(DX, DY, DZ, 1.f);
 

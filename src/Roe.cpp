@@ -43,7 +43,7 @@ void Roe::init() {
 	}
 
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
-	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, gravityPotentialBuffer);
+	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, potentialBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
 	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.cfl);
@@ -80,7 +80,7 @@ void Roe::step() {
 
 	if (app.useGravity) {
 		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
-			gravityPotentialBoundary();
+			potentialBoundary();
 			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
 	
