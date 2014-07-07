@@ -70,7 +70,7 @@ void Solver3D::init() {
 			for (int i = 0; i < app.dim; ++i) {
 				velocityFieldVolume *= app.velocityFieldResolution;
 			}
-			velocityFieldVertexCount = 2 * app.dim * velocityFieldVolume;
+			velocityFieldVertexCount = 3 * 6 * app.dim * velocityFieldVolume;
 			glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(real) * velocityFieldVertexCount, NULL, GL_DYNAMIC_DRAW_ARB);
 			totalAlloc += sizeof(real) * velocityFieldVertexCount;
 			glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
@@ -284,7 +284,7 @@ void Solver3D::display() {
 			glBindBuffer(GL_ARRAY_BUFFER_ARB, velocityFieldGLBuffer);
 			glEnableClientState(GL_VERTEX_ARRAY);
 			glVertexPointer(app.dim, GL_FLOAT, 0, 0);
-			glDrawArrays(GL_LINES, 0, 2 * app.dim * velocityFieldVertexCount);
+			glDrawArrays(GL_LINES, 0, velocityFieldVertexCount);
 			glDisableClientState(GL_VERTEX_ARRAY);
 			glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
 			

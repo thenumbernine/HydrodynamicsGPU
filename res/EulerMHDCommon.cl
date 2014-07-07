@@ -78,6 +78,16 @@ __kernel void convertToTex(
 	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
 }
 
+
+constant float2 offset[6] = {
+	(float2)(0.f, 0.f),
+	(float2)(1.f, 0.f),
+	(float2)(.7f, .3f),
+	(float2)(1.f, 0.f),
+	(float2)(.7f, -.3f),
+	(float2)(1.f, 0.f),
+};
+
 __kernel void createVelocityField(
 	__global real* velocityFieldVertexBuffer,
 	const __global real* stateBuffer)
@@ -85,7 +95,7 @@ __kernel void createVelocityField(
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
 	int vertexIndex = i.x + size.x * (i.y + size.y * i.z);
-	__global real* vertex = velocityFieldVertexBuffer + 2 * DIM * vertexIndex;
+	__global real* vertex = velocityFieldVertexBuffer + 6 * DIM * vertexIndex;
 	
 	float4 f = (float4)(
 		((float)i.x + .5f) / (float)size.x,
@@ -101,22 +111,18 @@ __kernel void createVelocityField(
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
 
-	vertex[0] = vertex[DIM+0] = f.x * (XMAX - XMIN) + XMIN;
-#if DIM > 1
-	vertex[1] = vertex[DIM+1] = f.y * (YMAX - YMIN) + YMIN;
-#if DIM > 2
-	vertex[2] = vertex[DIM+2] = f.z * (ZMAX - ZMIN) + ZMIN;
-#endif
-#endif
+	const float scale = .1f;
+	float4 velocity = VELOCITY(state);
 
-	const float scale = .05f;
-	vertex[DIM+0] += state[STATE_MOMENTUM_X] / state[STATE_DENSITY] * scale;
+	for (int i = 0; i < 6; ++i) {
+		vertex[0 + DIM * i] = f.x * (XMAX - XMIN) + XMIN + scale * (offset[i].x * velocity.x - offset[i].y * velocity.y);
 #if DIM > 1
-	vertex[DIM+1] += state[STATE_MOMENTUM_Y] / state[STATE_DENSITY] * scale;
+		vertex[1 + DIM * i] = f.y * (YMAX - YMIN) + YMIN + scale * (offset[i].x * velocity.y + offset[i].y * velocity.x);
 #if DIM > 2
-	vertex[DIM+2] += state[STATE_MOMENTUM_Z] / state[STATE_DENSITY] * scale;
+		vertex[2 + DIM * i] = f.z * (ZMAX - ZMIN) + ZMIN + scale * (offset[i].x * velocity.z + offset[i].y * velocity.z);
 #endif
 #endif
+	}
 }
 
 __kernel void poissonRelax(
