@@ -46,9 +46,11 @@ void SRHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& s
 	primitives.push_back("PRESSURE");
 	sources[0] += buildEnumCode("PRIMITIVE", primitives);
 	
+	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
+	
 	real gamma = 1.4f;
 	solver.app.lua.ref()["gamma"] >> gamma;
-	sources[0] += "#define GAMMA " + toNumericString<real>(gamma) + "\n";
+	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
 	
 	sources.push_back(Common::File::read("SRHDCommon.cl"));
 }

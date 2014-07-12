@@ -37,10 +37,10 @@ void calcFluxAndEigenvaluesSide(
 	real energyKineticL = .5f * velocitySqL;
 	real energyPotentialL = potentialBuffer[indexPrev];
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
-	real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
+	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
 	real roeWeightL = sqrt(densityL);
-	real speedOfSoundL = sqrt((GAMMA - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
+	real speedOfSoundL = sqrt((gamma - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
 	real eigenvaluesMinL = velocityNL - speedOfSoundL;
 
 	real densityR = stateR[STATE_DENSITY];
@@ -52,10 +52,10 @@ void calcFluxAndEigenvaluesSide(
 	real energyKineticR = .5f * velocitySqR;
 	real energyPotentialR = potentialBuffer[index];
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
-	real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
+	real pressureR = (gamma - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
 	real roeWeightR = sqrt(densityR);
-	real speedOfSoundR = sqrt((GAMMA - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
+	real speedOfSoundR = sqrt((gamma - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
 	real eigenvaluesMaxR = velocityNR + speedOfSoundR;
 	
 	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
@@ -64,7 +64,7 @@ void calcFluxAndEigenvaluesSide(
 	real energyPotential = (roeWeightL * energyPotentialL + roeWeightR * energyPotentialR) * roeWeightNormalization; 
 	
 	real velocitySq = dot(velocity, velocity);
-	real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
+	real speedOfSound = sqrt((gamma - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
 	real velocityN = dot(velocity, normal);
 
 	//eigenvalues

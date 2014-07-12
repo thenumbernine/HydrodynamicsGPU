@@ -84,7 +84,7 @@ void calcEigenBasisSide(
 	real lorentzFactorSq = lorentzFactor * lorentzFactor;
 	real4 relativisticVelocity = (roeWeightL * relativisticVelocityL + roeWeightR * relativisticVelocityR) * roeWeightNormalization;	//ui
 	real pressureOverProperDensityEnthalpy = (roeWeightL * pressureOverProperDensityEnthalpyL + roeWeightR * pressureOverProperDensityEnthalpyR) * roeWeightNormalization;	//p / (rho h)
-	real speedOfSoundSq = GAMMA * pressureOverProperDensityEnthalpy;
+	real speedOfSoundSq = gamma * pressureOverProperDensityEnthalpy;
 	real speedOfSound = sqrt(speedOfSoundSq);
 	//how do we get 'h' from the Roe-weighted variables?
 

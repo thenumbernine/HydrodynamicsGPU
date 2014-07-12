@@ -57,7 +57,7 @@ __kernel void convertToTex(
 		value = velocity;
 		break;
 	case DISPLAY_PRESSURE:	//pressure
-		value = (GAMMA - 1.f) * specificEnergyInternal * density;
+		value = (gamma - 1.f) * specificEnergyInternal * density;
 		break;
 	case DISPLAY_GRAVITY_POTENTIAL:
 		value = gravityPotentialBuffer[index];

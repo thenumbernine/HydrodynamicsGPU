@@ -44,13 +44,15 @@ MHDEquation::MHDEquation(Solver& solver)
 void MHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
 	Super::getProgramSources(solver, sources);
 	
+	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
+	
 	real gamma = 1.4f;
 	solver.app.lua.ref()["gamma"] >> gamma;
-	sources[0] += "#define GAMMA " + toNumericString<real>(gamma) + "\n";
+	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
 
 	real vaccuumPermeability = 1.f;
 	solver.app.lua.ref()["vaccuumPermeability"] >> vaccuumPermeability;
-	sources[0] += "#define VACCUUM_PERMEABILITY " + toNumericString<real>(vaccuumPermeability) + "\n";
+	sources[0] += "constant real vaccuumPermeability = " + toNumericString<real>(vaccuumPermeability) + "\n";
 
 	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
 	sources.push_back(Common::File::read("MHDCommon.cl"));

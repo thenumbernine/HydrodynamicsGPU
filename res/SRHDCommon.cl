@@ -48,7 +48,7 @@ or I could provide a wrapper like this ...
 	real newtonianTotalSpecificEnergy = newtonianTotalEnergyDensity / properRestMassDensity;	//eTot
 	real internalSpecificEnergy = newtonianTotalSpecificEnergy - newtonianKineticSpecificEnergy;	//e
 	// recast them as SR state variables 
-	real pressure = (GAMMA - 1.f) * properRestMassDensity * internalSpecificEnergy;	//P
+	real pressure = (gamma - 1.f) * properRestMassDensity * internalSpecificEnergy;	//P
 	real internalSpecificEnthalpy = 1.f + internalSpecificEnergy + pressure / properRestMassDensity; 	//h
 	real lorentzFactor = 1.f / sqrt(1.f - newtonianVelocitySq);	//W = u0, ui = vi * u0
 	real lorentzFactorSq = lorentzFactor * lorentzFactor;

@@ -9,7 +9,7 @@ __kernel void initVariables(
 	//comes in rho, mx, my, mz, ETotal, bx, by, bz
 	real totalEnergyDensity = state[4];	//ETotal = density * (eKinetic + eInternal + ePotential)
 	real4 magneticField = (real4)(state[5], state[6], state[7], 0.f);
-	real magneticEnergyDensity = .5f * dot(magneticField, magneticField) / VACCUUM_PERMEABILITY;
+	real magneticEnergyDensity = .5f * dot(magneticField, magneticField) / vaccuumPermeability;
 	//goes out
 	state[STATE_MAGNETIC_FIELD_X] = magneticField.x;
 	state[STATE_MAGNETIC_FIELD_Y] = magneticField.y;

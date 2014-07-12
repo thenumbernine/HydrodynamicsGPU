@@ -33,12 +33,12 @@ void calcEigenBasisSide(
 	__global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
 	__global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
 	
-	const real gammaMinusOne = GAMMA - 1.f;
+	const real gammaMinusOne = gamma - 1.f;
 
 	real densityL = stateL[STATE_DENSITY];
 	real4 velocityL = VELOCITY(stateL);
 	real4 magneticFieldL = (real4)(stateL[STATE_MAGNETIC_FIELD_X], stateL[STATE_MAGNETIC_FIELD_Y], stateL[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / VACCUUM_PERMEABILITY;
+	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / vaccuumPermeability;
 	real totalPlasmaEnergyDensityL = stateL[STATE_ENERGY_TOTAL];
 	real totalHydroEnergyDensityL = totalPlasmaEnergyDensityL - magneticEnergyDensityL;
 	real kineticEnergyDensityL = .5f * densityL * dot(velocityL, velocityL);
@@ -49,7 +49,7 @@ void calcEigenBasisSide(
 	real densityR = stateR[STATE_DENSITY];
 	real4 velocityR = VELOCITY(stateR);
 	real4 magneticFieldR = (real4)(stateR[STATE_MAGNETIC_FIELD_X], stateR[STATE_MAGNETIC_FIELD_Y], stateR[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / VACCUUM_PERMEABILITY;
+	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / vaccuumPermeability;
 	real totalPlasmaEnergyDensityR = stateR[STATE_ENERGY_TOTAL];
 	real totalHydroEnergyDensityR = totalPlasmaEnergyDensityR - magneticEnergyDensityR;
 	real kineticEnergyDensityR = .5f * densityR * dot(velocityR, velocityR);
@@ -80,14 +80,14 @@ void calcEigenBasisSide(
 
 	real velocitySq = dot(velocity, velocity);
 	real sqrtDensity = sqrt(density);
-	real speedOfSound = sqrt(max(0.f, GAMMA * pressure / density));
+	real speedOfSound = sqrt(max(0.f, gamma * pressure / density));
 	real speedOfSoundSq = speedOfSound * speedOfSound;
 	real magneticFieldSq = dot(magneticField, magneticField);
 	real magneticFieldXSq = magneticField.x * magneticField.x;
 	
 	real AlfvenSpeed = magneticField.x / sqrtDensity;
-	real tmp1 = (GAMMA * pressure + magneticFieldSq) / density;
-	real discr = max(0.f, tmp1 * tmp1 - 4.f * GAMMA * pressure * magneticFieldXSq / (density * density));
+	real tmp1 = (gamma * pressure + magneticFieldSq) / density;
+	real discr = max(0.f, tmp1 * tmp1 - 4.f * gamma * pressure * magneticFieldXSq / (density * density));
 	real tmp2 = sqrt(discr);
 	real fastSpeedSq = max(.5f * tmp1 + tmp2, 0.f);
 	real fastSpeed = sqrt(fastSpeedSq);
@@ -133,7 +133,7 @@ void calcEigenBasisSide(
 	eigenvectorsWrtPrimitives[4 + NUM_STATES * 0] = 0.f;
 	eigenvectorsWrtPrimitives[5 + NUM_STATES * 0] = alphaSlow * sqrtDensity * speedOfSound * betaY;
 	eigenvectorsWrtPrimitives[6 + NUM_STATES * 0] = alphaSlow * sqrtDensity * speedOfSound * betaZ;
-	eigenvectorsWrtPrimitives[7 + NUM_STATES * 0] = alphaFast * GAMMA * pressure;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 0] = alphaFast * gamma * pressure;
 	//Alfven col
 	eigenvectorsWrtPrimitives[0 + NUM_STATES * 1] = 0.f;
 	eigenvectorsWrtPrimitives[1 + NUM_STATES * 1] = 0.f;
@@ -151,7 +151,7 @@ void calcEigenBasisSide(
 	eigenvectorsWrtPrimitives[4 + NUM_STATES * 2] = 0.f;
 	eigenvectorsWrtPrimitives[5 + NUM_STATES * 2] = -alphaFast * sqrtDensity * speedOfSound * betaY;
 	eigenvectorsWrtPrimitives[6 + NUM_STATES * 2] = -alphaFast * sqrtDensity * speedOfSound * betaZ;
-	eigenvectorsWrtPrimitives[7 + NUM_STATES * 2] = alphaSlow * GAMMA * pressure;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 2] = alphaSlow * gamma * pressure;
 	//entropy col
 	eigenvectorsWrtPrimitives[0 + NUM_STATES * 3] = 1.f;
 	eigenvectorsWrtPrimitives[1 + NUM_STATES * 3] = 0.f; 
@@ -178,7 +178,7 @@ void calcEigenBasisSide(
 	eigenvectorsWrtPrimitives[4 + NUM_STATES * 5] = 0.f;
 	eigenvectorsWrtPrimitives[5 + NUM_STATES * 5] = -alphaFast * sqrtDensity * speedOfSound * betaY;
 	eigenvectorsWrtPrimitives[6 + NUM_STATES * 5] = -alphaFast * sqrtDensity * speedOfSound * betaZ;
-	eigenvectorsWrtPrimitives[7 + NUM_STATES * 5] = alphaSlow * GAMMA * pressure;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 5] = alphaSlow * gamma * pressure;
 	//Alfven col
 	eigenvectorsWrtPrimitives[0 + NUM_STATES * 6] = 0.f;
 	eigenvectorsWrtPrimitives[1 + NUM_STATES * 6] = 0.f;
@@ -196,7 +196,7 @@ void calcEigenBasisSide(
 	eigenvectorsWrtPrimitives[4 + NUM_STATES * 7] = 0.f;
 	eigenvectorsWrtPrimitives[5 + NUM_STATES * 7] = alphaSlow * sqrtDensity * speedOfSound * betaY;
 	eigenvectorsWrtPrimitives[6 + NUM_STATES * 7] = alphaSlow * sqrtDensity * speedOfSound * betaZ;
-	eigenvectorsWrtPrimitives[7 + NUM_STATES * 7] = alphaFast * GAMMA * pressure;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 7] = alphaFast * gamma * pressure;
 
 
 	//eigenvectors inverse

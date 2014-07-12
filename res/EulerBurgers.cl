@@ -38,7 +38,7 @@ __kernel void calcCFL(
 	real specificEnergyPotential = potentialBuffer[index];
 	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
 
-	real speedOfSound = sqrt(GAMMA * (GAMMA - 1.f) * specificEnergyInternal);
+	real speedOfSound = sqrt(gamma * (gamma - 1.f) * specificEnergyInternal);
 #if DIM == 1
 	real result = dx.s0 / (speedOfSound + fabs(velocity));
 #else
@@ -218,7 +218,7 @@ __kernel void computePressure(
 	real specificEnergyKinetic = .5f * dot(velocity, velocity);
 	real specificEnergyPotential = potentialBuffer[index];
 	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
-	real pressure = (GAMMA - 1.f) * density * specificEnergyInternal;
+	real pressure = (gamma - 1.f) * density * specificEnergyInternal;
 	//von Neumann-Richtmyer artificial viscosity
 	real deltaVelocitySq = 0.f;
 	for (int side = 0; side < DIM; ++side) {

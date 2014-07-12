@@ -41,7 +41,7 @@ void calcEigenBasisSide(
 	real energyKineticL = .5f * dot(velocityL, velocityL);
 	real energyPotentialL = potentialBuffer[indexPrev];
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
-	real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
+	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
 	real roeWeightL = sqrt(densityL);
 
@@ -52,7 +52,7 @@ void calcEigenBasisSide(
 	real energyKineticR = .5f * dot(velocityR, velocityR);
 	real energyPotentialR = potentialBuffer[index];
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
-	real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
+	real pressureR = (gamma - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
 	real roeWeightR = sqrt(densityR);
 
@@ -62,7 +62,7 @@ void calcEigenBasisSide(
 	real energyPotential = (roeWeightL * energyPotentialL + roeWeightR * energyPotentialR) * roeWeightNormalization; 
 	
 	real velocitySq = dot(velocity, velocity);
-	real speedOfSound = sqrt((enthalpyTotal - .5f * velocitySq - energyPotential) * (GAMMA - 1.f));
+	real speedOfSound = sqrt((enthalpyTotal - .5f * velocitySq - energyPotential) * (gamma - 1.f));
 
 //calculate flux based on normal
 //contains subtle numerical errors along the x axis
@@ -150,25 +150,25 @@ void calcEigenBasisSide(
 	real invDenom = .5f / (speedOfSound * speedOfSound);
 	
 	//min row
-	eigenvectorsInverse[0 + NUM_STATES * 0] = (.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom;
-	eigenvectorsInverse[0 + NUM_STATES * 1] = -(normal.x * speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * 0] = (.5f * (gamma - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * 1] = -(normal.x * speedOfSound + (gamma - 1.f) * velocity.x) * invDenom;
 #if DIM > 1
-	eigenvectorsInverse[0 + NUM_STATES * 2] = -(normal.y * speedOfSound + (GAMMA - 1.f) * velocity.y) * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * 2] = -(normal.y * speedOfSound + (gamma - 1.f) * velocity.y) * invDenom;
 #if DIM > 2
-	eigenvectorsInverse[0 + NUM_STATES * 3] = -(normal.z * speedOfSound + (GAMMA - 1.f) * velocity.z) * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * 3] = -(normal.z * speedOfSound + (gamma - 1.f) * velocity.z) * invDenom;
 #endif
 #endif
-	eigenvectorsInverse[0 + NUM_STATES * (DIM+1)] = (GAMMA - 1.f) * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * (DIM+1)] = (gamma - 1.f) * invDenom;
 	//mid normal row
-	eigenvectorsInverse[1 + NUM_STATES * 0] = 1.f - (GAMMA - 1.f) * velocitySq * invDenom;
-	eigenvectorsInverse[1 + NUM_STATES * 1] = (GAMMA - 1.f) * velocity.x * 2.f * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * 0] = 1.f - (gamma - 1.f) * velocitySq * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * 1] = (gamma - 1.f) * velocity.x * 2.f * invDenom;
 #if DIM > 1
-	eigenvectorsInverse[1 + NUM_STATES * 2] = (GAMMA - 1.f) * velocity.y * 2.f * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * 2] = (gamma - 1.f) * velocity.y * 2.f * invDenom;
 #if DIM > 2
-	eigenvectorsInverse[1 + NUM_STATES * 3] = (GAMMA - 1.f) * velocity.z * 2.f * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * 3] = (gamma - 1.f) * velocity.z * 2.f * invDenom;
 #endif
 #endif
-	eigenvectorsInverse[1 + NUM_STATES * (DIM+1)] = -(GAMMA - 1.f) * 2.f * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * (DIM+1)] = -(gamma - 1.f) * 2.f * invDenom;
 	//mid tangent A row
 #if DIM > 1
 	eigenvectorsInverse[2 + NUM_STATES * 0] = -velocityTA; 
@@ -188,15 +188,15 @@ void calcEigenBasisSide(
 	eigenvectorsInverse[3 + NUM_STATES * (DIM+1)] = 0.f;
 #endif
 	//max row
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 0] = (.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom;
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 1] = (normal.x * speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom;
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 0] = (.5f * (gamma - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom;
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 1] = (normal.x * speedOfSound - (gamma - 1.f) * velocity.x) * invDenom;
 #if DIM > 1
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 2] = (normal.y * speedOfSound - (GAMMA - 1.f) * velocity.y) * invDenom;
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 2] = (normal.y * speedOfSound - (gamma - 1.f) * velocity.y) * invDenom;
 #if DIM > 2
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 3] = (normal.z * speedOfSound - (GAMMA - 1.f) * velocity.z) * invDenom;
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 3] = (normal.z * speedOfSound - (gamma - 1.f) * velocity.z) * invDenom;
 #endif
 #endif
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * (DIM+1)] = (GAMMA - 1.f) * invDenom;
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * (DIM+1)] = (gamma - 1.f) * invDenom;
 #endif
 
 
@@ -285,25 +285,25 @@ void calcEigenBasisSide(
 	real invDenom = .5f / (speedOfSound * speedOfSound);
 	
 	//min row
-	eigenvectorsInverse[0 + NUM_STATES * 0] = (.5f * (GAMMA - 1.f) * velocitySq + speedOfSound * velocity.x) * invDenom;
-	eigenvectorsInverse[0 + NUM_STATES * 1] = -(speedOfSound + (GAMMA - 1.f) * velocity.x) * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * 0] = (.5f * (gamma - 1.f) * velocitySq + speedOfSound * velocity.x) * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * 1] = -(speedOfSound + (gamma - 1.f) * velocity.x) * invDenom;
 #if DIM > 1
-	eigenvectorsInverse[0 + NUM_STATES * 2] = -(GAMMA - 1.f) * velocity.y * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * 2] = -(gamma - 1.f) * velocity.y * invDenom;
 #if DIM > 2
-	eigenvectorsInverse[0 + NUM_STATES * 3] = -(GAMMA - 1.f) * velocity.z * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * 3] = -(gamma - 1.f) * velocity.z * invDenom;
 #endif
 #endif
-	eigenvectorsInverse[0 + NUM_STATES * (DIM+1)] = (GAMMA - 1.f) * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * (DIM+1)] = (gamma - 1.f) * invDenom;
 	//mid normal row
-	eigenvectorsInverse[1 + NUM_STATES * 0] = 1.f - (GAMMA - 1.f) * velocitySq * invDenom;
-	eigenvectorsInverse[1 + NUM_STATES * 1] = (GAMMA - 1.f) * velocity.x * 2.f * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * 0] = 1.f - (gamma - 1.f) * velocitySq * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * 1] = (gamma - 1.f) * velocity.x * 2.f * invDenom;
 #if DIM > 1
-	eigenvectorsInverse[1 + NUM_STATES * 2] = (GAMMA - 1.f) * velocity.y * 2.f * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * 2] = (gamma - 1.f) * velocity.y * 2.f * invDenom;
 #if DIM > 2
-	eigenvectorsInverse[1 + NUM_STATES * 3] = (GAMMA - 1.f) * velocity.z * 2.f * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * 3] = (gamma - 1.f) * velocity.z * 2.f * invDenom;
 #endif
 #endif
-	eigenvectorsInverse[1 + NUM_STATES * (DIM+1)] = -(GAMMA - 1.f) * 2.f * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * (DIM+1)] = -(gamma - 1.f) * 2.f * invDenom;
 	//mid tangent A row
 #if DIM > 1
 	eigenvectorsInverse[2 + NUM_STATES * 0] = -velocity.y; 
@@ -323,15 +323,15 @@ void calcEigenBasisSide(
 	eigenvectorsInverse[3 + NUM_STATES * (DIM+1)] = 0.f;
 #endif
 	//max row
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 0] = (.5f * (GAMMA - 1.f) * velocitySq - speedOfSound * velocity.x) * invDenom;
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 1] = (speedOfSound - (GAMMA - 1.f) * velocity.x) * invDenom;
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 0] = (.5f * (gamma - 1.f) * velocitySq - speedOfSound * velocity.x) * invDenom;
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 1] = (speedOfSound - (gamma - 1.f) * velocity.x) * invDenom;
 #if DIM > 1
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 2] = -(GAMMA - 1.f) * velocity.y * invDenom;
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 2] = -(gamma - 1.f) * velocity.y * invDenom;
 #if DIM > 2
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 3] = -(GAMMA - 1.f) * velocity.z * invDenom;
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * 3] = -(gamma - 1.f) * velocity.z * invDenom;
 #endif
 #endif
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * (DIM+1)] = (GAMMA - 1.f) * invDenom;
+	eigenvectorsInverse[(DIM+1) + NUM_STATES * (DIM+1)] = (gamma - 1.f) * invDenom;
 
 #if DIM > 1
 	if (side == 1) {
