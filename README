@@ -7,5 +7,7 @@ Periodic, Mirror, and Free-Flow boundary methods
 Self-gravity option
 
 Working on 1D ADM simulation
+Also working on n-D SRHD
+Also working on n-D MHD
 Should be working on other explicit integration methods like RK3, RK4, and ICN3
 Might even get around to Jacobi method of Backward Euler implicit integration
