@@ -6,10 +6,10 @@ local configurations = require 'configurations'	--holds catalog of configuration
 
 
 --solverName = 'EulerBurgers' -- works for 1D, 2D, 3D
-solverName = 'EulerHLL' -- works for 1D, 2D, 3D.  needs 2nd order support.
+--solverName = 'EulerHLL' -- works for 1D, 2D, 3D.  needs 2nd order support.
 --solverName = 'EulerRoe' -- works for 1D, 2D, compiler crashes for 3D
 --solverName = 'SRHDRoe' -- in the works
---solverName = 'MHDRoe' -- left eigenvectors not finished, and numeric inverse not working
+solverName = 'MHDRoe' -- left eigenvectors not finished, and numeric inverse not working
 --solverName = 'ADMRoe' -- exploding
 
 
@@ -49,7 +49,7 @@ boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false 
-gravitationalConstant = 100
+gravitationalConstant = 25
 gaussSeidelMaxIter = 20
 
 showVelocityField = true	-- for one test this was 72fps with, 76fps without, so 5% perf hit
@@ -63,15 +63,15 @@ gamma = 1.4
 --[[ 3D
 size = {64, 64, 64}
 --]]
--- [[ 2D
+--[[ 2D
 size = {256, 256}
 --]]
---[[ 1D
+-- [[ 1D
 size = {1024}
 displayScale = .25
 --]]
 
 
 -- see initState for a list of options
-configurations['self-gravitation test 1']()
+configurations['Brio-Wu']()
 

@@ -14,8 +14,6 @@ enum {
 EulerEquation::EulerEquation(Solver& solver) 
 : Super()
 {
-	numStates = 2 + solver.app.dim;
-
 	displayMethods = std::vector<std::string>{
 		"DENSITY",
 		"VELOCITY",
@@ -29,19 +27,16 @@ EulerEquation::EulerEquation(Solver& solver)
 		"MIRROR",
 		"FREEFLOW"
 	};
-}
 
-void EulerEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
-	std::vector<std::string> states;
 	states.push_back("DENSITY");
 	states.push_back("MOMENTUM_X");
 	if (solver.app.dim > 1) states.push_back("MOMENTUM_Y");
 	if (solver.app.dim > 2) states.push_back("MOMENTUM_Z");
 	states.push_back("ENERGY_TOTAL");
-	sources[0] += buildEnumCode("STATE", states);
+}
 
-	sources[0] += buildEnumCode("DISPLAY", displayMethods);
-	sources[0] += buildEnumCode("BOUNDARY", boundaryMethods);
+void EulerEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+	Super::getProgramSources(solver, sources);
 	
 	real gamma = 1.4f;
 	solver.app.lua.ref()["gamma"] >> gamma;

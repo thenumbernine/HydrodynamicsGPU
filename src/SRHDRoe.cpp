@@ -12,8 +12,8 @@ SRHDRoe::SRHDRoe(HydroGPUApp& app_)
 void SRHDRoe::init() {
 	Super::init();
 
-	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
-	primitiveBuffer = clAlloc(sizeof(real) * equation->numStates * volume);
+	int volume = getVolume();
+	primitiveBuffer = clAlloc(sizeof(real) * numStates() * volume);
 }
 
 std::vector<std::string> SRHDRoe::getProgramSources() {
@@ -27,18 +27,15 @@ void SRHDRoe::initKernels() {
 	
 	initVariablesKernel = cl::Kernel(program, "initVariables");
 	app.setArgs(initVariablesKernel, stateBuffer, primitiveBuffer);
-
+	
 	convertToTexKernel.setArg(0, primitiveBuffer);
-
+	
 	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, potentialBuffer);
 }
 
 void SRHDRoe::resetState() {
 	//store Newtonian Euler equation state variables in stateBuffer
 	Super::resetState();
-
 	commands.enqueueNDRangeKernel(initVariablesKernel, offsetNd, globalSize, localSize);
-
-	commands.finish();
 }
 

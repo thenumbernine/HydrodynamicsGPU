@@ -35,17 +35,17 @@ void EulerBurgers::init() {
 
 	//memory
 
-	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
+	int volume = getVolume();
 
 	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume * app.dim);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * equation->numStates * volume * app.dim);
+	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app.dim);
 	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 
 	{
 		//zero interface and flux
-		std::vector<real> zero(volume * app.dim * equation->numStates);
+		std::vector<real> zero(volume * app.dim * numStates());
 		commands.enqueueWriteBuffer(interfaceVelocityBuffer, CL_TRUE, 0, sizeof(real) * volume * app.dim, &zero[0]);
-		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real) * equation->numStates * volume * app.dim, &zero[0]);
+		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real) * numStates() * volume * app.dim, &zero[0]);
 	}
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
@@ -77,14 +77,14 @@ std::vector<std::string> EulerBurgers::getProgramSources() {
 }
 
 void EulerBurgers::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, nullptr, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
 void EulerBurgers::step() {
-	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize, NULL, &calcInterfaceVelocityEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
-	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize, nullptr, &calcInterfaceVelocityEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, nullptr, &integrateFluxEvent.clEvent);
 
 	if (app.useGravity) {
 		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
@@ -95,7 +95,7 @@ void EulerBurgers::step() {
 
 	boundary();
 	
-	commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize, NULL, &computePressureEvent.clEvent);
+	commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize, nullptr, &computePressureEvent.clEvent);
 	
 	if (app.useGravity) {
 		commands.enqueueNDRangeKernel(addGravityKernel, offsetNd, globalSize, localSize);
@@ -103,10 +103,10 @@ void EulerBurgers::step() {
 		boundary();
 	}
 	
-	commands.enqueueNDRangeKernel(diffuseMomentumKernel, offsetNd, globalSize, localSize, NULL, &diffuseMomentumEvent.clEvent);
+	commands.enqueueNDRangeKernel(diffuseMomentumKernel, offsetNd, globalSize, localSize, nullptr, &diffuseMomentumEvent.clEvent);
 	
 	boundary();
 
-	commands.enqueueNDRangeKernel(diffuseWorkKernel, offsetNd, globalSize, localSize, NULL, &diffuseWorkEvent.clEvent);
+	commands.enqueueNDRangeKernel(diffuseWorkKernel, offsetNd, globalSize, localSize, nullptr, &diffuseWorkEvent.clEvent);
 }
 

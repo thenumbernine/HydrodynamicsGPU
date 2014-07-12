@@ -43,7 +43,7 @@ void Solver3D::init() {
 	
 	//memory
 
-	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
+	int volume = getVolume();
 
 	switch (app.dim) {
 	case 1:
@@ -71,7 +71,7 @@ void Solver3D::init() {
 				velocityFieldVolume *= app.velocityFieldResolution;
 			}
 			velocityFieldVertexCount = 3 * 6 * app.dim * velocityFieldVolume;
-			glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(real) * velocityFieldVertexCount, NULL, GL_DYNAMIC_DRAW_ARB);
+			glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(real) * velocityFieldVertexCount, nullptr, GL_DYNAMIC_DRAW_ARB);
 			totalAlloc += sizeof(real) * velocityFieldVertexCount;
 			glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
 
@@ -100,7 +100,7 @@ void Solver3D::init() {
 					break;
 				}
 			}
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app.size.s[0], app.size.s[1], 0, GL_RGBA, GL_FLOAT, NULL);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app.size.s[0], app.size.s[1], 0, GL_RGBA, GL_FLOAT, nullptr);
 			totalAlloc += sizeof(float) * 4 * volume;
 			std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << totalAlloc << std::endl;
 			glBindTexture(GL_TEXTURE_2D, 0);
@@ -140,7 +140,7 @@ void Solver3D::init() {
 					break;
 				}
 			}
-			glTexImage3D(GL_TEXTURE_3D, 0, 4, app.size.s[0], app.size.s[1], app.size.s[2], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+			glTexImage3D(GL_TEXTURE_3D, 0, 4, app.size.s[0], app.size.s[1], app.size.s[2], 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			totalAlloc += sizeof(char) * 4 * volume;
 			std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << totalAlloc << std::endl;
 			glBindTexture(GL_TEXTURE_3D, 0);
@@ -385,7 +385,7 @@ void Solver3D::screenshot() {
 				Image::system->write(filename, image);
 				break;
 			case 3:
-				size_t volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
+				size_t volume = getVolume();
 				std::vector<char> buffer(volume);
 				glBindTexture(GL_TEXTURE_3D, fluidTex);
 				glGetTexImage(GL_TEXTURE_3D, 0, GL_RGB, GL_UNSIGNED_BYTE, &buffer[0]);
@@ -408,19 +408,8 @@ void Solver3D::screenshot() {
 
 //TODO this should be handled per-equation
 void Solver3D::save() {
-std::cout << "save is out of order" << std::endl;
-return;
-	std::vector<std::string> channelNames = {
-		"density",
-		"velocityX",
-		"velocityY",
-		"velocityZ",
-		"energyInternal",
-		"magneticX",
-		"magneticY",
-		"magneticZ",
-		"gravitationalPotential"
-	};
+	std::vector<std::string> channelNames = equation->states;
+	channelNames.push_back("potential");
 
 	for (int i = 0; i < 1000; ++i) {
 		std::string filename = channelNames[0] + std::to_string(i) + ".fits";
@@ -429,54 +418,35 @@ return;
 			//hmm, rather than a plane per variable, now that I'm saving 3D stuff,
 			// how about a plane per 3rd dim, and separate save files per variable?
 			std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]), nullptr, 1, app.size.s[2]);
+
+			int volume = getVolume();
 			
-			std::vector<real8> stateVec(app.size.s[0] * app.size.s[1]);
-			app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real8) * stateVec.size(), &stateVec[0]);
+			std::vector<real> stateVec(numStates() * volume);
+			app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * numStates() * volume, &stateVec[0]);
 			
-			std::vector<real> gravVec(app.size.s[0] * app.size.s[1]);
-			app.commands.enqueueReadBuffer(potentialBuffer, CL_TRUE, 0, sizeof(real) * gravVec.size(), &gravVec[0]);
+			std::vector<real> potentialVec(volume);
+			app.commands.enqueueReadBuffer(potentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &potentialVec[0]);
 			
 			app.commands.finish();
 			
-			for (int channel = 0; channel < 9; ++channel) {
+			for (int channel = 0; channel < channelNames.size(); ++channel) {
 				for (int z = 0; z < app.size.s[2]; ++z) {	
 					for (int y = 0; y < app.size.s[1]; ++y) {
 						for (int x = 0; x < app.size.s[0]; ++x) {
-							real8 *state = &stateVec[x + app.size.s[0] * y];
-							real grav = gravVec[x + app.size.s[0] * y];
-							switch (channel) {
-							case 0:
-								(*image)(x,y,0,z) = state->s[0];
-								break;
-							case 1:
-								(*image)(x,y,0,z) = state->s[1] / state->s[0];
-								break;
-							case 2:
-								(*image)(x,y,0,z) = state->s[2] / state->s[0];
-								break;
-							case 3:
-								(*image)(x,y,0,z) = state->s[3] / state->s[0];
-								break;
-							case 4:
-								(*image)(x,y,0,z) = state->s[4] / state->s[0];
-								break;
-							case 5:
-								(*image)(x,y,0,z) = state->s[5];
-								break;
-							case 6:
-								(*image)(x,y,0,z) = state->s[6];
-								break;
-							case 7:
-								(*image)(x,y,0,z) = state->s[7];
-								break;
-							case 8:
-								(*image)(x,y,0,z) = grav;
-								break;
+							int index = x + app.size.s[0] * (y + app.size.s[1] * z);
+							real value = std::nan("");	
+							if (channel < numStates()) {
+								value = stateVec[channel + numStates() * index];
+							} else {	//potential
+								value = potentialVec[index];
 							}
+							(*image)(x,y,0,z) = value;
 						}
 					}
 				}
-				Image::system->write(channelNames[channel] + std::to_string(i) + ".fits", image); 
+				std::string filename = channelNames[channel] + std::to_string(i) + ".fits";
+				std::cout << "saving file " << filename << std::endl;
+				Image::system->write(filename, image); 
 			}
 			return;
 		}

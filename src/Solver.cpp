@@ -88,23 +88,23 @@ void Solver::init() {
 		cl_int err;
 		
 		size_t size = 0;
-		err = clGetProgramInfo(program(), CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &size, NULL);
+		err = clGetProgramInfo(program(), CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &size, nullptr);
 		if (err != CL_SUCCESS) throw Common::Exception() << "failed to get binary size";
 	
 		std::vector<char> binary(size);
-		err = clGetProgramInfo(program(), CL_PROGRAM_BINARIES, size, &binary[0], NULL);
+		err = clGetProgramInfo(program(), CL_PROGRAM_BINARIES, size, &binary[0], nullptr);
 		if (err != CL_SUCCESS) throw Common::Exception() << "failed to get binary";
 
 		Common::File::write("program.cl.bin", std::string(&binary[0], binary.size()));
 	}
 
-	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
+	int volume = getVolume();
 	
 	cflBuffer = clAlloc(sizeof(real) * volume);
 	cflSwapBuffer = clAlloc(sizeof(real) * volume / localSize[0]);
 	dtBuffer = clAlloc(sizeof(real16));
 	potentialBuffer = clAlloc(sizeof(real) * volume);
-	stateBuffer = clAlloc(sizeof(real) * equation->numStates * volume);
+	stateBuffer = clAlloc(sizeof(real) * numStates() * volume);
 	
 	//get the edges, so reduction doesn't
 	{
@@ -136,7 +136,7 @@ std::vector<std::string> Solver::getProgramSources() {
 		"#define XMAX " + toNumericString<real>(app.xmax.s[0]) + "\n" +
 		"#define YMAX " + toNumericString<real>(app.xmax.s[1]) + "\n" +
 		"#define ZMAX " + toNumericString<real>(app.xmax.s[2]) + "\n" +
-		"#define NUM_STATES " + std::to_string(equation->numStates) + "\n"
+		"#define NUM_STATES " + std::to_string(numStates()) + "\n"
 	};
 
 	std::string slopeLimiterName = "Superbee";
@@ -155,9 +155,9 @@ std::vector<std::string> Solver::getProgramSources() {
 
 //Euler-specific
 void Solver::resetState() {
-	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
+	int volume = getVolume();
 
-	std::vector<real> stateVec(equation->numStates * volume);
+	std::vector<real> stateVec(numStates() * volume);
 
 	if (!app.lua.ref()["initState"].isFunction()) throw Common::Exception() << "expected initState to be defined in config file";
 
@@ -166,7 +166,7 @@ void Solver::resetState() {
 	int index[3];
 	for (index[2] = 0; index[2] < app.size.s[2]; ++index[2]) {
 		for (index[1] = 0; index[1] < app.size.s[1]; ++index[1]) {
-			for (index[0] = 0; index[0] < app.size.s[0]; ++index[0], state += equation->numStates) {
+			for (index[0] = 0; index[0] < app.size.s[0]; ++index[0], state += numStates()) {
 				real4 pos;
 				for (int i = 0; i < 3; ++i) {
 					pos.s[i] = real(app.xmax.s[i] - app.xmin.s[i]) * (real(index[i]) + .5) / real(app.size.s[i]) + real(app.xmin.s[i]);
@@ -178,18 +178,23 @@ void Solver::resetState() {
 				stack
 				.getGlobal("initState")
 				.push(pos.s[0], pos.s[1], pos.s[2])
-				.call(3,5);	//TODO multret and have each equation interpret the results
+				.call(3,8);	//TODO multret and have each equation interpret the results
 			
 				real density;
 				real momentumX, momentumY, momentumZ;
 				real energyTotal;
+				real magneticFieldX, magneticFieldY, magneticFieldZ;
 				
 				stack
+				.pop(magneticFieldZ)
+				.pop(magneticFieldY)
+				.pop(magneticFieldX)
 				.pop(energyTotal)
 				.pop(momentumZ)
 				.pop(momentumY)
 				.pop(momentumX)
 				.pop(density);
+				
 				state[0] = density;
 				state[1] = momentumX;
 				if (app.dim > 1) {
@@ -198,7 +203,12 @@ void Solver::resetState() {
 				if (app.dim > 2) {
 					state[3] = momentumZ;
 				}
-				state[app.dim+1] = energyTotal;
+				if (numStates() == 8) {
+					state[4] = magneticFieldX;
+					state[5] = magneticFieldY;
+					state[6] = magneticFieldZ;
+				}
+				state[numStates()-1] = energyTotal;
 			}
 		}
 	}
@@ -210,13 +220,13 @@ void Solver::resetState() {
 	//once you get that, plug it into the total energy
 	
 	//write state density first for gravity potential, to then update energy
-	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * equation->numStates * volume, &stateVec[0]);
+	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * numStates() * volume, &stateVec[0]);
 	
 	//here's our initial guess to sor
 	std::vector<real> potentialVec(volume);
 	for (size_t i = 0; i < volume; ++i) {
 		if (app.useGravity) {
-			potentialVec[i] = stateVec[0 + equation->numStates * i];
+			potentialVec[i] = stateVec[0 + numStates() * i];
 		} else {
 			potentialVec[i] = 0.;
 		}
@@ -235,11 +245,11 @@ void Solver::resetState() {
 
 		//update total energy
 		for (int i = 0; i < volume; ++i) {
-			stateVec[energyTotalIndex + equation->numStates * i] += potentialVec[i];
+			stateVec[energyTotalIndex + numStates() * i] += potentialVec[i];
 		}
 	}
 	
-	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * equation->numStates * volume, &stateVec[0]);
+	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * numStates() * volume, &stateVec[0]);
 	commands.finish();
 }
 
@@ -252,7 +262,7 @@ static std::string boundaryKernelNames[NUM_BOUNDARY_KERNELS] = {
 
 void Solver::initKernels() {
 	
-	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
+	int volume = getVolume();
 
 	boundaryKernels.resize(NUM_BOUNDARY_KERNELS);
 	for (std::vector<cl::Kernel>& v : boundaryKernels) {
@@ -276,6 +286,14 @@ void Solver::initKernels() {
 	
 	addGravityKernel = cl::Kernel(program, "addGravity");
 	app.setArgs(addGravityKernel, stateBuffer, potentialBuffer, dtBuffer);
+}
+
+int Solver::numStates() {
+	return (int)equation->states.size();
+}
+
+int Solver::getVolume() {
+	return app.size.s[0] * app.size.s[1] * app.size.s[2];
 }
 
 void Solver::getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &global, cl::NDRange &local) {
@@ -312,10 +330,10 @@ void Solver::boundary() {
 	cl::NDRange offset, global, local;
 	for (int i = 0; i < app.dim; ++i) {
 		getBoundaryRanges(i, offset, global, local);
-		for (int j = 0; j < equation->numStates; ++j) {
+		for (int j = 0; j < numStates(); ++j) {
 			int boundaryKernelIndex = equation->stateGetBoundaryKernelForBoundaryMethod(*this, i, j);
 			cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i];
-			app.setArgs(kernel, stateBuffer, equation->numStates, j);
+			app.setArgs(kernel, stateBuffer, numStates(), j);
 			commands.enqueueNDRangeKernel(kernel, offset, global, local);
 		}
 	}
@@ -333,7 +351,7 @@ void Solver::potentialBoundary() {
 }
 
 void Solver::findMinTimestep() {
-	int reduceSize = app.size.s[0] * app.size.s[1] * app.size.s[2];
+	int reduceSize = getVolume();
 	cl::Buffer dst = cflSwapBuffer;
 	cl::Buffer src = cflBuffer;
 	while (reduceSize > 1) {
@@ -359,7 +377,7 @@ void Solver::update() {
 		std::cout << "dt " << dt << std::endl;
 	}
 
-	//commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize, NULL, &addSourceEvent.clEvent);
+	//commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize, nullptr, &addSourceEvent.clEvent);
 
 	boundary();
 	

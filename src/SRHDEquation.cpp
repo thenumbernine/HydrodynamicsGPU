@@ -14,8 +14,6 @@ enum {
 SRHDEquation::SRHDEquation(Solver& solver) 
 : Super()
 {
-	numStates = 2 + solver.app.dim;
-	
 	displayMethods = std::vector<std::string>{
 		"DENSITY",
 		"VELOCITY",
@@ -29,16 +27,16 @@ SRHDEquation::SRHDEquation(Solver& solver)
 		"MIRROR",
 		"FREEFLOW"
 	};
-}
 
-void SRHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
-	std::vector<std::string> states;
 	states.push_back("REST_MASS_DENSITY");
 	states.push_back("MOMENTUM_DENSITY_X");
 	if (solver.app.dim > 1) states.push_back("MOMENTUM_DENSITY_Y");
 	if (solver.app.dim > 2) states.push_back("MOMENTUM_DENSITY_Z");
 	states.push_back("TOTAL_ENERGY_DENSITY");
-	sources[0] += buildEnumCode("STATE", states);
+}
+
+void SRHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+	Super::getProgramSources(solver, sources);
 
 	std::vector<std::string> primitives;
 	primitives.push_back("DENSITY");
@@ -47,9 +45,6 @@ void SRHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& s
 	if (solver.app.dim > 2) primitives.push_back("VELOCITY_Z");
 	primitives.push_back("PRESSURE");
 	sources[0] += buildEnumCode("PRIMITIVE", primitives);
-	
-	sources[0] += buildEnumCode("DISPLAY", displayMethods);
-	sources[0] += buildEnumCode("BOUNDARY", boundaryMethods);
 	
 	real gamma = 1.4f;
 	solver.app.lua.ref()["gamma"] >> gamma;

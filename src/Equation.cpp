@@ -1,16 +1,19 @@
 #include "HydroGPU/Equation.h"
 
-Equation::Equation()
-: numStates(0)
-{}
+Equation::Equation() {}
 
 std::string Equation::buildEnumCode(const std::string& prefix, const std::vector<std::string>& enumStrs) {
 	std::string str = "enum {\n";
 	for (size_t i = 0; i < enumStrs.size(); ++i) {
-		std::string comma = i == enumStrs.size()-1 ? "" : ",";
-		str += "\t" + prefix + "_" + enumStrs[i] + comma + "\n";
+		str += "\t" + prefix + "_" + enumStrs[i] + ",\n";
 	}
+	str += "\tNUM_" + prefix + "\n";
 	str += "};\n";
 	return str;
 }
 
+void Equation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+	sources[0] += buildEnumCode("STATE", states);
+	sources[0] += buildEnumCode("DISPLAY", displayMethods);
+	sources[0] += buildEnumCode("BOUNDARY", boundaryMethods);
+}

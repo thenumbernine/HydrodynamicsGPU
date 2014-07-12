@@ -28,18 +28,18 @@ void Roe::init() {
 
 	//memory
 
-	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
+	int volume = getVolume();
 
-	eigenvaluesBuffer = clAlloc(sizeof(real) * equation->numStates * volume * app.dim);
-	eigenvectorsBuffer = clAlloc(sizeof(real) * equation->numStates * equation->numStates * volume * app.dim);
-	eigenvectorsInverseBuffer = clAlloc(sizeof(real) * equation->numStates * equation->numStates * volume * app.dim);
-	deltaQTildeBuffer = clAlloc(sizeof(real) * equation->numStates * volume * app.dim);
-	fluxBuffer = clAlloc(sizeof(real) * equation->numStates * volume * app.dim);
+	eigenvaluesBuffer = clAlloc(sizeof(real) * numStates() * volume * app.dim);
+	eigenvectorsBuffer = clAlloc(sizeof(real) * numStates() * numStates() * volume * app.dim);
+	eigenvectorsInverseBuffer = clAlloc(sizeof(real) * numStates() * numStates() * volume * app.dim);
+	deltaQTildeBuffer = clAlloc(sizeof(real) * numStates() * volume * app.dim);
+	fluxBuffer = clAlloc(sizeof(real) * numStates() * volume * app.dim);
 
 	{
 		//zero interface and flux
-		std::vector<real> zero(volume * app.dim * equation->numStates);
-		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real) * equation->numStates * volume * app.dim, &zero[0]);
+		std::vector<real> zero(volume * app.dim * numStates());
+		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real) * numStates() * volume * app.dim, &zero[0]);
 	}
 
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
@@ -65,18 +65,18 @@ std::vector<std::string> Roe::getProgramSources() {
 }
 
 void Roe::initStep() {
-	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize, nullptr, &calcEigenBasisEvent.clEvent);
 }
 
 void Roe::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, nullptr, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
 void Roe::step() {
-	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, NULL, &calcDeltaQTildeEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, NULL, &calcFluxEvent.clEvent);
-	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, nullptr, &calcDeltaQTildeEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, nullptr, &integrateFluxEvent.clEvent);
 
 	if (app.useGravity) {
 		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {

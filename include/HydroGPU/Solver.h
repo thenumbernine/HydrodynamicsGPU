@@ -47,6 +47,10 @@ public:
 protected:
 	virtual std::vector<std::string> getProgramSources();
 	virtual void initKernels();
+	
+	int numStates();	//shorthand
+	int getVolume();
+	
 	cl::Buffer clAlloc(size_t size);
 	
 	virtual void findMinTimestep();

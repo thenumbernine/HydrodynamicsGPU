@@ -26,10 +26,10 @@ void EulerHLL::init() {
 
 	//memory
 
-	int volume = app.size.s[0] * app.size.s[1] * app.size.s[2];
+	int volume = getVolume();
 
-	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * equation->numStates * volume * app.dim);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * equation->numStates * volume * app.dim);
+	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app.dim);
+	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app.dim);
 	
 	calcFluxAndEigenvaluesKernel = cl::Kernel(program, "calcFluxAndEigenvalues");
 	app.setArgs(calcFluxAndEigenvaluesKernel, eigenvaluesBuffer, fluxBuffer, stateBuffer, potentialBuffer);
@@ -50,18 +50,18 @@ std::vector<std::string> EulerHLL::getProgramSources() {
 void EulerHLL::initStep() {
 	//TODO calculate what's needed for the CFL here
 	// for Roe solvers this is the wavespeeds (eigenvalues) 
-	commands.enqueueNDRangeKernel(calcFluxAndEigenvaluesKernel, offsetNd, globalSize, localSize, NULL, &calcEigenBasisEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcFluxAndEigenvaluesKernel, offsetNd, globalSize, localSize, nullptr, &calcEigenBasisEvent.clEvent);
 }
 
 void EulerHLL::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, NULL, &calcCFLEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, nullptr, &calcCFLEvent.clEvent);
 	findMinTimestep();	
 }
 
 void EulerHLL::step() {
 	//TODO if we ever advance past Euler explicit integrators,
 	// recalculate wavespeeds here
-	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, NULL, &integrateFluxEvent.clEvent);
+	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, nullptr, &integrateFluxEvent.clEvent);
 
 	if (app.useGravity) {
 		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {

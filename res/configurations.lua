@@ -252,12 +252,33 @@ return {
 		useGravity = true
 		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 		initState = function(x,y,z)
-			return buildSelfGravitationState(x,y,z,{
+			local rho,mx,my,mz,eTotal,bx,by,bz = buildSelfGravitationState(x,y,z,{
 				sources={
-					{center={-.25, 0, 0}, radius = .1},
-					{center={.25, 0, 0}, radius = .1},
+					{
+						center = {-.25, 0, 0},
+						radius = .1,
+						inside = function(dx,dy,dz)
+							return buildStateEuler{
+								pressure = 1,
+								density = 1,
+							}
+						end,
+					},
+					{
+						center = {.25, 0, 0},
+						radius = .1,
+						inside = function(dx,dy,dz)
+							return buildStateEuler{
+								pressure = 1,
+								density = 1,
+							}
+						end,
+					},
 				},
 			})
+			mx = -5 * rho * y
+			my = 5 * rho * x
+			return rho,mx,my,mz,eTotal,bx,by,bz
 		end
 	end,
 

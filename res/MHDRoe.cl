@@ -1,89 +1,8 @@
 /*
-The components of the Roe solver specific to the MHD equations
-paritcularly the spectral decomposition
+using "A Solution-Adaptive Upwind Scheme for Ideal Magnetohydrodynamics" by Powell, Roe, Linde, Gombosi, Zeeuw, 1999 
 */
 
 #include "HydroGPU/Shared/Common.h"
-
-void mat88invert(
-	__global real* matrixInverse,
-	const __global real* matrix);
-
-void mat88invert(
-	__global real* matrixInverse,
-	const __global real* matrix)
-{
-	int indxc[NUM_STATES], indxr[NUM_STATES], ipiv[NUM_STATES];
-	int i, icol = 0, irow = 0, j, k, l, ll;
-	real big, dum, pivinv, temp;
-
-
-	for (int i = 0; i < NUM_STATES * NUM_STATES; ++i) {
-		matrixInverse[i] = matrix[i];
-	}
-
-	for (j = 0; j < NUM_STATES; ++j) {
-		ipiv[j] = 0;
-	}
-	
-	for (i = 0; i < NUM_STATES; ++i) {
-		big = 0.f;
-		for ( j = 0; j < NUM_STATES; ++j) {
-			if (ipiv[j] != 1) {
-				for (k = 0; k < NUM_STATES; ++k) {
-					if (ipiv[k] == 0) {
-						if (fabs(matrixInverse[j + NUM_STATES * k]) >= big) {
-							big = fabs(matrixInverse[j + NUM_STATES * k]);
-							irow = j;
-							icol = k;
-						}
-					} else {
-						if(ipiv[k] > 1) {
-							return;	//throw Common::Exception() << "singular!";
-						}
-					}
-				}
-			}
-		}
-		++ipiv[icol];
-		if(irow != icol) {
-			for (int k = 0; k < NUM_STATES; ++k) {
-				temp = matrixInverse[irow + NUM_STATES * k];
-				matrixInverse[irow + NUM_STATES * k] = matrixInverse[icol + NUM_STATES * k];
-				matrixInverse[icol + NUM_STATES * k] = temp;
-			}
-		}
-		indxr[i] = irow;
-		indxc[i] = icol;
-		if(matrixInverse[icol + NUM_STATES * icol] == 0.f) {
-			return;	//throw Common::Exception() << "singular!";
-		}
-		pivinv = 1.f / matrixInverse[icol + NUM_STATES * icol];
-		matrixInverse[icol + NUM_STATES * icol] = 1.f;
-		for (l = 0; l < NUM_STATES; ++l) {
-			matrixInverse[icol + NUM_STATES * l] *= pivinv;
-		}
-		for (ll = 0; ll < NUM_STATES; ++ll) {
-			if (ll != icol) {
-				dum = matrixInverse[ll + NUM_STATES * icol];
-				matrixInverse[ll + NUM_STATES * icol] = 0.f;
-				for (l = 0; l < NUM_STATES; ++l) {
-					matrixInverse[ll + NUM_STATES * l] -= matrixInverse[icol + NUM_STATES * l] * dum;
-				}
-			}
-		}
-	}
-	
-	for (l = NUM_STATES-1; l >= 0; --l) {
-		if (indxr[l] != indxc[l]) {
-			for (k = 0; k < NUM_STATES; ++k) {
-				temp = matrixInverse[k + NUM_STATES * indxr[l]];
-				matrixInverse[k + NUM_STATES * indxr[l]] = matrixInverse[k + NUM_STATES * indxc[l]];
-				matrixInverse[k + NUM_STATES * indxc[l]] = temp;
-			}
-		}
-	}
-}
 
 void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
@@ -113,155 +32,360 @@ void calcEigenBasisSide(
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 	__global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
 	__global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+	
+	const real gammaMinusOne = GAMMA - 1.f;
 
 	real densityL = stateL[STATE_DENSITY];
 	real invDensityL = 1.f / densityL;
 	real4 velocityL = VELOCITY(stateL);
-	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
-	real energyKineticL = .5f * dot(velocityL, velocityL);
-	real energyPotentialL = potentialBuffer[indexPrev];
-	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
-	real pressureL = (GAMMA - 1.f) * densityL * energyInternalL;
-	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
-	real roeWeightL = sqrt(densityL);
 	real4 magneticFieldL = (real4)(stateL[STATE_MAGNETIC_FIELD_X], stateL[STATE_MAGNETIC_FIELD_Y], stateL[STATE_MAGNETIC_FIELD_Z], 0.f);
+	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / MU0;
+	real totalPlasmaEnergyDensityL = stateL[STATE_ENERGY_TOTAL];
+	real totalHydroEnergyDensityL = totalPlasmaEnergyDensityL - magneticEnergyDensityL;
+	real kineticEnergyDensityL = .5f * densityL * dot(velocityL, velocityL);
+	real potentialEnergyDensityL = densityL * potentialBuffer[indexPrev];
+	real internalEnergyDensityL = totalHydroEnergyDensityL - kineticEnergyDensityL - potentialEnergyDensityL;
+	real pressureL = gammaMinusOne * internalEnergyDensityL;
 
 	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
 	real4 velocityR = VELOCITY(stateR);
-	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
-	real energyKineticR = .5f * dot(velocityR, velocityR);
-	real energyPotentialR = potentialBuffer[index];
-	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
-	real pressureR = (GAMMA - 1.f) * densityR * energyInternalR;
-	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
-	real roeWeightR = sqrt(densityR);
 	real4 magneticFieldR = (real4)(stateR[STATE_MAGNETIC_FIELD_X], stateR[STATE_MAGNETIC_FIELD_Y], stateR[STATE_MAGNETIC_FIELD_Z], 0.f);
+	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / MU0;
+	real totalPlasmaEnergyDensityR = stateR[STATE_ENERGY_TOTAL];
+	real totalHydroEnergyDensityR = totalPlasmaEnergyDensityR - magneticEnergyDensityR;
+	real kineticEnergyDensityR = .5f * densityR * dot(velocityR, velocityR);
+	real potentialEnergyDensityR = densityR * potentialBuffer[index];
+	real internalEnergyDensityR = totalHydroEnergyDensityR - kineticEnergyDensityR - potentialEnergyDensityR;
+	real pressureR = gammaMinusOne * internalEnergyDensityR;
 
-	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
-	real density = roeWeightL * roeWeightR;
-	real4 velocity = (roeWeightL * velocityL + roeWeightR * velocityR) * roeWeightNormalization;
-	real enthalpyTotal = (roeWeightL * enthalpyTotalL + roeWeightR * enthalpyTotalR) * roeWeightNormalization;
-	real4 magneticField = (roeWeightL * magneticFieldL + roeWeightR * magneticFieldR) * roeWeightNormalization;
+	//3.5.2 "In this paper, a simple arithmetic averaging of the primitive variables is done to compute the interface state."
+	real density = .5f * (densityL + densityR);
+	real4 velocity = .5f * (velocityL + velocityR);
+	real4 magneticField = .5f * (magneticFieldL + magneticFieldR);
+	real pressure = .5f * (pressureL * pressureR);
 	
+#if DIM > 1
+	if (side == 1) {
+		// -90' rotation to put the y axis contents into the x axis
+		velocity = (real4)(velocity.y, -velocity.x, velocity.z, 0.f);
+		magneticField = (real4)(magneticField.y, -magneticField.x, magneticField.z, 0.f);
+	} 
+#if DIM > 2
+	else if (side == 2) {
+		//-90' rotation to put the z axis in the x axis
+		velocity = (real4)(velocity.z, velocity.y, -velocity.x, 0.f);
+		magneticField = (real4)(magneticField.z, magneticField.y, -magneticField.x, 0.f);
+	}
+#endif
+#endif
+
 	real velocitySq = dot(velocity, velocity);
-	real speedOfSound = sqrt((GAMMA - 1.f) * (enthalpyTotal - .5f * velocitySq));
+	real sqrtDensity = sqrt(density);
+	real speedOfSound = sqrt(max(0.f, GAMMA * pressure / density));
 	real speedOfSoundSq = speedOfSound * speedOfSound;
 	real magneticFieldSq = dot(magneticField, magneticField);
-
-	real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
-	normal[side] = 1;
-
-	real magneticFieldN = dot(magneticField, normal);
-	real AlfvenSpeed = magneticFieldN / density;
+	real magneticFieldXSq = magneticField.x * magneticField.x;
+	
+	real AlfvenSpeed = magneticField.x / sqrtDensity;
 	real AlfvenSpeedSq = AlfvenSpeed * AlfvenSpeed;
-	real starSpeedSq = .5f * magneticFieldSq / density + speedOfSound * speedOfSound;
-	real starSpeedToTheFourth = starSpeedSq * starSpeedSq;
-	real discrA = max(0.f, starSpeedToTheFourth - speedOfSoundSq * AlfvenSpeedSq);
-	real discrB = sqrt(discrA);
-	real slowSpeedSq = max(0.f, starSpeedSq - discrB);
-	real slowSpeed = sqrt(slowSpeedSq);
-	real fastSpeedSq = max(0.f, starSpeedSq + discrB);
+	//TODO update slow and fast speeds
+	real tmp1 = (GAMMA * pressure + magneticFieldSq) / density;
+	real discr = max(0.f, tmp1 * tmp1 - 4.f * GAMMA * pressure * magneticFieldXSq / (density * density));
+	real tmp2 = sqrt(discr);
+	real fastSpeedSq = max(.5f * tmp1 + tmp2, 0.f);
 	real fastSpeed = sqrt(fastSpeedSq);
+	real slowSpeedSq = max(.5f * tmp1 - tmp2, 0.f);
+	real slowSpeed = sqrt(slowSpeedSq);
 
-	real4 tangentA = (real4)(normal.y, normal.z, normal.x, 0.f);
-	real4 tangentB = (real4)(normal.z, normal.x, normal.y, 0.f);
-	real velocityN = dot(velocity, normal);
-	real velocityTA = dot(velocity, tangentA);
-	real velocityTB = dot(velocity, tangentB);
+	//TODO define
+	real oneOverFastSpeedSqMinusSlowSpeedSq = 1.f / (fastSpeedSq - slowSpeedSq);
+	real alphaFast = sqrt(max(0.f, (speedOfSoundSq - slowSpeedSq) * oneOverFastSpeedSqMinusSlowSpeedSq));
+	real alphaSlow = sqrt(max(0.f, (fastSpeedSq - speedOfSoundSq) * oneOverFastSpeedSqMinusSlowSpeedSq));
+	real oneOverMagneticFieldYZLen = 1.f / sqrt(magneticField.y * magneticField.y + magneticField.z * magneticField.z);
+	real betaY = magneticField.y * oneOverMagneticFieldYZLen;
+	real betaZ = magneticField.z * oneOverMagneticFieldYZLen;
+	real sgnBx;
+	if (magneticField.x > 0.f) {
+		sgnBx = 1.f;
+	} else {
+		sgnBx = -1.f;
+	}
 
 	//eigenvalues
 
-	eigenvalues[0] = velocityN - fastSpeed;
-	eigenvalues[1] = velocityN - AlfvenSpeed;
-	eigenvalues[2] = velocityN - slowSpeed;
-	eigenvalues[3] = velocityN;
-	eigenvalues[4] = velocityN;
-	eigenvalues[5] = velocityN + slowSpeed;
-	eigenvalues[6] = velocityN + AlfvenSpeed;
-	eigenvalues[7] = velocityN + fastSpeed;
+	eigenvalues[0] = velocity.x - fastSpeed;
+	eigenvalues[1] = velocity.x - magneticField.x / density;	//= AlfvenSpeed / sqrtDensity
+	eigenvalues[2] = velocity.x - slowSpeed;
+	eigenvalues[3] = velocity.x;
+	eigenvalues[4] = velocity.x;
+	eigenvalues[5] = velocity.x + slowSpeed;
+	eigenvalues[6] = velocity.x + magneticField.x / density;
+	eigenvalues[7] = velocity.x + fastSpeed;
 
 	//eigenvectors
+	//stored as A_ij = A[i + height * j]
 
-	real sqrtDensity = sqrt(density);
-	real magneticFieldNSign = step(0.f, magneticFieldN) * 2.f - 1.f;
-	real4 magneticFieldCrossN = cross(magneticField, normal);
+	real eigenvectorsWrtPrimitives[NUM_STATES * NUM_STATES];
+
+#define M_SQRT_1_2	0.7071067811865475727373109293694142252206802368164f
+
 	//fast magnetoacoustic col 
-	eigenvectors[0 + NUM_STATES * 0] = (density * fastSpeedSq - magneticFieldSq) / speedOfSoundSq;
-	eigenvectors[1 + NUM_STATES * 0] = -fastSpeed * normal.x + magneticField.x * magneticFieldN / (density * fastSpeed);
-	eigenvectors[2 + NUM_STATES * 0] = -fastSpeed * normal.y + magneticField.y * magneticFieldN / (density * fastSpeed);
-	eigenvectors[3 + NUM_STATES * 0] = -fastSpeed * normal.z + magneticField.z * magneticFieldN / (density * fastSpeed);
-	eigenvectors[4 + NUM_STATES * 0] = magneticField.x - normal.x * magneticFieldN;
-	eigenvectors[5 + NUM_STATES * 0] = magneticField.y - normal.y * magneticFieldN;
-	eigenvectors[6 + NUM_STATES * 0] = magneticField.z - normal.z * magneticFieldN;
-	eigenvectors[7 + NUM_STATES * 0] = density * fastSpeedSq - magneticFieldSq;
+	eigenvectorsWrtPrimitives[0 + NUM_STATES * 0] = density * alphaFast;
+	eigenvectorsWrtPrimitives[1 + NUM_STATES * 0] = -alphaFast * fastSpeed;
+	eigenvectorsWrtPrimitives[2 + NUM_STATES * 0] = alphaSlow * slowSpeed * betaY * sgnBx;
+	eigenvectorsWrtPrimitives[3 + NUM_STATES * 0] = alphaSlow * slowSpeed * betaY * sgnBx;
+	eigenvectorsWrtPrimitives[4 + NUM_STATES * 0] = 0.f;
+	eigenvectorsWrtPrimitives[5 + NUM_STATES * 0] = alphaSlow * sqrtDensity * speedOfSound * betaY;
+	eigenvectorsWrtPrimitives[6 + NUM_STATES * 0] = alphaSlow * sqrtDensity * speedOfSound * betaZ;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 0] = alphaFast * GAMMA * pressure;
 	//Alfven col
-	eigenvectors[0 + NUM_STATES * 1] = 0.f;
-	eigenvectors[1 + NUM_STATES * 1] = magneticFieldCrossN.x * magneticFieldNSign;
-	eigenvectors[2 + NUM_STATES * 1] = magneticFieldCrossN.y * magneticFieldNSign;
-	eigenvectors[3 + NUM_STATES * 1] = magneticFieldCrossN.z * magneticFieldNSign;
-	eigenvectors[4 + NUM_STATES * 1] = magneticFieldCrossN.x * sqrtDensity;
-	eigenvectors[5 + NUM_STATES * 1] = magneticFieldCrossN.y * sqrtDensity;
-	eigenvectors[6 + NUM_STATES * 1] = magneticFieldCrossN.z * sqrtDensity;
-	eigenvectors[7 + NUM_STATES * 1] = 0.f;
+	eigenvectorsWrtPrimitives[0 + NUM_STATES * 1] = 0.f;
+	eigenvectorsWrtPrimitives[1 + NUM_STATES * 1] = 0.f;
+	eigenvectorsWrtPrimitives[2 + NUM_STATES * 1] = -betaZ * M_SQRT_1_2;
+	eigenvectorsWrtPrimitives[3 + NUM_STATES * 1] = betaY * M_SQRT_1_2;
+	eigenvectorsWrtPrimitives[4 + NUM_STATES * 1] = 0.f;
+	eigenvectorsWrtPrimitives[5 + NUM_STATES * 1] = -sqrtDensity * M_SQRT_1_2 * betaZ;
+	eigenvectorsWrtPrimitives[6 + NUM_STATES * 1] = sqrtDensity * M_SQRT_1_2 * betaY;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 1] = 0.f;
 	//slow magnetoacoustic col
-	eigenvectors[0 + NUM_STATES * 2] = (density * slowSpeedSq - magneticFieldSq) / speedOfSoundSq;
-	eigenvectors[1 + NUM_STATES * 2] = -normal.x * slowSpeed + magneticField.x * magneticFieldN / (density * slowSpeed);
-	eigenvectors[2 + NUM_STATES * 2] = -normal.y * slowSpeed + magneticField.y * magneticFieldN / (density * slowSpeed);
-	eigenvectors[3 + NUM_STATES * 2] = -normal.z * slowSpeed + magneticField.z * magneticFieldN / (density * slowSpeed);
-	eigenvectors[4 + NUM_STATES * 2] = magneticField.x - normal.x * magneticFieldN;
-	eigenvectors[5 + NUM_STATES * 2] = magneticField.y - normal.y * magneticFieldN;
-	eigenvectors[6 + NUM_STATES * 2] = magneticField.z - normal.z * magneticFieldN;
-	eigenvectors[7 + NUM_STATES * 2] = density * slowSpeedSq - magneticFieldSq;
+	eigenvectorsWrtPrimitives[0 + NUM_STATES * 2] = density * alphaSlow;
+	eigenvectorsWrtPrimitives[1 + NUM_STATES * 2] = -alphaSlow * slowSpeed;
+	eigenvectorsWrtPrimitives[2 + NUM_STATES * 2] = -alphaFast * fastSpeed * betaY * sgnBx;
+	eigenvectorsWrtPrimitives[3 + NUM_STATES * 2] = -alphaFast * fastSpeed * betaZ * sgnBx;
+	eigenvectorsWrtPrimitives[4 + NUM_STATES * 2] = 0.f;
+	eigenvectorsWrtPrimitives[5 + NUM_STATES * 2] = -alphaFast * sqrtDensity * speedOfSound * betaY;
+	eigenvectorsWrtPrimitives[6 + NUM_STATES * 2] = -alphaFast * sqrtDensity * speedOfSound * betaZ;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 2] = alphaSlow * GAMMA * pressure;
 	//entropy col
-	eigenvectors[0 + NUM_STATES * 3] = 1.f;
-	eigenvectors[1 + NUM_STATES * 3] = 0.f; 
-	eigenvectors[2 + NUM_STATES * 3] = 0.f;
-	eigenvectors[3 + NUM_STATES * 3] = 0.f;
-	eigenvectors[4 + NUM_STATES * 3] = 0.f;
-	eigenvectors[5 + NUM_STATES * 3] = 0.f;
-	eigenvectors[6 + NUM_STATES * 3] = 0.f;
-	eigenvectors[7 + NUM_STATES * 3] = 0.f;	
-	//entropy col 
-	eigenvectors[0 + NUM_STATES * 4] = 0.f;
-	eigenvectors[1 + NUM_STATES * 4] = 0.f;
-	eigenvectors[2 + NUM_STATES * 4] = 0.f;
-	eigenvectors[3 + NUM_STATES * 4] = 0.f;
-	eigenvectors[4 + NUM_STATES * 4] = normal.x;
-	eigenvectors[5 + NUM_STATES * 4] = normal.y;
-	eigenvectors[6 + NUM_STATES * 4] = normal.z;
-	eigenvectors[7 + NUM_STATES * 4] = 0.f;
+	eigenvectorsWrtPrimitives[0 + NUM_STATES * 3] = 1.f;
+	eigenvectorsWrtPrimitives[1 + NUM_STATES * 3] = 0.f; 
+	eigenvectorsWrtPrimitives[2 + NUM_STATES * 3] = 0.f;
+	eigenvectorsWrtPrimitives[3 + NUM_STATES * 3] = 0.f;
+	eigenvectorsWrtPrimitives[4 + NUM_STATES * 3] = 0.f;
+	eigenvectorsWrtPrimitives[5 + NUM_STATES * 3] = 0.f;
+	eigenvectorsWrtPrimitives[6 + NUM_STATES * 3] = 0.f;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 3] = 0.f;	
+	//divergence col 
+	eigenvectorsWrtPrimitives[0 + NUM_STATES * 4] = 0.f;
+	eigenvectorsWrtPrimitives[1 + NUM_STATES * 4] = 0.f;
+	eigenvectorsWrtPrimitives[2 + NUM_STATES * 4] = 0.f;
+	eigenvectorsWrtPrimitives[3 + NUM_STATES * 4] = 0.f;
+	eigenvectorsWrtPrimitives[4 + NUM_STATES * 4] = 1.f;
+	eigenvectorsWrtPrimitives[5 + NUM_STATES * 4] = 0.f;
+	eigenvectorsWrtPrimitives[6 + NUM_STATES * 4] = 0.f;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 4] = 0.f;
 	//slow magnetoacoustic col
-	eigenvectors[0 + NUM_STATES * 5] = (density * slowSpeedSq - magneticFieldSq) / speedOfSoundSq;
-	eigenvectors[1 + NUM_STATES * 5] = normal.x * slowSpeed - magneticField.x * magneticFieldN / (density * slowSpeed);
-	eigenvectors[2 + NUM_STATES * 5] = normal.y * slowSpeed - magneticField.y * magneticFieldN / (density * slowSpeed);
-	eigenvectors[3 + NUM_STATES * 5] = normal.z * slowSpeed - magneticField.z * magneticFieldN / (density * slowSpeed);
-	eigenvectors[4 + NUM_STATES * 5] = magneticField.x - normal.x * magneticFieldN;
-	eigenvectors[5 + NUM_STATES * 5] = magneticField.y - normal.y * magneticFieldN;
-	eigenvectors[6 + NUM_STATES * 5] = magneticField.z - normal.z * magneticFieldN;
-	eigenvectors[7 + NUM_STATES * 5] = density * slowSpeedSq - magneticFieldSq;
+	eigenvectorsWrtPrimitives[0 + NUM_STATES * 5] = density * alphaSlow;
+	eigenvectorsWrtPrimitives[1 + NUM_STATES * 5] = alphaSlow * slowSpeed;
+	eigenvectorsWrtPrimitives[2 + NUM_STATES * 5] = alphaFast * fastSpeed * betaY * sgnBx;
+	eigenvectorsWrtPrimitives[3 + NUM_STATES * 5] = alphaFast * fastSpeed * betaZ * sgnBx;
+	eigenvectorsWrtPrimitives[4 + NUM_STATES * 5] = 0.f;
+	eigenvectorsWrtPrimitives[5 + NUM_STATES * 5] = -alphaFast * sqrtDensity * speedOfSound * betaY;
+	eigenvectorsWrtPrimitives[6 + NUM_STATES * 5] = -alphaFast * sqrtDensity * speedOfSound * betaZ;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 5] = alphaSlow * GAMMA * pressure;
 	//Alfven col
-	eigenvectors[0 + NUM_STATES * 6] = 0.f;
-	eigenvectors[1 + NUM_STATES * 6] = -magneticFieldCrossN.x * magneticFieldNSign;
-	eigenvectors[2 + NUM_STATES * 6] = -magneticFieldCrossN.y * magneticFieldNSign;
-	eigenvectors[3 + NUM_STATES * 6] = -magneticFieldCrossN.z * magneticFieldNSign;
-	eigenvectors[4 + NUM_STATES * 6] = magneticFieldCrossN.x * sqrtDensity;
-	eigenvectors[5 + NUM_STATES * 6] = magneticFieldCrossN.y * sqrtDensity;
-	eigenvectors[6 + NUM_STATES * 6] = magneticFieldCrossN.z * sqrtDensity;
-	eigenvectors[7 + NUM_STATES * 6] = 0.f;
+	eigenvectorsWrtPrimitives[0 + NUM_STATES * 6] = 0.f;
+	eigenvectorsWrtPrimitives[1 + NUM_STATES * 6] = 0.f;
+	eigenvectorsWrtPrimitives[2 + NUM_STATES * 6] = -betaZ * M_SQRT_1_2;
+	eigenvectorsWrtPrimitives[3 + NUM_STATES * 6] = betaY * M_SQRT_1_2;
+	eigenvectorsWrtPrimitives[4 + NUM_STATES * 6] = 0.f;
+	eigenvectorsWrtPrimitives[5 + NUM_STATES * 6] = sqrtDensity * M_SQRT_1_2 * betaZ;
+	eigenvectorsWrtPrimitives[6 + NUM_STATES * 6] = -sqrtDensity * M_SQRT_1_2 * betaY;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 6] = 0.f;
 	//fast magnetoacoustic col
-	eigenvectors[0 + NUM_STATES * 7] = (density * fastSpeedSq - magneticFieldSq) / speedOfSoundSq;
-	eigenvectors[1 + NUM_STATES * 7] = normal.x * fastSpeed - magneticField.x * magneticFieldN / (density * fastSpeed);
-	eigenvectors[2 + NUM_STATES * 7] = normal.y * fastSpeed - magneticField.y * magneticFieldN / (density * fastSpeed);
-	eigenvectors[3 + NUM_STATES * 7] = normal.z * fastSpeed - magneticField.z * magneticFieldN / (density * fastSpeed);
-	eigenvectors[4 + NUM_STATES * 7] = magneticField.x - normal.x * magneticFieldN;
-	eigenvectors[5 + NUM_STATES * 7] = magneticField.y - normal.y * magneticFieldN;
-	eigenvectors[6 + NUM_STATES * 7] = magneticField.z - normal.z * magneticFieldN;
-	eigenvectors[7 + NUM_STATES * 7] = density * fastSpeedSq - magneticFieldSq;
-	
+	eigenvectorsWrtPrimitives[0 + NUM_STATES * 7] = density * alphaFast;
+	eigenvectorsWrtPrimitives[1 + NUM_STATES * 7] = alphaFast * fastSpeed;
+	eigenvectorsWrtPrimitives[2 + NUM_STATES * 7] = -alphaSlow * slowSpeed * betaY * sgnBx;
+	eigenvectorsWrtPrimitives[3 + NUM_STATES * 7] = -alphaSlow * slowSpeed * betaY * sgnBx;
+	eigenvectorsWrtPrimitives[4 + NUM_STATES * 7] = 0.f;
+	eigenvectorsWrtPrimitives[5 + NUM_STATES * 7] = alphaSlow * sqrtDensity * speedOfSound * betaY;
+	eigenvectorsWrtPrimitives[6 + NUM_STATES * 7] = alphaSlow * sqrtDensity * speedOfSound * betaZ;
+	eigenvectorsWrtPrimitives[7 + NUM_STATES * 7] = alphaFast * GAMMA * pressure;
+
+
 	//eigenvectors inverse
-	//either this or the eigenvectors themselves is not working
-	mat88invert(eigenvectorsInverse, eigenvectors);
+	real eigenvectorsInverseWrtPrimitives[NUM_STATES * NUM_STATES];
+	//fast magnetoacoustic row
+	eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 0] = 0.f;
+	eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 1] = -alphaFast * fastSpeed / (2.f * speedOfSoundSq);
+	eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 2] = alphaSlow * slowSpeed * betaY * sgnBx / (2.f * speedOfSoundSq);
+	eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 3] = alphaSlow * slowSpeed * betaZ * sgnBx / (2.f * speedOfSoundSq);
+	eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 4] = 0.f;
+	eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 5] = alphaSlow * betaY / (2.f * sqrtDensity * speedOfSound);
+	eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 6] = alphaSlow * betaZ / (2.f * sqrtDensity * speedOfSound);
+	eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 7] = alphaFast / (2.f * density * speedOfSoundSq);
+	//Alfven row
+	eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 0] = 0.f;
+	eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 1] = 0.f;
+	eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 2] = -betaZ / sqrtDensity;
+	eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 3] = betaY / sqrtDensity;
+	eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 4] = 0.f;
+	eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 5] = -betaZ * M_SQRT_1_2 / sqrtDensity;
+	eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 6] = betaY * M_SQRT_1_2 / sqrtDensity;
+	eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 7] = 0.f;
+	//slow magnetoacoustic row
+	eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 0] = 0.f;
+	eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 1] = -alphaSlow * slowSpeed * .5f / speedOfSoundSq;
+	eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 2] = -alphaFast * fastSpeed * betaY * sgnBx * .5f / speedOfSoundSq;
+	eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 3] = -alphaFast * fastSpeed * betaZ * sgnBx * .5f / speedOfSoundSq;
+	eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 4] = 0.f;
+	eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 5] = -alphaFast * betaY / (2.f * sqrtDensity * speedOfSound);
+	eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 6] = -alphaFast * betaZ / (2.f * sqrtDensity * speedOfSound);
+	eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 7] = alphaSlow / (2.f * density * speedOfSoundSq);
+	//entropy row
+	eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 0] = 1.f;
+	eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 1] = 0.f;
+	eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 2] = 0.f;
+	eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 3] = 0.f;
+	eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 4] = 0.f;
+	eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 5] = 0.f;
+	eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 6] = 0.f;
+	eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 7] = -1.f / speedOfSoundSq;
+	//divergence row
+	eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 0] = 0.f;
+	eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 1] = 0.f;
+	eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 2] = 0.f;
+	eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 3] = 0.f;
+	eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 4] = 1.f;
+	eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 5] = 0.f;
+	eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 6] = 0.f;
+	eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 7] = 0.f;
+	//slow magnetoacoustic row
+	eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 0] = 0.f;
+	eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 1] = alphaSlow * slowSpeed * .5f / speedOfSoundSq;
+	eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 2] = alphaFast * fastSpeed * betaY * sgnBx * .5f / speedOfSoundSq;
+	eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 3] = alphaFast * fastSpeed * betaZ * sgnBx * .5f / speedOfSoundSq;
+	eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 4] = 0.f;
+	eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 5] = -alphaFast * betaY / (2.f * sqrtDensity * speedOfSound);
+	eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 6] = -alphaFast * betaZ / (2.f * sqrtDensity * speedOfSound);
+	eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 7] = alphaSlow / (2.f * density * speedOfSoundSq);
+	//Alfven row
+	eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 0] = 0.f;
+	eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 1] = 0.f;
+	eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 2] = -betaZ / sqrtDensity;
+	eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 3] = betaY / sqrtDensity;
+	eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 4] = 0.f;
+	eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 5] = betaZ * M_SQRT_1_2 / sqrtDensity;
+	eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 6] = -betaY * M_SQRT_1_2 / sqrtDensity;
+	eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 7] = 0.f;
+	//fast magnetoacoustic row
+	eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 0] = 0.f;
+	eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 1] = alphaFast * fastSpeed / (2.f * speedOfSoundSq);
+	eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 2] = -alphaSlow * slowSpeed * betaY * sgnBx / (2.f * speedOfSoundSq);
+	eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 3] = -alphaSlow * slowSpeed * betaZ * sgnBx / (2.f * speedOfSoundSq);
+	eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 4] = 0.f;
+	eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 5] = alphaSlow * betaY / (2.f * sqrtDensity * speedOfSound);
+	eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 6] = alphaSlow * betaZ / (2.f * sqrtDensity * speedOfSound);
+	eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 7] = alphaFast / (2.f * density * speedOfSoundSq);
+
+	//left and right eigenvectors above are of the flux derivative with respect to primitive variables
+	//to find the eigenvectors of the flux with respect to the state variables, multiply by the derivative of the primitives with respect to the states
+	//L = l * dw/du, R = du/dw * r
+	//for l, r the left and right eigenvectors of derivative of flux wrt primitives
+	//u = states, w = primitives
+	//L, R the left and right eigenvectors of derivative of flux wrt state
+	//this matches up with A = Q V Q^-1 = R V L = du/dw r V l dw/du
+
+	real8 du_dw8[8];	//row-major
+	du_dw8[0] = (real8)(1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f);
+	du_dw8[1] = (real8)(velocity.x, density, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f);
+	du_dw8[2] = (real8)(velocity.y, 0.f, density, 0.f, 0.f, 0.f, 0.f, 0.f);
+	du_dw8[3] = (real8)(velocity.z, 0.f, 0.f, density, 0.f, 0.f, 0.f, 0.f);
+	du_dw8[4] = (real8)(0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f);
+	du_dw8[5] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f);
+	du_dw8[6] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f);
+	du_dw8[7] = (real8)(.5f * velocitySq, density * velocity.x, density * velocity.y, density * velocity.z, magneticField.x, magneticField.y, magneticField.z, 1.f / gammaMinusOne);
+	real* du_dw = (real*)du_dw8;
+
+	real8 dw_du8[8];	//row-major
+	dw_du8[0] = (real8)(1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f);
+	dw_du8[1] = (real8)(-velocity.x / density, 1.f / density, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f);
+	dw_du8[2] = (real8)(-velocity.y / density, 0.f, 1.f / density, 0.f, 0.f, 0.f, 0.f, 0.f);
+	dw_du8[3] = (real8)(-velocity.z / density, 0.f, 0.f, 1.f / density, 0.f, 0.f, 0.f, 0.f);
+	dw_du8[4] = (real8)(0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f);
+	dw_du8[5] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f);
+	dw_du8[6] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f);
+	dw_du8[7] = (real8)(.5f * gammaMinusOne * velocitySq, -gammaMinusOne * velocity.x, -gammaMinusOne * velocity.y, -gammaMinusOne * velocity.z, -gammaMinusOne * magneticField.x, -gammaMinusOne * magneticField.y, -gammaMinusOne * magneticField.z, gammaMinusOne);
+	real* dw_du = (real*)dw_du8;
+
+	//L = l * dw/du <=> L_j = l_k * [dw/du]_kj <=> L_ij = l_ik * [dw/du]_kj
+	//R = du/dw * r <=> R_i = [du/dw]_ik * r_k <=> R_ij = [du/dw]_ik * r_kj
+	for (int i = 0; i < NUM_STATES; ++i) {
+		for (int j = 0; j < NUM_STATES; ++j) {
+			real sum;
+			
+			sum = 0.f;
+			for (int k = 0; k < NUM_STATES; ++k) {
+				sum += eigenvectorsInverseWrtPrimitives[i + NUM_STATES * k] * dw_du[k + NUM_STATES * j];
+			}
+			eigenvectorsInverse[i + NUM_STATES * j] = sum;
+			
+			sum = 0.f;
+			for (int k = 0; k < NUM_STATES; ++k) {
+				sum += du_dw[i + NUM_STATES * k] * eigenvectorsWrtPrimitives[k + NUM_STATES * j];
+			}
+			eigenvectors[i + NUM_STATES * j] = sum;
+		}
+	}
+
+#if DIM > 1
+	if (side == 1) {
+		for (int i = 0; i < NUM_STATES; ++i) {
+			real tmp;
+
+			//-90' rotation applied to the LHS of incoming velocity vectors, to move their y axis into the x axis
+			// is equivalent of a -90' rotation applied to the RHS of the flux jacobian A
+			// and A = Q V Q-1 for Q = the right eigenvectors and Q-1 the left eigenvectors
+			// so a -90' rotation applied to the RHS of A is a +90' rotation applied to the RHS of Q-1 the left eigenvectors
+			//and while a rotation applied to the LHS of a vector rotates the elements of its column vectors, a rotation applied to the RHS rotates the elements of its row vectors 
+			//each row's y <- x, x <- -y
+			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y] = tmp;
+			
+			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Y];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Y] = tmp;
+			
+			//a -90' rotation applied to the RHS of A must be corrected with a 90' rotation on the LHS of A
+			//this rotates the elements of the column vectors by 90'
+			//each column's x <- y, y <- -x
+			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = -eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i] = tmp;
+			
+			tmp = eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i];
+			eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i] = -eigenvectors[STATE_MAGNETIC_FIELD_Y + NUM_STATES * i];
+			eigenvectors[STATE_MAGNETIC_FIELD_Y + NUM_STATES * i] = tmp;
+		}
+	}
+#if DIM > 2
+	else if (side == 2) {
+		for (int i = 0; i < NUM_STATES; ++i) {
+			real tmp;
+			
+			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z] = tmp;
+			
+			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Z];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Z] = tmp;
+			
+			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = -eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i] = tmp;
+			
+			tmp = eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i];
+			eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i] = -eigenvectors[STATE_MAGNETIC_FIELD_Z + NUM_STATES * i];
+			eigenvectors[STATE_MAGNETIC_FIELD_Z + NUM_STATES * i] = tmp;
+		}
+	}
+#endif
+#endif
+	
+
 }
 
 __kernel void calcEigenBasis(

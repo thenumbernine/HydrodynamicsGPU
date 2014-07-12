@@ -14,8 +14,6 @@ enum {
 ADMEquation::ADMEquation(Solver& solver) 
 : Super()
 {
-	numStates = 3;
-	
 	//TODO fixme
 	displayMethods = std::vector<std::string>{
 		"DENSITY",
@@ -31,17 +29,14 @@ ADMEquation::ADMEquation(Solver& solver)
 		"MIRROR",
 		"FREEFLOW"
 	};
-}
 
-void ADMEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
-	std::vector<std::string> states;
 	states.push_back("DX_LN_ALPHA");
 	states.push_back("DX_LN_G");
 	states.push_back("K_TILDE");
-	sources[0] += buildEnumCode("STATE", states);
-	
-	sources[0] += buildEnumCode("DISPLAY", displayMethods);
-	sources[0] += buildEnumCode("BOUNDARY", boundaryMethods);
+}
+
+void ADMEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+	Super::getProgramSources(solver, sources);
 	
 	real adm_BonaMasso_f = 1.f;
 	solver.app.lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;

@@ -14,8 +14,6 @@ enum {
 MHDEquation::MHDEquation(Solver& solver) 
 : Super()
 {
-	numStates = 8;
-	
 	displayMethods = std::vector<std::string>{
 		"DENSITY",
 		"VELOCITY",
@@ -30,10 +28,8 @@ MHDEquation::MHDEquation(Solver& solver)
 		"MIRROR",
 		"FREEFLOW"
 	};
-}
 
-void MHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
-	std::vector<std::string> states = {
+	states = {
 		"DENSITY",
 		"MOMENTUM_X",
 		"MOMENTUM_Y",
@@ -43,16 +39,19 @@ void MHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& so
 		"MAGNETIC_FIELD_Z",
 		"ENERGY_TOTAL"
 	};
-	sources[0] += buildEnumCode("STATE", states);
+}
 
-	sources[0] += buildEnumCode("DISPLAY", displayMethods);
-	sources[0] += buildEnumCode("BOUNDARY", boundaryMethods);
-
+void MHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+	Super::getProgramSources(solver, sources);
+	
 	real gamma = 1.4f;
 	solver.app.lua.ref()["gamma"] >> gamma;
 	sources[0] += "#define GAMMA " + toNumericString<real>(gamma) + "\n";
 
+	sources[0] += "#define MU0 1.f\n";	//TODO script me
+
 	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
+	sources.push_back(Common::File::read("MHDCommon.cl"));
 }
 
 int MHDEquation::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {

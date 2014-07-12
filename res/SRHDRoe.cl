@@ -9,6 +9,7 @@ void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenvectorsBuffer,
 	__global real* eigenvectorsInverseBuffer,
+	const __global real* primitiveBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
 	int side);
@@ -30,6 +31,9 @@ void calcEigenBasisSide(
 
 	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
+	
+	const __global real* primitiveL = primitiveBuffer + NUM_PRIMITIVE * indexPrev;
+	const __global real* primitiveR = primitiveBuffer + NUM_PRIMITIVE * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 	__global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
@@ -80,7 +84,7 @@ void calcEigenBasisSide(
 	real lorentzFactorSq = lorentzFactor * lorentzFactor;
 	real4 relativisticVelocity = (roeWeightL * relativisticVelocityL + roeWeightR * relativisticVelocityR) * roeWeightNormalization;	//ui
 	real pressureOverProperDensityEnthalpy = (roeWeightL * pressureOverProperDensityEnthalpyL + roeWeightR * pressureOverProperDensityEnthalpyR) * roeWeightNormalization;	//p / (rho h)
-	real speedOfSoundSq = GAMMA * pressureOverDensityEnthalpy;
+	real speedOfSoundSq = GAMMA * pressureOverProperDensityEnthalpy;
 	real speedOfSound = sqrt(speedOfSoundSq);
 	//how do we get 'h' from the Roe-weighted variables?
 
@@ -123,6 +127,8 @@ void calcEigenBasisSide(
 
 	real Aminus = (1.f - newtonianVelocity.x * newtonianVelocity.x) / (1.f * newtonianVelocity.x * eigenvalues[0]);
 	real Aplus = (1.f - newtonianVelocity.x * newtonianVelocity.x) / (1.f * newtonianVelocity.x * eigenvalues[DIM+1]);
+	
+	//TOOD how do you get h from P / (rho h) ?
 	real K = internalSpecificEnthalpy;
 
 	//min col 
