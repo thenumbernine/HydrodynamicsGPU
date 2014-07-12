@@ -48,7 +48,9 @@ void MHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& so
 	solver.app.lua.ref()["gamma"] >> gamma;
 	sources[0] += "#define GAMMA " + toNumericString<real>(gamma) + "\n";
 
-	sources[0] += "#define MU0 1.f\n";	//TODO script me
+	real vaccuumPermeability = 1.f;
+	solver.app.lua.ref()["vaccuumPermeability"] >> vaccuumPermeability;
+	sources[0] += "#define VACCUUM_PERMEABILITY " + toNumericString<real>(vaccuumPermeability) + "\n";
 
 	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
 	sources.push_back(Common::File::read("MHDCommon.cl"));

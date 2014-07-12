@@ -12,6 +12,7 @@ struct MHDRoe : public Roe {
 	MHDRoe(HydroGPUApp& app);
 protected:
 	cl::Kernel initVariablesKernel;
+	cl::Kernel addMHDSourceKernel;
 	
 	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();

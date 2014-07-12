@@ -36,10 +36,9 @@ void calcEigenBasisSide(
 	const real gammaMinusOne = GAMMA - 1.f;
 
 	real densityL = stateL[STATE_DENSITY];
-	real invDensityL = 1.f / densityL;
 	real4 velocityL = VELOCITY(stateL);
 	real4 magneticFieldL = (real4)(stateL[STATE_MAGNETIC_FIELD_X], stateL[STATE_MAGNETIC_FIELD_Y], stateL[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / MU0;
+	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / VACCUUM_PERMEABILITY;
 	real totalPlasmaEnergyDensityL = stateL[STATE_ENERGY_TOTAL];
 	real totalHydroEnergyDensityL = totalPlasmaEnergyDensityL - magneticEnergyDensityL;
 	real kineticEnergyDensityL = .5f * densityL * dot(velocityL, velocityL);
@@ -48,10 +47,9 @@ void calcEigenBasisSide(
 	real pressureL = gammaMinusOne * internalEnergyDensityL;
 
 	real densityR = stateR[STATE_DENSITY];
-	real invDensityR = 1.f / densityR;
 	real4 velocityR = VELOCITY(stateR);
 	real4 magneticFieldR = (real4)(stateR[STATE_MAGNETIC_FIELD_X], stateR[STATE_MAGNETIC_FIELD_Y], stateR[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / MU0;
+	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / VACCUUM_PERMEABILITY;
 	real totalPlasmaEnergyDensityR = stateR[STATE_ENERGY_TOTAL];
 	real totalHydroEnergyDensityR = totalPlasmaEnergyDensityR - magneticEnergyDensityR;
 	real kineticEnergyDensityR = .5f * densityR * dot(velocityR, velocityR);
@@ -88,8 +86,6 @@ void calcEigenBasisSide(
 	real magneticFieldXSq = magneticField.x * magneticField.x;
 	
 	real AlfvenSpeed = magneticField.x / sqrtDensity;
-	real AlfvenSpeedSq = AlfvenSpeed * AlfvenSpeed;
-	//TODO update slow and fast speeds
 	real tmp1 = (GAMMA * pressure + magneticFieldSq) / density;
 	real discr = max(0.f, tmp1 * tmp1 - 4.f * GAMMA * pressure * magneticFieldXSq / (density * density));
 	real tmp2 = sqrt(discr);
@@ -98,7 +94,6 @@ void calcEigenBasisSide(
 	real slowSpeedSq = max(.5f * tmp1 - tmp2, 0.f);
 	real slowSpeed = sqrt(slowSpeedSq);
 
-	//TODO define
 	real oneOverFastSpeedSqMinusSlowSpeedSq = 1.f / (fastSpeedSq - slowSpeedSq);
 	real alphaFast = sqrt(max(0.f, (speedOfSoundSq - slowSpeedSq) * oneOverFastSpeedSqMinusSlowSpeedSq));
 	real alphaSlow = sqrt(max(0.f, (fastSpeedSq - speedOfSoundSq) * oneOverFastSpeedSqMinusSlowSpeedSq));
