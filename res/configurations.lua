@@ -157,7 +157,7 @@ return {
 	-- http://www.astro.uni-bonn.de/~jmackey/jmac/node7.html
 	['Brio-Wu'] = function()
 		gamma = 2
-		boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
+		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 		initState = function(x,y,z)
 			local lhs = x < 0
 			return buildStateEuler{

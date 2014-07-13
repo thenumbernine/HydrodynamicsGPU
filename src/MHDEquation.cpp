@@ -52,7 +52,7 @@ void MHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& so
 
 	real vaccuumPermeability = 1.f;
 	solver.app.lua.ref()["vaccuumPermeability"] >> vaccuumPermeability;
-	sources[0] += "constant real vaccuumPermeability = " + toNumericString<real>(vaccuumPermeability) + "\n";
+	sources[0] += "constant real vaccuumPermeability = " + toNumericString<real>(vaccuumPermeability) + ";\n";
 
 	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
 	sources.push_back(Common::File::read("MHDCommon.cl"));

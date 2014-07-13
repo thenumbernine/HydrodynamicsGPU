@@ -7,9 +7,9 @@ local configurations = require 'configurations'	--holds catalog of configuration
 
 --solverName = 'EulerBurgers' -- works for 1D, 2D, 3D
 --solverName = 'EulerHLL' -- works for 1D, 2D, 3D.  needs 2nd order support.
-solverName = 'EulerRoe' -- works for 1D, 2D, compiler crashes for 3D
+--solverName = 'EulerRoe' -- works for 1D, 2D, compiler crashes for 3D
 --solverName = 'SRHDRoe' -- in the works
---solverName = 'MHDRoe' -- left eigenvectors not finished, and numeric inverse not working
+solverName = 'MHDRoe' -- left eigenvectors not finished, and numeric inverse not working
 --solverName = 'ADMRoe' -- exploding
 
 
@@ -59,7 +59,7 @@ velocityFieldScale = .125
 gamma = 1.4
 
 -- specific to MHD
-vaccuumPermeability = 1		-- mu0 = 4π*1e−7 V s A^-1 m^-1
+vaccuumPermeability = 1	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
@@ -76,5 +76,5 @@ displayScale = .25
 
 
 -- see initState for a list of options
-configurations['Sod']()
+configurations['Brio-Wu']()
 
