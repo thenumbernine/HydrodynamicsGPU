@@ -195,12 +195,13 @@ __kernel void stateBoundaryFreeFlowZ(
 	//integration methods
 
 
-__kernel void forwardEulerIntegrate(
+__kernel void multAdd(
 	__global real* stateBuffer,
 	const __global real* derivBuffer,
-	const __global real* dtBuffer)
+	const __global real* dtBuffer,
+	real scalar)
 {
-	real dt = dtBuffer[0];
+	real dt = dtBuffer[0] * scalar;
 	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
@@ -219,7 +220,7 @@ __kernel void forwardEulerIntegrate(
 	const __global real* deriv = derivBuffer + NUM_STATES * index;
 	
 	for (int j = 0; j < NUM_STATES; ++j) {
-		state[j] += dt * deriv[j];
+		state[j] += deriv[j] * dt;
 	}
 }
 

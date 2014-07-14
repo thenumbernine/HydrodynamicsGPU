@@ -1,6 +1,7 @@
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Integrator/ForwardEuler.h"
+#include "HydroGPU/Integrator/RungeKutta4.h"
 #include "Common/File.h"
 
 namespace HydroGPU {
@@ -295,8 +296,16 @@ void Solver::initKernels() {
 	calcGravityDerivKernel = cl::Kernel(program, "calcGravityDeriv");
 	calcGravityDerivKernel.setArg(1, stateBuffer);
 	calcGravityDerivKernel.setArg(2, potentialBuffer);
-	
-	integrator = std::make_shared<HydroGPU::Integrator::ForwardEuler>(*this);
+
+	std::string integratorName = "ForwardEuler";
+	app.lua.ref()["integratorName"] >> integratorName;
+	if (integratorName == "ForwardEuler") {
+		integrator = std::make_shared<HydroGPU::Integrator::ForwardEuler>(*this);
+	} else if (integratorName == "RungeKutta4") {
+		integrator = std::make_shared<HydroGPU::Integrator::RungeKutta4>(*this);
+	} else {
+		throw Common::Exception() << "failed to find integrator named " << integratorName;
+	}
 }
 
 int Solver::numStates() {

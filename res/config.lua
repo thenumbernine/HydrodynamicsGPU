@@ -35,6 +35,10 @@ slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
+--integratorName = 'ForwardEuler'
+integratorName = 'RungeKutta4'
+
+
 useGPU = true
 --maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.

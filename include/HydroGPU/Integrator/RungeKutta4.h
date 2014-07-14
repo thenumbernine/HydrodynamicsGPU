@@ -5,12 +5,16 @@
 namespace HydroGPU {
 namespace Integrator {
 
-struct ForwardEuler : public Integrator {
+struct RungeKutta4 : public Integrator {
 	typedef Integrator Super;
-	ForwardEuler(HydroGPU::Solver::Solver& solver);
+	RungeKutta4(HydroGPU::Solver::Solver& solver);
 	virtual void integrate(std::function<void(cl::Buffer)> callback);
 protected:
-	cl::Buffer derivBuffer;	//d/dt[state]
+	cl::Buffer restoreBuffer;
+	cl::Buffer deriv1Buffer;
+	cl::Buffer deriv2Buffer;
+	cl::Buffer deriv3Buffer;
+	cl::Buffer deriv4Buffer;
 	cl::Kernel multAddKernel;
 };
 

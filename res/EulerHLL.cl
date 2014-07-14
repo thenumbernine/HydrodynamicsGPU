@@ -287,24 +287,23 @@ Hydrodynamics ii stops at mentioning the deconstruction of delta q into delta q-
  is this the slope that should be used with the slope limiter?
 or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, choosing one or the other based on the velocity sign 
 */
-#if 0	//this is wrong
+#if 0
 	for (int i = 0; i < NUM_STATES; ++i) {
 		real eigenvalue = eigenvalues[i];
+		real deltaFlux = fluxR[i] - fluxL[i];
+		real deltaQ = stateR[i] - stateL[i];
+		real rTilde = deltaFlux / deltaQ;
 		real theta;
-		real rTilde;
-		real deltaQTilde = stateR[i] - stateL[i];
-		real stateMid = (sr * stateR[i] - sl * stateL[i] + fluxL[i] - fluxR[i]) / (sr - sl);
 		if (eigenvalue >= 0.f) {
 			theta = 1.f;
-			rTilde = (stateMid - stateL[i]) / deltaQTilde;
+			//rTilde = (stateMid - stateL[i]) / deltaQ;
 		} else {
 			theta = -1.f;
-			rTilde = (stateR[i] - stateMid) / deltaQTilde;
+			//rTilde = (stateR[i] - stateMid) / deltaQ;
 		}
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
-		real deltaFluxTilde = eigenvalue * deltaQTilde;
-		flux[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta) / (float)DIM);
+		flux[i] -= .5f * deltaFlux * (theta + phi * (epsilon - theta) / (float)DIM);
 	}
 #endif
 }
