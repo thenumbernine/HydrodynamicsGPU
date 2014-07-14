@@ -143,12 +143,14 @@ void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
+	real dt_dx,
 	int side);
 
 void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
+	real dt_dx,
 	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -203,8 +205,14 @@ void calcFluxSide(
 	real speedOfSound = sqrt((gamma - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
 	real velocityN = dot(velocity, normal);
 
-	real eigenvaluesMin = velocityN - speedOfSound;
-	real eigenvaluesMax = velocityN + speedOfSound;
+	real eigenvalues[NUM_STATES];
+	for (int i = 0; i < NUM_STATES; ++i) {
+		eigenvalues[i] = velocityN;
+	}
+	eigenvalues[0] -= speedOfSound;
+	real eigenvaluesMin = eigenvalues[0];
+	eigenvalues[DIM+1] += speedOfSound;
+	real eigenvaluesMax = eigenvalues[DIM+1];
 
 	//flux
 
@@ -216,59 +224,96 @@ void calcFluxSide(
 	real sl = min(eigenvaluesMinL, eigenvaluesMin);
 	real sr = max(eigenvaluesMaxR, eigenvaluesMax);
 #endif
-	
-	if (sl >= 0.f) {
-		//fluxL
-		flux[0] = densityL * velocityNL;
-		flux[1] = densityL * velocityL.x * velocityNL + normal.x * pressureL;
+
+	real fluxL[NUM_STATES];
+	fluxL[0] = densityL * velocityNL;
+	fluxL[1] = densityL * velocityL.x * velocityNL + normal.x * pressureL;
 #if DIM > 1
-		flux[2] = densityL * velocityL.y * velocityNL + normal.y * pressureL;
+	fluxL[2] = densityL * velocityL.y * velocityNL + normal.y * pressureL;
 #endif
 #if DIM > 2
-		flux[3] = densityL * velocityL.z * velocityNL + normal.z * pressureL;
+	fluxL[3] = densityL * velocityL.z * velocityNL + normal.z * pressureL;
 #endif
-		flux[DIM+1] = densityL * enthalpyTotalL * velocityNL;
+	fluxL[DIM+1] = densityL * enthalpyTotalL * velocityNL;
+	
+	real fluxR[NUM_STATES];
+	fluxR[0] = densityR * velocityNR;
+	fluxR[1] = densityR * velocityR.x * velocityNR + normal.x * pressureR;
+#if DIM > 1
+	fluxR[2] = densityR * velocityR.y * velocityNR + normal.y * pressureR;
+#endif
+#if DIM > 2
+	fluxR[3] = densityR * velocityR.z * velocityNR + normal.z * pressureR;
+#endif
+	fluxR[DIM+1] = densityR * enthalpyTotalR * velocityNR;	
+
+	if (sl >= 0.f) {
+		for (int i = 0; i < NUM_STATES; ++i) {
+			flux[i] = fluxL[i];
+		}
 	} else if (sl <= 0.f && sr >= 0.f) {
 		//(sr * fluxL[j] - sl * fluxR[j] + sl * sr * (stateR[j] - stateL[j])) / (sr - sl)
 		real invDenom = 1.f / (sr - sl);
-		flux[0] = (sr * densityL * velocityNL
-				- sl * densityR * velocityNR
-				+ sl * sr * (densityR - densityL)) * invDenom;
-		flux[1] = (sr * (densityL * velocityL.x * velocityNL + normal.x * pressureL)
-				- sl * (densityR * velocityR.x * velocityNR + normal.x * pressureR)
-				+ sl * sr * (densityR * velocityR.x - densityL * velocityL.x)) * invDenom;
-#if DIM > 1
-		flux[2] = (sr * (densityL * velocityL.y * velocityNL + normal.y * pressureL)
-				- sl * (densityR * velocityR.y * velocityNR + normal.y * pressureR)
-				+ sl * sr * (densityR * velocityR.y - densityL * velocityL.y)) * invDenom;
-#endif
-#if DIM > 2
-		flux[3] = (sr * (densityL * velocityL.z * velocityNL + normal.z * pressureL)
-				- sl * (densityR * velocityR.z * velocityNR + normal.z * pressureR)
-				+ sl * sr * (densityR * velocityR.z - densityL * velocityL.z)) * invDenom;
-#endif
-		flux[DIM+1] = (sr * (densityL * enthalpyTotalL * velocityNL)
-					- sl * (densityR * enthalpyTotalR * velocityNR)
-					+ sl * sr * (densityR * energyTotalR - densityL * energyTotalL)) * invDenom;
+		for (int i = 0; i < NUM_STATES; ++i) {
+			flux[i] = (sr * fluxL[i] - sl * fluxR[i] + sl * sr * (stateR[i] - stateL[i])) * invDenom; 
+		}
 	} else if (sr <= 0.f) {
-		//fluxR
-		flux[0] = densityR * velocityNR;
-		flux[1] = densityR * velocityR.x * velocityNR + normal.x * pressureR;
-#if DIM > 1
-		flux[2] = densityR * velocityR.y * velocityNR + normal.y * pressureR;
-#endif
-#if DIM > 2
-		flux[3] = densityR * velocityR.z * velocityNR + normal.z * pressureR;
-#endif
-		flux[DIM+1] = densityR * enthalpyTotalR * velocityNR;	
+		for (int i = 0; i < NUM_STATES; ++i) {
+			flux[i] = fluxR[i];
+		}
 	}
 
+/*
+theta = sign of eigenvalues
+
+fhalf = 1/2 (fR + fL) - 1/2 (theta + phi (epsilon - theta)) (fR - fL)
+
+donor cell when phi = 0:
+
+fhalf = 1/2 (fR + fL) - 1/2 theta (fR - fL)
+... for theta = 1: 	fhalf = 1/2 fR + 1/2 fL - 1/2 fR + 1/2 fL = fL
+... for theta = -1:	fhalf = 1/2 fR + 1/2 fL + 1/2 fR - 1/2 fL = fR
+
+... for phi = slope of rTile
+			= for theta = 1:	delta q(i-1) / delta q(i)
+			= for theta = -1:	delta q(i+1) / delta q(i)
+
+so what do we use to consider delta q?  the states themselves, or any sort of transformation (as Roe does)?
+how about (by Hydrodynamics ii) delta q = delta f / lambda
+so what is delta f?  
+Hydrodynamics ii stops at mentioning the deconstruction of delta q into delta q- and delta q+
+ and its association with lambda+ and lambda-
+ which are the eigenvalue min and max used in the flux calculation.
+ is this the slope that should be used with the slope limiter?
+or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, choosing one or the other based on the velocity sign 
+*/
+#if 0	//this is wrong
+	for (int i = 0; i < NUM_STATES; ++i) {
+		real eigenvalue = eigenvalues[i];
+		real theta;
+		real rTilde;
+		real deltaQTilde = stateR[i] - stateL[i];
+		real stateMid = (sr * stateR[i] - sl * stateL[i] + fluxL[i] - fluxR[i]) / (sr - sl);
+		if (eigenvalue >= 0.f) {
+			theta = 1.f;
+			rTilde = (stateMid - stateL[i]) / deltaQTilde;
+		} else {
+			theta = -1.f;
+			rTilde = (stateR[i] - stateMid) / deltaQTilde;
+		}
+		real phi = slopeLimiter(rTilde);
+		real epsilon = eigenvalue * dt_dx;
+		real deltaFluxTilde = eigenvalue * deltaQTilde;
+		flux[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta) / (float)DIM);
+	}
+#endif
 }
 
 __kernel void calcFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
-	const __global real* potentialBuffer)
+	const __global real* potentialBuffer,
+	const __global real* dtBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1
@@ -279,12 +324,15 @@ __kernel void calcFlux(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, 0);
+	
+	real dt = dtBuffer[0];
+	
+	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DX, 0);
 #if DIM > 1
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, 1);
+	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DY, 1);
 #endif
 #if DIM > 2
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, 2);
+	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DZ, 2);
 #endif
 }
 

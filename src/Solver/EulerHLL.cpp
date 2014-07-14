@@ -29,7 +29,7 @@ void EulerHLL::init() {
 	app.setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer, potentialBuffer);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, potentialBuffer);
+	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, potentialBuffer, dtBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
 	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.cfl);
