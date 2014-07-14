@@ -1,8 +1,10 @@
-#include "HydroGPU/Solver.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Integrator/ForwardEuler.h"
 #include "Common/File.h"
 
+namespace HydroGPU {
+namespace Solver {
 
 cl::Buffer Solver::clAlloc(size_t size) {
 	totalAlloc += size;
@@ -422,5 +424,8 @@ void Solver::update() {
 	}
 */
 
+}
+
+}
 }
 

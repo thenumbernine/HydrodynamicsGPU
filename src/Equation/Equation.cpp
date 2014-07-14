@@ -15,7 +15,7 @@ std::string Equation::buildEnumCode(const std::string& prefix, const std::vector
 	return str;
 }
 
-void Equation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+void Equation::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources) {
 	sources[0] += buildEnumCode("STATE", states);
 	sources[0] += buildEnumCode("DISPLAY", displayMethods);
 	sources[0] += buildEnumCode("BOUNDARY", boundaryMethods);

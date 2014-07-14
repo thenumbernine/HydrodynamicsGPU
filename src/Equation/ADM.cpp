@@ -1,5 +1,5 @@
 #include "HydroGPU/Equation/ADM.h"
-#include "HydroGPU/Solver.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
@@ -14,7 +14,7 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-ADM::ADM(Solver& solver) 
+ADM::ADM(HydroGPU::Solver::Solver& solver) 
 : Super()
 {
 	//TODO fixme
@@ -38,7 +38,7 @@ ADM::ADM(Solver& solver)
 	states.push_back("K_TILDE");
 }
 
-void ADM::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+void ADM::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources) {
 	Super::getProgramSources(solver, sources);
 	
 	real adm_BonaMasso_f = 1.f;
@@ -48,7 +48,7 @@ void ADM::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
 	sources.push_back(Common::File::read("ADMCommon.cl"));
 }
 
-int ADM::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
+int ADM::stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim, int state) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
@@ -63,7 +63,7 @@ int ADM::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int st
 	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
 }
 
-int ADM::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) {
+int ADM::gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;

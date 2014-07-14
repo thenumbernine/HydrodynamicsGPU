@@ -1,7 +1,10 @@
-#include "HydroGPU/EulerHLL.h"
+#include "HydroGPU/Solver/EulerHLL.h"
 #include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
+
+namespace HydroGPU {
+namespace Solver {
 
 EulerHLL::EulerHLL(
 	HydroGPUApp &app_)
@@ -58,5 +61,8 @@ void EulerHLL::step() {
 	});
 
 	applyGravity();
+}
+
+}
 }
 

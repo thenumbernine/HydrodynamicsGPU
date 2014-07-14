@@ -1,7 +1,10 @@
+#include "HydroGPU/Solver/SRHDRoe.h"
 #include "HydroGPU/Equation/SRHD.h"
-#include "HydroGPU/SRHDRoe.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
+
+namespace HydroGPU {
+namespace Solver {
 
 SRHDRoe::SRHDRoe(HydroGPUApp& app_)
 : Super(app_)
@@ -37,5 +40,8 @@ void SRHDRoe::resetState() {
 	//store Newtonian Euler equation state variables in stateBuffer
 	Super::resetState();
 	commands.enqueueNDRangeKernel(initVariablesKernel, offsetNd, globalSize, localSize);
+}
+
+}
 }
 

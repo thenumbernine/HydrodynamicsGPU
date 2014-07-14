@@ -1,7 +1,10 @@
-#include "HydroGPU/MHDRoe.h"
+#include "HydroGPU/Solver/MHDRoe.h"
 #include "HydroGPU/Equation/MHD.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
+
+namespace HydroGPU {
+namespace Solver {
 
 MHDRoe::MHDRoe(HydroGPUApp& app_)
 : Super(app_)
@@ -40,5 +43,8 @@ void MHDRoe::step() {
 	commands.enqueueNDRangeKernel(addMHDSourceKernel, offsetNd, globalSize, localSize);
 	
 	Super::step();
+}
+
+}
 }
 

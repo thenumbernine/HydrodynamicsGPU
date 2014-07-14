@@ -1,6 +1,9 @@
 #pragma once
 
-#include "HydroGPU/Roe.h"
+#include "HydroGPU/Solver/Roe.h"
+
+namespace HydroGPU {
+namespace Solver {
 
 /*
 Roe solver for Euler equations
@@ -36,4 +39,7 @@ protected:
 	*/
 	virtual void resetState();		//called third
 };
+
+}
+}
 

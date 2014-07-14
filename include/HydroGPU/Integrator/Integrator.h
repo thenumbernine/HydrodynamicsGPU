@@ -3,14 +3,15 @@
 #include <OpenCL/cl.hpp>
 #include <functional>
 
-struct Solver;
-
 namespace HydroGPU {
+namespace Solver {
+struct Solver;
+}
 namespace Integrator {
 
 struct Integrator {
-	Solver& solver;
-	Integrator(Solver& solver);
+	HydroGPU::Solver::Solver& solver;
+	Integrator(HydroGPU::Solver::Solver& solver);
 	virtual void integrate(std::function<void(cl::Buffer)> callback) = 0;
 };
 

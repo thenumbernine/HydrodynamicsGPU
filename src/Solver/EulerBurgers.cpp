@@ -1,7 +1,10 @@
-#include "HydroGPU/EulerBurgers.h"
+#include "HydroGPU/Solver/EulerBurgers.h"
 #include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
+
+namespace HydroGPU {
+namespace Solver {
 
 EulerBurgers::EulerBurgers(
 	HydroGPUApp &app_)
@@ -106,5 +109,8 @@ void EulerBurgers::step() {
 		commands.enqueueNDRangeKernel(diffuseWorkKernel, offsetNd, globalSize, localSize, nullptr, &diffuseWorkEvent.clEvent);
 	});
 	boundary();
+}
+
+}
 }
 

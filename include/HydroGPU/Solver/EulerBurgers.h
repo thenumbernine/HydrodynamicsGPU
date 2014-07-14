@@ -1,9 +1,11 @@
 #pragma once
 
-#include "HydroGPU/Solver3D.h"
+#include "HydroGPU/Solver/Solver3D.h"
 #include "Tensor/Vector.h"
 
+namespace HydroGPU {
 struct HydroGPUApp;
+namespace Solver {
 
 struct EulerBurgers : public Solver3D {
 	typedef Solver3D Super;
@@ -35,4 +37,6 @@ protected:
 	virtual void step();
 };
 
+}
+}
 

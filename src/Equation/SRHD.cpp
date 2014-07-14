@@ -1,6 +1,6 @@
 #include "HydroGPU/Equation/SRHD.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "HydroGPU/Solver.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
 
@@ -14,7 +14,7 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-SRHD::SRHD(Solver& solver) 
+SRHD::SRHD(HydroGPU::Solver::Solver& solver) 
 : Super()
 {
 	displayMethods = std::vector<std::string>{
@@ -38,7 +38,7 @@ SRHD::SRHD(Solver& solver)
 	states.push_back("TOTAL_ENERGY_DENSITY");
 }
 
-void SRHD::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+void SRHD::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources) {
 	Super::getProgramSources(solver, sources);
 
 	std::vector<std::string> primitives;
@@ -58,7 +58,7 @@ void SRHD::getProgramSources(Solver& solver, std::vector<std::string>& sources) 
 	sources.push_back(Common::File::read("SRHDCommon.cl"));
 }
 
-int SRHD::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
+int SRHD::stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim, int state) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
@@ -73,7 +73,7 @@ int SRHD::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int s
 	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
 }
 
-int SRHD::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) {
+int SRHD::gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;

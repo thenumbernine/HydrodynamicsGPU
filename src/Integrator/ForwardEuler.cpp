@@ -1,11 +1,11 @@
 #include "HydroGPU/Integrator/ForwardEuler.h"
-#include "HydroGPU/Solver.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
 
 namespace HydroGPU {
 namespace Integrator {
 
-ForwardEuler::ForwardEuler(Solver& solver) 
+ForwardEuler::ForwardEuler(HydroGPU::Solver::Solver& solver) 
 : Super(solver)
 {
 	int volume = solver.getVolume();

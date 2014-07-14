@@ -1,8 +1,10 @@
 #pragma once
 
-#include "HydroGPU/Roe.h"
+#include "HydroGPU/Solver/Roe.h"
 
+namespace HydroGPU {
 struct HydroGPUApp;
+namespace Solver {
 
 /*
 Roe solver for MHD equations
@@ -20,4 +22,7 @@ protected:
 
 	virtual void step();
 };
+
+}
+}
 

@@ -1,10 +1,16 @@
 #pragma once
 
-#include "HydroGPU/Solver3D.h"
+#include "HydroGPU/Solver/Solver3D.h"
 
+namespace HydroGPU {
 struct HydroGPUApp;
+namespace Solver {
 
-struct EulerHLL : public Solver3D {
+/*
+General Roe solver
+Missing calcEigenBasis
+*/
+struct Roe : public Solver3D {
 	typedef Solver3D Super;
 
 	cl::Buffer eigenvaluesBuffer;
@@ -13,18 +19,26 @@ struct EulerHLL : public Solver3D {
 	cl::Buffer deltaQTildeBuffer;
 	cl::Buffer fluxBuffer;
 	
-	cl::Kernel calcEigenvaluesKernel;
-	cl::Kernel calcFluxKernel;
+	cl::Kernel calcEigenBasisKernel;
 	cl::Kernel calcCFLKernel;
+	cl::Kernel calcDeltaQTildeKernel;
+	cl::Kernel calcFluxKernel;
 	cl::Kernel calcFluxDerivKernel;
 	
-	EulerHLL(HydroGPUApp &app);
+	EventProfileEntry calcEigenBasisEvent;
+	EventProfileEntry calcCFLEvent;
+	EventProfileEntry calcDeltaQTildeEvent;
+	EventProfileEntry calcFluxEvent;
+	
+	Roe(HydroGPUApp& app);
 	virtual void init();
-
 protected:
 	virtual std::vector<std::string> getProgramSources();
 	virtual void initStep();
 	virtual void calcTimestep();
 	virtual void step();
 };
+
+}
+}
 

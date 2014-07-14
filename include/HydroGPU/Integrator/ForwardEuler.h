@@ -7,7 +7,7 @@ namespace Integrator {
 
 struct ForwardEuler : public Integrator {
 	typedef Integrator Super;
-	ForwardEuler(Solver& solver);
+	ForwardEuler(HydroGPU::Solver::Solver& solver);
 	virtual void integrate(std::function<void(cl::Buffer)> callback);
 protected:
 	cl::Buffer derivBuffer;	//d/dt[state]

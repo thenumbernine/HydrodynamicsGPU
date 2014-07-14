@@ -1,6 +1,9 @@
-#include "HydroGPU/Roe.h"
+#include "HydroGPU/Solver/Roe.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
+
+namespace HydroGPU {
+namespace Solver {
 
 Roe::Roe(
 	HydroGPUApp &app_)
@@ -80,5 +83,8 @@ void Roe::step() {
 	});
 
 	applyGravity();
+}
+
+}
 }
 

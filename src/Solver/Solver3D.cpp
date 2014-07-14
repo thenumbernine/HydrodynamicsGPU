@@ -1,4 +1,4 @@
-#include "HydroGPU/Solver3D.h"
+#include "HydroGPU/Solver/Solver3D.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
 #include "Image/FITS_IO.h"
@@ -6,6 +6,9 @@
 #include "Common/Exception.h"
 #include <OpenGL/gl.h>
 #include <iostream>
+
+namespace HydroGPU {
+namespace Solver {
 
 static float vertexes[] = {
 	0, 0, 0,
@@ -496,5 +499,8 @@ void Solver3D::mouseZoom(int dz) {
 		viewDist *= (float)exp((float)dz * -.03f);
 		break;
 	}
+}
+
+}
 }
 

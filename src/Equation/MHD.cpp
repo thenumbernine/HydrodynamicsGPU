@@ -1,6 +1,6 @@
 #include "HydroGPU/Equation/MHD.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "HydroGPU/Solver.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
 
@@ -14,7 +14,7 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-MHD::MHD(Solver& solver) 
+MHD::MHD(HydroGPU::Solver::Solver& solver) 
 : Super()
 {
 	displayMethods = std::vector<std::string>{
@@ -44,7 +44,7 @@ MHD::MHD(Solver& solver)
 	};
 }
 
-void MHD::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+void MHD::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources) {
 	Super::getProgramSources(solver, sources);
 	
 	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
@@ -61,7 +61,7 @@ void MHD::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
 	sources.push_back(Common::File::read("MHDCommon.cl"));
 }
 
-int MHD::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
+int MHD::stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim, int state) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
@@ -76,7 +76,7 @@ int MHD::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int st
 	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
 }
 
-int MHD::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) {
+int MHD::gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;

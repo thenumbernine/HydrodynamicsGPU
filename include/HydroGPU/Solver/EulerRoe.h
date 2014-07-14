@@ -1,6 +1,9 @@
 #pragma once
 
-#include "HydroGPU/Roe.h"
+#include "HydroGPU/Solver/Roe.h"
+
+namespace HydroGPU {
+namespace Solver {
 
 /*
 Roe solver for Euler equations
@@ -11,4 +14,7 @@ struct EulerRoe : public Roe {
 protected:
 	virtual std::vector<std::string> getProgramSources();
 };
+
+}
+}
 

@@ -3,9 +3,10 @@
 #include <vector>
 #include <string>
 
-struct Solver;
-
 namespace HydroGPU {
+namespace Solver {
+struct Solver;
+}
 namespace Equation {
 
 struct Equation {
@@ -14,9 +15,9 @@ struct Equation {
 	std::vector<std::string> states;
 	
 	Equation();	
-	virtual void getProgramSources(Solver& solver, std::vector<std::string>& sources);
-	virtual int stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) = 0;
-	virtual int gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) = 0;
+	virtual void getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources);
+	virtual int stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim, int state) = 0;
+	virtual int gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim) = 0;
 	std::string buildEnumCode(const std::string& prefix, const std::vector<std::string>& enumStrs);
 };
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "HydroGPU/Solver.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "Profiler/Stat.h"
 #include "Shader/Program.h"
 #include "Tensor/Quat.h"
@@ -8,7 +8,9 @@
 #include <vector>
 #include <string>
 
+namespace HydroGPU {
 struct HydroGPUApp;
+namespace Solver {
 
 /*
 This class is the remnants of when I had 3 separate CL files for each dimension of the Euler equations.
@@ -66,4 +68,7 @@ struct Solver3D : public Solver {
 	virtual void screenshot();
 	virtual void save();
 };
+
+}
+}
 

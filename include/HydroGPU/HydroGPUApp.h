@@ -1,11 +1,13 @@
 #pragma once
 
-#include "HydroGPU/Solver.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "CLApp/CLApp.h"
 #include "LuaCxx/State.h"
 #include "LuaCxx/GlobalTable.h"
 #include "LuaCxx/Ref.h"
 #include "Tensor/Vector.h"
+
+namespace HydroGPU {
 
 struct HydroGPUApp : public ::CLApp::CLApp {
 	typedef ::CLApp::CLApp Super;
@@ -14,7 +16,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	
 	cl::ImageGL gradientTexMem;	//as it is written, data is read from this for mapping values to colors
 
-	std::shared_ptr<Solver> solver;
+	std::shared_ptr<HydroGPU::Solver::Solver> solver;
 
 	//config
 	std::string configFilename;
@@ -79,5 +81,7 @@ inline std::ostream& operator<<(std::ostream& o, cl::NDRange &range) {
 		comma = ", ";
 	}
 	return o << ")";
+}
+
 }
 

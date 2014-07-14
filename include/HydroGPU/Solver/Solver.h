@@ -9,7 +9,9 @@
 #include <string>
 #include <memory>
 
+namespace HydroGPU {
 struct HydroGPUApp;
+namespace Solver {
 
 struct Solver {
 	friend struct HydroGPU::Integrator::Integrator;
@@ -87,6 +89,8 @@ public:
 	virtual void save() = 0;
 };
 
+}
+}
 
 //used by enough folks:
 

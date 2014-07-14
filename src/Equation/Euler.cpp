@@ -1,6 +1,6 @@
 #include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "HydroGPU/Solver.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
 
@@ -14,7 +14,7 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-Euler::Euler(Solver& solver) 
+Euler::Euler(HydroGPU::Solver::Solver& solver) 
 : Super()
 {
 	displayMethods = std::vector<std::string>{
@@ -38,7 +38,7 @@ Euler::Euler(Solver& solver)
 	states.push_back("ENERGY_TOTAL");
 }
 
-void Euler::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+void Euler::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources) {
 	Super::getProgramSources(solver, sources);
 	
 	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
@@ -50,7 +50,7 @@ void Euler::getProgramSources(Solver& solver, std::vector<std::string>& sources)
 	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
 }
 
-int Euler::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
+int Euler::stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim, int state) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
@@ -65,7 +65,7 @@ int Euler::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int 
 	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
 }
 
-int Euler::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) {
+int Euler::gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;

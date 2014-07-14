@@ -1,10 +1,10 @@
 #include "HydroGPU/HydroGPUApp.h"
-#include "HydroGPU/EulerHLL.h"
-#include "HydroGPU/EulerBurgers.h"
-#include "HydroGPU/EulerRoe.h"
-#include "HydroGPU/SRHDRoe.h"
-#include "HydroGPU/MHDRoe.h"
-#include "HydroGPU/ADMRoe.h"
+#include "HydroGPU/Solver/EulerHLL.h"
+#include "HydroGPU/Solver/EulerBurgers.h"
+#include "HydroGPU/Solver/EulerRoe.h"
+#include "HydroGPU/Solver/SRHDRoe.h"
+#include "HydroGPU/Solver/MHDRoe.h"
+#include "HydroGPU/Solver/ADMRoe.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -13,6 +13,8 @@
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h>
 #include <iostream>
+
+namespace HydroGPU {
 
 //have to keep these updated with HydroGPU/Shared/Common.h
 
@@ -164,17 +166,17 @@ void HydroGPUApp::init() {
 	//construct the solver
 	std::cout << "solverName " << solverName << std::endl;
 	if (solverName == "EulerBurgers") {
-		solver = std::make_shared<EulerBurgers>(*this);
+		solver = std::make_shared<HydroGPU::Solver::EulerBurgers>(*this);
 	} else if (solverName == "EulerHLL") {
-		solver = std::make_shared<EulerHLL>(*this);
+		solver = std::make_shared<HydroGPU::Solver::EulerHLL>(*this);
 	} else if (solverName == "EulerRoe") {
-		solver = std::make_shared<EulerRoe>(*this);
+		solver = std::make_shared<HydroGPU::Solver::EulerRoe>(*this);
 	} else if (solverName == "SRHDRoe") {
-		solver = std::make_shared<SRHDRoe>(*this);	//broken
+		solver = std::make_shared<HydroGPU::Solver::SRHDRoe>(*this);	//broken
 	} else if (solverName == "MHDRoe") {
-		solver = std::make_shared<MHDRoe>(*this);	//broken
+		solver = std::make_shared<HydroGPU::Solver::MHDRoe>(*this);	//broken
 	} else if (solverName == "ADMRoe") {
-		solver = std::make_shared<ADMRoe>(*this);
+		solver = std::make_shared<HydroGPU::Solver::ADMRoe>(*this);
 	} else {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}
@@ -362,5 +364,7 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 	}
 }
 
-GLAPP_MAIN(HydroGPUApp)
+}
+
+GLAPP_MAIN(HydroGPU::HydroGPUApp)
 
