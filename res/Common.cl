@@ -37,6 +37,10 @@ __kernel void calcCFLMinReduce(
 	}
 }
 
+
+	//boundary methods
+
+
 //periodic
 //ghost cells copy the opposite side
 
@@ -185,5 +189,37 @@ __kernel void stateBoundaryFreeFlowZ(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, i.y, 0)] = buffer[offset + spacing * INDEX(i.x, i.y, 1)] = buffer[offset + spacing * INDEX(i.x, i.y, 2)];
 	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 1)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 2)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 3)];
+}
+
+
+	//integration methods
+
+
+__kernel void forwardEulerIntegrate(
+	__global real* stateBuffer,
+	const __global real* derivBuffer,
+	const __global real* dtBuffer)
+{
+	real dt = dtBuffer[0];
+	
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
+#endif
+#endif
+	) {
+		return;
+	}
+	int index = INDEXV(i);
+
+	__global real* state = stateBuffer + NUM_STATES * index;
+	const __global real* deriv = derivBuffer + NUM_STATES * index;
+	
+	for (int j = 0; j < NUM_STATES; ++j) {
+		state[j] += dt * deriv[j];
+	}
 }
 

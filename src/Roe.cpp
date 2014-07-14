@@ -9,7 +9,6 @@ Roe::Roe(
 , calcCFLEvent("calcCFL")
 , calcDeltaQTildeEvent("calcDeltaQTilde")
 , calcFluxEvent("calcFlux")
-, integrateFluxEvent("integrateFlux")
 {
 }
 
@@ -24,7 +23,6 @@ void Roe::init() {
 	}
 	entries.push_back(&calcDeltaQTildeEvent);
 	entries.push_back(&calcFluxEvent);
-	entries.push_back(&integrateFluxEvent);
 
 	//memory
 
@@ -54,8 +52,8 @@ void Roe::init() {
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
 	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, dtBuffer);
 	
-	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
-	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, dtBuffer);
+	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
+	calcFluxDerivKernel.setArg(1, fluxBuffer);
 }	
 
 std::vector<std::string> Roe::getProgramSources() {
@@ -74,18 +72,13 @@ void Roe::calcTimestep() {
 }
 
 void Roe::step() {
-	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, nullptr, &calcDeltaQTildeEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
-	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, nullptr, &integrateFluxEvent.clEvent);
+	integrator->integrate([&](cl::Buffer derivBuffer) {
+		commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, nullptr, &calcDeltaQTildeEvent.clEvent);
+		commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
+		calcFluxDerivKernel.setArg(0, derivBuffer);
+		commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
+	});
 
-	if (app.useGravity) {
-		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
-			potentialBoundary();
-			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
-		}
-	
-		commands.enqueueNDRangeKernel(addGravityKernel, offsetNd, globalSize, localSize);
-		boundary();	
-	}
+	applyGravity();
 }
 

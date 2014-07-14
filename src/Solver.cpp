@@ -2,6 +2,34 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 
+Integrator::Integrator(Solver& solver_)
+: solver(solver_)
+{}
+
+ForwardEulerIntegrator::ForwardEulerIntegrator(Solver& solver) 
+: Super(solver)
+{
+	int volume = solver.getVolume();
+	
+	derivBuffer = solver.clAlloc(sizeof(real) * solver.numStates() * volume);
+
+	{
+		std::vector<real> zero(volume * solver.numStates());
+		solver.commands.enqueueWriteBuffer(derivBuffer, CL_TRUE, 0, sizeof(real) * solver.numStates() * volume, &zero[0]);
+	}
+
+	forwardEulerIntegrateKernel = cl::Kernel(solver.program, "forwardEulerIntegrate");
+	solver.app.setArgs(forwardEulerIntegrateKernel, solver.stateBuffer, derivBuffer, solver.dtBuffer);
+}
+
+void ForwardEulerIntegrator::integrate(std::function<void(cl::Buffer)> callback) {
+	callback(derivBuffer);
+	solver.commands.enqueueNDRangeKernel(forwardEulerIntegrateKernel, solver.offsetNd, solver.globalSize, solver.localSize);
+}
+
+
+
+
 cl::Buffer Solver::clAlloc(size_t size) {
 	totalAlloc += size;
 	std::cout << "allocating gpu mem size " << size << " running total " << totalAlloc << std::endl; 
@@ -17,6 +45,7 @@ Solver::Solver(
 }
 
 void Solver::init() {
+	
 	cl::Device device = app.device;
 	
 	// NDRanges
@@ -178,8 +207,11 @@ void Solver::resetState() {
 				stack
 				.getGlobal("initState")
 				.push(pos.s[0], pos.s[1], pos.s[2])
-				.call(3,8);	//TODO multret and have each equation interpret the results
-			
+				.call(3,8);	
+				//TODO multret and have each equation interpret the results
+				//ALSO TODO pass in pressure or internal energy rather than total energy, 
+				//and have each solver compute total energy itself (so magnetism can be ignored by non-MHD solvers)
+
 				real density;
 				real momentumX, momentumY, momentumZ;
 				real energyTotal;
@@ -284,8 +316,11 @@ void Solver::initKernels() {
 	poissonRelaxKernel = cl::Kernel(program, "poissonRelax");
 	app.setArgs(poissonRelaxKernel, potentialBuffer, stateBuffer);
 	
-	addGravityKernel = cl::Kernel(program, "addGravity");
-	app.setArgs(addGravityKernel, stateBuffer, potentialBuffer, dtBuffer);
+	calcGravityDerivKernel = cl::Kernel(program, "calcGravityDeriv");
+	calcGravityDerivKernel.setArg(1, stateBuffer);
+	calcGravityDerivKernel.setArg(2, potentialBuffer);
+	
+	integrator = std::make_shared<ForwardEulerIntegrator>(*this);
 }
 
 int Solver::numStates() {
@@ -347,6 +382,22 @@ void Solver::potentialBoundary() {
 		app.setArgs(kernel, potentialBuffer, 1, 0);
 		getBoundaryRanges(i, offset, global, local);
 		commands.enqueueNDRangeKernel(kernel, offset, global, local);
+	}
+}
+
+void Solver::applyGravity() {
+	if (app.useGravity) {
+		integrator->integrate([&](cl::Buffer derivBuffer) {
+			for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
+				potentialBoundary();
+				commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
+			}
+		
+			calcGravityDerivKernel.setArg(0, derivBuffer);
+			commands.enqueueNDRangeKernel(calcGravityDerivKernel, offsetNd, globalSize, localSize);
+		});
+		
+		boundary();	
 	}
 }
 

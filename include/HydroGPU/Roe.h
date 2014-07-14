@@ -21,13 +21,12 @@ struct Roe : public Solver3D {
 	cl::Kernel calcCFLKernel;
 	cl::Kernel calcDeltaQTildeKernel;
 	cl::Kernel calcFluxKernel;
-	cl::Kernel integrateFluxKernel;
+	cl::Kernel calcFluxDerivKernel;
 	
 	EventProfileEntry calcEigenBasisEvent;
 	EventProfileEntry calcCFLEvent;
 	EventProfileEntry calcDeltaQTildeEvent;
 	EventProfileEntry calcFluxEvent;
-	EventProfileEntry integrateFluxEvent;
 	
 	Roe(HydroGPUApp& app);
 	virtual void init();

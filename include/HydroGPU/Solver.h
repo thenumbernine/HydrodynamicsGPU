@@ -7,9 +7,30 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <functional>
+
+struct Solver;
+
+struct Integrator {
+	Solver& solver;
+	Integrator(Solver& solver);
+	virtual void integrate(std::function<void(cl::Buffer)> callback) = 0;
+};
+
+struct ForwardEulerIntegrator : public Integrator {
+	typedef Integrator Super;
+	ForwardEulerIntegrator(Solver& solver);
+	virtual void integrate(std::function<void(cl::Buffer)> callback);
+protected:
+	cl::Buffer derivBuffer;	//d/dt[state]
+	cl::Kernel forwardEulerIntegrateKernel;
+};
 
 struct HydroGPUApp;
+
 struct Solver {
+	friend struct ForwardEulerIntegrator;
+	
 	//public for Equation...
 	HydroGPUApp &app;
 	
@@ -25,9 +46,12 @@ protected:
 	
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel poissonRelaxKernel;
-	cl::Kernel addGravityKernel;
-	
+	cl::Kernel calcGravityDerivKernel;
+
 	std::vector<std::vector<cl::Kernel>> boundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim];
+
+	//construct this after the program has been compiled
+	std::shared_ptr<Integrator> integrator;
 
 	//useful to have around
 	cl::NDRange globalSize;
@@ -52,16 +76,18 @@ protected:
 	int getVolume();
 	
 	cl::Buffer clAlloc(size_t size);
-	
+
+	virtual void applyGravity();
+
 	virtual void findMinTimestep();
 
 	virtual void getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &global, cl::NDRange &local);
 	virtual void boundary();
 	virtual void potentialBoundary();
 
+	virtual void calcTimestep() = 0;
 	virtual void initStep();
 	virtual void step() = 0;
-	virtual void calcTimestep() = 0;
 public:
 	virtual void update();
 	

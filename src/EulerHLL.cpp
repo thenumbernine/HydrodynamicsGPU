@@ -6,9 +6,6 @@
 EulerHLL::EulerHLL(
 	HydroGPUApp &app_)
 : Super(app_)
-, calcEigenBasisEvent("calcEigenBasis")
-, calcCFLEvent("calcCFL")
-, integrateFluxEvent("integrateFlux")
 {
 	equation = std::make_shared<EulerEquation>(*this);
 }
@@ -18,12 +15,6 @@ void EulerHLL::init() {
 
 	cl::Context context = app.context;
 
-	entries.push_back(&calcEigenBasisEvent);
-	if (!app.useFixedDT) {
-		entries.push_back(&calcCFLEvent);
-	}
-	entries.push_back(&integrateFluxEvent);
-
 	//memory
 
 	int volume = getVolume();
@@ -31,14 +22,17 @@ void EulerHLL::init() {
 	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app.dim);
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app.dim);
 	
-	calcFluxAndEigenvaluesKernel = cl::Kernel(program, "calcFluxAndEigenvalues");
-	app.setArgs(calcFluxAndEigenvaluesKernel, eigenvaluesBuffer, fluxBuffer, stateBuffer, potentialBuffer);
+	calcEigenvaluesKernel = cl::Kernel(program, "calcEigenvalues");
+	app.setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer, potentialBuffer);
+	
+	calcFluxKernel = cl::Kernel(program, "calcFlux");
+	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, potentialBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
 	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.cfl);
 	
-	integrateFluxKernel = cl::Kernel(program, "integrateFlux");
-	app.setArgs(integrateFluxKernel, stateBuffer, fluxBuffer, dtBuffer);
+	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
+	calcFluxDerivKernel.setArg(1, fluxBuffer);
 }	
 	
 std::vector<std::string> EulerHLL::getProgramSources() {
@@ -48,29 +42,21 @@ std::vector<std::string> EulerHLL::getProgramSources() {
 }
 
 void EulerHLL::initStep() {
-	//TODO calculate what's needed for the CFL here
-	// for Roe solvers this is the wavespeeds (eigenvalues) 
-	commands.enqueueNDRangeKernel(calcFluxAndEigenvaluesKernel, offsetNd, globalSize, localSize, nullptr, &calcEigenBasisEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcEigenvaluesKernel, offsetNd, globalSize, localSize);
 }
 
 void EulerHLL::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, nullptr, &calcCFLEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize);
 	findMinTimestep();	
 }
 
 void EulerHLL::step() {
-	//TODO if we ever advance past Euler explicit integrators,
-	// recalculate wavespeeds here
-	commands.enqueueNDRangeKernel(integrateFluxKernel, offsetNd, globalSize, localSize, nullptr, &integrateFluxEvent.clEvent);
+	integrator->integrate([&](cl::Buffer derivBuffer) {
+		commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize);
+		calcFluxDerivKernel.setArg(0, derivBuffer);
+		commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
+	});
 
-	if (app.useGravity) {
-		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
-			potentialBoundary();
-			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
-		}
-	
-		commands.enqueueNDRangeKernel(addGravityKernel, offsetNd, globalSize, localSize);
-		boundary();	
-	}
+	applyGravity();
 }
 

@@ -202,14 +202,10 @@ __kernel void calcFlux(
 #endif
 }
 
-__kernel void integrateFlux(
-	__global real* stateBuffer,
-	const __global real* fluxBuffer,
-	const __global real* dtBuffer)
+__kernel void calcFluxDeriv(
+	__global real* derivBuffer,
+	const __global real* fluxBuffer)
 {
-	real dt = dtBuffer[0];
-	real4 dt_dx = dt / dx;
-	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
@@ -222,14 +218,20 @@ __kernel void integrateFlux(
 		return;
 	}
 	int index = INDEXV(i);
-	__global real* state = stateBuffer + NUM_STATES * index;
+	
+	__global real* deriv = derivBuffer + NUM_STATES * index;
+
+	for (int j = 0; j < NUM_STATES; ++j) {
+		deriv[j] = 0.f;
+	}
+	
 	for (int side = 0; side < DIM; ++side) {
 		int indexNext = index + stepsize[side];
 		const __global real* fluxL = fluxBuffer + NUM_STATES * (side + DIM * index); 
 		const __global real* fluxR = fluxBuffer + NUM_STATES * (side + DIM * indexNext); 
 		for (int j = 0; j < NUM_STATES; ++j) {
 			real deltaFlux = fluxR[j] - fluxL[j];
-			state[j] -= deltaFlux * dt_dx[side];
+			deriv[j] -= deltaFlux / dx[side];
 		}
 	}
 }

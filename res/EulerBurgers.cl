@@ -149,14 +149,10 @@ __kernel void calcFlux(
 	}
 }
 
-__kernel void integrateFlux(
-	__global real* stateBuffer,
-	const __global real* fluxBuffer,
-	const __global real* dtBuffer)
+__kernel void calcFluxDeriv(
+	__global real* derivBuffer,	//dstate/dt
+	const __global real* fluxBuffer)
 {
-	real dt = dtBuffer[0];
-	real4 dt_dx = dt / dx;
-	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
@@ -169,16 +165,20 @@ __kernel void integrateFlux(
 		return;
 	}
 	int index = INDEXV(i);
-	int indexL = index;
+	
+	__global real* deriv = derivBuffer + NUM_STATES * index;
+
+	for (int j = 0; j < NUM_STATES; ++j) {
+		deriv[index] = 0.f;
+	}
 
 	for (int side = 0; side < DIM; ++side) {
-		int indexR = index + stepsize[side];
-	
+		int indexNext = index + stepsize[side];
 		for (int j = 0; j < NUM_STATES; ++j) {
-			real fluxL = fluxBuffer[j + NUM_STATES * (side + DIM * indexL)];
-			real fluxR = fluxBuffer[j + NUM_STATES * (side + DIM * indexR)];
+			real fluxL = fluxBuffer[j + NUM_STATES * (side + DIM * index)];
+			real fluxR = fluxBuffer[j + NUM_STATES * (side + DIM * indexNext)];
 			real deltaFlux = fluxR - fluxL;
-			stateBuffer[j + NUM_STATES * index] -= deltaFlux * dt_dx[side];
+			deriv[j] -= deltaFlux / dx[side];
 		}
 	}
 }
@@ -236,13 +236,9 @@ __kernel void computePressure(
 }
 
 __kernel void diffuseMomentum(
-	__global real* stateBuffer,
-	const __global real* pressureBuffer,
-	const __global real* dtBuffer)
+	__global real* derivBuffer,
+	const __global real* pressureBuffer)
 {
-	real dt = dtBuffer[0];
-	real4 dt_dx = dt / dx;
-	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
@@ -255,6 +251,12 @@ __kernel void diffuseMomentum(
 		return;
 	}
 	int index = INDEXV(i);
+
+	__global real* deriv = derivBuffer + NUM_STATES * index;
+
+	for (int j = 0; j < NUM_STATES; ++j) {
+		deriv[j] = 0.f;
+	}
 
 	for (int side = 0; side < DIM; ++side) {
 		int indexL = index - stepsize[side];
@@ -264,18 +266,15 @@ __kernel void diffuseMomentum(
 		real pressureR = pressureBuffer[indexR];
 
 		real deltaPressure = .5f * (pressureR - pressureL);
-		stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * index] -= deltaPressure * dt_dx[side];
+		deriv[side + STATE_MOMENTUM_X] -= deltaPressure / dx[side];
 	}
 }
 
 __kernel void diffuseWork(
-	__global real* stateBuffer,
-	const __global real* pressureBuffer,
-	const __global real* dtBuffer)
+	__global real* derivBuffer,
+	const __global real* stateBuffer,
+	const __global real* pressureBuffer)
 {
-	real dt = dtBuffer[0];
-	real4 dt_dx = dt / dx;
-	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
@@ -288,6 +287,12 @@ __kernel void diffuseWork(
 		return;
 	}
 	int index = INDEXV(i);
+
+	__global real* deriv = derivBuffer + NUM_STATES * index;
+
+	for (int j = 0; j < NUM_STATES; ++j) {
+		deriv[j] = 0.f;
+	}
 
 	for (int side = 0; side < DIM; ++side) {
 		int indexL = index - stepsize[side];
@@ -301,7 +306,7 @@ __kernel void diffuseWork(
 
 		real deltaWork = .5f * (pressureR * velocityR - pressureL * velocityL);
 
-		stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index] -= deltaWork * dt_dx[side];
+		deriv[STATE_ENERGY_TOTAL] -= deltaWork / dx[side];
 	}
 }
 

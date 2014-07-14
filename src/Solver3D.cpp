@@ -63,25 +63,6 @@ void Solver3D::init() {
 		//don't break
 	case 2:
 		{
-			//create GL buffer
-			glGenBuffers(1, &velocityFieldGLBuffer);
-			glBindBuffer(GL_ARRAY_BUFFER_ARB, velocityFieldGLBuffer);
-			int velocityFieldVolume = 1;
-			for (int i = 0; i < app.dim; ++i) {
-				velocityFieldVolume *= app.velocityFieldResolution;
-			}
-			velocityFieldVertexCount = 3 * 6 * app.dim * velocityFieldVolume;
-			glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(real) * velocityFieldVertexCount, nullptr, GL_DYNAMIC_DRAW_ARB);
-			totalAlloc += sizeof(real) * velocityFieldVertexCount;
-			glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
-
-			//create CL interop
-			velocityFieldVertexBuffer = cl::BufferGL(app.context, CL_MEM_READ_WRITE, velocityFieldGLBuffer);
-
-			//create transfer kernel
-			createVelocityFieldKernel = cl::Kernel(program, "createVelocityField");
-			app.setArgs(createVelocityFieldKernel, velocityFieldVertexBuffer, stateBuffer, potentialBuffer, app.velocityFieldScale);
-
 			//get a texture going for visualizing the output
 			glGenTextures(1, &fluidTex);
 			glBindTexture(GL_TEXTURE_2D, fluidTex);
@@ -155,6 +136,25 @@ void Solver3D::init() {
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, potentialBuffer, fluidTexMem, app.gradientTexMem);
 
+
+	//create GL buffer
+	glGenBuffers(1, &velocityFieldGLBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER_ARB, velocityFieldGLBuffer);
+	int velocityFieldVolume = 1;
+	for (int i = 0; i < app.dim; ++i) {
+		velocityFieldVolume *= app.velocityFieldResolution;
+	}
+	velocityFieldVertexCount = 3 * 6 * velocityFieldVolume;
+	glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(real) * velocityFieldVertexCount, nullptr, GL_DYNAMIC_DRAW_ARB);
+	totalAlloc += sizeof(real) * velocityFieldVertexCount;
+	glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
+	//create CL interop
+	velocityFieldVertexBuffer = cl::BufferGL(app.context, CL_MEM_READ_WRITE, velocityFieldGLBuffer);
+	//create transfer kernel
+	createVelocityFieldKernel = cl::Kernel(program, "createVelocityField");
+	app.setArgs(createVelocityFieldKernel, velocityFieldVertexBuffer, stateBuffer, potentialBuffer, app.velocityFieldScale);
+
+
 	initKernels();
 }
 
@@ -189,7 +189,7 @@ void Solver3D::display() {
 
 	switch (app.dim) {
 	case 1:
-		glPushMatrix();
+		glLoadIdentity();
 		glTranslatef(-viewPos(0), -viewPos(1), 0);
 		glScalef(viewZoom, viewZoom, viewZoom);
 	
@@ -249,12 +249,10 @@ void Solver3D::display() {
 			}
 			glEnd();
 		}
-
-		glPopMatrix();
 			
 		break;
 	case 2:
-		glPushMatrix();
+		glLoadIdentity();
 		glTranslatef(-viewPos(0), -viewPos(1), 0);
 		glScalef(viewZoom, viewZoom, viewZoom);
 		
@@ -267,30 +265,6 @@ void Solver3D::display() {
 		glTexCoord2f(0,1); glVertex2f(app.xmin.s[0], app.xmax.s[1]);
 		glEnd();
 		glBindTexture(GL_TEXTURE_2D, 0);
-	
-		if (app.showVelocityField) {
-		
-			//glFlush();
-			cl::NDRange offset(0,0);
-			cl::NDRange local(localSize[0], localSize[1]);
-			cl::NDRange global(app.velocityFieldResolution, app.velocityFieldResolution);
-			createVelocityFieldKernel.setArg(3, app.velocityFieldScale);
-			commands.enqueueNDRangeKernel(createVelocityFieldKernel, offset, global, local);
-			commands.finish();
-
-			glDisable(GL_DEPTH_TEST);
-
-			glBindBuffer(GL_ARRAY_BUFFER_ARB, velocityFieldGLBuffer);
-			glEnableClientState(GL_VERTEX_ARRAY);
-			glVertexPointer(app.dim, GL_FLOAT, 0, 0);
-			glDrawArrays(GL_LINES, 0, velocityFieldVertexCount);
-			glDisableClientState(GL_VERTEX_ARRAY);
-			glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
-			
-			glEnable(GL_DEPTH_TEST);
-		}
-		
-		glPopMatrix();
 	
 		break;
 	case 3:
@@ -340,6 +314,39 @@ void Solver3D::display() {
 		}
 		break;
 	}
+
+	if (app.showVelocityField) {
+	
+		//glFlush();
+		cl::NDRange global;
+		switch (app.dim) {
+		case 1:
+			global = cl::NDRange(app.velocityFieldResolution);
+			break;
+		case 2:
+			global = cl::NDRange(app.velocityFieldResolution, app.velocityFieldResolution);
+			break;
+		case 3:
+			global = cl::NDRange(app.velocityFieldResolution, app.velocityFieldResolution, app.velocityFieldResolution);
+			break;
+		}
+		createVelocityFieldKernel.setArg(3, app.velocityFieldScale);
+		commands.enqueueNDRangeKernel(createVelocityFieldKernel, offsetNd, global, localSize);
+		commands.finish();
+
+		glDisable(GL_DEPTH_TEST);
+
+		glBindBuffer(GL_ARRAY_BUFFER_ARB, velocityFieldGLBuffer);
+		glColor3d(1,1,1);
+		glEnableClientState(GL_VERTEX_ARRAY);
+		glVertexPointer(3, GL_FLOAT, 0, 0);
+		glDrawArrays(GL_LINES, 0, velocityFieldVertexCount);
+		glDisableClientState(GL_VERTEX_ARRAY);
+		glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
+		
+		glEnable(GL_DEPTH_TEST);
+	}
+
 
 	{int err = glGetError();
 	if (err) std::cout << "GL error " << err << " at " << __FILE__ << ":" << __LINE__ << std::endl;}

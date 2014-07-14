@@ -13,13 +13,10 @@ struct EulerHLL : public Solver3D {
 	cl::Buffer deltaQTildeBuffer;
 	cl::Buffer fluxBuffer;
 	
-	cl::Kernel calcFluxAndEigenvaluesKernel;
+	cl::Kernel calcEigenvaluesKernel;
+	cl::Kernel calcFluxKernel;
 	cl::Kernel calcCFLKernel;
-	cl::Kernel integrateFluxKernel;
-	
-	EventProfileEntry calcEigenBasisEvent;
-	EventProfileEntry calcCFLEvent;
-	EventProfileEntry integrateFluxEvent;
+	cl::Kernel calcFluxDerivKernel;
 	
 	EulerHLL(HydroGPUApp &app);
 	virtual void init();

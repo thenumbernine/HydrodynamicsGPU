@@ -15,7 +15,7 @@ struct EulerBurgers : public Solver3D {
 	cl::Kernel calcCFLKernel;
 	cl::Kernel calcInterfaceVelocityKernel;
 	cl::Kernel calcFluxKernel;
-	cl::Kernel integrateFluxKernel;
+	cl::Kernel calcFluxDerivKernel;
 	cl::Kernel computePressureKernel;
 	cl::Kernel diffuseMomentumKernel;
 	cl::Kernel diffuseWorkKernel;
@@ -23,7 +23,6 @@ struct EulerBurgers : public Solver3D {
 	EventProfileEntry calcCFLEvent;
 	EventProfileEntry calcInterfaceVelocityEvent;
 	EventProfileEntry calcFluxEvent;
-	EventProfileEntry integrateFluxEvent;
 	EventProfileEntry computePressureEvent;
 	EventProfileEntry diffuseMomentumEvent;
 	EventProfileEntry diffuseWorkEvent;
