@@ -1,5 +1,5 @@
 #include "HydroGPU/EulerBurgers.h"
-#include "HydroGPU/EulerEquation.h"
+#include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 
@@ -13,7 +13,7 @@ EulerBurgers::EulerBurgers(
 , diffuseMomentumEvent("diffuseMomentum")
 , diffuseWorkEvent("diffuseWork")
 {
-	equation = std::make_shared<EulerEquation>(*this);
+	equation = std::make_shared<HydroGPU::Equation::Euler>(*this);
 }
 
 void EulerBurgers::init() {

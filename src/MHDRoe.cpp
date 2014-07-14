@@ -1,12 +1,12 @@
 #include "HydroGPU/MHDRoe.h"
-#include "HydroGPU/MHDEquation.h"
+#include "HydroGPU/Equation/MHD.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 
 MHDRoe::MHDRoe(HydroGPUApp& app_)
 : Super(app_)
 {
-	equation = std::make_shared<MHDEquation>(*this);
+	equation = std::make_shared<HydroGPU::Equation::MHD>(*this);
 }
 
 void MHDRoe::initKernels() {

@@ -5,6 +5,9 @@
 
 struct Solver;
 
+namespace HydroGPU {
+namespace Equation {
+
 struct Equation {
 	std::vector<std::string> displayMethods;
 	std::vector<std::string> boundaryMethods;
@@ -16,4 +19,7 @@ struct Equation {
 	virtual int gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) = 0;
 	std::string buildEnumCode(const std::string& prefix, const std::vector<std::string>& enumStrs);
 };
+
+}
+}
 

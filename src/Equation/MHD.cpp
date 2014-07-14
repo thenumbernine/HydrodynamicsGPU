@@ -1,8 +1,11 @@
-#include "HydroGPU/EulerEquation.h"
+#include "HydroGPU/Equation/MHD.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Solver.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
+
+namespace HydroGPU {
+namespace Equation {
 
 enum {
 	BOUNDARY_METHOD_PERIODIC,
@@ -11,31 +14,37 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-EulerEquation::EulerEquation(Solver& solver) 
+MHD::MHD(Solver& solver) 
 : Super()
 {
 	displayMethods = std::vector<std::string>{
 		"DENSITY",
 		"VELOCITY",
 		"PRESSURE",
+		"MAGNETIC_FIELD",
 		"GRAVITY_POTENTIAL"
 	};
 
-	//matches above 
+	//matches above
 	boundaryMethods = std::vector<std::string>{
 		"PERIODIC",
 		"MIRROR",
 		"FREEFLOW"
 	};
 
-	states.push_back("DENSITY");
-	states.push_back("MOMENTUM_X");
-	if (solver.app.dim > 1) states.push_back("MOMENTUM_Y");
-	if (solver.app.dim > 2) states.push_back("MOMENTUM_Z");
-	states.push_back("ENERGY_TOTAL");
+	states = {
+		"DENSITY",
+		"MOMENTUM_X",
+		"MOMENTUM_Y",
+		"MOMENTUM_Z",
+		"MAGNETIC_FIELD_X",
+		"MAGNETIC_FIELD_Y",
+		"MAGNETIC_FIELD_Z",
+		"ENERGY_TOTAL"
+	};
 }
 
-void EulerEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+void MHD::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
 	Super::getProgramSources(solver, sources);
 	
 	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
@@ -44,16 +53,21 @@ void EulerEquation::getProgramSources(Solver& solver, std::vector<std::string>& 
 	solver.app.lua.ref()["gamma"] >> gamma;
 	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
 
+	real vaccuumPermeability = 1.f;
+	solver.app.lua.ref()["vaccuumPermeability"] >> vaccuumPermeability;
+	sources[0] += "constant real vaccuumPermeability = " + toNumericString<real>(vaccuumPermeability) + ";\n";
+
 	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
+	sources.push_back(Common::File::read("MHDCommon.cl"));
 }
 
-int EulerEquation::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
+int MHD::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
 	case BOUNDARY_METHOD_MIRROR:
-		return dim + 1 == state ? BOUNDARY_KERNEL_REFLECT : BOUNDARY_KERNEL_MIRROR;
+		return (dim + 1 == state || dim + 4 == state) ? BOUNDARY_KERNEL_REFLECT : BOUNDARY_KERNEL_MIRROR;
 		break;		
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;
@@ -62,7 +76,7 @@ int EulerEquation::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int d
 	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
 }
 
-int EulerEquation::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) {
+int MHD::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
@@ -75,5 +89,8 @@ int EulerEquation::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int
 		break;
 	}
 	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
+}
+
+}
 }
 

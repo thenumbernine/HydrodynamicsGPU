@@ -1,8 +1,11 @@
-#include "HydroGPU/SRHDEquation.h"
+#include "HydroGPU/Equation/SRHD.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Solver.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
+
+namespace HydroGPU {
+namespace Equation {
 
 enum {
 	BOUNDARY_METHOD_PERIODIC,
@@ -11,7 +14,7 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-SRHDEquation::SRHDEquation(Solver& solver) 
+SRHD::SRHD(Solver& solver) 
 : Super()
 {
 	displayMethods = std::vector<std::string>{
@@ -35,7 +38,7 @@ SRHDEquation::SRHDEquation(Solver& solver)
 	states.push_back("TOTAL_ENERGY_DENSITY");
 }
 
-void SRHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
+void SRHD::getProgramSources(Solver& solver, std::vector<std::string>& sources) {
 	Super::getProgramSources(solver, sources);
 
 	std::vector<std::string> primitives;
@@ -55,7 +58,7 @@ void SRHDEquation::getProgramSources(Solver& solver, std::vector<std::string>& s
 	sources.push_back(Common::File::read("SRHDCommon.cl"));
 }
 
-int SRHDEquation::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
+int SRHD::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
@@ -70,7 +73,7 @@ int SRHDEquation::stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int di
 	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
 }
 
-int SRHDEquation::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) {
+int SRHD::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim) {
 	switch (solver.app.boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
@@ -83,5 +86,8 @@ int SRHDEquation::gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int 
 		break;
 	}
 	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
+}
+
+}
 }
 

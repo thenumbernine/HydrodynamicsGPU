@@ -1,5 +1,5 @@
 #include "HydroGPU/EulerHLL.h"
-#include "HydroGPU/EulerEquation.h"
+#include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 
@@ -7,7 +7,7 @@ EulerHLL::EulerHLL(
 	HydroGPUApp &app_)
 : Super(app_)
 {
-	equation = std::make_shared<EulerEquation>(*this);
+	equation = std::make_shared<HydroGPU::Equation::Euler>(*this);
 }
 
 void EulerHLL::init() {

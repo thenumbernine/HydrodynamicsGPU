@@ -1,4 +1,7 @@
-#include "HydroGPU/Equation.h"
+#include "HydroGPU/Equation/Equation.h"
+
+namespace HydroGPU {
+namespace Equation {
 
 Equation::Equation() {}
 
@@ -17,3 +20,7 @@ void Equation::getProgramSources(Solver& solver, std::vector<std::string>& sourc
 	sources[0] += buildEnumCode("DISPLAY", displayMethods);
 	sources[0] += buildEnumCode("BOUNDARY", boundaryMethods);
 }
+
+}
+}
+

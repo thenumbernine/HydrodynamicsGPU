@@ -1,11 +1,11 @@
-#include "HydroGPU/EulerEquation.h"
+#include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/EulerRoe.h"
 #include "Common/File.h"
 
 EulerRoe::EulerRoe(HydroGPUApp& app_)
 : Super(app_)
 {
-	equation = std::make_shared<EulerEquation>(*this);
+	equation = std::make_shared<HydroGPU::Equation::Euler>(*this);
 }
 
 std::vector<std::string> EulerRoe::getProgramSources() {

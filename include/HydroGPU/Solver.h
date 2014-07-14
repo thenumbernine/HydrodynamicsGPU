@@ -1,40 +1,23 @@
 #pragma once
 
-#include "HydroGPU/Equation.h"
+#include "HydroGPU/Equation/Equation.h"
+#include "HydroGPU/Integrator/Integrator.h"
 #include "HydroGPU/Shared/Common.h"	//cl shared header
 #include "Tensor/Vector.h"
 #include <OpenCL/cl.hpp>
 #include <vector>
 #include <string>
 #include <memory>
-#include <functional>
-
-struct Solver;
-
-struct Integrator {
-	Solver& solver;
-	Integrator(Solver& solver);
-	virtual void integrate(std::function<void(cl::Buffer)> callback) = 0;
-};
-
-struct ForwardEulerIntegrator : public Integrator {
-	typedef Integrator Super;
-	ForwardEulerIntegrator(Solver& solver);
-	virtual void integrate(std::function<void(cl::Buffer)> callback);
-protected:
-	cl::Buffer derivBuffer;	//d/dt[state]
-	cl::Kernel forwardEulerIntegrateKernel;
-};
 
 struct HydroGPUApp;
 
 struct Solver {
-	friend struct ForwardEulerIntegrator;
+	friend struct HydroGPU::Integrator::Integrator;
 	
 	//public for Equation...
 	HydroGPUApp &app;
 	
-protected:
+public:	//protected:
 	cl::Program program;
 	cl::CommandQueue commands;
 
@@ -51,7 +34,7 @@ protected:
 	std::vector<std::vector<cl::Kernel>> boundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim];
 
 	//construct this after the program has been compiled
-	std::shared_ptr<Integrator> integrator;
+	std::shared_ptr<HydroGPU::Integrator::Integrator> integrator;
 
 	//useful to have around
 	cl::NDRange globalSize;
@@ -62,13 +45,13 @@ protected:
 
 	size_t totalAlloc;
 public:
-	std::shared_ptr<Equation> equation;
+	std::shared_ptr<HydroGPU::Equation::Equation> equation;
 
 	Solver(HydroGPUApp& app);
 	virtual ~Solver() {}
 
 	virtual void init();	//...because I'm using virtual function calls in here
-protected:
+public:	//protected:
 	virtual std::vector<std::string> getProgramSources();
 	virtual void initKernels();
 	

@@ -1,14 +1,22 @@
 #pragma once
 
-#include "HydroGPU/Equation.h"
+#include "HydroGPU/Equation/Equation.h"
+#include <vector>
+#include <string>
 
 struct Solver;
 
-struct MHDEquation : public Equation {
+namespace HydroGPU {
+namespace Equation {
+
+struct Euler : public Equation {
 	typedef Equation Super;
-	MHDEquation(Solver& solver);
+	Euler(Solver& solver);
 	virtual void getProgramSources(Solver& solver, std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim, int state);
 	virtual int gravityGetBoundaryKernelForBoundaryMethod(Solver& solver, int dim);
 };
+
+}
+}
 

@@ -2,8 +2,6 @@
 
 #include "HydroGPU/Roe.h"
 
-struct HydroGPU;
-
 /*
 Roe solver for Euler equations
 */

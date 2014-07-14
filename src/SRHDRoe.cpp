@@ -1,4 +1,4 @@
-#include "HydroGPU/SRHDEquation.h"
+#include "HydroGPU/Equation/SRHD.h"
 #include "HydroGPU/SRHDRoe.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
@@ -6,7 +6,7 @@
 SRHDRoe::SRHDRoe(HydroGPUApp& app_)
 : Super(app_)
 {
-	equation = std::make_shared<SRHDEquation>(*this);
+	equation = std::make_shared<HydroGPU::Equation::SRHD>(*this);
 }
 
 void SRHDRoe::init() {

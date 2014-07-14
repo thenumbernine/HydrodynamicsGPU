@@ -1,33 +1,7 @@
 #include "HydroGPU/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "HydroGPU/Integrator/ForwardEuler.h"
 #include "Common/File.h"
-
-Integrator::Integrator(Solver& solver_)
-: solver(solver_)
-{}
-
-ForwardEulerIntegrator::ForwardEulerIntegrator(Solver& solver) 
-: Super(solver)
-{
-	int volume = solver.getVolume();
-	
-	derivBuffer = solver.clAlloc(sizeof(real) * solver.numStates() * volume);
-
-	{
-		std::vector<real> zero(volume * solver.numStates());
-		solver.commands.enqueueWriteBuffer(derivBuffer, CL_TRUE, 0, sizeof(real) * solver.numStates() * volume, &zero[0]);
-	}
-
-	forwardEulerIntegrateKernel = cl::Kernel(solver.program, "forwardEulerIntegrate");
-	solver.app.setArgs(forwardEulerIntegrateKernel, solver.stateBuffer, derivBuffer, solver.dtBuffer);
-}
-
-void ForwardEulerIntegrator::integrate(std::function<void(cl::Buffer)> callback) {
-	callback(derivBuffer);
-	solver.commands.enqueueNDRangeKernel(forwardEulerIntegrateKernel, solver.offsetNd, solver.globalSize, solver.localSize);
-}
-
-
 
 
 cl::Buffer Solver::clAlloc(size_t size) {
@@ -320,7 +294,7 @@ void Solver::initKernels() {
 	calcGravityDerivKernel.setArg(1, stateBuffer);
 	calcGravityDerivKernel.setArg(2, potentialBuffer);
 	
-	integrator = std::make_shared<ForwardEulerIntegrator>(*this);
+	integrator = std::make_shared<HydroGPU::Integrator::ForwardEuler>(*this);
 }
 
 int Solver::numStates() {
