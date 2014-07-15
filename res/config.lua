@@ -56,9 +56,9 @@ useGravity = false
 gravitationalConstant = 25	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful units please
 gaussSeidelMaxIter = 20
 
-showVelocityField = true	-- for one test this was 72fps with, 76fps without, so 5% perf hit
-velocityFieldResolution = 64
-velocityFieldScale = .125
+showVectorField = true	-- for one test this was 72fps with, 76fps without, so 5% perf hit
+vectorFieldResolution = 64
+vectorFieldScale = .125
 -- Euler equations' constants:
 gamma = 1.4
 
@@ -69,12 +69,12 @@ vaccuumPermeability = 1	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
 --  (if an element is not provided or nil then it defaults to 1)
 --[[ 3D
 size = {64, 64, 64}
-velocityFieldResolution = 16
+vectorFieldResolution = 16
 --]]
--- [[ 2D
+--[[ 2D
 size = {256, 256}
 --]]
---[[ 1D
+-- [[ 1D
 size = {1024}
 displayScale = .25
 --]]

@@ -88,8 +88,8 @@ constant float2 offset[6] = {
 	(float2)(.5f, 0.f),
 };
 
-__kernel void createVelocityField(
-	__global real* velocityFieldVertexBuffer,
+__kernel void updateVectorField(
+	__global real* vectorFieldVertexBuffer,
 	const __global real* stateBuffer,
 	const __global real* gravityPotentialBuffer,
 	float scale)
@@ -97,7 +97,7 @@ __kernel void createVelocityField(
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
 	int vertexIndex = i.x + size.x * (i.y + size.y * i.z);
-	__global real* vertex = velocityFieldVertexBuffer + 6 * 3 * vertexIndex;
+	__global real* vertex = vectorFieldVertexBuffer + 6 * 3 * vertexIndex;
 	
 	float4 f = (float4)(
 		((float)i.x + .5f) / (float)size.x,

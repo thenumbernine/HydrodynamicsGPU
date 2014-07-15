@@ -1,4 +1,5 @@
 #include "HydroGPU/Solver/Solver3D.h"
+#include "HydroGPU/Plot/VectorField.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
 #include "Image/FITS_IO.h"
@@ -34,8 +35,6 @@ Solver3D::Solver3D(
 	HydroGPUApp &app_)
 : Super(app_)
 , fluidTex(GLuint())
-, velocityFieldGLBuffer(0)
-, velocityFieldVertexCount(0)
 , viewZoom(1.f)
 , viewDist(1.f)
 {
@@ -43,7 +42,9 @@ Solver3D::Solver3D(
 
 void Solver3D::init() {
 	Super::init();
-	
+
+	vectorField = std::make_shared<HydroGPU::Plot::VectorField>(*this);
+
 	//memory
 
 	int volume = getVolume();
@@ -139,31 +140,11 @@ void Solver3D::init() {
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app.setArgs(convertToTexKernel, stateBuffer, potentialBuffer, fluidTexMem, app.gradientTexMem);
 
-
-	//create GL buffer
-	glGenBuffers(1, &velocityFieldGLBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER_ARB, velocityFieldGLBuffer);
-	int velocityFieldVolume = 1;
-	for (int i = 0; i < app.dim; ++i) {
-		velocityFieldVolume *= app.velocityFieldResolution;
-	}
-	velocityFieldVertexCount = 3 * 6 * velocityFieldVolume;
-	glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(real) * velocityFieldVertexCount, nullptr, GL_DYNAMIC_DRAW_ARB);
-	totalAlloc += sizeof(real) * velocityFieldVertexCount;
-	glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
-	//create CL interop
-	velocityFieldVertexBuffer = cl::BufferGL(app.context, CL_MEM_READ_WRITE, velocityFieldGLBuffer);
-	//create transfer kernel
-	createVelocityFieldKernel = cl::Kernel(program, "createVelocityField");
-	app.setArgs(createVelocityFieldKernel, velocityFieldVertexBuffer, stateBuffer, potentialBuffer, app.velocityFieldScale);
-
-
 	initKernels();
 }
 
 Solver3D::~Solver3D() {
 	glDeleteTextures(1, &fluidTex);
-	glDeleteBuffers(1, &velocityFieldGLBuffer);	
 	
 	std::cout << "OpenCL profiling info:" << std::endl;
 	for (EventProfileEntry *entry : entries) {
@@ -318,38 +299,7 @@ void Solver3D::display() {
 		break;
 	}
 
-	if (app.showVelocityField) {
-	
-		//glFlush();
-		cl::NDRange global;
-		switch (app.dim) {
-		case 1:
-			global = cl::NDRange(app.velocityFieldResolution);
-			break;
-		case 2:
-			global = cl::NDRange(app.velocityFieldResolution, app.velocityFieldResolution);
-			break;
-		case 3:
-			global = cl::NDRange(app.velocityFieldResolution, app.velocityFieldResolution, app.velocityFieldResolution);
-			break;
-		}
-		createVelocityFieldKernel.setArg(3, app.velocityFieldScale);
-		commands.enqueueNDRangeKernel(createVelocityFieldKernel, offsetNd, global, localSize);
-		commands.finish();
-
-		glDisable(GL_DEPTH_TEST);
-
-		glBindBuffer(GL_ARRAY_BUFFER_ARB, velocityFieldGLBuffer);
-		glColor3d(1,1,1);
-		glEnableClientState(GL_VERTEX_ARRAY);
-		glVertexPointer(3, GL_FLOAT, 0, 0);
-		glDrawArrays(GL_LINES, 0, velocityFieldVertexCount);
-		glDisableClientState(GL_VERTEX_ARRAY);
-		glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
-		
-		glEnable(GL_DEPTH_TEST);
-	}
-
+	vectorField->display();
 
 	{int err = glGetError();
 	if (err) std::cout << "GL error " << err << " at " << __FILE__ << ":" << __LINE__ << std::endl;}

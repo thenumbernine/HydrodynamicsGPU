@@ -10,6 +10,9 @@
 
 namespace HydroGPU {
 struct HydroGPUApp;
+namespace Plot {
+struct VectorField;
+}
 namespace Solver {
 
 /*
@@ -38,12 +41,9 @@ struct Solver3D : public Solver {
 	GLuint fluidTex;
 
 	std::shared_ptr<Shader::Program> displayShader;
-	
-	GLuint velocityFieldGLBuffer;
-	cl::BufferGL velocityFieldVertexBuffer;
-	cl::Kernel createVelocityFieldKernel;
-	int velocityFieldVertexCount;
 
+	std::shared_ptr<HydroGPU::Plot::VectorField> vectorField;
+	
 	//2D
 	Tensor::Vector<float,2> viewPos;
 	float viewZoom;

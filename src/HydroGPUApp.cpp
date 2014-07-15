@@ -34,9 +34,8 @@ HydroGPUApp::HydroGPUApp()
 , displayScale(2.f)
 , useGravity(false)
 , gaussSeidelMaxIter(20)
-, showVelocityField(true)
-, velocityFieldResolution(16)
-, velocityFieldScale(.125f)
+, showVectorField(true)
+, vectorFieldScale(.125f)
 , leftButtonDown(false)
 , rightButtonDown(false)
 , leftShiftDown(false)
@@ -99,9 +98,8 @@ void HydroGPUApp::init() {
 	std::string displayMethodName;
 	lua.ref()["displayMethod"] >> displayMethodName;
 
-	lua.ref()["showVelocityField"] >> showVelocityField;
-	lua.ref()["velocityFieldResolution"] >> velocityFieldResolution;
-	lua.ref()["velocityFieldScale"] >> velocityFieldScale;
+	lua.ref()["showVectorField"] >> showVectorField;
+	lua.ref()["vectorFieldScale"] >> vectorFieldScale;
 
 	//store dimension as last non-1 size
 	for (dim = 3; dim > 0; --dim) {
@@ -351,13 +349,13 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 		} else if (event.key.keysym.sym == SDLK_t) {
 			showTimestep = !showTimestep;
 		} else if (event.key.keysym.sym == SDLK_v) {
-			showVelocityField = !showVelocityField;
-			std::cout << "velocity field " << (showVelocityField ? "enabled" : "disabled") << std::endl;
+			showVectorField = !showVectorField;
+			std::cout << "velocity field " << (showVectorField ? "enabled" : "disabled") << std::endl;
 		} else if (event.key.keysym.sym == SDLK_c) {
 			if (shiftDown) {
-				velocityFieldScale *= .5f;
+				vectorFieldScale *= .5f;
 			} else {
-				velocityFieldScale *= 2.f;
+				vectorFieldScale *= 2.f;
 			}
 		}
 		break;
