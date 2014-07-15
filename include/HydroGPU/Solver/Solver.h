@@ -3,6 +3,7 @@
 #include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/Integrator/Integrator.h"
 #include "HydroGPU/Shared/Common.h"	//cl shared header
+#include "Profiler/Stat.h"
 #include "Tensor/Vector.h"
 #include <OpenCL/cl.hpp>
 #include <vector>
@@ -11,11 +12,25 @@
 
 namespace HydroGPU {
 struct HydroGPUApp;
+namespace Plot {
+struct Plot;
+struct VectorField;
+}
 namespace Solver {
 
 struct Solver {
 	friend struct HydroGPU::Integrator::Integrator;
+
+	struct EventProfileEntry {
+		EventProfileEntry(std::string name_) : name(name_) {}
+		std::string name;
+		cl::Event clEvent;
+		Profiler::Stat stat;
+	};
 	
+	std::vector<EventProfileEntry*> entries;
+	cl::ImageGL fluidTexMem;		//data is written to this buffer before rendering
+
 	//public for Equation...
 	HydroGPUApp &app;
 	
@@ -32,11 +47,14 @@ public:	//protected:
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel poissonRelaxKernel;
 	cl::Kernel calcGravityDerivKernel;
+	cl::Kernel convertToTexKernel;
 
 	std::vector<std::vector<cl::Kernel>> boundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim];
 
 	//construct this after the program has been compiled
 	std::shared_ptr<HydroGPU::Integrator::Integrator> integrator;
+	std::shared_ptr<HydroGPU::Plot::VectorField> vectorField;
+	std::shared_ptr<HydroGPU::Plot::Plot> plot;
 
 	//useful to have around
 	cl::NDRange globalSize;
@@ -76,17 +94,17 @@ public:	//protected:
 public:
 	virtual void update();
 	
-	virtual void display() = 0;
-	virtual void resize() = 0;
+	virtual void display();
+	virtual void resize();
 
-	virtual void mouseMove(int x, int y, int dx, int dy) = 0;
-	virtual void mousePan(int dx, int dy) = 0;
-	virtual void mouseZoom(int dz) = 0;
+	virtual void mouseMove(int x, int y, int dx, int dy);
+	virtual void mousePan(int dx, int dy);
+	virtual void mouseZoom(int dz);
 
 	virtual void resetState();
-	virtual void addDrop() = 0;
-	virtual void screenshot() = 0;
-	virtual void save() = 0;
+	virtual void addDrop();
+	virtual void screenshot();
+	virtual void save();
 };
 
 }

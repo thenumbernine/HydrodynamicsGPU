@@ -1,6 +1,6 @@
 #pragma once
 
-#include "HydroGPU/Solver/Solver3D.h"
+#include "HydroGPU/Solver/Solver.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
@@ -10,8 +10,8 @@ namespace Solver {
 General Roe solver
 Missing calcEigenBasis
 */
-struct Roe : public Solver3D {
-	typedef Solver3D Super;
+struct Roe : public Solver {
+	typedef Solver Super;
 
 	cl::Buffer eigenvaluesBuffer;
 	cl::Buffer eigenvectorsBuffer;

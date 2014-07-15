@@ -1,7 +1,12 @@
 #include "HydroGPU/Solver/Solver.h"
-#include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Integrator/ForwardEuler.h"
 #include "HydroGPU/Integrator/RungeKutta4.h"
+#include "HydroGPU/Plot/VectorField.h"
+#include "HydroGPU/Plot/Plot1D.h"
+#include "HydroGPU/Plot/Plot2D.h"
+#include "HydroGPU/Plot/Plot3D.h"
+#include "HydroGPU/HydroGPUApp.h"
+#include "Image/System.h"
 #include "Common/File.h"
 
 namespace HydroGPU {
@@ -120,6 +125,24 @@ void Solver::init() {
 	}
 	
 	commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app.fixedDT);
+
+	vectorField = std::make_shared<HydroGPU::Plot::VectorField>(*this);
+	
+	switch(app.dim) {
+	case 1:
+		plot = std::make_shared<HydroGPU::Plot::Plot1D>(*this);
+		break;
+	case 2:
+		plot = std::make_shared<HydroGPU::Plot::Plot2D>(*this);
+		break;
+	case 3:
+		plot = std::make_shared<HydroGPU::Plot::Plot3D>(*this);
+		break;
+	}
+	
+	fluidTexMem = cl::ImageGL(app.context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, plot->fluidTex);
+	
+	initKernels();
 }
 
 std::vector<std::string> Solver::getProgramSources() {
@@ -296,6 +319,9 @@ void Solver::initKernels() {
 	calcGravityDerivKernel = cl::Kernel(program, "calcGravityDeriv");
 	calcGravityDerivKernel.setArg(1, stateBuffer);
 	calcGravityDerivKernel.setArg(2, potentialBuffer);
+	
+	convertToTexKernel = cl::Kernel(program, "convertToTex");
+	app.setArgs(convertToTexKernel, stateBuffer, potentialBuffer, fluidTexMem, app.gradientTexMem);
 
 	std::string integratorName = "ForwardEuler";
 	app.lua.ref()["integratorName"] >> integratorName;
@@ -434,6 +460,107 @@ void Solver::update() {
 */
 
 }
+
+void Solver::display() {
+	glFinish();
+	
+	std::vector<cl::Memory> acquireGLMems = {fluidTexMem};
+	commands.enqueueAcquireGLObjects(&acquireGLMems);
+
+	if (app.useGPU) {
+		convertToTexKernel.setArg(4, app.displayMethod);
+		convertToTexKernel.setArg(5, app.displayScale);
+		commands.enqueueNDRangeKernel(convertToTexKernel, offsetNd, globalSize, localSize);
+	} else {
+		throw Common::Exception() << "no support";
+	}
+
+	commands.enqueueReleaseGLObjects(&acquireGLMems);
+	commands.finish();
+
+	plot->display();	
+	vectorField->display();
+	
+	{int err = glGetError();
+	if (err) std::cout << "GL error " << err << " at " << __FILE__ << ":" << __LINE__ << std::endl;}
+}
+
+void Solver::resize() {
+	plot->resize();
+}
+
+void Solver::mouseMove(int x, int y, int dx, int dy) {
+}
+
+void Solver::mousePan(int dx, int dy) {
+	plot->mousePan(dx, dy);
+}
+
+void Solver::mouseZoom(int dz) {
+	plot->mouseZoom(dz);
+}
+
+void Solver::addDrop() {
+}
+
+void Solver::screenshot() {
+	for (int i = 0; i < 1000; ++i) {
+		std::string filename = std::string("screenshot") + std::to_string(i) + "layer0.png";
+		if (!Common::File::exists(filename)) {
+			plot->screenshot(filename);
+			return;
+		}
+	}
+	throw Common::Exception() << "couldn't find an available filename";
+}
+
+void Solver::save() {
+	std::vector<std::string> channelNames = equation->states;
+	channelNames.push_back("potential");
+
+	for (int i = 0; i < 1000; ++i) {
+		std::string filename = channelNames[0] + std::to_string(i) + ".fits";
+		if (!Common::File::exists(filename)) {
+			
+			//hmm, rather than a plane per variable, now that I'm saving 3D stuff,
+			// how about a plane per 3rd dim, and separate save files per variable?
+			std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::Vector<int,2>(app.size.s[0], app.size.s[1]), nullptr, 1, app.size.s[2]);
+
+			int volume = getVolume();
+			
+			std::vector<real> stateVec(numStates() * volume);
+			app.commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * numStates() * volume, &stateVec[0]);
+			
+			std::vector<real> potentialVec(volume);
+			app.commands.enqueueReadBuffer(potentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &potentialVec[0]);
+			
+			app.commands.finish();
+			
+			for (int channel = 0; channel < channelNames.size(); ++channel) {
+				for (int z = 0; z < app.size.s[2]; ++z) {	
+					for (int y = 0; y < app.size.s[1]; ++y) {
+						for (int x = 0; x < app.size.s[0]; ++x) {
+							int index = x + app.size.s[0] * (y + app.size.s[1] * z);
+							real value = std::nan("");	
+							if (channel < numStates()) {
+								value = stateVec[channel + numStates() * index];
+							} else {	//potential
+								value = potentialVec[index];
+							}
+							(*image)(x,y,0,z) = value;
+						}
+					}
+				}
+				std::string filename = channelNames[channel] + std::to_string(i) + ".fits";
+				std::cout << "saving file " << filename << std::endl;
+				Image::system->write(filename, image); 
+			}
+			return;
+		}
+	}
+}
+
+
 
 }
 }

@@ -1,14 +1,14 @@
 #pragma once
 
-#include "HydroGPU/Solver/Solver3D.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "Tensor/Vector.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
 namespace Solver {
 
-struct EulerBurgers : public Solver3D {
-	typedef Solver3D Super;
+struct EulerBurgers : public Solver {
+	typedef Solver Super;
 
 	cl::Buffer interfaceVelocityBuffer;
 	cl::Buffer fluxBuffer;
