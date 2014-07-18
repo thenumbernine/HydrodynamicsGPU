@@ -22,8 +22,8 @@ __kernel void initVariables(
 //incorporate this with the dx/dt calcluation
 //and then use that for arbitrary explicit integrators
 __kernel void addMHDSource(
-	__global real* stateBuffer,
-	const __global real* dtBuffer)
+	__global real* derivBuffer,
+	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
@@ -36,8 +36,6 @@ __kernel void addMHDSource(
 	) {
 		return;
 	}
-	real dt = dtBuffer[0];
-	
 	int index = INDEXV(i);
 	
 	real divB = .5f * (
@@ -52,8 +50,9 @@ __kernel void addMHDSource(
 			- stateBuffer[STATE_MAGNETIC_FIELD_Z + NUM_STATES * (index - stepsize.z)]) / DZ
 #endif
 	);
-	
-	__global real* state = stateBuffer + NUM_STATES * index;
+
+	__global real* deriv = derivBuffer + NUM_STATES * index;
+	const __global real* state = stateBuffer + NUM_STATES * index;
 
 	real4 velocity = VELOCITY(state);
 	real4 magneticField = (real4)(state[STATE_MAGNETIC_FIELD_X], state[STATE_MAGNETIC_FIELD_Y], state[STATE_MAGNETIC_FIELD_Z], 0.f);
@@ -69,6 +68,6 @@ __kernel void addMHDSource(
 	source[STATE_ENERGY_TOTAL] = dot(magneticField, velocity);
 
 	for (int i = 0; i < NUM_STATES; ++i) {
-		stateBuffer[i] -= dt * divB * source[i];
+		deriv[i] -= divB * source[i];
 	}
 }

@@ -8,20 +8,15 @@ namespace Integrator {
 ForwardEuler::ForwardEuler(HydroGPU::Solver::Solver& solver) 
 : Super(solver)
 {
-	int volume = solver.getVolume();
-	
-	derivBuffer = solver.clAlloc(sizeof(real) * solver.numStates() * volume);
-
-	{
-		std::vector<real> zero(volume * solver.numStates());
-		solver.commands.enqueueWriteBuffer(derivBuffer, CL_TRUE, 0, sizeof(real) * solver.numStates() * volume, &zero[0]);
-	}
+	derivBuffer = solver.clAlloc(sizeof(real) * solver.numStates() * solver.getVolume());
 
 	multAddKernel = cl::Kernel(solver.program, "multAdd");
 	solver.app.setArgs(multAddKernel, solver.stateBuffer, derivBuffer, solver.dtBuffer, 1.f);
 }
 
 void ForwardEuler::integrate(std::function<void(cl::Buffer)> callback) {
+	solver.commands.enqueueFillBuffer(derivBuffer, 0.f, 0, sizeof(real) * solver.getVolume() * solver.numStates());
+	
 	callback(derivBuffer);
 	solver.commands.enqueueNDRangeKernel(multAddKernel, solver.offsetNd, solver.globalSize, solver.localSize);
 }

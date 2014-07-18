@@ -116,7 +116,7 @@ __kernel void convertToTex(
 	case DISPLAY_PRESSURE:	//pressure
 		value = pressure;
 		break;
-	case DISPLAY_GRAVITY_POTENTIAL:
+	case DISPLAY_POTENTIAL:
 		value = potentialBuffer[index];
 		break;
 	default:
@@ -155,8 +155,7 @@ __kernel void poissonRelax(
 	}
 	
 #define M_PI 3.141592653589793115997963468544185161590576171875f
-#define GRAVITY_CONSTANT 1.f		//6.67384e-11 m^3 / (kg s^2)
-	real scale = M_PI * GRAVITY_CONSTANT * DX;
+	real scale = M_PI * GRAVITATIONAL_CONSTANT * DX;
 #if DIM > 1
 	scale *= DY; 
 #endif

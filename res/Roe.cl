@@ -221,10 +221,6 @@ __kernel void calcFluxDeriv(
 	
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
-	for (int j = 0; j < NUM_STATES; ++j) {
-		deriv[j] = 0.f;
-	}
-	
 	for (int side = 0; side < DIM; ++side) {
 		int indexNext = index + stepsize[side];
 		const __global real* fluxL = fluxBuffer + NUM_STATES * (side + DIM * index); 

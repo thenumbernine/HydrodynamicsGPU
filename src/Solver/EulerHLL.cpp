@@ -60,7 +60,7 @@ void EulerHLL::step() {
 		commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
 	});
 
-	applyGravity();
+	applyPotential();
 }
 
 }

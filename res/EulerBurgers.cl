@@ -168,10 +168,6 @@ __kernel void calcFluxDeriv(
 	
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
-	for (int j = 0; j < NUM_STATES; ++j) {
-		deriv[index] = 0.f;
-	}
-
 	for (int side = 0; side < DIM; ++side) {
 		int indexNext = index + stepsize[side];
 		for (int j = 0; j < NUM_STATES; ++j) {
@@ -254,10 +250,6 @@ __kernel void diffuseMomentum(
 
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
-	for (int j = 0; j < NUM_STATES; ++j) {
-		deriv[j] = 0.f;
-	}
-
 	for (int side = 0; side < DIM; ++side) {
 		int indexL = index - stepsize[side];
 		int indexR = index + stepsize[side];	
@@ -289,10 +281,6 @@ __kernel void diffuseWork(
 	int index = INDEXV(i);
 
 	__global real* deriv = derivBuffer + NUM_STATES * index;
-
-	for (int j = 0; j < NUM_STATES; ++j) {
-		deriv[j] = 0.f;
-	}
 
 	for (int side = 0; side < DIM; ++side) {
 		int indexL = index - stepsize[side];

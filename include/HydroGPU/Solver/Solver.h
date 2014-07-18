@@ -80,7 +80,7 @@ public:	//protected:
 	
 	cl::Buffer clAlloc(size_t size);
 
-	virtual void applyGravity();
+	virtual void applyPotential();
 
 	virtual void findMinTimestep();
 

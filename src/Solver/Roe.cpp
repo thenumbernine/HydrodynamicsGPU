@@ -37,11 +37,8 @@ void Roe::init() {
 	deltaQTildeBuffer = clAlloc(sizeof(real) * numStates() * volume * app.dim);
 	fluxBuffer = clAlloc(sizeof(real) * numStates() * volume * app.dim);
 
-	{
-		//zero interface and flux
-		std::vector<real> zero(volume * app.dim * numStates());
-		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real) * numStates() * volume * app.dim, &zero[0]);
-	}
+	//zero flux
+	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app.dim);
 
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
 	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, potentialBuffer);
@@ -82,7 +79,7 @@ void Roe::step() {
 		commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
 	});
 
-	applyGravity();
+	applyPotential();
 }
 
 }

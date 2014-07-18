@@ -23,7 +23,7 @@ ADM::ADM(HydroGPU::Solver::Solver& solver)
 		"VELOCITY",
 		"PRESSURE",
 		"MAGNETIC_FIELD",
-		"GRAVITY_POTENTIAL"
+		"POTENTIAL"
 	};
 
 	//matches above

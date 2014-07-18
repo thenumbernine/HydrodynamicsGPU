@@ -27,6 +27,7 @@ void RungeKutta4::integrate(std::function<void(cl::Buffer)> callback) {
 	//store backup
 	solver.commands.enqueueCopyBuffer(solver.stateBuffer, restoreBuffer, 0, 0, copySize);
 	
+	solver.commands.enqueueFillBuffer(deriv1Buffer, 0.f, 0, sizeof(real) * solver.getVolume() * solver.numStates());
 	callback(deriv1Buffer);
 	
 	//integrate by dt/2 along deriv1
@@ -34,6 +35,7 @@ void RungeKutta4::integrate(std::function<void(cl::Buffer)> callback) {
 	multAddKernel.setArg(3, .5f);
 	solver.commands.enqueueNDRangeKernel(multAddKernel, solver.offsetNd, solver.globalSize, solver.localSize);
 	
+	solver.commands.enqueueFillBuffer(deriv2Buffer, 0.f, 0, sizeof(real) * solver.getVolume() * solver.numStates());
 	callback(deriv2Buffer);
 	
 	//restore backup
@@ -43,6 +45,7 @@ void RungeKutta4::integrate(std::function<void(cl::Buffer)> callback) {
 	multAddKernel.setArg(1, deriv2Buffer);
 	solver.commands.enqueueNDRangeKernel(multAddKernel, solver.offsetNd, solver.globalSize, solver.localSize);
 	
+	solver.commands.enqueueFillBuffer(deriv3Buffer, 0.f, 0, sizeof(real) * solver.getVolume() * solver.numStates());
 	callback(deriv3Buffer);
 	
 	//restore backup
@@ -53,6 +56,7 @@ void RungeKutta4::integrate(std::function<void(cl::Buffer)> callback) {
 	multAddKernel.setArg(3, 1.f);
 	solver.commands.enqueueNDRangeKernel(multAddKernel, solver.offsetNd, solver.globalSize, solver.localSize);
 	
+	solver.commands.enqueueFillBuffer(deriv4Buffer, 0.f, 0, sizeof(real) * solver.getVolume() * solver.numStates());
 	callback(deriv4Buffer);
 	
 	//restore backup

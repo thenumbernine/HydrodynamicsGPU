@@ -15,11 +15,14 @@ MHDRoe::MHDRoe(HydroGPUApp& app_)
 void MHDRoe::initKernels() {
 	Super::initKernels();
 
+//debugging:
+//app.setArgs(convertToTexKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, fluidTexMem);
+
 	initVariablesKernel = cl::Kernel(program, "initVariables");
 	app.setArgs(initVariablesKernel, stateBuffer);
 
 	addMHDSourceKernel = cl::Kernel(program, "addMHDSource");
-	app.setArgs(addMHDSourceKernel, stateBuffer, dtBuffer);
+	addMHDSourceKernel.setArg(1, stateBuffer);
 }
 
 std::vector<std::string> MHDRoe::getProgramSources() {
@@ -40,8 +43,11 @@ void MHDRoe::step() {
 	//The difference is that the additions here will influence the Roe solver eigenbasis, whereas adding them alongside would not
 	//Come to think of it, treating an addition of source terms at the beginning of this frame as equivalent of an addition of source terms at the end of the last frame,
 	//there won't be any difference until I add in a better explicit integrator -- and the MHD paper says it uses a better-than-Forward-Euler integrator
-	commands.enqueueNDRangeKernel(addMHDSourceKernel, offsetNd, globalSize, localSize);
-	
+	integrator->integrate([&](cl::Buffer derivBuffer) {
+		addMHDSourceKernel.setArg(0, derivBuffer);
+		commands.enqueueNDRangeKernel(addMHDSourceKernel, offsetNd, globalSize, localSize);
+	});
+
 	Super::step();
 }
 

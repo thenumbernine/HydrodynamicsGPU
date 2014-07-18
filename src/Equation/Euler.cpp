@@ -21,7 +21,7 @@ Euler::Euler(HydroGPU::Solver::Solver& solver)
 		"DENSITY",
 		"VELOCITY",
 		"PRESSURE",
-		"GRAVITY_POTENTIAL"
+		"POTENTIAL"
 	};
 
 	//matches above 

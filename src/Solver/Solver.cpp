@@ -187,15 +187,17 @@ void Solver::resetState() {
 	int volume = getVolume();
 
 	std::vector<real> stateVec(numStates() * volume);
+	std::vector<real> potentialVec(volume);
 
 	if (!app.lua.ref()["initState"].isFunction()) throw Common::Exception() << "expected initState to be defined in config file";
 
 	std::cout << "initializing..." << std::endl;
-	real* state = &stateVec[0];	
+	real* state = &stateVec[0];
+	real* potential = &potentialVec[0];
 	int index[3];
 	for (index[2] = 0; index[2] < app.size.s[2]; ++index[2]) {
 		for (index[1] = 0; index[1] < app.size.s[1]; ++index[1]) {
-			for (index[0] = 0; index[0] < app.size.s[0]; ++index[0], state += numStates()) {
+			for (index[0] = 0; index[0] < app.size.s[0]; ++index[0], state += numStates(), ++potential) {
 				real4 pos;
 				for (int i = 0; i < 3; ++i) {
 					pos.s[i] = real(app.xmax.s[i] - app.xmin.s[i]) * (real(index[i]) + .5) / real(app.size.s[i]) + real(app.xmin.s[i]);
@@ -207,17 +209,19 @@ void Solver::resetState() {
 				stack
 				.getGlobal("initState")
 				.push(pos.s[0], pos.s[1], pos.s[2])
-				.call(3,8);	
+				.call(3,9);	
 				//TODO multret and have each equation interpret the results
 				//ALSO TODO pass in pressure or internal energy rather than total energy, 
 				//and have each solver compute total energy itself (so magnetism can be ignored by non-MHD solvers)
 
-				real density;
-				real momentumX, momentumY, momentumZ;
-				real energyTotal;
-				real magneticFieldX, magneticFieldY, magneticFieldZ;
+				real density = 0.f;
+				real momentumX = 0.f, momentumY = 0.f, momentumZ = 0.f;
+				real energyTotal = 0.f;
+				real magneticFieldX = 0.f, magneticFieldY = 0.f, magneticFieldZ = 0.f;
+				real potentialEnergy = 0.f;
 				
 				stack
+				.pop(potentialEnergy)
 				.pop(magneticFieldZ)
 				.pop(magneticFieldY)
 				.pop(magneticFieldX)
@@ -241,6 +245,7 @@ void Solver::resetState() {
 					state[6] = magneticFieldZ;
 				}
 				state[numStates()-1] = energyTotal;
+				*potential = potentialEnergy;
 			}
 		}
 	}
@@ -253,34 +258,30 @@ void Solver::resetState() {
 	
 	//write state density first for gravity potential, to then update energy
 	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * numStates() * volume, &stateVec[0]);
-	
-	//here's our initial guess to sor
-	std::vector<real> potentialVec(volume);
-	for (size_t i = 0; i < volume; ++i) {
-		if (app.useGravity) {
+
+	//if using gravity then use the density field as an initial guess before poisson relaxiation
+	if (app.useGravity) {
+		for (size_t i = 0; i < volume; ++i) {
 			potentialVec[i] = stateVec[0 + numStates() * i];
-		} else {
-			potentialVec[i] = 0.;
 		}
 	}
 	
 	commands.enqueueWriteBuffer(potentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &potentialVec[0]);
-
+	
 	if (app.useGravity) {
-		int energyTotalIndex = 1 + app.dim;
-		
 		//solve for gravitational potential via gauss seidel
 		for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
 			potentialBoundary();
 			commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
 		}
-
-		//update total energy
-		for (int i = 0; i < volume; ++i) {
-			stateVec[energyTotalIndex + numStates() * i] += potentialVec[i];
-		}
 	}
-	
+
+	//add potential energy into total energy
+	for (int i = 0; i < volume; ++i) {
+		int energyTotalIndex = 1 + app.dim;
+		stateVec[energyTotalIndex + numStates() * i] += potentialVec[i];
+	}
+
 	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * numStates() * volume, &stateVec[0]);
 	commands.finish();
 }
@@ -396,20 +397,20 @@ void Solver::potentialBoundary() {
 	}
 }
 
-void Solver::applyGravity() {
-	if (app.useGravity) {
-		integrator->integrate([&](cl::Buffer derivBuffer) {
+void Solver::applyPotential() {
+	integrator->integrate([&](cl::Buffer derivBuffer) {
+		if (app.useGravity) {
 			for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
 				potentialBoundary();
 				commands.enqueueNDRangeKernel(poissonRelaxKernel, offsetNd, globalSize, localSize);
-			}
-		
-			calcGravityDerivKernel.setArg(0, derivBuffer);
-			commands.enqueueNDRangeKernel(calcGravityDerivKernel, offsetNd, globalSize, localSize);
-		});
+			}	
+		}
+
+		calcGravityDerivKernel.setArg(0, derivBuffer);
+		commands.enqueueNDRangeKernel(calcGravityDerivKernel, offsetNd, globalSize, localSize);
 		
 		boundary();	
-	}
+	});
 }
 
 void Solver::findMinTimestep() {

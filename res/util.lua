@@ -11,13 +11,12 @@ local function getSpecificEnergyInternalForPressure(pressure, density)
 	return pressure / ((gamma - 1) * density)
 end
 
-local MU0 = 1
 local function getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFieldZ)
-	return .5 * (magneticFieldX * magneticFieldX + magneticFieldY * magneticFieldY + magneticFieldZ * magneticFieldZ) / MU0
+	return .5 * (magneticFieldX * magneticFieldX + magneticFieldY * magneticFieldY + magneticFieldZ * magneticFieldZ) / vaccuumPermeability
 end
 
-local function primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ)
-	return density, velocityX * density, velocityY * density, velocityZ * density, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ
+local function primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ, potentialEnergy)
+	return density, velocityX * density, velocityY * density, velocityZ * density, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ, potentialEnergy
 end
 
 --[=[
@@ -28,6 +27,7 @@ args:
 	noise (optional) noise to add to velocity
 	pressure				\_ one of these two
 	specificEnergyInternal	/
+	potentialEnergy (optional)
 --]=]
 function buildStateEuler(args)
 	local dim = #size
@@ -44,7 +44,8 @@ function buildStateEuler(args)
 	local specificEnergyInternal = args.specificEnergyInternal or getSpecificEnergyInternalForPressure(assert(args.pressure, "you need to provide either specificEnergyInternal or pressure"), density)
 	local magneticFieldEnergy = getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFieldZ)
 	local energyTotal = density * (specificEnergyKinetic + specificEnergyInternal) + magneticFieldEnergy
-	return primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ)
+	local potentialEnergy = args.potentialEnergy or 0
+	return primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ, potentialEnergy)
 end
 
 function buildStateEulerQuadrant(x,y,z,args)

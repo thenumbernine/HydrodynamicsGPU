@@ -5,11 +5,11 @@ local configurations = require 'configurations'	--holds catalog of configuration
 	-- solver variables
 
 
---solverName = 'EulerBurgers' -- works for 1D, 2D, 3D
-solverName = 'EulerHLL' -- works for 1D, 2D, 3D.  needs 2nd order support.
---solverName = 'EulerRoe' -- works for 1D, 2D, compiler crashes for 3D
+solverName = 'EulerBurgers'
+--solverName = 'EulerHLL' -- needs 2nd order support.
+--solverName = 'EulerRoe'
 --solverName = 'SRHDRoe' -- in the works
---solverName = 'MHDRoe' -- left eigenvectors not finished, and numeric inverse not working
+--solverName = 'MHDRoe' -- in the works
 --solverName = 'ADMRoe' -- exploding
 
 
@@ -56,7 +56,7 @@ useGravity = false
 gravitationalConstant = 25	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful units please
 gaussSeidelMaxIter = 20
 
-showVectorField = true	-- for one test this was 72fps with, 76fps without, so 5% perf hit
+showVectorField = true
 vectorFieldResolution = 64
 vectorFieldScale = .125
 -- Euler equations' constants:

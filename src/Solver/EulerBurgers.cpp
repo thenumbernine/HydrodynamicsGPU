@@ -42,12 +42,9 @@ void EulerBurgers::init() {
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app.dim);
 	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 
-	{
-		//zero interface and flux
-		std::vector<real> zero(volume * app.dim * numStates());
-		commands.enqueueWriteBuffer(interfaceVelocityBuffer, CL_TRUE, 0, sizeof(real) * volume * app.dim, &zero[0]);
-		commands.enqueueWriteBuffer(fluxBuffer, CL_TRUE, 0, sizeof(real) * numStates() * volume * app.dim, &zero[0]);
-	}
+	//zero interface and flux
+	commands.enqueueFillBuffer(interfaceVelocityBuffer, 0.f, 0, sizeof(real) * volume * app.dim);
+	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app.dim);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
 	app.setArgs(calcCFLKernel, cflBuffer, stateBuffer, potentialBuffer, app.cfl);
@@ -93,7 +90,7 @@ void EulerBurgers::step() {
 	});
 	boundary();
 
-	applyGravity();
+	applyPotential();
 	
 	//the Hydrodynamics ii paper says it's important to diffuse momentum before work
 	integrator->integrate([&](cl::Buffer derivBuffer) {

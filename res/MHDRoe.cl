@@ -80,23 +80,23 @@ void calcEigenBasisSide(
 
 	real velocitySq = dot(velocity, velocity);
 	real sqrtDensity = sqrt(density);
-	real speedOfSound = sqrt(max(0.f, gamma * pressure / density));
+	real speedOfSound = sqrt(gamma * pressure / density);
 	real speedOfSoundSq = speedOfSound * speedOfSound;
 	real magneticFieldSq = dot(magneticField, magneticField);
 	real magneticFieldXSq = magneticField.x * magneticField.x;
 	
-	real AlfvenSpeed = magneticField.x / sqrtDensity;
+	real AlfvenSpeed = fabs(magneticField.x) / sqrtDensity;
 	real tmp1 = (gamma * pressure + magneticFieldSq) / density;
-	real discr = max(0.f, tmp1 * tmp1 - 4.f * gamma * pressure * magneticFieldXSq / (density * density));
+	real discr = tmp1 * tmp1 - 4.f * gamma * pressure * magneticFieldXSq / (density * density);
 	real tmp2 = sqrt(discr);
 	real fastSpeedSq = max(.5f * tmp1 + tmp2, 0.f);
 	real fastSpeed = sqrt(fastSpeedSq);
 	real slowSpeedSq = max(.5f * tmp1 - tmp2, 0.f);
 	real slowSpeed = sqrt(slowSpeedSq);
-
+	
 	real oneOverFastSpeedSqMinusSlowSpeedSq = 1.f / (fastSpeedSq - slowSpeedSq);
-	real alphaFast = sqrt(max(0.f, (speedOfSoundSq - slowSpeedSq) * oneOverFastSpeedSqMinusSlowSpeedSq));
-	real alphaSlow = sqrt(max(0.f, (fastSpeedSq - speedOfSoundSq) * oneOverFastSpeedSqMinusSlowSpeedSq));
+	real alphaFast = sqrt((speedOfSoundSq - slowSpeedSq) * oneOverFastSpeedSqMinusSlowSpeedSq);
+	real alphaSlow = sqrt((fastSpeedSq - speedOfSoundSq) * oneOverFastSpeedSqMinusSlowSpeedSq);
 	real oneOverMagneticFieldYZLen = 1.f / sqrt(magneticField.y * magneticField.y + magneticField.z * magneticField.z);
 	real betaY = magneticField.y * oneOverMagneticFieldYZLen;
 	real betaZ = magneticField.z * oneOverMagneticFieldYZLen;
@@ -110,14 +110,28 @@ void calcEigenBasisSide(
 	//eigenvalues
 
 	eigenvalues[0] = velocity.x - fastSpeed;
-	eigenvalues[1] = velocity.x - magneticField.x / density;	//= AlfvenSpeed / sqrtDensity
+	eigenvalues[1] = velocity.x - AlfvenSpeed / sqrtDensity;
 	eigenvalues[2] = velocity.x - slowSpeed;
 	eigenvalues[3] = velocity.x;
 	eigenvalues[4] = velocity.x;
 	eigenvalues[5] = velocity.x + slowSpeed;
-	eigenvalues[6] = velocity.x + magneticField.x / density;
+	eigenvalues[6] = velocity.x + AlfvenSpeed / sqrtDensity;
 	eigenvalues[7] = velocity.x + fastSpeed;
 
+#if 0
+printf("index %d %d %d\n"
+"fastSpeed %f\n"
+"slowSpeed %f\n"
+"AlfvenSpeed %f\n"
+"velocity x %f\n"
+"\n",
+	i.x, i.y, i.z,
+	fastSpeed,
+	slowSpeed,
+	AlfvenSpeed,
+	velocity.x);
+#endif
+	
 	//eigenvectors
 	//stored as A_ij = A[i + height * j]
 

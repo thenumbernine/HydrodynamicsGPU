@@ -9,6 +9,59 @@
 #define VELOCITY(ptr)	((real4)((ptr)[STATE_MOMENTUM_X], (ptr)[STATE_MOMENTUM_Y], (ptr)[STATE_MOMENTUM_Z], 0.f) / (ptr)[STATE_DENSITY])
 #endif
 
+
+//debugging
+#if 0
+
+
+__kernel void convertToTex(
+	const __global real* eigenvaluesBuffer,
+	const __global real* eigenvectorsBuffer,
+	const __global real* eigenvectorsInverseBuffer,
+	__write_only image3d_t fluidTex,
+	int displayMethod,
+	float displayScale)
+{
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	int index = INDEXV(i);
+
+	float4 color = (float4)(0.f, 0.f, 0.f, 0.f);
+	int interfaceIndex = 0 + DIM * index;
+	const __global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
+	const __global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+	const __global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+	/*
+	//for (int i = 0; i < NUM_STATES; ++i) {
+	//for (int i = 0; i < 4; ++i) {
+	{const int i = 0;
+		for (int j = 0; j < NUM_STATES; ++j) {
+		//{const int j = 0;
+			real sum = 0.f;
+			for (int k = 0; k < NUM_STATES; ++k) {
+				sum += eigenvectors[i + NUM_STATES * k] * eigenvectorsInverse[k + NUM_STATES * j];
+			}
+			if (i == j) sum -= 1.f;
+			color[i] += fabs(sum);
+		}
+	}
+	*/
+
+	for (int i = 0; i < 4; ++i) {
+		color[i] = eigenvalues[i];
+		if (color[i] != 0.f) printf("%f\n", color[i]);
+	}
+
+	color *= displayScale;
+
+	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
+}
+
+//debugging
+#endif
+
+//regular
+#if 1
+
 //specific to Euler equations
 __kernel void convertToTex(
 	const __global real* stateBuffer,
@@ -39,13 +92,14 @@ __kernel void convertToTex(
 	real specificEnergyPotential = gravityPotentialBuffer[index];
 	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
 
-#if DIM == 1
-#if NUM_STATES == 8	//MHD
+#ifdef MHD
 	real4 magneticField = (real4)(state[STATE_MAGNETIC_FIELD_X], state[STATE_MAGNETIC_FIELD_Y], state[STATE_MAGNETIC_FIELD_Z], 0.f);
 	real magneticFieldMagn = length(magneticField);
 #else
 	real magneticFieldMagn = 0.f;
 #endif
+
+#if DIM == 1
 	float4 color = (float4)(density, velocity, specificEnergyInternal, magneticFieldMagn) * displayScale;
 #else
 	real value;
@@ -59,10 +113,10 @@ __kernel void convertToTex(
 	case DISPLAY_PRESSURE:	//pressure
 		value = (gamma - 1.f) * specificEnergyInternal * density;
 		break;
-	case DISPLAY_GRAVITY_POTENTIAL:
+	case DISPLAY_POTENTIAL:
 		value = gravityPotentialBuffer[index];
 		break;
-#if NUM_STATES == 8	//MHD
+#ifdef MHD
 	case DISPLAY_MAGNETIC_FIELD:
 		value = magneticFieldMagn;
 		break;
@@ -77,6 +131,9 @@ __kernel void convertToTex(
 #endif
 	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
 }
+
+//regular
+#endif
 
 
 constant float2 offset[6] = {
