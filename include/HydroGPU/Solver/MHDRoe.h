@@ -20,7 +20,7 @@ protected:
 	virtual std::vector<std::string> getProgramSources();
 	virtual void resetState();
 
-	virtual void step();
+	virtual void calcDeriv(cl::Buffer derivBuffer);
 };
 
 }

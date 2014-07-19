@@ -165,6 +165,7 @@ return {
 				pressure = lhs and 1 or .1,
 				magneticFieldX = .75,
 				magneticFieldY = lhs and 1 or -1,
+				magneticFieldZ = 0,
 			}
 		end
 	end,

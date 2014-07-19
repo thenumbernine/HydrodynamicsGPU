@@ -36,19 +36,11 @@ void MHDRoe::resetState() {
 	commands.enqueueNDRangeKernel(initVariablesKernel, offsetNd, globalSize, localSize);
 }
 
-void MHDRoe::step() {
-	//apply source terms
-	//NOTICE the MHD paper says to apply them alongside the flux integration
-	//but I am adding them here, coinciding with where the Hydrodynamics ii paper says to add the source terms due to potential energy
-	//The difference is that the additions here will influence the Roe solver eigenbasis, whereas adding them alongside would not
-	//Come to think of it, treating an addition of source terms at the beginning of this frame as equivalent of an addition of source terms at the end of the last frame,
-	//there won't be any difference until I add in a better explicit integrator -- and the MHD paper says it uses a better-than-Forward-Euler integrator
-	integrator->integrate([&](cl::Buffer derivBuffer) {
-		addMHDSourceKernel.setArg(0, derivBuffer);
-		commands.enqueueNDRangeKernel(addMHDSourceKernel, offsetNd, globalSize, localSize);
-	});
+void MHDRoe::calcDeriv(cl::Buffer derivBuffer) {
+	addMHDSourceKernel.setArg(0, derivBuffer);
+	commands.enqueueNDRangeKernel(addMHDSourceKernel, offsetNd, globalSize, localSize);
 
-	Super::step();
+	Super::calcDeriv(derivBuffer);
 }
 
 }

@@ -5,11 +5,11 @@ local configurations = require 'configurations'	--holds catalog of configuration
 	-- solver variables
 
 
-solverName = 'EulerBurgers'
+--solverName = 'EulerBurgers'
 --solverName = 'EulerHLL' -- needs 2nd order support.
 --solverName = 'EulerRoe'
 --solverName = 'SRHDRoe' -- in the works
---solverName = 'MHDRoe' -- in the works
+solverName = 'MHDRoe' -- in the works
 --solverName = 'ADMRoe' -- exploding
 
 
@@ -35,12 +35,12 @@ slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
---integratorName = 'ForwardEuler'
-integratorName = 'RungeKutta4'
+integratorName = 'ForwardEuler'
+--integratorName = 'RungeKutta4'
 
 
 useGPU = true
---maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -63,7 +63,7 @@ vectorFieldScale = .125
 gamma = 1.4
 
 -- specific to MHD
-vaccuumPermeability = 1	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
+vaccuumPermeability = 1e-1	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
@@ -71,15 +71,15 @@ vaccuumPermeability = 1	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
 size = {64, 64, 64}
 vectorFieldResolution = 16
 --]]
--- [[ 2D
+--[[ 2D
 size = {256, 256}
 --]]
---[[ 1D
+-- [[ 1D
 size = {1024}
 displayScale = .25
 --]]
 
 
 -- see initState for a list of options
-configurations['Sod']()
+configurations['Brio-Wu']()
 

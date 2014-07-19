@@ -63,23 +63,29 @@ std::vector<std::string> Roe::getProgramSources() {
 }
 
 void Roe::initStep() {
+	printf("initStep\n");
 	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize, nullptr, &calcEigenBasisEvent.clEvent);
+	printf("initStep done\n");
 }
 
 void Roe::calcTimestep() {
 	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, nullptr, &calcCFLEvent.clEvent);
-	findMinTimestep();	
+	findMinTimestep();
 }
 
 void Roe::step() {
 	integrator->integrate([&](cl::Buffer derivBuffer) {
-		commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, nullptr, &calcDeltaQTildeEvent.clEvent);
-		commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
-		calcFluxDerivKernel.setArg(0, derivBuffer);
-		commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
+		calcDeriv(derivBuffer);
 	});
 
 	applyPotential();
+}
+
+void Roe::calcDeriv(cl::Buffer derivBuffer) {
+	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, nullptr, &calcDeltaQTildeEvent.clEvent);
+	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
+	calcFluxDerivKernel.setArg(0, derivBuffer);
+	commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
 }
 
 }
