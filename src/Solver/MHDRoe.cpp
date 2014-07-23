@@ -15,9 +15,7 @@ MHDRoe::MHDRoe(HydroGPUApp& app_)
 void MHDRoe::initKernels() {
 	Super::initKernels();
 
-//debugging:
-//app.setArgs(convertToTexKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, fluidTexMem);
-
+	//matches MHDBurgers -- belongs in the MHDEquation class maybe?
 	initVariablesKernel = cl::Kernel(program, "initVariables");
 	app.setArgs(initVariablesKernel, stateBuffer);
 

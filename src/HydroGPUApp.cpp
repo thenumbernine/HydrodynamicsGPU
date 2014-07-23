@@ -3,6 +3,7 @@
 #include "HydroGPU/Solver/EulerBurgers.h"
 #include "HydroGPU/Solver/EulerRoe.h"
 #include "HydroGPU/Solver/SRHDRoe.h"
+#include "HydroGPU/Solver/MHDBurgers.h"
 #include "HydroGPU/Solver/MHDRoe.h"
 #include "HydroGPU/Solver/ADMRoe.h"
 #include "Profiler/Profiler.h"
@@ -171,6 +172,8 @@ void HydroGPUApp::init() {
 		solver = std::make_shared<HydroGPU::Solver::EulerRoe>(*this);
 	} else if (solverName == "SRHDRoe") {
 		solver = std::make_shared<HydroGPU::Solver::SRHDRoe>(*this);	//broken
+	} else if (solverName == "MHDBurgers") {
+		solver = std::make_shared<HydroGPU::Solver::MHDBurgers>(*this);	//broken
 	} else if (solverName == "MHDRoe") {
 		solver = std::make_shared<HydroGPU::Solver::MHDRoe>(*this);	//broken
 	} else if (solverName == "ADMRoe") {

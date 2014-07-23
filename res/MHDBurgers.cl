@@ -1,15 +1,19 @@
 #include "HydroGPU/Shared/Common.h"
 
 /*
-Euler Burgers:
- 
-  d [ rho ]    d    [ rho ]     d [ 0 ]
-  - [rho v] +  - (v [rho v]) +  - [ P ] = 0
- dt [rho e]   dx    [rho e]    dx [P v]
+MHD Burgers:
 
-the 1st and 2nd terms are integrated via the flux integration
-the 1st and 3rd terms are integrated via the pressure integration
-	that is split into first the momentum and then the work diffusion 
+    [  rho  ]             [  rho  ]              [    0   ]    [         0        ]
+  d [rho v_i]     d       [rho v_i]      d       [  -B_i  ]    [     dP* / dx_i   ]
+ -- [  B_i  ] + ---- (v_j [  B_i  ]) + ---- (B_j [  -v_i  ]) + [         0        ] = 0
+ dt [   E   ]   dx_j      [   E   ]    dx_j      [-v_k B_k]    [ d(P* v_j) / dx_j ]
+
+for E = rho e + 1/2 B^2
+e = total specific energy = eKin + eInt = 1/2 v^2 + eInt
+and P* = P + 1/2 B^2
+P = (gamma - 1) rho eInt
+
+Looks a lot like the Euler Burgers breakdown, except with the added B advection term
 */
 
 //based on max inter-cell wavespeed
@@ -33,34 +37,42 @@ __kernel void calcCFL(
 		return;
 	}
 
-	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
-	real energyTotal = stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index];
-#if DIM == 1
-	real velocity = stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index] / density;
-#elif DIM == 2
-	real2 velocity = (real2)(stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index], stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index]) / density;
-#elif DIM == 3
-	real4 velocity = (real4)(
-		stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index],
-		stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index],
-		stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * index],
-		0.f) / density;
-#endif
-	real specificEnergyTotal = energyTotal / density;
-	real specificEnergyKinetic = .5f * dot(velocity, velocity);
-	real specificEnergyPotential = potentialBuffer[index];
-	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
+	const __global real* state = stateBuffer + NUM_STATES * index;
 
-	real speedOfSound = sqrt(gamma * (gamma - 1.f) * specificEnergyInternal);
-#if DIM == 1
-	real result = dx[0] / (speedOfSound + fabs(velocity));
-#else
-	real result = dx[0] / (speedOfSound + fabs(velocity[0]));
+	real density = state[STATE_DENSITY];
+	real energyTotal = state[STATE_ENERGY_TOTAL];
+	real4 velocity = (real4)(state[STATE_MOMENTUM_X], state[STATE_MOMENTUM_Y], state[STATE_MOMENTUM_Z], 0.f) / density;
+	real4 magneticField = (real4)(state[STATE_MAGNETIC_FIELD_X], state[STATE_MAGNETIC_FIELD_Y], state[STATE_MAGNETIC_FIELD_Z], 0.f);
+	
+	real velocitySq = dot(velocity, velocity);
+	real magneticFieldSq = dot(magneticField, magneticField);
+	
+	real specificEnergyTotal = energyTotal / density;
+	real specificEnergyKinetic = .5f * velocitySq;
+	real specificEnergyMagnetic = .5f * magneticFieldSq;
+	real specificEnergyPotential = potentialBuffer[index];
+	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential - specificEnergyMagnetic;
+
+	real speedOfSoundSq = gamma * (gamma - 1.f) * specificEnergyInternal;
+
+	//use fast speed for timestep
+	real tmp1 = speedOfSoundSq + magneticFieldSq / density;
+	
+	//subtract magnetic field along normal
+	//real discr = tmp1 * tmp1 - 4.f * speedOfSoundSq * magneticFieldXSq / density;
+	//real tmp2 = sqrt(discr);
+	//real fastSpeedSq = .5f * (tmp1 + tmp2);
+	//...or assume it to be zeor
+	real fastSpeedSq = tmp1;	
+	
+	real fastSpeed = sqrt(fastSpeedSq);
+
+	real result = dx[0] / (fastSpeed + fabs(velocity[0]));
 	for (int side = 1; side < DIM; ++side) {
-		real dum = dx[side] / (speedOfSound + fabs(velocity[side]));
+		real dum = dx[side] / (fastSpeed + fabs(velocity[side]));
 		result = min(result, dum);
 	}
-#endif
+	
 	cflBuffer[index] = cfl * result;
 }
 
@@ -95,7 +107,7 @@ __kernel void calcInterfaceVelocity(
 	}
 }
 
-__kernel void calcFlux(
+__kernel void calcVelocityFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* interfaceVelocityBuffer,
@@ -162,6 +174,104 @@ __kernel void calcFlux(
 	}
 }
 
+__kernel void calcInterfaceMagneticField(
+	__global real* interfaceMagneticFieldBuffer,
+	const __global real* stateBuffer)
+{
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 1 
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 1
+#endif
+	) {
+		return;
+	}
+	int index = INDEXV(i);
+	int indexR = index;
+
+	for (int side = 0; side < DIM; ++side) {
+		int indexL = index - stepsize[side];
+		
+		real magneticFieldL = stateBuffer[side+STATE_MAGNETIC_FIELD_X + NUM_STATES * indexL];
+		real magneticFieldR = stateBuffer[side+STATE_MAGNETIC_FIELD_X + NUM_STATES * indexR];
+		
+		interfaceMagneticFieldBuffer[side + DIM * index] = .5f * (magneticFieldL + magneticFieldR);
+	}
+}
+
+__kernel void calcMagneticFieldFlux(
+	__global real* fluxBuffer,
+	const __global real* stateBuffer,
+	const __global real* interfaceMagneticFieldBuffer,
+	const __global real* dtBuffer)
+{
+	real dt = dtBuffer[0];
+	real4 dt_dx = dt / dx;
+	
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 1 
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 1
+#endif
+#endif
+	) {
+		return;
+	}
+	int index = INDEXV(i);
+	int indexR = index;
+
+	for (int side = 0; side < DIM; ++side) {	
+		int indexL = index - stepsize[side];
+		int indexL2 = indexL - stepsize[side];
+		int indexR2 = index + stepsize[side];
+
+		real interfaceMagneticField = interfaceMagneticFieldBuffer[side + DIM * index];
+		//real theta = step(0.f, interfaceMagneticField);
+	
+		for (int j = 0; j < NUM_STATES; ++j) {
+			real stateR2 = stateBuffer[j + NUM_STATES * indexR2];
+			real stateR = stateBuffer[j + NUM_STATES * indexR];
+			real stateL = stateBuffer[j + NUM_STATES * indexL];
+			real stateL2 = stateBuffer[j + NUM_STATES * indexL2];
+			
+			real deltaStateL = stateL - stateL2;
+			real deltaState = stateR - stateL;
+			real deltaStateR = stateR2 - stateR;
+			
+			//3D case crashes?
+			//real flux = mix(stateR, stateL, theta) * interfaceMagneticField;
+
+			//this line crashes when compiling on my Intel HD4000 only for the 3D case
+			//real stateSlopeRatio = mix(deltaStateR, deltaStateL, theta) / deltaState;
+			//...but writing it out explicitly works fine
+			real stateSlopeRatio;
+			real flux;
+			if (interfaceMagneticField >= 0.f) {
+				stateSlopeRatio = deltaStateL / deltaState;
+				flux = stateL * interfaceMagneticField;
+			} else {
+				stateSlopeRatio = deltaStateR / deltaState;
+				flux = stateR * interfaceMagneticField;
+			}
+
+			//2nd order
+			real phi = slopeLimiter(stateSlopeRatio);
+			real delta = phi * deltaState;
+			flux += delta * .5f * fabs(interfaceMagneticField) * (1.f - fabs(interfaceMagneticField * dt_dx[side])) / (float)DIM;
+			
+			fluxBuffer[j + NUM_STATES * (side + DIM * index)] = flux;
+		}
+	}
+}
+
+//the rest matches Burgers
+//... except 1/2 B^2 is added to pressure
+
 __kernel void calcFluxDeriv(
 	__global real* derivBuffer,	//dstate/dt
 	const __global real* fluxBuffer)
@@ -210,24 +320,19 @@ __kernel void computePressure(
 	}
 	int index = INDEXV(i);
 
-	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
-	real energyTotal = stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index];
-#if DIM == 1
-	real velocity = stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index] / density;
-#elif DIM == 2
-	real2 velocity = (real2)(stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index], stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index]) / density;
-#elif DIM == 3
-	real4 velocity = (real4)(
-		stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index],
-		stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index],
-		stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * index],
-		0.f) / density;
-#endif
+	const __global real* state = stateBuffer + NUM_STATES * index;
+
+	real density = state[STATE_DENSITY];
+	real energyTotal = state[STATE_ENERGY_TOTAL];
+	real4 velocity = (real4)(state[STATE_MOMENTUM_X], state[STATE_MOMENTUM_Y], state[STATE_MOMENTUM_Z], 0.f) / density;
+	real4 magneticField = (real4)(state[STATE_MAGNETIC_FIELD_X], state[STATE_MAGNETIC_FIELD_Y], state[STATE_MAGNETIC_FIELD_Z], 0.f);
+	
 	real specificEnergyTotal = energyTotal / density;
 	real specificEnergyKinetic = .5f * dot(velocity, velocity);
+	real specificEnergyMagnetic = .5f * dot(magneticField, magneticField);
 	real specificEnergyPotential = potentialBuffer[index];
-	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
-	real pressure = (gamma - 1.f) * density * specificEnergyInternal;
+	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential - specificEnergyMagnetic;
+	real pressure = (gamma - 1.f) * density * specificEnergyInternal + specificEnergyMagnetic;
 	//von Neumann-Richtmyer artificial viscosity
 	real deltaVelocitySq = 0.f;
 	for (int side = 0; side < DIM; ++side) {

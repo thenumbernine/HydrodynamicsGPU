@@ -1,5 +1,6 @@
 /*
 using the following:
+"A Numerical Solution of Hyperbolic Partial Differential Equations", Trangenstein, 2007
 "A Solution-Adaptive Upwind Scheme for Ideal Magnetohydrodynamics" by Powell, Roe, Linde, Gombosi, Zeeuw, 1999
 "A multidimensional upwind scheme for magnetohydrodynamics" by Falle, Komissarov, Joarder, 1998
 */

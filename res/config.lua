@@ -9,11 +9,12 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'EulerHLL' -- needs 2nd order support.
 --solverName = 'EulerRoe'
 --solverName = 'SRHDRoe' -- in the works
-solverName = 'MHDRoe' -- in the works
+solverName = 'MHDBurgers'
+--solverName = 'MHDRoe' -- in the works
 --solverName = 'ADMRoe' -- exploding
 
 
---slopeLimiterName = 'DonorCell'
+slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'LaxWendroff'
 --slopeLimiterName = 'BeamWarming'	-- not behaving correctly
 --slopeLimiterName = 'Fromm'		-- not behaving correctly
@@ -31,7 +32,7 @@ solverName = 'MHDRoe' -- in the works
 --slopeLimiterName = 'VanAlbada2'
 --slopeLimiterName = 'VanLeer'		-- not behaving correctly
 --slopeLimiterName = 'MonotizedCentral'
-slopeLimiterName = 'Superbee'
+--slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 

@@ -1,40 +1,42 @@
 #pragma once
 
 #include "HydroGPU/Solver/Solver.h"
-#include "Tensor/Vector.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
 namespace Solver {
 
-struct EulerBurgers : public Solver {
+struct MHDBurgers : public Solver {
 	typedef Solver Super;
-
+	MHDBurgers(HydroGPUApp& app);
 protected:
+
 	cl::Buffer interfaceVelocityBuffer;
+	cl::Buffer interfaceMagneticFieldBuffer;
 	cl::Buffer fluxBuffer;
 	cl::Buffer pressureBuffer;
 
 	cl::Kernel calcCFLKernel;
 	cl::Kernel calcInterfaceVelocityKernel;
-	cl::Kernel calcFluxKernel;
+	cl::Kernel calcVelocityFluxKernel;
+	cl::Kernel calcInterfaceMagneticFieldKernel;
+	cl::Kernel calcMagneticFieldFluxKernel;
 	cl::Kernel calcFluxDerivKernel;
 	cl::Kernel computePressureKernel;
 	cl::Kernel diffuseMomentumKernel;
 	cl::Kernel diffuseWorkKernel;
 	
-	EventProfileEntry calcCFLEvent;
-	EventProfileEntry calcInterfaceVelocityEvent;
-	EventProfileEntry calcFluxEvent;
-	EventProfileEntry computePressureEvent;
-	EventProfileEntry diffuseMomentumEvent;
-	EventProfileEntry diffuseWorkEvent;
+	//matches MHDRoe -- belongs in the MHDEquation class maybe?
+	cl::Kernel initVariablesKernel;
 
 public:
-	EulerBurgers(HydroGPUApp &app);
-	virtual void init();	
-protected:
+	virtual void init();
+
+protected:	
+	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();
+	virtual void resetState();
+	
 	virtual void calcTimestep();
 	virtual void step();
 };
