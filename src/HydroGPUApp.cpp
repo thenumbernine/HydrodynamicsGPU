@@ -6,6 +6,7 @@
 #include "HydroGPU/Solver/MHDBurgers.h"
 #include "HydroGPU/Solver/MHDRoe.h"
 #include "HydroGPU/Solver/ADMRoe.h"
+#include "HydroGPU/Solver/BSSNOKRoe.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -171,13 +172,15 @@ void HydroGPUApp::init() {
 	} else if (solverName == "EulerRoe") {
 		solver = std::make_shared<HydroGPU::Solver::EulerRoe>(*this);
 	} else if (solverName == "SRHDRoe") {
-		solver = std::make_shared<HydroGPU::Solver::SRHDRoe>(*this);	//broken
+		solver = std::make_shared<HydroGPU::Solver::SRHDRoe>(*this);	//FIXME
 	} else if (solverName == "MHDBurgers") {
-		solver = std::make_shared<HydroGPU::Solver::MHDBurgers>(*this);	//broken
+		solver = std::make_shared<HydroGPU::Solver::MHDBurgers>(*this);	//FIXME
 	} else if (solverName == "MHDRoe") {
-		solver = std::make_shared<HydroGPU::Solver::MHDRoe>(*this);	//broken
+		solver = std::make_shared<HydroGPU::Solver::MHDRoe>(*this);	//FIXME
 	} else if (solverName == "ADMRoe") {
 		solver = std::make_shared<HydroGPU::Solver::ADMRoe>(*this);
+	} else if (solverName == "BSSNOKRoe") {
+		solver = std::make_shared<HydroGPU::Solver::BSSNOKRoe>(*this);	//FIXME
 	} else {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}

@@ -17,10 +17,12 @@ __kernel void initVariables(
 	state[STATE_ENERGY_TOTAL] = totalEnergyDensity + magneticEnergyDensity;
 }
 
-//TODO 
-//separate the dx/dt calculation from integrate flux
-//incorporate this with the dx/dt calcluation
-//and then use that for arbitrary explicit integrators
+/*
+TODO 
+separate the dx/dt calculation from integrate flux
+incorporate this with the dx/dt calcluation
+and then use that for arbitrary explicit integrators
+*/
 __kernel void addMHDSource(
 	__global real* derivBuffer,
 	const __global real* stateBuffer)

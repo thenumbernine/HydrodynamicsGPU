@@ -9,8 +9,8 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'EulerHLL' -- needs 2nd order support.
 --solverName = 'EulerRoe'
 --solverName = 'SRHDRoe' -- in the works
-solverName = 'MHDBurgers'
---solverName = 'MHDRoe' -- in the works
+--solverName = 'MHDBurgers'
+solverName = 'MHDRoe' -- in the works
 --solverName = 'ADMRoe' -- exploding
 
 

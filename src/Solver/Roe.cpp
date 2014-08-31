@@ -63,9 +63,7 @@ std::vector<std::string> Roe::getProgramSources() {
 }
 
 void Roe::initStep() {
-	printf("initStep\n");
 	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize, nullptr, &calcEigenBasisEvent.clEvent);
-	printf("initStep done\n");
 }
 
 void Roe::calcTimestep() {

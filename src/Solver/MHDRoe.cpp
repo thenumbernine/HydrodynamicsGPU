@@ -35,8 +35,13 @@ void MHDRoe::resetState() {
 }
 
 void MHDRoe::calcDeriv(cl::Buffer derivBuffer) {
-	addMHDSourceKernel.setArg(0, derivBuffer);
-	commands.enqueueNDRangeKernel(addMHDSourceKernel, offsetNd, globalSize, localSize);
+/*
+some MHD equations, like the 1998 and 1999 citations in MHDRoe.cl, use a source term to ensure the system is divergence-free.
+I think my latest attempt was using Trangenstein, which only mentions gravity in the source term.
+"it is common to assume B is divergence-free".  If we are assuming it, are we also enforcing it?
+*/
+//	addMHDSourceKernel.setArg(0, derivBuffer);
+//	commands.enqueueNDRangeKernel(addMHDSourceKernel, offsetNd, globalSize, localSize);
 
 	Super::calcDeriv(derivBuffer);
 }
