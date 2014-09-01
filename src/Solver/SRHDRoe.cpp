@@ -17,23 +17,25 @@ void SRHDRoe::init() {
 
 	int volume = getVolume();
 	primitiveBuffer = clAlloc(sizeof(real) * numStates() * volume);
+
+	initVariablesKernel = cl::Kernel(program, "initVariables");
+	app.setArgs(initVariablesKernel, stateBuffer, primitiveBuffer);
+	
+	convertToTexKernel.setArg(0, primitiveBuffer);
+	
+	//app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, potentialBuffer);
+	calcEigenBasisKernel.setArg(0, eigenvaluesBuffer);
+	calcEigenBasisKernel.setArg(1, eigenvectorsBuffer);
+	calcEigenBasisKernel.setArg(2, eigenvectorsInverseBuffer);
+	calcEigenBasisKernel.setArg(3, primitiveBuffer);
+	calcEigenBasisKernel.setArg(4, stateBuffer);
+	calcEigenBasisKernel.setArg(5, potentialBuffer);
 }
 
 std::vector<std::string> SRHDRoe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
 	sources.push_back(Common::File::read("SRHDRoe.cl"));
 	return sources;
-}
-
-void SRHDRoe::initKernels() {
-	Super::initKernels();
-	
-	initVariablesKernel = cl::Kernel(program, "initVariables");
-	app.setArgs(initVariablesKernel, stateBuffer, primitiveBuffer);
-	
-	convertToTexKernel.setArg(0, primitiveBuffer);
-	
-	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, potentialBuffer);
 }
 
 void SRHDRoe::resetState() {

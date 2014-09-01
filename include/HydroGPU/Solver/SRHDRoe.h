@@ -29,8 +29,7 @@ protected:
 	*/
 	cl::Kernel initVariablesKernel;
 
-	virtual void init();			//called first
-	virtual void initKernels();		//called second
+	virtual void init();			//called last 
 
 	/*
 	super writes the newtonian state variables

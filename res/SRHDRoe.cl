@@ -84,6 +84,8 @@ void calcEigenBasisSide(
 	real lorentzFactorSq = lorentzFactor * lorentzFactor;
 	real4 relativisticVelocity = (roeWeightL * relativisticVelocityL + roeWeightR * relativisticVelocityR) * roeWeightNormalization;	//ui
 	real pressureOverProperDensityEnthalpy = (roeWeightL * pressureOverProperDensityEnthalpyL + roeWeightR * pressureOverProperDensityEnthalpyR) * roeWeightNormalization;	//p / (rho h)
+	real internalSpecificEnthalpy = (internalSpecificEnthalpyL * roeWeightL + internalSpecificEnthalpyR * roeWeightR) * roeWeightNormalization; 
+	real internalSpecificEnthalpySq = internalSpecificEnthalpy * internalSpecificEnthalpy;
 	real speedOfSoundSq = gamma * pressureOverProperDensityEnthalpy;
 	real speedOfSound = sqrt(speedOfSoundSq);
 	//how do we get 'h' from the Roe-weighted variables?
@@ -127,7 +129,7 @@ void calcEigenBasisSide(
 
 	real Aminus = (1.f - newtonianVelocity.x * newtonianVelocity.x) / (1.f * newtonianVelocity.x * eigenvalues[0]);
 	real Aplus = (1.f - newtonianVelocity.x * newtonianVelocity.x) / (1.f * newtonianVelocity.x * eigenvalues[DIM+1]);
-	
+
 	//TOOD how do you get h from P / (rho h) ?
 	real K = internalSpecificEnthalpy;
 
@@ -150,14 +152,14 @@ void calcEigenBasisSide(
 	eigenvectors[3 + NUM_STATES * 1] = newtonianVelocity.z;
 #endif
 #endif
-	eigenvectors[(DIM+1) + NUM_STATES * 1] = 1.f - K / (internalSpecificEnthalpy * lorentzFator);
+	eigenvectors[(DIM+1) + NUM_STATES * 1] = 1.f - K / (internalSpecificEnthalpy * lorentzFactor);
 	//mid col (tangent A)
 #if DIM > 1
 	eigenvectors[0 + NUM_STATES * 2] = lorentzFactor * newtonianVelocity.y;
 	eigenvectors[1 + NUM_STATES * 2] = 2.f * internalSpecificEnthalpy * lorentzFactorSq * newtonianVelocity.x * newtonianVelocity.y;
 	eigenvectors[2 + NUM_STATES * 2] = internalSpecificEnthalpy * (1.f + 2.f * lorentzFactorSq * newtonianVelocity.y * newtonianVelocity.y);
 #if DIM > 2
-	eigenvectors[3 + NUM_STATES * 2] = 2.f * internalSpecificEnthalpy * lorentzFatorSq * newtonianVelocity.y * newtonianVelocity.z;
+	eigenvectors[3 + NUM_STATES * 2] = 2.f * internalSpecificEnthalpy * lorentzFactorSq * newtonianVelocity.y * newtonianVelocity.z;
 #endif
 	eigenvectors[(DIM+1) + NUM_STATES * 2] = (2.f * internalSpecificEnthalpy * lorentzFactorSq - lorentzFactor) * newtonianVelocity.y;
 #endif

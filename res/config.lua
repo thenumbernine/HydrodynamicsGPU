@@ -7,14 +7,14 @@ local configurations = require 'configurations'	--holds catalog of configuration
 
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL' -- needs 2nd order support.
---solverName = 'EulerRoe'
+solverName = 'EulerRoe'
 --solverName = 'SRHDRoe' -- in the works
 --solverName = 'MHDBurgers'
-solverName = 'MHDRoe' -- in the works
+--solverName = 'MHDRoe' -- in the works
 --solverName = 'ADMRoe' -- exploding
 
 
-slopeLimiterName = 'DonorCell'
+--slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'LaxWendroff'
 --slopeLimiterName = 'BeamWarming'	-- not behaving correctly
 --slopeLimiterName = 'Fromm'		-- not behaving correctly
@@ -32,7 +32,7 @@ slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'VanAlbada2'
 --slopeLimiterName = 'VanLeer'		-- not behaving correctly
 --slopeLimiterName = 'MonotizedCentral'
---slopeLimiterName = 'Superbee'
+slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
@@ -41,7 +41,7 @@ integratorName = 'ForwardEuler'
 
 
 useGPU = true
-maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+--maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -72,15 +72,15 @@ vaccuumPermeability = 1e-1	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^
 size = {64, 64, 64}
 vectorFieldResolution = 16
 --]]
---[[ 2D
-size = {256, 256}
+-- [[ 2D
+size = {512, 512}
 --]]
--- [[ 1D
+--[[ 1D
 size = {1024}
 displayScale = .25
 --]]
 
 
 -- see initState for a list of options
-configurations['Brio-Wu']()
+configurations['Double Mach Reflection']()
 

@@ -213,6 +213,26 @@ return {
 		end
 	end,
 
+	-- http://www.astro.virginia.edu/VITA/ATHENA/dmr.html
+	['Double Mach Reflection'] = function()
+		xmin[1] = 0
+		xmax[1] = 4
+		xmin[2] = 0
+		xmax[2] = 1
+		boundaryMethods[1] = 'FREEFLOW'
+		boundaryMethods[2] = 'MIRROR'
+		local x0 = 1/6
+		initState = function(x,y,z)
+			local lhs = x < x0 + y * (1/3)^(1/2)
+			return buildStateEuler{
+				density = lhs and 8 or 1.4,
+				velocityX = lhs and 8.25 * math.cos(math.rad(30)) or 0,
+				velocityY = lhs and -8.25 * math.cos(math.rad(30)) or 0,
+				pressure = lhs and 116.5 or 1,
+			}
+		end
+	end,
+
 	-- gravity potential test - equilibrium - Rayleigh-Taylor
 
 	['self-gravitation test 1'] = function()
