@@ -13,17 +13,7 @@ struct MHDRoe : public Roe {
 	typedef Roe Super;
 	MHDRoe(HydroGPUApp& app);
 protected:
-	
-	//matches MHDBurgers -- belongs in the MHDEquation class maybe?
-	cl::Kernel initVariablesKernel;
-	
-	cl::Kernel addMHDSourceKernel;
-	
-	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();
-	virtual void resetState();
-
-	virtual void calcDeriv(cl::Buffer derivBuffer);
 };
 
 }

@@ -173,7 +173,7 @@ void calcEigenBasisSide(
 	//matrices are stored as A_ij = A[i + height * j]
 #ifndef DONT_EVOLVE_MAGNETIC_FIELD
 	if (fabs(magneticField.x) < 1e-7f && magneticFieldT < 1e-7f) {	//magnetic field is empty 
-#endif	
+#endif
 if (index == DEBUG_INDEX) {
 printf("magnetic field n=0, t=0\n");
 }	

@@ -2,7 +2,15 @@ return {
 	
 	
 	-- Euler equation initial states
-	
+
+	['Flat'] = function()
+		initState = function(x,y,z)
+			return buildStateEuler{
+				density = 1,
+				pressure = 1,
+			}
+		end
+	end,
 	
 	['1D Advect Wave'] = function()
 		initState = function(x,y,z)
