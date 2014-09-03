@@ -7,14 +7,13 @@ __kernel void initVariables(
 	int index = INDEXV(i);
 	__global real* state = stateBuffer + NUM_STATES * index;
 	//comes in rho, mx, my, mz, ETotal, bx, by, bz
-	real totalEnergyDensity = state[4];	//ETotal = density * (eKinetic + eInternal + ePotential)
+	real totalEnergyDensity = state[4];
 	real4 magneticField = (real4)(state[5], state[6], state[7], 0.f);
-	real magneticEnergyDensity = .5f * dot(magneticField, magneticField) / vaccuumPermeability;
-	//goes out
+	//goes out rho, mx, my, mz, bx, by, bz, ETotal
 	state[STATE_MAGNETIC_FIELD_X] = magneticField.x;
 	state[STATE_MAGNETIC_FIELD_Y] = magneticField.y;
 	state[STATE_MAGNETIC_FIELD_Z] = magneticField.z;
-	state[STATE_ENERGY_TOTAL] = totalEnergyDensity + magneticEnergyDensity;
+	state[STATE_ENERGY_TOTAL] = totalEnergyDensity;
 }
 
 /*

@@ -16,7 +16,21 @@ local function getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFi
 end
 
 local function primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ, potentialEnergy)
-	return density, velocityX * density, velocityY * density, velocityZ * density, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ, potentialEnergy
+	return 
+		-- density
+		density,
+		-- momentum
+		velocityX * density,
+		velocityY * density,
+		velocityZ * density,
+		-- total energy
+		energyTotal,
+		-- magnetic field
+		magneticFieldX,
+		magneticFieldY,
+		magneticFieldZ,
+		-- potential energy
+		potentialEnergy
 end
 
 --[=[
@@ -25,6 +39,8 @@ args:
 	density (required)
 	velocityX, velocityY (optional) velocity
 	noise (optional) noise to add to velocity
+	magneticFieldX, magneticFieldY, magneticFieldZ (optional) magnetic field
+	magneticFieldNoise (optional) noise to add to magnetic field
 	pressure				\_ one of these two
 	specificEnergyInternal	/
 	potentialEnergy (optional)
