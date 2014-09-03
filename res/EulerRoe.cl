@@ -42,7 +42,7 @@ void calcEigenBasisSide(
 	real energyPotentialL = potentialBuffer[indexPrev];
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
-	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
+	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;		//<- should I remove potential energy from hTotal?
 	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];

@@ -41,7 +41,7 @@ __kernel void convertToTex(
 
 #ifdef MHD
 	
-#if 0
+#if 1
 	real4 magneticField = (real4)(state[STATE_MAGNETIC_FIELD_X], state[STATE_MAGNETIC_FIELD_Y], state[STATE_MAGNETIC_FIELD_Z], 0.f);
 	real magneticFieldMagn = length(magneticField);
 #else

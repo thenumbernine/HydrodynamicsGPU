@@ -27,6 +27,8 @@ Powell 1999 also doesn't state that "a" is the speed of sound.  Browsing through
 
 #include "HydroGPU/Shared/Common.h"
 
+#define DONT_EVOLVE_MAGNETIC_FIELD
+
 #if NUM_STATES != 8
 #error MHD expects 8 state variables
 #endif
@@ -110,10 +112,12 @@ void calcEigenBasisSide(
 	real totalPlasmaEnergyDensityL = stateL[STATE_ENERGY_TOTAL];
 	real totalHydroEnergyDensityL = totalPlasmaEnergyDensityL - magneticEnergyDensityL;
 	real kineticEnergyDensityL = .5f * densityL * dot(velocityL, velocityL);
-	real potentialEnergyDensityL = densityL * potentialBuffer[indexPrev];
+	real potentialEnergyL = potentialBuffer[indexPrev];
+	real potentialEnergyDensityL = densityL * potentialEnergyL; 
 	real internalEnergyDensityL = totalHydroEnergyDensityL - kineticEnergyDensityL - potentialEnergyDensityL;
 	real pressureL = gammaMinusOne * internalEnergyDensityL;
-	real enthalpyTotalL = (internalEnergyDensityL + pressureL)/densityL + .5f * dot(velocityL,velocityL);
+	real enthalpyTotalL = (totalHydroEnergyDensityL + pressureL) / densityL;	//should enthalpy total also include magnetic energy?
+	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
 	real4 velocityR = VELOCITY(stateR);
@@ -122,17 +126,22 @@ void calcEigenBasisSide(
 	real totalPlasmaEnergyDensityR = stateR[STATE_ENERGY_TOTAL];
 	real totalHydroEnergyDensityR = totalPlasmaEnergyDensityR - magneticEnergyDensityR;
 	real kineticEnergyDensityR = .5f * densityR * dot(velocityR, velocityR);
-	real potentialEnergyDensityR = densityR * potentialBuffer[index];
+	real potentialEnergyR = potentialBuffer[index];
+	real potentialEnergyDensityR = densityR * potentialEnergyR;
 	real internalEnergyDensityR = totalHydroEnergyDensityR - kineticEnergyDensityR - potentialEnergyDensityR;
 	real pressureR = gammaMinusOne * internalEnergyDensityR;
-	real enthalpyTotalR = (internalEnergyDensityR + pressureR)/densityR + .5f * dot(velocityR,velocityR);
+	real enthalpyTotalR = (totalHydroEnergyDensityR + pressureR) / densityR;
+	real roeWeightR = sqrt(densityR);
 
 	//3.5.2 "In this paper, a simple arithmetic averaging of the primitive variables is done to compute the interface state."
-	real density = .5f * (densityL + densityR);
-	real4 velocity = .5f * (velocityL + velocityR);
-	real4 magneticField = .5f * (magneticFieldL + magneticFieldR);
-	real pressure = .5f * (pressureL + pressureR);
-	real enthalpyTotal = .5f * (enthalpyTotalL + enthalpyTotalR);
+	//but while I'm solving the degeneracy case, I'll use Roe weighting
+	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
+	real4 velocity = (velocityL * roeWeightL + velocityR * roeWeightR) * roeWeightNormalization;
+	real4 magneticField = (magneticFieldL * roeWeightL + magneticFieldR * roeWeightR) * roeWeightNormalization;
+	real pressure = (pressureL * roeWeightL + pressureR * roeWeightR) * roeWeightNormalization;
+	real enthalpyTotal = (enthalpyTotalL * roeWeightL + enthalpyTotalR * roeWeightR) * roeWeightNormalization;
+	real potentialEnergy = (potentialEnergyL * roeWeightL + potentialEnergyR * roeWeightR) * roeWeightNormalization;
+	real density = roeWeightL * roeWeightR;	//specific to Euler Roe weighting
 	
 #if DIM > 1
 	if (side == 1) {
@@ -150,9 +159,6 @@ void calcEigenBasisSide(
 #endif
 
 	real velocitySq = dot(velocity, velocity);
-	real sqrtDensity = sqrt(density);
-	real speedOfSound = sqrt(gamma * pressure / density);
-	real speedOfSoundSq = speedOfSound * speedOfSound;
 	
 	real magneticFieldSq = dot(magneticField, magneticField);
 	real magneticFieldXSq = magneticField.x * magneticField.x;
@@ -165,20 +171,23 @@ void calcEigenBasisSide(
 #define DEBUG_INDEX		-1	//512
 
 	//matrices are stored as A_ij = A[i + height * j]
-	
+#ifndef DONT_EVOLVE_MAGNETIC_FIELD
 	if (fabs(magneticField.x) < 1e-7f && magneticFieldT < 1e-7f) {	//magnetic field is empty 
-	
+#endif	
 if (index == DEBUG_INDEX) {
 printf("magnetic field n=0, t=0\n");
 }	
-		
+
+		real speedOfSoundSq = (enthalpyTotal - .5f * velocitySq - potentialEnergy) * (gamma - 1.f);
+		real speedOfSound = sqrt(speedOfSoundSq);
+
 		eigenvalues[0] = velocity.x - speedOfSound;
 		eigenvalues[1] = velocity.x;
 		eigenvalues[2] = velocity.x;
 		eigenvalues[3] = velocity.x;
-		eigenvalues[4] = velocity.x;
-		eigenvalues[5] = velocity.x;
-		eigenvalues[6] = velocity.x;
+		eigenvalues[4] = 0.f;
+		eigenvalues[5] = 0.f;
+		eigenvalues[6] = 0.f;
 		eigenvalues[7] = velocity.x + speedOfSound;
 
 		//slow
@@ -327,9 +336,13 @@ printf("magnetic field n=0, t=0\n");
 		eigenvectorsInverse[7 + NUM_STATES * 5] = 0.f;
 		eigenvectorsInverse[7 + NUM_STATES * 6] = 0.f;
 		eigenvectorsInverse[7 + NUM_STATES * 7] = (gamma - 1.f) * invDenom;
-
+#ifndef DONT_EVOLVE_MAGNETIC_FIELD
 	} else {
+	
+		real speedOfSound = sqrt(gamma * pressure / density);
+		real speedOfSoundSq = speedOfSound * speedOfSound;
 
+		real sqrtDensity = sqrt(density);
 		real AlfvenSpeed = fabs(magneticField.x) / sqrtDensity;
 		real starSpeedSq = .5f * (speedOfSoundSq + magneticFieldSq / density);
 		real discr = starSpeedSq * starSpeedSq - speedOfSoundSq * magneticFieldXSq / density;
@@ -681,6 +694,7 @@ printf("magnetic field in n and t\n");
 		printf("eigenbasis error %f\n", totalError);
 	}
 #endif
+#endif	//DONT_EVOLVE_MAGNETIC_FIELD
 
 #if DIM > 1
 	if (side == 1) {
