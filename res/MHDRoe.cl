@@ -27,7 +27,7 @@ Powell 1999 also doesn't state that "a" is the speed of sound.  Browsing through
 
 #include "HydroGPU/Shared/Common.h"
 
-#define DONT_EVOLVE_MAGNETIC_FIELD
+//#define DONT_EVOLVE_MAGNETIC_FIELD
 
 #if NUM_STATES != 8
 #error MHD expects 8 state variables
@@ -176,7 +176,7 @@ void calcEigenBasisSide(
 #endif
 if (index == DEBUG_INDEX) {
 printf("magnetic field n=0, t=0\n");
-}	
+}
 
 		real speedOfSoundSq = (enthalpyTotal - .5f * velocitySq - potentialEnergy) * (gamma - 1.f);
 		real speedOfSound = sqrt(speedOfSoundSq);
@@ -359,17 +359,6 @@ printf("magnetic field n=0, t=0\n");
 			sgnBx = -1.f;
 		}
 
-		//eigenvalues
-
-		eigenvalues[0] = velocity.x - fastSpeed;
-		eigenvalues[1] = velocity.x - AlfvenSpeed;
-		eigenvalues[2] = velocity.x - slowSpeed;
-		eigenvalues[3] = velocity.x;
-		eigenvalues[4] = velocity.x;
-		eigenvalues[5] = velocity.x + slowSpeed;
-		eigenvalues[6] = velocity.x + AlfvenSpeed;
-		eigenvalues[7] = velocity.x + fastSpeed;
-
 		//eigenvectors
 		real eigenvectorsWrtPrimitives[NUM_STATES * NUM_STATES];
 		
@@ -382,8 +371,18 @@ if (index == DEBUG_INDEX) {
 printf("magnetic field n=0\n");
 }
 
-			//alfven speed is zero, slow speed is zero
-			//fast speed is almost the speed of sound ... with the tangent magnetism mixed in there
+			//eigenvalues
+			eigenvalues[0] = velocity.x - fastSpeed;
+			eigenvalues[1] = velocity.x;
+			eigenvalues[2] = velocity.x;
+			eigenvalues[3] = velocity.x;
+			eigenvalues[4] = velocity.x;
+			eigenvalues[5] = velocity.x;
+			eigenvalues[6] = velocity.x;
+			eigenvalues[7] = velocity.x + fastSpeed;
+
+			//Alfven speed is zero, slow speed is zero
+			//fast speed is a combination of the speed of sound and the tangent magnetic field 
 
 /*
 cf^2 = c*^2 + sqrt(c*^4 - c^2 Bx^2 / rho)
@@ -478,11 +477,94 @@ r_11 = rho
 			eigenvectorsWrtPrimitives[6 + NUM_STATES * 7] = magneticField.z;
 			eigenvectorsWrtPrimitives[7 + NUM_STATES * 7] = density * fastSpeedSq - magneticFieldTSq;
 
+			//fast row
+			eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 0] = 0;
+			eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 1] = -1.f / (2.f * fastSpeed);
+			eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 2] = 0.f;
+			eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 3] = 0.f;
+			eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 4] = 0.f;
+			eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 5] = magneticField.y / (2.f * density * fastSpeedSq);
+			eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 6] = magneticField.z / (2.f * density * fastSpeedSq);
+			eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 7] = 1.f / (2.f * density * fastSpeedSq); 
+			//row
+			eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 0] = 1.f;
+			eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 1] = 0.f;
+			eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 2] = 0.f;
+			eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 3] = 0.f;
+			eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 4] = 0.f;
+			eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 5] = -magneticField.y * (density * fastSpeedSq - magneticFieldTSq) / (density * speedOfSoundSq * fastSpeedSq);
+			eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 6] = -magneticField.z * (density * fastSpeedSq - magneticFieldTSq) / (density * speedOfSoundSq * fastSpeedSq);
+			eigenvectorsInverseWrtPrimitives[1 + NUM_STATES * 7] = -(density * fastSpeedSq - magneticFieldTSq) / (density * speedOfSoundSq * fastSpeedSq);
+			//row
+			eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 0] = 0.f;
+			eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 1] = 0.f;
+			eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 2] = 1.f;
+			eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 3] = 0.f;
+			eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 4] = 0.f;
+			eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 5] = 0.f;
+			eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 6] = 0.f;
+			eigenvectorsInverseWrtPrimitives[2 + NUM_STATES * 7] = 0.f;
+			//row
+			eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 0] = 0.f;
+			eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 1] = 0.f;
+			eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 2] = 0.f;
+			eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 3] = 1.f;
+			eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 4] = 0.f;
+			eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 5] = 0.f;
+			eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 6] = 0.f;
+			eigenvectorsInverseWrtPrimitives[3 + NUM_STATES * 7] = 0.f;
+			//row
+			eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 0] = 0.f;
+			eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 1] = 0.f;
+			eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 2] = 0.f;
+			eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 3] = 0.f;
+			eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 4] = 1.f;
+			eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 5] = 0.f;
+			eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 6] = 0.f;
+			eigenvectorsInverseWrtPrimitives[4 + NUM_STATES * 7] = 0.f;
+			//row
+			eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 0] = 0.f;
+			eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 1] = 0.f;
+			eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 2] = 0.f;
+			eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 3] = 0.f;
+			eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 4] = 0.f;
+			eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 5] = 1.f - magneticField.y * magneticField.y / (density * fastSpeedSq);
+			eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 6] = -magneticField.y * magneticField.z / (density * fastSpeedSq);
+			eigenvectorsInverseWrtPrimitives[5 + NUM_STATES * 7] = -magneticField.y / (density * fastSpeedSq);
+			//row
+			eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 0] = 0.f;
+			eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 1] = 0.f;
+			eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 2] = 0.f;
+			eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 3] = 0.f;
+			eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 4] = 0.f;
+			eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 5] = -magneticField.y * magneticField.z / (density * fastSpeedSq);
+			eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 6] = 1.f - magneticField.z * magneticField.z / (density * fastSpeedSq);
+			eigenvectorsInverseWrtPrimitives[6 + NUM_STATES * 7] = -magneticField.z / (density * fastSpeedSq);
+			//fast row
+			eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 0] = 0.f;
+			eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 1] = 1.f / (2.f * fastSpeed);
+			eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 2] = 0.f;
+			eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 3] = 0.f;
+			eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 4] = 0.f;
+			eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 5] = magneticField.y / (2.f * density * fastSpeedSq);
+			eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 6] = magneticField.z / (2.f * density * fastSpeedSq);
+			eigenvectorsInverseWrtPrimitives[7 + NUM_STATES * 7] = 1.f / (2.f * density * fastSpeedSq);
+
 		} else {
 			
 if (index == DEBUG_INDEX) {
 printf("magnetic field in n and t\n");
 }
+			//eigenvalues
+			eigenvalues[0] = velocity.x - fastSpeed;
+			eigenvalues[1] = velocity.x - AlfvenSpeed;
+			eigenvalues[2] = velocity.x - slowSpeed;
+			eigenvalues[3] = velocity.x;
+			eigenvalues[4] = velocity.x;
+			eigenvalues[5] = velocity.x + slowSpeed;
+			eigenvalues[6] = velocity.x + AlfvenSpeed;
+			eigenvalues[7] = velocity.x + fastSpeed;
+			
 			//fast magnetoacoustic col 
 			eigenvectorsWrtPrimitives[0 + NUM_STATES * 0] = (density * fastSpeedSq - magneticFieldSq) / speedOfSoundSq;
 			eigenvectorsWrtPrimitives[1 + NUM_STATES * 0] = -fastSpeed + magneticFieldXSq / (density * fastSpeed);
@@ -555,9 +637,9 @@ printf("magnetic field in n and t\n");
 			eigenvectorsWrtPrimitives[5 + NUM_STATES * 7] = magneticField.y;
 			eigenvectorsWrtPrimitives[6 + NUM_STATES * 7] = magneticField.z;
 			eigenvectorsWrtPrimitives[7 + NUM_STATES * 7] = density * fastSpeedSq - magneticFieldSq;
-		}
 
-		invert8x8(eigenvectorsInverseWrtPrimitives, eigenvectorsWrtPrimitives);
+			invert8x8(eigenvectorsInverseWrtPrimitives, eigenvectorsWrtPrimitives);
+		}
 
 		//for all but the no-magnetic-field case transform the eigenvectors by dw/du
 

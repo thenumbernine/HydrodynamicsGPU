@@ -212,7 +212,7 @@ void Solver::resetState() {
 				.call(3,9);	
 				//TODO multret and have each equation interpret the results
 				//ALSO TODO pass in pressure or internal energy rather than total energy, 
-				//and have each solver compute total energy itself (so magnetism can be ignored by non-MHD solvers)
+				//and have each solver compute total energy itself (so magnetic field can be ignored by non-MHD solvers)
 
 				real density = 0.f;
 				real momentumX = 0.f, momentumY = 0.f, momentumZ = 0.f;
