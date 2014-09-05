@@ -436,6 +436,8 @@ r_11 = rho
 			eigenvectorsWrtPrimitives[6 + NUM_STATES * 7] = magneticField.z;
 			eigenvectorsWrtPrimitives[7 + NUM_STATES * 7] = density * fastSpeedSq - magneticFieldTSq;
 
+
+
 			//fast row
 			eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 0] = 0;
 			eigenvectorsInverseWrtPrimitives[0 + NUM_STATES * 1] = -1.f / (2.f * fastSpeed);

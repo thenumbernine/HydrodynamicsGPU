@@ -33,9 +33,7 @@ public:
 	virtual void init();
 
 protected:	
-	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();
-	virtual void resetState();
 	
 	virtual void calcTimestep();
 	virtual void step();

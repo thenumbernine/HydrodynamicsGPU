@@ -60,23 +60,10 @@ void MHDBurgers::init() {
 	diffuseWorkKernel.setArg(2, pressureBuffer);
 }
 
-void MHDBurgers::initKernels() {
-	Super::initKernels();
-
-	//matches MHDRoe -- belongs in the MHDEquation class maybe?
-	initVariablesKernel = cl::Kernel(program, "initVariables");
-	app.setArgs(initVariablesKernel, stateBuffer);
-}
-
 std::vector<std::string> MHDBurgers::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
 	sources.push_back(Common::File::read("MHDBurgers.cl"));
 	return sources;
-}
-
-void MHDBurgers::resetState() {
-	Super::resetState();
-	commands.enqueueNDRangeKernel(initVariablesKernel, offsetNd, globalSize, localSize);
 }
 
 void MHDBurgers::calcTimestep() {
