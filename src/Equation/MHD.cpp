@@ -56,6 +56,7 @@ void MHD::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::s
 	real vaccuumPermeability = 1.f;
 	solver.app.lua.ref()["vaccuumPermeability"] >> vaccuumPermeability;
 	sources[0] += "constant real vaccuumPermeability = " + toNumericString<real>(vaccuumPermeability) + ";\n";
+	sources[0] += "constant real sqrtVaccuumPermeability = " + toNumericString<real>(sqrt(vaccuumPermeability)) + ";\n";
 
 	//for EulerMHDCommon.cl
 	sources[0] += "#define MHD\n";

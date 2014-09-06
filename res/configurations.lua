@@ -3,11 +3,15 @@ return {
 	
 	-- Euler equation initial states
 
-	['Flat'] = function()
+	['Constant'] = function()
 		initState = function(x,y,z)
 			return buildStateEuler{
 				density = 1,
 				pressure = 1,
+
+				magneticFieldX = 1,
+				magneticFieldY = 1,
+				magneticFieldZ = 1,
 			}
 		end
 	end,
@@ -163,6 +167,7 @@ return {
 	end,
 
 	-- http://www.astro.uni-bonn.de/~jmackey/jmac/node7.html
+	-- http://www.astro.princeton.edu/~jstone/Athena/tests/brio-wu/Brio-Wu.html
 	['Brio-Wu'] = function()
 		gamma = 2
 		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
