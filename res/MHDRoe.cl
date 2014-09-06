@@ -209,7 +209,7 @@ printf("magnetic field n=0\n");
 	real* dCons_dPrim = (real*)dCons_dPrim8;
 
 	real gammaBar = gammaMinusOne / (density * speedOfSound);
-	real4 Btmp = -gammaBar * magneticField / vaccuumPermeability;
+	real4 Btmp = magneticField * (-gammaBar / vaccuumPermeability);
 	
 	//MBar^-1
 	real8 dPrim_dCons8[8];	//column-major (represented transposed)
@@ -217,9 +217,9 @@ printf("magnetic field n=0\n");
 	dPrim_dCons8[1] = (real8)(-velocity.x * gammaBar,		1.f / density,			0.f,					0.f, 					-gammaBar * velocity.x,					0.f,				0.f,				0.f);
 	dPrim_dCons8[2] = (real8)(-velocity.y * gammaBar,		0.f,					1.f / density,			0.f,					-gammaBar * velocity.y,					0.f,				0.f,				0.f);
 	dPrim_dCons8[3] = (real8)(-velocity.z * gammaBar, 		0.f, 					0.f, 					1.f / density, 			-gammaBar * velocity.z, 				0.f, 				0.f,				0.f);
-	dPrim_dCons8[4] = (real8)(-Btmp.x, 						0.f, 					0.f, 					0.f, 					-Btmp.x, 								oneOverSqrtRhoMu, 	0.f, 				0.f);
-	dPrim_dCons8[5] = (real8)(-Btmp.y, 						0.f, 					0.f, 					0.f, 					-Btmp.y,								0.f,				oneOverSqrtRhoMu, 	0.f);
-	dPrim_dCons8[6] = (real8)(-Btmp.z,				 		0.f, 					0.f, 					0.f, 					-Btmp.z,								0.f, 				0.f, 				oneOverSqrtRhoMu);
+	dPrim_dCons8[4] = (real8)(Btmp.x, 						0.f, 					0.f, 					0.f, 					Btmp.x, 								oneOverSqrtRhoMu, 	0.f, 				0.f);
+	dPrim_dCons8[5] = (real8)(Btmp.y, 						0.f, 					0.f, 					0.f, 					Btmp.y,									0.f,				oneOverSqrtRhoMu, 	0.f);
+	dPrim_dCons8[6] = (real8)(Btmp.z,				 		0.f, 					0.f, 					0.f, 					Btmp.z,									0.f, 				0.f, 				oneOverSqrtRhoMu);
 	dPrim_dCons8[7] = (real8)(gammaBar, 					0.f,					0.f,					0.f,					gammaBar,								0.f,				0.f,				0.f);
 	real* dPrim_dCons = (real*)dPrim_dCons8;
 
