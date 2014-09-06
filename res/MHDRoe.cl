@@ -58,7 +58,6 @@ void calcEigenBasisSide(
 	real potentialEnergyDensityL = densityL * potentialEnergyL; 
 	real internalEnergyDensityL = totalHydroEnergyDensityL - kineticEnergyDensityL - potentialEnergyDensityL;
 	real pressureL = gammaMinusOne * internalEnergyDensityL;
-	real enthalpyTotalL = (totalHydroEnergyDensityL + pressureL) / densityL;	//should enthalpy total also include magnetic energy?
 	real roeWeightL = .5f;//sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
@@ -72,7 +71,6 @@ void calcEigenBasisSide(
 	real potentialEnergyDensityR = densityR * potentialEnergyR;
 	real internalEnergyDensityR = totalHydroEnergyDensityR - kineticEnergyDensityR - potentialEnergyDensityR;
 	real pressureR = gammaMinusOne * internalEnergyDensityR;
-	real enthalpyTotalR = (totalHydroEnergyDensityR + pressureR) / densityR;
 	real roeWeightR = .5f;//sqrt(densityR);
 
 	//3.5.2 "In this paper, a simple arithmetic averaging of the primitive variables is done to compute the interface state."
@@ -81,7 +79,6 @@ void calcEigenBasisSide(
 	real4 velocity = (velocityL * roeWeightL + velocityR * roeWeightR) * roeWeightNormalization;
 	real4 magneticField = (magneticFieldL * roeWeightL + magneticFieldR * roeWeightR) * roeWeightNormalization;
 	real pressure = (pressureL * roeWeightL + pressureR * roeWeightR) * roeWeightNormalization;
-	real enthalpyTotal = (enthalpyTotalL * roeWeightL + enthalpyTotalR * roeWeightR) * roeWeightNormalization;
 	real density = roeWeightL * roeWeightR;	//specific to Euler Roe weighting
 	
 #if DIM > 1
@@ -115,6 +112,8 @@ void calcEigenBasisSide(
 
 	real speedOfSound = sqrt(gamma * pressure / density);
 	real speedOfSoundSq = speedOfSound * speedOfSound;
+	
+	real enthalpyTotal = speedOfSoundSq / gammaMinusOne + .5f * velocitySq;
 
 	real AlfvenSpeed = BBar.x;
 	real AlfvenSpeedSq = AlfvenSpeed * AlfvenSpeed;
@@ -202,7 +201,7 @@ printf("magnetic field n=0\n");
 	dCons_dPrim8[0] = (real8)(rhoOverC,  		rhoOverC * velocity.x,  rhoOverC * velocity.y,  rhoOverC * velocity.z,  0.f,       0.f,       0.f,       rhoOverC * enthalpyTotal);
 	dCons_dPrim8[1] = (real8)(0.f,       		density,                0.f,                    0.f,                    0.f,       0.f,       0.f,       density * velocity.x);
 	dCons_dPrim8[2] = (real8)(0.f,       		0.f,                    density,                0.f,                    0.f,       0.f,       0.f,       density * velocity.y);
-	dCons_dPrim8[3] = (real8)(0.f,       		0.f,                    0.f,                    density,                0.f,       0.f,       0.f,       density * velocity.y);
+	dCons_dPrim8[3] = (real8)(0.f,       		0.f,                    0.f,                    density,                0.f,       0.f,       0.f,       density * velocity.z);
 	dCons_dPrim8[4] = (real8)(-rhoOverC, 		-rhoOverC * velocity.x, -rhoOverC * velocity.y, -rhoOverC * velocity.z, 0.f,       0.f,       0.f,       -.5f * rhoOverC * velocitySq);
 	dCons_dPrim8[5] = (real8)(0.f,       		0.f,                    0.f,                    0.f,                    sqrtRhoMu, 0.f,       0.f,       density * BBar.x);
 	dCons_dPrim8[6] = (real8)(0.f,       		0.f,                    0.f,                    0.f,                    0.f,       sqrtRhoMu, 0.f,       density * BBar.y);
@@ -214,14 +213,14 @@ printf("magnetic field n=0\n");
 	
 	//MBar^-1
 	real8 dPrim_dCons8[8];	//column-major (represented transposed)
-	dPrim_dCons8[0] = (real8)(gammaBar * velocitySq / speedOfSound, -velocity.x / density, -velocity.y / density, 	-velocity.z / density, 	gammaBar * (velocitySq - enthalpyTotal), 0.f, 				0.f, 				0.f);
-	dPrim_dCons8[1] = (real8)(-velocity.x * gammaBar,				1.f / density,			0.f,					0.f, 					-gammaBar * velocity.x,					0.f,				0.f,				0.f);
-	dPrim_dCons8[2] = (real8)(-velocity.y * gammaBar,				0.f,					1.f / density,			0.f,					-gammaBar * velocity.y,					0.f,				0.f,				0.f);
-	dPrim_dCons8[3] = (real8)(-velocity.z * gammaBar, 				0.f, 					0.f, 					1.f / density, 			-gammaBar * velocity.z, 				0.f, 				0.f,				0.f);
-	dPrim_dCons8[4] = (real8)(-Btmp.x, 								0.f, 					0.f, 					0.f, 					-Btmp.x, 								oneOverSqrtRhoMu, 	0.f, 				0.f);
-	dPrim_dCons8[5] = (real8)(-Btmp.y, 								0.f, 					0.f, 					0.f, 					-Btmp.y,								0.f,				oneOverSqrtRhoMu, 	0.f);
-	dPrim_dCons8[6] = (real8)(-Btmp.z,				 				0.f, 					0.f, 					0.f, 					-Btmp.z,								0.f, 				0.f, 				oneOverSqrtRhoMu);
-	dPrim_dCons8[7] = (real8)(gammaBar, 							0.f,					0.f,					0.f,					gammaBar,								0.f,				0.f,				0.f);
+	dPrim_dCons8[0] = (real8)(.5f * gammaBar * velocitySq,	-velocity.x / density, -velocity.y / density, 	-velocity.z / density, 	gammaBar * (velocitySq - enthalpyTotal), 0.f, 				0.f, 				0.f);
+	dPrim_dCons8[1] = (real8)(-velocity.x * gammaBar,		1.f / density,			0.f,					0.f, 					-gammaBar * velocity.x,					0.f,				0.f,				0.f);
+	dPrim_dCons8[2] = (real8)(-velocity.y * gammaBar,		0.f,					1.f / density,			0.f,					-gammaBar * velocity.y,					0.f,				0.f,				0.f);
+	dPrim_dCons8[3] = (real8)(-velocity.z * gammaBar, 		0.f, 					0.f, 					1.f / density, 			-gammaBar * velocity.z, 				0.f, 				0.f,				0.f);
+	dPrim_dCons8[4] = (real8)(-Btmp.x, 						0.f, 					0.f, 					0.f, 					-Btmp.x, 								oneOverSqrtRhoMu, 	0.f, 				0.f);
+	dPrim_dCons8[5] = (real8)(-Btmp.y, 						0.f, 					0.f, 					0.f, 					-Btmp.y,								0.f,				oneOverSqrtRhoMu, 	0.f);
+	dPrim_dCons8[6] = (real8)(-Btmp.z,				 		0.f, 					0.f, 					0.f, 					-Btmp.z,								0.f, 				0.f, 				oneOverSqrtRhoMu);
+	dPrim_dCons8[7] = (real8)(gammaBar, 					0.f,					0.f,					0.f,					gammaBar,								0.f,				0.f,				0.f);
 	real* dPrim_dCons = (real*)dPrim_dCons8;
 
 	//R = dCons/dPrim * r <=> R_i = [dCons/dPrim]_ik * r_k <=> R_ij = [dCons/dPrim]_ik * r_kj
