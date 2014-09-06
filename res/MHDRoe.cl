@@ -192,36 +192,45 @@ printf("magnetic field n=0\n");
 	//L, R the left and right eigenvectors of derivative of flux wrt state
 	//this matches up with A = Q V Q^-1 = R V L = du/dw r V l dw/du
 
-	real rhoOverC = density / speedOfSound;
-	
-	//in the absense of a magnetic field, we get MBar * Mbar^-1 = diag(1/4, 1,1,1,1,1,1, 1/4)
-
 	//MBar
 	real8 dCons_dPrim8[8];	//column-major (represented transposed)
-	dCons_dPrim8[0] = (real8)(rhoOverC,  		rhoOverC * velocity.x,  rhoOverC * velocity.y,  rhoOverC * velocity.z,  0.f,       0.f,       0.f,       rhoOverC * enthalpyTotal);
-	dCons_dPrim8[1] = (real8)(0.f,       		density,                0.f,                    0.f,                    0.f,       0.f,       0.f,       density * velocity.x);
-	dCons_dPrim8[2] = (real8)(0.f,       		0.f,                    density,                0.f,                    0.f,       0.f,       0.f,       density * velocity.y);
-	dCons_dPrim8[3] = (real8)(0.f,       		0.f,                    0.f,                    density,                0.f,       0.f,       0.f,       density * velocity.z);
-	dCons_dPrim8[4] = (real8)(-rhoOverC, 		-rhoOverC * velocity.x, -rhoOverC * velocity.y, -rhoOverC * velocity.z, 0.f,       0.f,       0.f,       -.5f * rhoOverC * velocitySq);
-	dCons_dPrim8[5] = (real8)(0.f,       		0.f,                    0.f,                    0.f,                    sqrtRhoMu, 0.f,       0.f,       density * BBar.x);
-	dCons_dPrim8[6] = (real8)(0.f,       		0.f,                    0.f,                    0.f,                    0.f,       sqrtRhoMu, 0.f,       density * BBar.y);
-	dCons_dPrim8[7] = (real8)(0.f,       		0.f,                    0.f,                    0.f,                    0.f,       0.f,       sqrtRhoMu, density * BBar.z);
 	real* dCons_dPrim = (real*)dCons_dPrim8;
-
-	real gammaBar = gammaMinusOne / (density * speedOfSound);
-	real4 Btmp = magneticField * (-gammaBar / vaccuumPermeability);
+	{
+		real tmp1 = speedOfSound * sqrt(vaccuumPermeability / density);
+		real tmp2 = tmp1 / vaccuumPermeability;
+		dCons_dPrim8[0] = (real8)(1.f,  velocity.x,  	velocity.y,  	velocity.z,  	0.f,	0.f,    0.f,    enthalpyTotal);
+		dCons_dPrim8[1] = (real8)(0.f,  speedOfSound,	0.f,            0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.x);
+		dCons_dPrim8[2] = (real8)(0.f,  0.f,            speedOfSound,   0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.y);
+		dCons_dPrim8[3] = (real8)(0.f,  0.f,            0.f,            speedOfSound,   0.f,	0.f,    0.f,    speedOfSound * velocity.z);
+		dCons_dPrim8[4] = (real8)(-1.f, -velocity.x,	-velocity.y,	-velocity.z,	0.f,	0.f,    0.f,    -.5f * velocitySq);
+		dCons_dPrim8[5] = (real8)(0.f,  0.f,            0.f,            0.f,            tmp1,	0.f,    0.f,    tmp2 * BBar.x);
+		dCons_dPrim8[6] = (real8)(0.f,  0.f,            0.f,            0.f,            0.f,	tmp1,	0.f,    tmp2 * BBar.y);
+		dCons_dPrim8[7] = (real8)(0.f,  0.f,            0.f,            0.f,            0.f,	0.f,    tmp1,	tmp2 * BBar.z);
+	}
 	
 	//MBar^-1
 	real8 dPrim_dCons8[8];	//column-major (represented transposed)
-	dPrim_dCons8[0] = (real8)(.5f * gammaBar * velocitySq,	-velocity.x / density, -velocity.y / density, 	-velocity.z / density, 	gammaBar * (velocitySq - enthalpyTotal), 0.f, 				0.f, 				0.f);
-	dPrim_dCons8[1] = (real8)(-velocity.x * gammaBar,		1.f / density,			0.f,					0.f, 					-gammaBar * velocity.x,					0.f,				0.f,				0.f);
-	dPrim_dCons8[2] = (real8)(-velocity.y * gammaBar,		0.f,					1.f / density,			0.f,					-gammaBar * velocity.y,					0.f,				0.f,				0.f);
-	dPrim_dCons8[3] = (real8)(-velocity.z * gammaBar, 		0.f, 					0.f, 					1.f / density, 			-gammaBar * velocity.z, 				0.f, 				0.f,				0.f);
-	dPrim_dCons8[4] = (real8)(Btmp.x, 						0.f, 					0.f, 					0.f, 					Btmp.x, 								oneOverSqrtRhoMu, 	0.f, 				0.f);
-	dPrim_dCons8[5] = (real8)(Btmp.y, 						0.f, 					0.f, 					0.f, 					Btmp.y,									0.f,				oneOverSqrtRhoMu, 	0.f);
-	dPrim_dCons8[6] = (real8)(Btmp.z,				 		0.f, 					0.f, 					0.f, 					Btmp.z,									0.f, 				0.f, 				oneOverSqrtRhoMu);
-	dPrim_dCons8[7] = (real8)(gammaBar, 					0.f,					0.f,					0.f,					gammaBar,								0.f,				0.f,				0.f);
 	real* dPrim_dCons = (real*)dPrim_dCons8;
+	{
+		real gammaBar = gammaMinusOne / speedOfSoundSq;
+		real4 vtmp = -gammaBar * velocity;
+		real4 Btmp = BBar * (-gammaBar / vaccuumPermeability);
+		real tmp3 = 1.f / speedOfSound;
+		real tmp4 = sqrt(density / vaccuumPermeability) * tmp3;
+		dPrim_dCons8[0] = (real8)(.5f * gammaBar * velocitySq,	-velocity.x * tmp3,	-velocity.y * tmp3,	-velocity.z * tmp3,	gammaBar * (velocitySq - enthalpyTotal), 0.f, 	0.f,	0.f);
+		dPrim_dCons8[1] = (real8)(vtmp.x,		tmp3,	0.f,	0.f, 	vtmp.x,		0.f,	0.f,	0.f);
+		dPrim_dCons8[2] = (real8)(vtmp.y,		0.f,	tmp3,	0.f,	vtmp.y,		0.f,	0.f,	0.f);
+		dPrim_dCons8[3] = (real8)(vtmp.z, 		0.f, 	0.f, 	tmp3,	vtmp.z,		0.f, 	0.f,	0.f);
+		dPrim_dCons8[4] = (real8)(Btmp.x, 		0.f, 	0.f, 	0.f, 	Btmp.x, 	tmp4, 	0.f, 	0.f);
+		dPrim_dCons8[5] = (real8)(Btmp.y, 		0.f, 	0.f, 	0.f, 	Btmp.y,		0.f,	tmp4, 	0.f);
+		dPrim_dCons8[6] = (real8)(Btmp.z,		0.f, 	0.f, 	0.f, 	Btmp.z,		0.f, 	0.f, 	tmp4);
+		dPrim_dCons8[7] = (real8)(gammaBar, 	0.f,	0.f,	0.f,	gammaBar,	0.f,	0.f,	0.f);
+	}
+
+	/* getting errors equal to 
+	
+
+	*/
 
 	//R = dCons/dPrim * r <=> R_i = [dCons/dPrim]_ik * r_k <=> R_ij = [dCons/dPrim]_ik * r_kj
 	//L = l * dPrim/dCons <=> L_j = l_k * [dPrim/dCons]_kj <=> L_ij = l_ik * [dPrim/dCons]_kj
