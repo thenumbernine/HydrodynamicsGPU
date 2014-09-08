@@ -5,9 +5,8 @@ using the following:
 Sticking with this because I like the thought of using the right eigenvectors for the left eigenvectors
 (courtesy of the symmetrized transformation in the Jameson paper)
 
-Picking out the errors.  Found two so far.
-1) energy partial equation should be (rho Z + P) rather than (rho Z + p)
-2) first description of [MBar^-1](1,1) should be (gammaBar u^2/2) rather than (gammaBar u^2/c)
+Following it in my Maxima worksheet to verify results.
+https://github.com/thenumbernine/MaximaWorksheets
 
 have dug through
 "A Numerical Solution of Hyperbolic Partial Differential Equations", Trangenstein, 2007
@@ -143,12 +142,6 @@ void calcEigenBasisSide(
 	real8 eigenvectorsWrtSymmetrized8[NUM_STATES];
 	real* eigenvectorsWrtSymmetrized = (real*)eigenvectorsWrtSymmetrized8;
 
-#ifdef DEBUG_OUTPUT
-if (index == DEBUG_INDEX) {
-printf("magnetic field n=0\n");
-}
-#endif	//DEBUG_OUTPUT
-
 	//the eigenvectors wrt the symmetrizing variables are orthonormal, so the transpose is the inverse
 
 	real alphaFast, alphaSlow;
@@ -183,7 +176,10 @@ printf("magnetic field n=0\n");
 		eigenvalues[5] = velocity.x + slowSpeed;
 		eigenvalues[6] = velocity.x + AlfvenSpeed;
 		eigenvalues[7] = velocity.x + fastSpeed;
-		
+	
+		//fast and slow eigenvectors are of the form [+/-k l +/-m 0]
+		//Alfven eigenvectors are of the form [0 l -/+l 0]
+
 		real4 l;
 		if (magneticFieldTLen < 1e-7f) {
 			l = (real4)(0.f, M_SQRT_1_2, 0.f, 0.f);
@@ -191,30 +187,31 @@ printf("magnetic field n=0\n");
 			l = (real4)(0.f, magneticField.z, -magneticField.y, 0.f) * (M_SQRT_1_2 / magneticFieldTLen);
 		}
 
+		real kf = speedOfSound;
 		lf = (real4)(fastSpeed, 0.f, 0.f, 0.f) - (fastSpeed * magneticField.x / (fastSpeedSq * vaccuumPermeability * density - magneticFieldXSq)) * magneticFieldT;
-		
+		mf = ((fastSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability / magneticFieldTSq) * magneticFieldT;
+	
+		real ks = speedOfSound;
 		if (fabs(magneticField.x) < 1e-7f) {	//Bx=0 <=> ca=0 <=> cs=0, cf=c
-			// TODO what if Bt = 0?
 			ls = magneticFieldT * (M_SQRT_2 * sqrtVaccuumPermeability * sqrtDensity * speedOfSound * starSpeed / magneticFieldTSq);
 		} else {
 			ls = (real4)(slowSpeed, 0.f, 0.f, 0.f) - (slowSpeed * magneticField.x / (slowSpeedSq * vaccuumPermeability * density - magneticFieldXSq)) * magneticFieldT;
 		}
-	
-		mf = ((fastSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability / magneticFieldTSq) * magneticFieldT;
 		ms = ((slowSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability / magneticFieldTSq) * magneticFieldT;
 
-		alphaFast = sqrt(dot(lf,lf) + dot(mf,mf) + speedOfSoundSq);
-		alphaSlow = sqrt(dot(ls,ls) + dot(ms,ms) + speedOfSoundSq);
+		//normalizing scalars for the fast and slow eigenvectors
+		alphaFast = sqrt(dot(lf,lf) + dot(mf,mf) + kf*kf);
+		alphaSlow = sqrt(dot(ls,ls) + dot(ms,ms) + ks*ks);
 
 		//column-major (represented transposed)
-		eigenvectorsWrtSymmetrized8[0] = (real8)(-speedOfSound, lf.x, 	lf.y, 	lf.z, 	-mf.x, 	-mf.y, 	-mf.z,	0.f) / alphaFast; 
-		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 			l.x, 	l.y, 	l.z, 	l.x, 	l.y,	l.z,	0.f) * sgnBx;
-		eigenvectorsWrtSymmetrized8[2] = (real8)(-speedOfSound, ls.x, 	ls.y, 	ls.z,	-ms.x, 	-ms.y,	-ms.z,	0.f) / alphaSlow;
-		eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 			0.f, 	0.f, 	0.f, 	1.f, 	0.f, 	0.f,  	0.f);
-		eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 			0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f,  	1.f);
-		eigenvectorsWrtSymmetrized8[5] = (real8)(speedOfSound, 	ls.x, 	ls.y, 	ls.z, 	ms.x, 	ms.y, 	ms.z ,  0.f) / alphaSlow;
-		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 			l.x, 	l.y, 	l.z, 	-l.x, 	-l.y, 	-l.z ,  0.f) * sgnBx;
-		eigenvectorsWrtSymmetrized8[7] = (real8)(speedOfSound, 	lf.x, 	lf.y,	lf.z, 	mf.x,	mf.y, 	mf.z ,  0.f) / alphaFast; 
+		eigenvectorsWrtSymmetrized8[0] = (real8)(-kf,	lf.x, 	lf.y, 	lf.z, 	-mf.x, 	-mf.y, 	-mf.z,	0.f) / alphaFast; 
+		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 	l.x, 	l.y, 	l.z, 	l.x, 	l.y,	l.z,	0.f) * sgnBx;
+		eigenvectorsWrtSymmetrized8[2] = (real8)(-ks, 	ls.x, 	ls.y, 	ls.z,	-ms.x, 	-ms.y,	-ms.z,	0.f) / alphaSlow;
+		eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 	0.f, 	0.f, 	0.f, 	1.f, 	0.f, 	0.f,  	0.f);
+		eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f,  	1.f);
+		eigenvectorsWrtSymmetrized8[5] = (real8)(ks, 	ls.x, 	ls.y, 	ls.z, 	ms.x, 	ms.y, 	ms.z ,  0.f) / alphaSlow;
+		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 	l.x, 	l.y, 	l.z, 	-l.x, 	-l.y, 	-l.z ,  0.f) * sgnBx;
+		eigenvectorsWrtSymmetrized8[7] = (real8)(kf, 	lf.x, 	lf.y,	lf.z, 	mf.x,	mf.y, 	mf.z ,  0.f) / alphaFast; 
 	}
 
 	//for all but the no-magnetic-field case transform the eigenvectors by dw/du
@@ -232,14 +229,14 @@ printf("magnetic field n=0\n");
 	real* dCons_dSym = (real*)dCons_dSym8;
 	{
 		real ctmp = speedOfSound * sqrtVaccuumPermeability / sqrtDensity; 
-		real4 Btmp = magneticField * (1.f / (sqrtDensity * sqrtVaccuumPermeability));
+		real4 BBar = magneticField * (1.f / (sqrtDensity * sqrtVaccuumPermeability));
 		dCons_dSym8[0] = (real8)(1.f,  velocity.x,  	velocity.y,  	velocity.z,  	0.f,	0.f,    0.f,    enthalpyTotal);
 		dCons_dSym8[1] = (real8)(0.f,  speedOfSound,	0.f,            0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.x);
 		dCons_dSym8[2] = (real8)(0.f,  0.f,            	speedOfSound,	0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.y);
 		dCons_dSym8[3] = (real8)(0.f,  0.f,            	0.f,            speedOfSound,   0.f,	0.f,    0.f,    speedOfSound * velocity.z);
-		dCons_dSym8[4] = (real8)(0.f,  0.f,            	0.f,            0.f,            ctmp,	0.f,    0.f,    speedOfSound * Btmp.x);
-		dCons_dSym8[5] = (real8)(0.f,  0.f,            	0.f,            0.f,            0.f,	ctmp,	0.f,    speedOfSound * Btmp.y);
-		dCons_dSym8[6] = (real8)(0.f,  0.f,            	0.f,            0.f,            0.f,	0.f,    ctmp,	speedOfSound * Btmp.z);
+		dCons_dSym8[4] = (real8)(0.f,  0.f,            	0.f,            0.f,            ctmp,	0.f,    0.f,    speedOfSound * BBar.x);
+		dCons_dSym8[5] = (real8)(0.f,  0.f,            	0.f,            0.f,            0.f,	ctmp,	0.f,    speedOfSound * BBar.y);
+		dCons_dSym8[6] = (real8)(0.f,  0.f,            	0.f,            0.f,            0.f,	0.f,    ctmp,	speedOfSound * BBar.z);
 		dCons_dSym8[7] = (real8)(-1.f, -velocity.x,		-velocity.y,	-velocity.z,	0.f,	0.f,    0.f,    -.5f * velocitySq);
 	}
 	
