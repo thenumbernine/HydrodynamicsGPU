@@ -9,9 +9,9 @@ return {
 				density = 1,
 				pressure = 1,
 
-				magneticFieldX = 1,
-				magneticFieldY = 1,
-				magneticFieldZ = 1,
+				--magneticFieldX = 1,
+				--magneticFieldY = 1,
+				--magneticFieldZ = 1,
 			}
 		end
 	end,

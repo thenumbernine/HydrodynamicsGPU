@@ -18,6 +18,7 @@ have dug through
 #include "HydroGPU/Shared/Common.h"
 
 #define M_SQRT_1_2	0.7071067811865475727373109293694142252206802368164f
+#define M_SQRT_2	(2.f * M_SQRT_1_2)
 
 //debugging
 #define DEBUG_OUTPUT
@@ -120,9 +121,15 @@ void calcEigenBasisSide(
 	
 	real enthalpyTotal = speedOfSoundSq / gammaMinusOne + .5f * velocitySq;
 
-	real AlfvenSpeed = magneticField.x / (sqrtDensity * sqrtVaccuumPermeability);
+	real AlfvenSpeed = fabs(magneticField.x) / (sqrtDensity * sqrtVaccuumPermeability);
 	real AlfvenSpeedSq = AlfvenSpeed * AlfvenSpeed;
+	//Alfven speed is the absolute of the magnetic field in the normal direction -- to ensure ordering of eigenvalues (which might not be a necessary constraint)
+	// however all my calculated results leave the eigenvalue as Bx, not |Bx|.  what to do?  enter sign(Bx).
+	// if the eigenvalue was Bx and is now |Bx| then the corresponding eigenvector should be scaled by sign(Bx) ... (if it makes a difference at all)
+	real sgnBx = magneticField.x >= 0.f ? 1.f : -1.f;
+	
 	real starSpeedSq = .5f * (speedOfSoundSq + magneticFieldSq / (density * vaccuumPermeability));
+	real starSpeed = sqrt(starSpeedSq);
 	real discr = starSpeedSq * starSpeedSq - speedOfSoundSq * AlfvenSpeedSq;
 	real discrSqrt = sqrt(discr);
 	real fastSpeedSq = starSpeedSq + discrSqrt;
@@ -142,43 +149,71 @@ printf("magnetic field n=0\n");
 }
 #endif	//DEBUG_OUTPUT
 
-	//eigenvalues
-	eigenvalues[0] = velocity.x - fastSpeed;
-	eigenvalues[1] = velocity.x - AlfvenSpeed;
-	eigenvalues[2] = velocity.x - slowSpeed;
-	eigenvalues[3] = velocity.x;
-	eigenvalues[4] = velocity.x;
-	eigenvalues[5] = velocity.x + slowSpeed;
-	eigenvalues[6] = velocity.x + AlfvenSpeed;
-	eigenvalues[7] = velocity.x + fastSpeed;
-
 	//the eigenvectors wrt the symmetrizing variables are orthonormal, so the transpose is the inverse
 
 	real alphaFast, alphaSlow;
-	{
+	real4 lf = (real4)(0.f, 0.f, 0.f, 0.f);
+	real4 ls = (real4)(0.f, 0.f, 0.f, 0.f);
+	real4 mf = (real4)(0.f, 0.f, 0.f, 0.f);
+	real4 ms = (real4)(0.f, 0.f, 0.f, 0.f);
+	if (magneticFieldTLen < 1e-7f) {
+		eigenvalues[0] = velocity.x - speedOfSound;
+		eigenvalues[1] = velocity.x - AlfvenSpeed;
+		eigenvalues[2] = velocity.x - AlfvenSpeed;
+		eigenvalues[3] = velocity.x;
+		eigenvalues[4] = velocity.x;
+		eigenvalues[5] = velocity.x + AlfvenSpeed;
+		eigenvalues[6] = velocity.x + AlfvenSpeed;
+		eigenvalues[7] = velocity.x + speedOfSound;
+
+		eigenvectorsWrtSymmetrized8[0] = (real8)(1.f, -1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
+		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * sgnBx * M_SQRT_1_2;
+		eigenvectorsWrtSymmetrized8[2] = (real8)(0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f) * sgnBx * M_SQRT_1_2;
+		eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f);
+		eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		eigenvectorsWrtSymmetrized8[5] = (real8)(0.f, 0.f, 1.f, 0.f, 0.f, -1.f, 0.f, 0.f) * sgnBx * M_SQRT_1_2;
+		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 0.f, 0.f, 1.f, 0.f, 0.f, -1.f, 0.f) * sgnBx * M_SQRT_1_2;
+		eigenvectorsWrtSymmetrized8[7] = (real8)(1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
+	} else {
+		eigenvalues[0] = velocity.x - fastSpeed;
+		eigenvalues[1] = velocity.x - AlfvenSpeed;
+		eigenvalues[2] = velocity.x - slowSpeed;
+		eigenvalues[3] = velocity.x;
+		eigenvalues[4] = velocity.x;
+		eigenvalues[5] = velocity.x + slowSpeed;
+		eigenvalues[6] = velocity.x + AlfvenSpeed;
+		eigenvalues[7] = velocity.x + fastSpeed;
+		
 		real4 l;
-		if (magneticFieldTSq < 1e-10f) {
+		if (magneticFieldTLen < 1e-7f) {
 			l = (real4)(0.f, M_SQRT_1_2, 0.f, 0.f);
 		} else {
 			l = (real4)(0.f, magneticField.z, -magneticField.y, 0.f) * (M_SQRT_1_2 / magneticFieldTLen);
 		}
 
-		real4 lf = (real4)(fastSpeed, 0.f, 0.f, 0.f) - (fastSpeed * magneticField.x / (fastSpeedSq * vaccuumPermeability * density - magneticFieldXSq)) * magneticFieldT;
-		real4 ls = (real4)(slowSpeed, 0.f, 0.f, 0.f) - (slowSpeed * magneticField.x / (slowSpeedSq * vaccuumPermeability * density - magneticFieldXSq)) * magneticFieldT;
-		real4 mf = ((fastSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability / magneticFieldTSq) * magneticFieldT;
-		real4 ms = ((slowSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability / magneticFieldTSq) * magneticFieldT;
+		lf = (real4)(fastSpeed, 0.f, 0.f, 0.f) - (fastSpeed * magneticField.x / (fastSpeedSq * vaccuumPermeability * density - magneticFieldXSq)) * magneticFieldT;
+		
+		if (fabs(magneticField.x) < 1e-7f) {	//Bx=0 <=> ca=0 <=> cs=0, cf=c
+			// TODO what if Bt = 0?
+			ls = magneticFieldT * (M_SQRT_2 * sqrtVaccuumPermeability * sqrtDensity * speedOfSound * starSpeed / magneticFieldTSq);
+		} else {
+			ls = (real4)(slowSpeed, 0.f, 0.f, 0.f) - (slowSpeed * magneticField.x / (slowSpeedSq * vaccuumPermeability * density - magneticFieldXSq)) * magneticFieldT;
+		}
+	
+		mf = ((fastSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability / magneticFieldTSq) * magneticFieldT;
+		ms = ((slowSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability / magneticFieldTSq) * magneticFieldT;
 
 		alphaFast = sqrt(dot(lf,lf) + dot(mf,mf) + speedOfSoundSq);
 		alphaSlow = sqrt(dot(ls,ls) + dot(ms,ms) + speedOfSoundSq);
 
 		//column-major (represented transposed)
 		eigenvectorsWrtSymmetrized8[0] = (real8)(-speedOfSound, lf.x, 	lf.y, 	lf.z, 	-mf.x, 	-mf.y, 	-mf.z,	0.f) / alphaFast; 
-		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 			l.x, 	l.y, 	l.z, 	l.x, 	l.y,	l.z,	0.f);
+		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 			l.x, 	l.y, 	l.z, 	l.x, 	l.y,	l.z,	0.f) * sgnBx;
 		eigenvectorsWrtSymmetrized8[2] = (real8)(-speedOfSound, ls.x, 	ls.y, 	ls.z,	-ms.x, 	-ms.y,	-ms.z,	0.f) / alphaSlow;
 		eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 			0.f, 	0.f, 	0.f, 	1.f, 	0.f, 	0.f,  	0.f);
 		eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 			0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f,  	1.f);
 		eigenvectorsWrtSymmetrized8[5] = (real8)(speedOfSound, 	ls.x, 	ls.y, 	ls.z, 	ms.x, 	ms.y, 	ms.z ,  0.f) / alphaSlow;
-		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 			l.x, 	l.y, 	l.z, 	-l.x, 	-l.y, 	-l.z ,  0.f);
+		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 			l.x, 	l.y, 	l.z, 	-l.x, 	-l.y, 	-l.z ,  0.f) * sgnBx;
 		eigenvectorsWrtSymmetrized8[7] = (real8)(speedOfSound, 	lf.x, 	lf.y,	lf.z, 	mf.x,	mf.y, 	mf.z ,  0.f) / alphaFast; 
 	}
 
@@ -264,6 +299,10 @@ printf("magnetic field n=0\n");
 		printf("magnetic field T %f %f %f\n", magneticFieldT.x, magneticFieldT.y, magneticFieldT.z);
 		printf("magnetic field T length %f\n", magneticFieldTLen);
 		printf("magnetic field T length^2 %f\n", magneticFieldTSq);
+		printf("lf %f %f %f\n", lf.x, lf.y, lf.z);
+		printf("ls %f %f %f\n", ls.x, ls.y, ls.z);
+		printf("mf %f %f %f\n", mf.x, mf.y, mf.z);
+		printf("ms %f %f %f\n", ms.x, ms.y, ms.z);
 		printf("gamma %f\n", gamma);
 		printf("pressure %f\n", pressure);
 		printf("speedOfSound %f\n", speedOfSound);

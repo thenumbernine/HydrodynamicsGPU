@@ -50,7 +50,7 @@ fixedDT = .01
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false 
@@ -82,5 +82,5 @@ displayScale = .25
 
 
 -- see initState for a list of options
-configurations['Constant']()
+configurations['Brio-Wu']()
 
