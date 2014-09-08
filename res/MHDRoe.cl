@@ -2,6 +2,13 @@
 using the following:
 "Eigenvalues, Eigenvectors, and Symmetrization of the Magneto-Hydrodynamic (MHD) Equations" by Jameson 2006
 
+Sticking with this because I like the thought of using the right eigenvectors for the left eigenvectors
+(courtesy of the symmetrized transformation in the Jameson paper)
+
+Picking out the errors.  Found two so far.
+1) energy partial equation should be (rho Z + P) rather than (rho Z + p)
+2) first description of [MBar^-1](1,1) should be (gammaBar u^2/2) rather than (gammaBar u^2/c)
+
 have dug through
 "A Numerical Solution of Hyperbolic Partial Differential Equations", Trangenstein, 2007
 "A multidimensional upwind scheme for magnetohydrodynamics" by Falle, Komissarov, Joarder, 1998
@@ -98,16 +105,14 @@ void calcEigenBasisSide(
 
 	real velocitySq = dot(velocity, velocity);
 
+	real4 magneticFieldT = (real4)(0.f, magneticField.y, magneticField.z, 0.f);
+	real magneticFieldXSq = magneticField.x * magneticField.x;
+	real magneticFieldTSq = magneticField.y * magneticField.y + magneticField.z * magneticField.z;
+	real magneticFieldSq = magneticFieldXSq + magneticFieldTSq;
+	real magneticFieldTLen = sqrt(magneticFieldTSq);
+	
 	real sqrtDensity = sqrt(density);
-	real sqrtRhoMu = sqrtDensity * sqrtVaccuumPermeability;
-	real oneOverSqrtRhoMu = 1.f / sqrtRhoMu;
-	real4 BBar = magneticField * oneOverSqrtRhoMu;
-	real BBarXSq = BBar.x * BBar.x;
-	real4 BBarT = real4(0.f, BBar.y, BBar.z, 0.f);	//magnetic component perpendicular to normal (which is the x axis)
-	real BBarTSq = BBar.y * BBar.y + BBar.z * BBar.z;
-	real BBarTLen = sqrt(BBarTSq);
-	real BBarSq = BBarXSq + BBarTSq;
-
+	
 	//matrices are stored as A_ij = A[i + height * j]
 
 	real speedOfSound = sqrt(gamma * pressure / density);
@@ -115,9 +120,9 @@ void calcEigenBasisSide(
 	
 	real enthalpyTotal = speedOfSoundSq / gammaMinusOne + .5f * velocitySq;
 
-	real AlfvenSpeed = BBar.x;
+	real AlfvenSpeed = magneticField.x / (sqrtDensity * sqrtVaccuumPermeability);
 	real AlfvenSpeedSq = AlfvenSpeed * AlfvenSpeed;
-	real starSpeedSq = .5f * (speedOfSoundSq + BBarSq);
+	real starSpeedSq = .5f * (speedOfSoundSq + magneticFieldSq / (density * vaccuumPermeability));
 	real discr = starSpeedSq * starSpeedSq - speedOfSoundSq * AlfvenSpeedSq;
 	real discrSqrt = sqrt(discr);
 	real fastSpeedSq = starSpeedSq + discrSqrt;
@@ -149,39 +154,34 @@ printf("magnetic field n=0\n");
 
 	//the eigenvectors wrt the symmetrizing variables are orthonormal, so the transpose is the inverse
 
-	real4 l;
-	if (BBarTSq < 1e-10f) {
-		//l = (real4)(0.f, M_SQRT_1_2, 0.f, 0.f);
-		l.x = 0.f;
-		l.y = M_SQRT_1_2;
-		l.z = 0.f;
-		l.w = 0.f;
-	} else {
-		//l = (real4)(0.f, BBar.z, -BBar.y, 0.f) * M_SQRT_1_2 / BBarTLen;
-		l.x = 0.f;
-		l.y = BBar.z / BBarTLen * M_SQRT_1_2;
-		l.z = -BBar.y / BBarTLen * M_SQRT_1_2;
-		l.w = 0.f;
+	real alphaFast, alphaSlow;
+	{
+		real4 l;
+		if (magneticFieldTSq < 1e-10f) {
+			l = (real4)(0.f, M_SQRT_1_2, 0.f, 0.f);
+		} else {
+			l = (real4)(0.f, magneticField.z, -magneticField.y, 0.f) * (M_SQRT_1_2 / magneticFieldTLen);
+		}
+
+		real4 lf = (real4)(fastSpeed, 0.f, 0.f, 0.f) - (fastSpeed * magneticField.x / (fastSpeedSq * vaccuumPermeability * density - magneticFieldXSq)) * magneticFieldT;
+		real4 ls = (real4)(slowSpeed, 0.f, 0.f, 0.f) - (slowSpeed * magneticField.x / (slowSpeedSq * vaccuumPermeability * density - magneticFieldXSq)) * magneticFieldT;
+		real4 mf = ((fastSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability / magneticFieldTSq) * magneticFieldT;
+		real4 ms = ((slowSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability / magneticFieldTSq) * magneticFieldT;
+
+		alphaFast = sqrt(dot(lf,lf) + dot(mf,mf) + speedOfSoundSq);
+		alphaSlow = sqrt(dot(ls,ls) + dot(ms,ms) + speedOfSoundSq);
+
+		//column-major (represented transposed)
+		eigenvectorsWrtSymmetrized8[0] = (real8)(-speedOfSound, lf.x, 	lf.y, 	lf.z, 	-mf.x, 	-mf.y, 	-mf.z,	0.f) / alphaFast; 
+		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 			l.x, 	l.y, 	l.z, 	l.x, 	l.y,	l.z,	0.f);
+		eigenvectorsWrtSymmetrized8[2] = (real8)(-speedOfSound, ls.x, 	ls.y, 	ls.z,	-ms.x, 	-ms.y,	-ms.z,	0.f) / alphaSlow;
+		eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 			0.f, 	0.f, 	0.f, 	1.f, 	0.f, 	0.f,  	0.f);
+		eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 			0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f,  	1.f);
+		eigenvectorsWrtSymmetrized8[5] = (real8)(speedOfSound, 	ls.x, 	ls.y, 	ls.z, 	ms.x, 	ms.y, 	ms.z ,  0.f) / alphaSlow;
+		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 			l.x, 	l.y, 	l.z, 	-l.x, 	-l.y, 	-l.z ,  0.f);
+		eigenvectorsWrtSymmetrized8[7] = (real8)(speedOfSound, 	lf.x, 	lf.y,	lf.z, 	mf.x,	mf.y, 	mf.z ,  0.f) / alphaFast; 
 	}
-	
-	real4 lf = fastSpeed * ((real4)(1.f, 0.f, 0.f, 0.f) - BBar.x / (fastSpeedSq - BBarXSq) * BBarT);
-	real4 mf = fastSpeedSq / (fastSpeedSq - BBarXSq) * BBarT;
-	real4 ls = slowSpeed * ((real4)(1.f, 0.f, 0.f, 0.f) - BBar.x / (slowSpeedSq - BBarXSq) * BBarT);
-	real4 ms = slowSpeedSq / (slowSpeedSq - BBarXSq) * BBarT;
 
-	real alphaFast = sqrt(dot(lf,lf) + dot(mf,mf) + speedOfSoundSq);
-	real alphaSlow = sqrt(dot(ls,ls) + dot(ms,ms) + speedOfSoundSq);
-
-	//column-major (represented transposed)
-	eigenvectorsWrtSymmetrized8[0] = (real8)(-speedOfSound, lf.x, lf.y, lf.z, 0.f, -mf.x, -mf.y, -mf.z) / alphaFast; 
-	eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, l.x, l.y, l.z, 0.f, l.x, l.y, l.z);
-	eigenvectorsWrtSymmetrized8[2] = (real8)(-speedOfSound, ls.x, ls.y, ls.z, 0.f, -ms.x, -ms.y, -ms.z) / alphaSlow;
-	eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f);
-	eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f);
-	eigenvectorsWrtSymmetrized8[5] = (real8)(speedOfSound, ls.x, ls.y, ls.z, 0.f, ms.x, ms.y, ms.z) / alphaSlow;
-	eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, l.x, l.y, l.z, 0.f, -l.x, -l.y, -l.z);
-	eigenvectorsWrtSymmetrized8[7] = (real8)(speedOfSound, lf.x, lf.y, lf.z, 0.f, mf.x, mf.y, mf.z) / alphaFast; 
-	
 	//for all but the no-magnetic-field case transform the eigenvectors by dw/du
 
 	//left and right eigenvectors above are of the flux derivative with respect to primitive variables
@@ -193,47 +193,42 @@ printf("magnetic field n=0\n");
 	//this matches up with A = Q V Q^-1 = R V L = du/dw r V l dw/du
 
 	//MBar
-	real8 dCons_dPrim8[8];	//column-major (represented transposed)
-	real* dCons_dPrim = (real*)dCons_dPrim8;
+	real8 dCons_dSym8[8];	//column-major (represented transposed)
+	real* dCons_dSym = (real*)dCons_dSym8;
 	{
-		real tmp1 = speedOfSound * sqrt(vaccuumPermeability / density);
-		real tmp2 = tmp1 / vaccuumPermeability;
-		dCons_dPrim8[0] = (real8)(1.f,  velocity.x,  	velocity.y,  	velocity.z,  	0.f,	0.f,    0.f,    enthalpyTotal);
-		dCons_dPrim8[1] = (real8)(0.f,  speedOfSound,	0.f,            0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.x);
-		dCons_dPrim8[2] = (real8)(0.f,  0.f,            speedOfSound,   0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.y);
-		dCons_dPrim8[3] = (real8)(0.f,  0.f,            0.f,            speedOfSound,   0.f,	0.f,    0.f,    speedOfSound * velocity.z);
-		dCons_dPrim8[4] = (real8)(-1.f, -velocity.x,	-velocity.y,	-velocity.z,	0.f,	0.f,    0.f,    -.5f * velocitySq);
-		dCons_dPrim8[5] = (real8)(0.f,  0.f,            0.f,            0.f,            tmp1,	0.f,    0.f,    tmp2 * BBar.x);
-		dCons_dPrim8[6] = (real8)(0.f,  0.f,            0.f,            0.f,            0.f,	tmp1,	0.f,    tmp2 * BBar.y);
-		dCons_dPrim8[7] = (real8)(0.f,  0.f,            0.f,            0.f,            0.f,	0.f,    tmp1,	tmp2 * BBar.z);
+		real ctmp = speedOfSound * sqrtVaccuumPermeability / sqrtDensity; 
+		real4 Btmp = magneticField * (1.f / (sqrtDensity * sqrtVaccuumPermeability));
+		dCons_dSym8[0] = (real8)(1.f,  velocity.x,  	velocity.y,  	velocity.z,  	0.f,	0.f,    0.f,    enthalpyTotal);
+		dCons_dSym8[1] = (real8)(0.f,  speedOfSound,	0.f,            0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.x);
+		dCons_dSym8[2] = (real8)(0.f,  0.f,            	speedOfSound,	0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.y);
+		dCons_dSym8[3] = (real8)(0.f,  0.f,            	0.f,            speedOfSound,   0.f,	0.f,    0.f,    speedOfSound * velocity.z);
+		dCons_dSym8[4] = (real8)(0.f,  0.f,            	0.f,            0.f,            ctmp,	0.f,    0.f,    speedOfSound * Btmp.x);
+		dCons_dSym8[5] = (real8)(0.f,  0.f,            	0.f,            0.f,            0.f,	ctmp,	0.f,    speedOfSound * Btmp.y);
+		dCons_dSym8[6] = (real8)(0.f,  0.f,            	0.f,            0.f,            0.f,	0.f,    ctmp,	speedOfSound * Btmp.z);
+		dCons_dSym8[7] = (real8)(-1.f, -velocity.x,		-velocity.y,	-velocity.z,	0.f,	0.f,    0.f,    -.5f * velocitySq);
 	}
 	
 	//MBar^-1
-	real8 dPrim_dCons8[8];	//column-major (represented transposed)
-	real* dPrim_dCons = (real*)dPrim_dCons8;
+	real8 dSym_dCons8[8];	//column-major (represented transposed)
+	real* dSym_dCons = (real*)dSym_dCons8;
 	{
 		real gammaBar = gammaMinusOne / speedOfSoundSq;
-		real4 vtmp = -gammaBar * velocity;
-		real4 Btmp = BBar * (-gammaBar / vaccuumPermeability);
-		real tmp3 = 1.f / speedOfSound;
-		real tmp4 = sqrt(density / vaccuumPermeability) * tmp3;
-		dPrim_dCons8[0] = (real8)(.5f * gammaBar * velocitySq,	-velocity.x * tmp3,	-velocity.y * tmp3,	-velocity.z * tmp3,	gammaBar * (velocitySq - enthalpyTotal), 0.f, 	0.f,	0.f);
-		dPrim_dCons8[1] = (real8)(vtmp.x,		tmp3,	0.f,	0.f, 	vtmp.x,		0.f,	0.f,	0.f);
-		dPrim_dCons8[2] = (real8)(vtmp.y,		0.f,	tmp3,	0.f,	vtmp.y,		0.f,	0.f,	0.f);
-		dPrim_dCons8[3] = (real8)(vtmp.z, 		0.f, 	0.f, 	tmp3,	vtmp.z,		0.f, 	0.f,	0.f);
-		dPrim_dCons8[4] = (real8)(Btmp.x, 		0.f, 	0.f, 	0.f, 	Btmp.x, 	tmp4, 	0.f, 	0.f);
-		dPrim_dCons8[5] = (real8)(Btmp.y, 		0.f, 	0.f, 	0.f, 	Btmp.y,		0.f,	tmp4, 	0.f);
-		dPrim_dCons8[6] = (real8)(Btmp.z,		0.f, 	0.f, 	0.f, 	Btmp.z,		0.f, 	0.f, 	tmp4);
-		dPrim_dCons8[7] = (real8)(gammaBar, 	0.f,	0.f,	0.f,	gammaBar,	0.f,	0.f,	0.f);
+		real4 negVGammaBar = -gammaBar * velocity;
+		real4 Btmp = magneticField * (-gammaBar / vaccuumPermeability);
+		real oneOverC = 1.f / speedOfSound;
+		real tmpc = sqrtDensity / (sqrtVaccuumPermeability * speedOfSound);
+		dSym_dCons8[0] = (real8)(.5f * gammaBar * velocitySq,	-velocity.x * oneOverC,	-velocity.y * oneOverC,	-velocity.z * oneOverC, 0.f, 	0.f,	0.f,	gammaBar * (velocitySq - enthalpyTotal));
+		dSym_dCons8[1] = (real8)(negVGammaBar.x,				oneOverC,				0.f,					0.f, 					0.f,	0.f,	0.f,	negVGammaBar.x);
+		dSym_dCons8[2] = (real8)(negVGammaBar.y,				0.f,					oneOverC,				0.f,					0.f,	0.f,	0.f,	negVGammaBar.y);
+		dSym_dCons8[3] = (real8)(negVGammaBar.z, 				0.f, 					0.f, 					oneOverC,				0.f, 	0.f,	0.f,	negVGammaBar.z);
+		dSym_dCons8[4] = (real8)(Btmp.x, 						0.f, 					0.f, 					0.f, 					tmpc, 	0.f, 	0.f,	Btmp.x);
+		dSym_dCons8[5] = (real8)(Btmp.y, 						0.f, 					0.f, 					0.f, 					0.f,	tmpc, 	0.f,	Btmp.y);
+		dSym_dCons8[6] = (real8)(Btmp.z,						0.f, 					0.f, 					0.f, 					0.f, 	0.f, 	tmpc,	Btmp.z);
+		dSym_dCons8[7] = (real8)(gammaBar, 						0.f,					0.f,					0.f,					0.f,	0.f,	0.f,	gammaBar);
 	}
 
-	/* getting errors equal to 
-	
-
-	*/
-
-	//R = dCons/dPrim * r <=> R_i = [dCons/dPrim]_ik * r_k <=> R_ij = [dCons/dPrim]_ik * r_kj
-	//L = l * dPrim/dCons <=> L_j = l_k * [dPrim/dCons]_kj <=> L_ij = l_ik * [dPrim/dCons]_kj
+	//R = dCons/dSym * r <=> R_i = [dCons/dSym]_ik * r_k <=> R_ij = [dCons/dSym]_ik * r_kj
+	//L = l * dSym/dCons <=> L_j = l_k * [dSym/dCons]_kj <=> L_ij = l_ik * [dSym/dCons]_kj
 	//A = R * Lambda * L
 	for (int i = 0; i < NUM_STATES; ++i) {
 		for (int j = 0; j < NUM_STATES; ++j) {
@@ -241,13 +236,13 @@ printf("magnetic field n=0\n");
 			
 			sum = 0.f;
 			for (int k = 0; k < NUM_STATES; ++k) {
-				sum += eigenvectorsWrtSymmetrized[k + NUM_STATES * i] * dPrim_dCons[k + NUM_STATES * j];	//left a_ik == right a_ki
+				sum += eigenvectorsWrtSymmetrized[k + NUM_STATES * i] * dSym_dCons[k + NUM_STATES * j];	//left a_ik == right a_ki
 			}
 			eigenvectorsInverse[i + NUM_STATES * j] = sum;
 			
 			sum = 0.f;
 			for (int k = 0; k < NUM_STATES; ++k) {
-				sum += dCons_dPrim[i + NUM_STATES * k] * eigenvectorsWrtSymmetrized[k + NUM_STATES * j];
+				sum += dCons_dSym[i + NUM_STATES * k] * eigenvectorsWrtSymmetrized[k + NUM_STATES * j];
 			}
 			eigenvectors[i + NUM_STATES * j] = sum;
 		}
@@ -266,11 +261,9 @@ printf("magnetic field n=0\n");
 		printf("sqrt(density) %f\n", sqrtDensity);
 		printf("vaccuum permeability %f\n", vaccuumPermeability);
 		printf("magnetic field %f %f %f\n", magneticField.x, magneticField.y, magneticField.z);
-		printf("B-bar %f %f %f\n", BBar.x, BBar.y, BBar.z);
-		printf("B-bar T %f %f %f\n", BBarT.x, BBarT.y, BBarT.z);
-		printf("B-bar T length %f\n", BBarTLen);
-		printf("B-bar T length^2 %f\n", BBarTSq);
-		printf("l %f %f %f %f\n", l.x, l.y, l.z, l.w);
+		printf("magnetic field T %f %f %f\n", magneticFieldT.x, magneticFieldT.y, magneticFieldT.z);
+		printf("magnetic field T length %f\n", magneticFieldTLen);
+		printf("magnetic field T length^2 %f\n", magneticFieldTSq);
 		printf("gamma %f\n", gamma);
 		printf("pressure %f\n", pressure);
 		printf("speedOfSound %f\n", speedOfSound);
@@ -325,34 +318,34 @@ printf("magnetic field n=0\n");
 			printf("\n");
 		}
 		printf("conservative eigenvector error %f\n", totalError);
-		printf("dCons/dPrim\n");
+		printf("dCons/dSym\n");
 		for (int i = 0; i < NUM_STATES; ++i) {
 			for (int j = 0; j < NUM_STATES; ++j) {
-				printf(" %f", dCons_dPrim[i + NUM_STATES * j]);
+				printf(" %f", dCons_dSym[i + NUM_STATES * j]);
 			}
 			printf("\n");
 		}
-		printf("dPrim/dCons\n");
+		printf("dSym/dCons\n");
 		for (int i = 0; i < NUM_STATES; ++i) {
 			for (int j = 0; j < NUM_STATES; ++j) {
-				printf(" %f", dPrim_dCons[i + NUM_STATES * j]);
+				printf(" %f", dSym_dCons[i + NUM_STATES * j]);
 			}
 			printf("\n");
 		}
-		printf("dCons/dPrim_ik * dPrim/dCons_kj orthogonality\n");
+		printf("dCons/dSym_ik * dSym/dCons_kj orthogonality\n");
 		totalError = 0.f;
 		for (int i = 0; i < NUM_STATES; ++i) {
 			for (int j = 0; j < NUM_STATES; ++j) {
 				real sum = 0.f;
 				for (int k = 0; k < NUM_STATES; ++k) {
-					sum += dCons_dPrim[i + NUM_STATES * k] * dPrim_dCons[k + NUM_STATES * j];
+					sum += dCons_dSym[i + NUM_STATES * k] * dSym_dCons[k + NUM_STATES * j];
 				}
 				printf(" %f", sum);
 				totalError += fabs(sum - (i == j ? 1.f : 0.f));
 			}
 			printf("\n");
 		}
-		printf("dCons/dPrim_ik * dPrim/dCons_kj error %f\n", totalError);
+		printf("dCons/dSym_ik * dSym/dCons_kj error %f\n", totalError);
 	}
 #endif	//DEBUG_OUTPUT
 
