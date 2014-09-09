@@ -8,10 +8,10 @@ return {
 			return buildStateEuler{
 				density = 1,
 				pressure = 1,
-
-				magneticFieldX = 1,
-				magneticFieldY = 1,
-				magneticFieldZ = 1,
+--debugging
+--magneticFieldX = 1,
+--magneticFieldY = 1,
+--magneticFieldZ = 1,
 			}
 		end
 	end,
@@ -46,6 +46,10 @@ return {
 			return buildStateEuler{
 				density = inside and 1 or .1,
 				specificEnergyInternal = 1,
+--debugging
+magneticFieldX = 1,
+magneticFieldY = 1,
+magneticFieldZ = 1,
 			}
 		end
 	end,

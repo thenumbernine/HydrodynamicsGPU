@@ -20,7 +20,7 @@ have dug through
 #define M_SQRT_2	(2.f * M_SQRT_1_2)
 
 //debugging
-#define DEBUG_OUTPUT
+//#define DEBUG_OUTPUT
 #define DEBUG_INDEX		512
 
 void calcEigenBasisSide(
@@ -149,7 +149,59 @@ void calcEigenBasisSide(
 	real4 ls = (real4)(0.f, 0.f, 0.f, 0.f);
 	real4 mf = (real4)(0.f, 0.f, 0.f, 0.f);
 	real4 ms = (real4)(0.f, 0.f, 0.f, 0.f);
-	if (magneticFieldTLen < 1e-7f) {
+
+	/*
+	the conditions Bx=0 and Bx=By=Bz=0 have similar eigenvalues so I lumped them together
+	
+	works for constant fields of any configuration
+	works for hydro jump (Sod) with no field
+	fails after a bit for hydro jump with YZ field
+	*/
+	if (fabs(magneticField.x) < 1e-7f) {
+#ifdef DEBUG_OUTPUT
+		if (index == DEBUG_INDEX) {
+			printf("using normal-B == 0 eigensystem\n");
+		}
+#endif
+		eigenvalues[0] = velocity.x - fastSpeed;
+		eigenvalues[1] = velocity.x;
+		eigenvalues[2] = velocity.x;
+		eigenvalues[3] = velocity.x;
+		eigenvalues[4] = velocity.x;
+		eigenvalues[5] = velocity.x;
+		eigenvalues[6] = velocity.x;
+		eigenvalues[7] = velocity.x + fastSpeed;
+
+		real4 BBar = magneticField * (1.f / (sqrtDensity * sqrtVaccuumPermeability));
+
+		//normalize components separately
+		real4 v0 = normalize((real4)(speedOfSound, fastSpeed, BBar.y, BBar.z));
+		real4 v5 = normalize((real4)(-BBar.y * speedOfSound, speedOfSoundSq + BBar.z * BBar.z, -BBar.y * BBar.z, 0.f));
+		real2 v6 = normalize((real2)(-BBar.z, speedOfSound));
+		eigenvectorsWrtSymmetrized8[0] = (real8)(v0[0], -v0[1], 0.f, 0.f, 0.f, v0[2],	v0[3], 	0.f);
+		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 	0.f, 	1.f, 0.f, 0.f, 0.f, 	0.f, 	0.f);
+		eigenvectorsWrtSymmetrized8[2] = (real8)(0.f, 	0.f, 	0.f, 1.f, 0.f, 0.f, 	0.f, 	0.f);
+		eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 	0.f, 	0.f, 0.f, 1.f, 0.f, 	0.f, 	0.f);
+		eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 	0.f, 	0.f, 0.f, 0.f, 0.f, 	0.f, 	1.f);
+		eigenvectorsWrtSymmetrized8[5] = (real8)(v5[0], 0.f, 	0.f, 0.f, 0.f, v5[1], 	v5[2], 	0.f);
+		eigenvectorsWrtSymmetrized8[6] = (real8)(v6[0], 0.f, 	0.f, 0.f, 0.f, 0.f, 	v6[1], 	0.f);
+		eigenvectorsWrtSymmetrized8[7] = (real8)(v0[0], v0[1],	0.f, 0.f, 0.f, v0[2], 	v0[3],	0.f);
+	}
+	/*
+	Bx=By=Bz=0 is handled above, so
+	this is only for By=Bz=0, Bx!=0
+
+	works for constant magnetic and hydro fields
+	fails on magnetic field x discontinuities
+	works for hydro discontinuities with no magnetic field
+	fails on hydro discontinuities with magnetic field along normal
+	*/
+	else if (magneticFieldTLen < 1e-7f) {
+#ifdef DEBUG_OUTPUT
+		if (index == DEBUG_INDEX) {
+			printf("using normal-B != 0, tangent-B == 0 eigensystem\n");
+		}
+#endif
 		eigenvalues[0] = velocity.x - speedOfSound;
 		eigenvalues[1] = velocity.x - AlfvenSpeed;
 		eigenvalues[2] = velocity.x - AlfvenSpeed;
@@ -160,14 +212,21 @@ void calcEigenBasisSide(
 		eigenvalues[7] = velocity.x + speedOfSound;
 
 		eigenvectorsWrtSymmetrized8[0] = (real8)(1.f, -1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
-		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * sgnBx * M_SQRT_1_2;
-		eigenvectorsWrtSymmetrized8[2] = (real8)(0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f) * sgnBx * M_SQRT_1_2;
+		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
+		eigenvectorsWrtSymmetrized8[2] = (real8)(0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
 		eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f);
 		eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		eigenvectorsWrtSymmetrized8[5] = (real8)(0.f, 0.f, 1.f, 0.f, 0.f, -1.f, 0.f, 0.f) * sgnBx * M_SQRT_1_2;
-		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 0.f, 0.f, 1.f, 0.f, 0.f, -1.f, 0.f) * sgnBx * M_SQRT_1_2;
+		eigenvectorsWrtSymmetrized8[5] = (real8)(0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
+		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
 		eigenvectorsWrtSymmetrized8[7] = (real8)(1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
+	
 	} else {
+#ifdef DEBUG_OUTPUT
+		if (index == DEBUG_INDEX) {
+			printf("using normal-B != 0, tangent-B != 0 eigensystem\n");
+		}
+#endif
+		
 		eigenvalues[0] = velocity.x - fastSpeed;
 		eigenvalues[1] = velocity.x - AlfvenSpeed;
 		eigenvalues[2] = velocity.x - slowSpeed;
@@ -180,37 +239,51 @@ void calcEigenBasisSide(
 		//fast and slow eigenvectors are of the form [+/-k l +/-m 0]
 		//Alfven eigenvectors are of the form [0 l -/+l 0]
 
-		real4 l;
+		real4 la;
 		if (magneticFieldTLen < 1e-7f) {
-			l = (real4)(0.f, M_SQRT_1_2, 0.f, 0.f);
+			la = (real4)(0.f, M_SQRT_1_2, 0.f, 0.f);
 		} else {
-			l = (real4)(0.f, magneticField.z, -magneticField.y, 0.f) * (M_SQRT_1_2 / magneticFieldTLen);
+			la = (real4)(0.f, magneticField.z, -magneticField.y, 0.f) * (M_SQRT_1_2 / magneticFieldTLen);
 		}
 
-		real kf = speedOfSound;
-		lf = (real4)(fastSpeed, 0.f, 0.f, 0.f) - (fastSpeed * magneticField.x / (fastSpeedSq * vaccuumPermeability * density - magneticFieldXSq)) * magneticFieldT;
-		mf = ((fastSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability / magneticFieldTSq) * magneticFieldT;
-	
-		real ks = speedOfSound;
+		real tmpf = (fastSpeedSq * vaccuumPermeability * density - magneticFieldXSq);
+		real kf = speedOfSound * magneticFieldTSq * tmpf;
+		lf = ((real4)(fastSpeed * tmpf, 0.f, 0.f, 0.f) - (fastSpeed * magneticField.x) * magneticFieldT) * magneticFieldTSq;
+		mf = ((fastSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability * tmpf) * magneticFieldT;
+
+		real tmps = 1.f;	
 		if (fabs(magneticField.x) < 1e-7f) {	//Bx=0 <=> ca=0 <=> cs=0, cf=c
-			ls = magneticFieldT * (M_SQRT_2 * sqrtVaccuumPermeability * sqrtDensity * speedOfSound * starSpeed / magneticFieldTSq);
+#ifdef DEBUG_OUTPUT
+			if (index == DEBUG_INDEX) {
+				printf("using Bx == 0 slow-vector\n");
+			}
+#endif
+			ls = magneticFieldT * (M_SQRT_2 * sqrtVaccuumPermeability * sqrtDensity * speedOfSound * starSpeed);
 		} else {
-			ls = (real4)(slowSpeed, 0.f, 0.f, 0.f) - (slowSpeed * magneticField.x / (slowSpeedSq * vaccuumPermeability * density - magneticFieldXSq)) * magneticFieldT;
+#ifdef DEBUG_OUTPUT
+			if (index == DEBUG_INDEX) {
+				printf("using Bx != 0 slow-vector\n");
+			}
+#endif
+			tmps = (slowSpeedSq * vaccuumPermeability * density - magneticFieldXSq);
+			ls = ((real4)(slowSpeed * tmps, 0.f, 0.f, 0.f) - (slowSpeed * magneticField.x) * magneticFieldT) * magneticFieldTSq;
 		}
-		ms = ((slowSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability / magneticFieldTSq) * magneticFieldT;
+		real ks = speedOfSound * magneticFieldTSq * tmps;
+		ms = ((slowSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability * tmps) * magneticFieldT;
 
 		//normalizing scalars for the fast and slow eigenvectors
+		//no need to do so for the Alfven wave since it is only composed of the 'la' vector, which only itself needs to be normalized (and scaled by sqrt(1/2) since it appears twice)
 		alphaFast = sqrt(dot(lf,lf) + dot(mf,mf) + kf*kf);
 		alphaSlow = sqrt(dot(ls,ls) + dot(ms,ms) + ks*ks);
 
 		//column-major (represented transposed)
 		eigenvectorsWrtSymmetrized8[0] = (real8)(-kf,	lf.x, 	lf.y, 	lf.z, 	-mf.x, 	-mf.y, 	-mf.z,	0.f) / alphaFast; 
-		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 	l.x, 	l.y, 	l.z, 	l.x, 	l.y,	l.z,	0.f) * sgnBx;
+		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 	la.x, 	la.y, 	la.z, 	la.x, 	la.y,	la.z,	0.f) * sgnBx;
 		eigenvectorsWrtSymmetrized8[2] = (real8)(-ks, 	ls.x, 	ls.y, 	ls.z,	-ms.x, 	-ms.y,	-ms.z,	0.f) / alphaSlow;
 		eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 	0.f, 	0.f, 	0.f, 	1.f, 	0.f, 	0.f,  	0.f);
 		eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f,  	1.f);
 		eigenvectorsWrtSymmetrized8[5] = (real8)(ks, 	ls.x, 	ls.y, 	ls.z, 	ms.x, 	ms.y, 	ms.z ,  0.f) / alphaSlow;
-		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 	l.x, 	l.y, 	l.z, 	-l.x, 	-l.y, 	-l.z ,  0.f) * sgnBx;
+		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 	la.x, 	la.y, 	la.z, 	-la.x, 	-la.y, 	-la.z ,  0.f) * sgnBx;
 		eigenvectorsWrtSymmetrized8[7] = (real8)(kf, 	lf.x, 	lf.y,	lf.z, 	mf.x,	mf.y, 	mf.z ,  0.f) / alphaFast; 
 	}
 

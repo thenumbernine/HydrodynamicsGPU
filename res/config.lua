@@ -82,5 +82,5 @@ displayScale = .25
 
 
 -- see initState for a list of options
-configurations['Brio-Wu']()
+configurations['Sod']()
 
