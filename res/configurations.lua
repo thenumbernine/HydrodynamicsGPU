@@ -3,15 +3,15 @@ return {
 	
 	-- Euler equation initial states
 
+	--debugging
 	['Constant'] = function()
 		initState = function(x,y,z)
 			return buildStateEuler{
 				density = 1,
 				pressure = 1,
---debugging
---magneticFieldX = 1,
---magneticFieldY = 1,
---magneticFieldZ = 1,
+				magneticFieldX = 1,
+				magneticFieldY = 1,
+				magneticFieldZ = 1,
 			}
 		end
 	end,
@@ -48,8 +48,8 @@ return {
 				specificEnergyInternal = 1,
 --debugging
 magneticFieldX = 1,
-magneticFieldY = 1,
-magneticFieldZ = 1,
+--magneticFieldY = 1,
+--magneticFieldZ = 1,
 			}
 		end
 	end,

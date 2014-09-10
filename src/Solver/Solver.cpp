@@ -45,32 +45,61 @@ void Solver::init() {
 		}
 	}
 #endif	
+
+/*
+What's this for?
+I was going to useGPU=false for debugging, so I could use a kernel size of 1 and output debug stuff sequentially
+... but I'm getting crashes inside of kernels *only* when GPU is disabled.
+SO I thought maybe I could useGPU=true and still output sequentially...
+but there's currently an issue with the reduce kernel when doing that, which I need to disable.
+OR I could just have the debug printfs also output their thread ID and filter all the debug output
+*/
+//#define DEBUG_OVERRIDE
 	
 	//if dim 2 is size 1 then tell opencl to treat it like a 1D problem
 	switch (app.dim) {
 	case 1:
 		globalSize = cl::NDRange(app.size.s[0]);
-		localSize = cl::NDRange(16);
+		{	
+			int n = app.useGPU ? 16 : 1;
+#ifdef DEBUG_OVERRIDE
+			n = 1;
+#endif
+			localSize = cl::NDRange(n);
+		}
 		localSize1d = cl::NDRange(localSize[0]);
 		offset1d = cl::NDRange(0);
 		offsetNd = cl::NDRange(0);
 		break;
 	case 2:
 		globalSize = cl::NDRange(app.size.s[0], app.size.s[1]);
-		localSize = cl::NDRange(16, 16);
+		{
+			int n = app.useGPU ? 16 : 1;
+#ifdef DEBUG_OVERRIDE
+			n = 1;
+#endif
+			localSize = cl::NDRange(n, n);
+		}
 		localSize1d = cl::NDRange(localSize[0]);
 		offset1d = cl::NDRange(0);
 		offsetNd = cl::NDRange(0, 0);
 		break;
 	case 3:
 		globalSize = cl::NDRange(app.size.s[0], app.size.s[1], app.size.s[2]);
-		localSize = cl::NDRange(8, 8, 8);
+		{
+			int n = app.useGPU ? 8 : 1;
+#ifdef DEBUG_OVERRIDE
+			n = 1;
+#endif
+			localSize = cl::NDRange(n, n, n);
+		}
 		localSize1d = cl::NDRange(localSize[0]);
 		offset1d = cl::NDRange(0);
 		offsetNd = cl::NDRange(0, 0, 0);
 		break;
 	}
-	
+
+
 	std::cout << "global_size\t" << globalSize << std::endl;
 	std::cout << "local_size\t" << localSize << std::endl;
 	
@@ -95,7 +124,7 @@ void Solver::init() {
 	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
 
 	//for curiousity's sake
-	{
+	if (app.useGPU) {
 		cl_int err;
 		
 		size_t size = 0;
@@ -424,7 +453,7 @@ void Solver::findMinTimestep() {
 		calcCFLMinReduceKernel.setArg(2, reduceSize);
 		calcCFLMinReduceKernel.setArg(3, nextSize == 1 ? dtBuffer : dst);
 		commands.enqueueNDRangeKernel(calcCFLMinReduceKernel, offset1d, reduceGlobalSize, localSize1d);
-		commands.finish();
+		if (app.useGPU) commands.finish();
 		std::swap(dst, src);
 		reduceSize = nextSize;
 	}
@@ -468,12 +497,11 @@ void Solver::display() {
 	std::vector<cl::Memory> acquireGLMems = {fluidTexMem};
 	commands.enqueueAcquireGLObjects(&acquireGLMems);
 
+	//TODO if we're not using GPU then we need to transfer the contents via a CPU buffer ... or not at all?
 	if (app.useGPU) {
 		convertToTexKernel.setArg(4, app.displayMethod);
 		convertToTexKernel.setArg(5, app.displayScale);
 		commands.enqueueNDRangeKernel(convertToTexKernel, offsetNd, globalSize, localSize);
-	} else {
-		throw Common::Exception() << "no support";
 	}
 
 	commands.enqueueReleaseGLObjects(&acquireGLMems);

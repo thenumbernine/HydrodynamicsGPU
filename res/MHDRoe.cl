@@ -21,7 +21,7 @@ have dug through
 
 //debugging
 //#define DEBUG_OUTPUT
-#define DEBUG_INDEX		512
+#define DEBUG_INDEX		513
 
 void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
@@ -64,8 +64,10 @@ void calcEigenBasisSide(
 	real potentialEnergyL = potentialBuffer[indexPrev];
 	real potentialEnergyDensityL = densityL * potentialEnergyL; 
 	real internalEnergyDensityL = totalHydroEnergyDensityL - kineticEnergyDensityL - potentialEnergyDensityL;
+internalEnergyDensityL = max(0.f, internalEnergyDensityL);	//magnetic energy is exceeding total energy ...
 	real pressureL = gammaMinusOne * internalEnergyDensityL;
-	real roeWeightL = .5f;//sqrt(densityL);
+	//real enthalpyTotalL = (totalHydroEnergyDensityL + pressureL) / densityL;
+	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
 	real4 velocityR = VELOCITY(stateR);
@@ -77,16 +79,18 @@ void calcEigenBasisSide(
 	real potentialEnergyR = potentialBuffer[index];
 	real potentialEnergyDensityR = densityR * potentialEnergyR;
 	real internalEnergyDensityR = totalHydroEnergyDensityR - kineticEnergyDensityR - potentialEnergyDensityR;
+internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is exceeding total energy ...
 	real pressureR = gammaMinusOne * internalEnergyDensityR;
-	real roeWeightR = .5f;//sqrt(densityR);
+	//real enthalpyTotalR = (totalHydroEnergyDensityR + pressureR) / densityR;
+	real roeWeightR = sqrt(densityR);
 
-	//3.5.2 "In this paper, a simple arithmetic averaging of the primitive variables is done to compute the interface state."
-	//but while I'm solving the degeneracy case, I'll use Roe weighting
 	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
 	real4 velocity = (velocityL * roeWeightL + velocityR * roeWeightR) * roeWeightNormalization;
 	real4 magneticField = (magneticFieldL * roeWeightL + magneticFieldR * roeWeightR) * roeWeightNormalization;
 	real pressure = (pressureL * roeWeightL + pressureR * roeWeightR) * roeWeightNormalization;
-	real density = roeWeightL * roeWeightR;	//specific to Euler Roe weighting
+	//non-mhd hydro papers say to do this, but I get much greater dCons/dPrim eigenvector orthogonality error with this enthalpyTotal
+	//real enthalpyTotal = (enthalpyTotalL * roeWeightL + enthalpyTotalR * roeWeightR) * roeWeightNormalization;
+	real density = sqrt(densityL * densityR);
 	
 #if DIM > 1
 	if (side == 1) {
@@ -128,7 +132,6 @@ void calcEigenBasisSide(
 	real sgnBx = magneticField.x >= 0.f ? 1.f : -1.f;
 	
 	real starSpeedSq = .5f * (speedOfSoundSq + magneticFieldSq / (density * vaccuumPermeability));
-	real starSpeed = sqrt(starSpeedSq);
 	real discr = starSpeedSq * starSpeedSq - speedOfSoundSq * AlfvenSpeedSq;
 	real discrSqrt = sqrt(discr);
 	real fastSpeedSq = starSpeedSq + discrSqrt;
@@ -145,17 +148,19 @@ void calcEigenBasisSide(
 	//the eigenvectors wrt the symmetrizing variables are orthonormal, so the transpose is the inverse
 
 	real alphaFast, alphaSlow;
-	real4 lf = (real4)(0.f, 0.f, 0.f, 0.f);
-	real4 ls = (real4)(0.f, 0.f, 0.f, 0.f);
-	real4 mf = (real4)(0.f, 0.f, 0.f, 0.f);
-	real4 ms = (real4)(0.f, 0.f, 0.f, 0.f);
+	real2 kf = (real2)(0.f, 0.f);
+	real2 ks = (real2)(0.f, 0.f);
+	real2 lf = (real2)(0.f, 0.f);
+	real2 ls = (real2)(0.f, 0.f);
+	real2 mf = (real2)(0.f, 0.f);
+	real2 ms = (real2)(0.f, 0.f);
 
 	/*
 	the conditions Bx=0 and Bx=By=Bz=0 have similar eigenvalues so I lumped them together
 	
-	works for constant fields of any configuration
-	works for hydro jump (Sod) with no field
-	fails after a bit for hydro jump with YZ field
+	works for constant fields with and without tangent components
+	works for Sod with no field
+	fails after a bit for Sod with YZ field
 	*/
 	if (fabs(magneticField.x) < 1e-7f) {
 #ifdef DEBUG_OUTPUT
@@ -187,6 +192,7 @@ void calcEigenBasisSide(
 		eigenvectorsWrtSymmetrized8[6] = (real8)(v6[0], 0.f, 	0.f, 0.f, 0.f, 0.f, 	v6[1], 	0.f);
 		eigenvectorsWrtSymmetrized8[7] = (real8)(v0[0], v0[1],	0.f, 0.f, 0.f, v0[2], 	v0[3],	0.f);
 	}
+#if 1	//works for a while
 	/*
 	Bx=By=Bz=0 is handled above, so
 	this is only for By=Bz=0, Bx!=0
@@ -199,9 +205,10 @@ void calcEigenBasisSide(
 	else if (magneticFieldTLen < 1e-7f) {
 #ifdef DEBUG_OUTPUT
 		if (index == DEBUG_INDEX) {
-			printf("using normal-B != 0, tangent-B == 0 eigensystem\n");
+			printf("using normal-B != 0, tangent-B == 0, c > ca eigensystem\n");
 		}
 #endif
+		//potentially out of order depending on speed of sound vs alfven speed
 		eigenvalues[0] = velocity.x - speedOfSound;
 		eigenvalues[1] = velocity.x - AlfvenSpeed;
 		eigenvalues[2] = velocity.x - AlfvenSpeed;
@@ -219,8 +226,9 @@ void calcEigenBasisSide(
 		eigenvectorsWrtSymmetrized8[5] = (real8)(0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
 		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
 		eigenvectorsWrtSymmetrized8[7] = (real8)(1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
-	
-	} else {
+	}
+#endif	
+	else {
 #ifdef DEBUG_OUTPUT
 		if (index == DEBUG_INDEX) {
 			printf("using normal-B != 0, tangent-B != 0 eigensystem\n");
@@ -238,53 +246,44 @@ void calcEigenBasisSide(
 	
 		//fast and slow eigenvectors are of the form [+/-k l +/-m 0]
 		//Alfven eigenvectors are of the form [0 l -/+l 0]
-
-		real4 la;
+		
+		real2 la;
 		if (magneticFieldTLen < 1e-7f) {
-			la = (real4)(0.f, M_SQRT_1_2, 0.f, 0.f);
+			la = (real2)(0.f, 1.f) * M_SQRT_1_2;
 		} else {
-			la = (real4)(0.f, magneticField.z, -magneticField.y, 0.f) * (M_SQRT_1_2 / magneticFieldTLen);
+			la = (real2)(magneticField.z, -magneticField.y) * (M_SQRT_1_2 / magneticFieldTLen);
 		}
 
-		real tmpf = (fastSpeedSq * vaccuumPermeability * density - magneticFieldXSq);
-		real kf = speedOfSound * magneticFieldTSq * tmpf;
-		lf = ((real4)(fastSpeed * tmpf, 0.f, 0.f, 0.f) - (fastSpeed * magneticField.x) * magneticFieldT) * magneticFieldTSq;
-		mf = ((fastSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability * tmpf) * magneticFieldT;
+		kf = (real2)(speedOfSound, -fastSpeed) * (fastSpeedSq - AlfvenSpeedSq);
+		ks = (real2)(speedOfSound, -slowSpeed) * (AlfvenSpeedSq - slowSpeedSq);
+		
+		lf = magneticField.x * fastSpeed / (density * vaccuumPermeability) * magneticField.yz;
+		ls = magneticField.x * slowSpeed / (density * vaccuumPermeability) * magneticField.yz;
 
-		real tmps = 1.f;	
-		if (fabs(magneticField.x) < 1e-7f) {	//Bx=0 <=> ca=0 <=> cs=0, cf=c
-#ifdef DEBUG_OUTPUT
-			if (index == DEBUG_INDEX) {
-				printf("using Bx == 0 slow-vector\n");
-			}
-#endif
-			ls = magneticFieldT * (M_SQRT_2 * sqrtVaccuumPermeability * sqrtDensity * speedOfSound * starSpeed);
-		} else {
-#ifdef DEBUG_OUTPUT
-			if (index == DEBUG_INDEX) {
-				printf("using Bx != 0 slow-vector\n");
-			}
-#endif
-			tmps = (slowSpeedSq * vaccuumPermeability * density - magneticFieldXSq);
-			ls = ((real4)(slowSpeed * tmps, 0.f, 0.f, 0.f) - (slowSpeed * magneticField.x) * magneticFieldT) * magneticFieldTSq;
-		}
-		real ks = speedOfSound * magneticFieldTSq * tmps;
-		ms = ((slowSpeedSq - speedOfSoundSq) * sqrtDensity * sqrtVaccuumPermeability * tmps) * magneticFieldT;
+		mf = (fastSpeedSq / (sqrtDensity * sqrtVaccuumPermeability)) * magneticFieldT.yz;
+		ms = (slowSpeedSq / (sqrtDensity * sqrtVaccuumPermeability)) * magneticFieldT.yz;
 
 		//normalizing scalars for the fast and slow eigenvectors
 		//no need to do so for the Alfven wave since it is only composed of the 'la' vector, which only itself needs to be normalized (and scaled by sqrt(1/2) since it appears twice)
-		alphaFast = sqrt(dot(lf,lf) + dot(mf,mf) + kf*kf);
-		alphaSlow = sqrt(dot(ls,ls) + dot(ms,ms) + ks*ks);
+		alphaFast = sqrt(dot(kf,kf) + dot(lf,lf) + dot(mf,mf));
+		alphaSlow = sqrt(dot(ks,ks) + dot(ls,ls) + dot(ms,ms));
+
+		//if alpha fast is zero then fast[2] = fast[5] = 1.f;
+		if (alphaFast < 1e-7f) {
+			alphaFast = M_SQRT_2;
+			lf[0] = 1.f;
+			mf[0] = 1.f;
+		}
 
 		//column-major (represented transposed)
-		eigenvectorsWrtSymmetrized8[0] = (real8)(-kf,	lf.x, 	lf.y, 	lf.z, 	-mf.x, 	-mf.y, 	-mf.z,	0.f) / alphaFast; 
-		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 	la.x, 	la.y, 	la.z, 	la.x, 	la.y,	la.z,	0.f) * sgnBx;
-		eigenvectorsWrtSymmetrized8[2] = (real8)(-ks, 	ls.x, 	ls.y, 	ls.z,	-ms.x, 	-ms.y,	-ms.z,	0.f) / alphaSlow;
+		eigenvectorsWrtSymmetrized8[0] = (real8)(kf[0],	kf[1], 	lf[0], 	lf[1], 	0.f, 	mf[0], 	mf[1],	0.f) / alphaFast; 
+		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 	0.f, 	la[0], 	la[1], 	0.f, 	la[0],	la[1],	0.f) * sgnBx;
+		eigenvectorsWrtSymmetrized8[2] = (real8)(ks[0], ks[1], 	-ls[0], -ls[1],	0.f, 	-ms[0],	-ms[1],	0.f) / alphaSlow;
 		eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 	0.f, 	0.f, 	0.f, 	1.f, 	0.f, 	0.f,  	0.f);
 		eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f,  	1.f);
-		eigenvectorsWrtSymmetrized8[5] = (real8)(ks, 	ls.x, 	ls.y, 	ls.z, 	ms.x, 	ms.y, 	ms.z ,  0.f) / alphaSlow;
-		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 	la.x, 	la.y, 	la.z, 	-la.x, 	-la.y, 	-la.z ,  0.f) * sgnBx;
-		eigenvectorsWrtSymmetrized8[7] = (real8)(kf, 	lf.x, 	lf.y,	lf.z, 	mf.x,	mf.y, 	mf.z ,  0.f) / alphaFast; 
+		eigenvectorsWrtSymmetrized8[5] = (real8)(ks[0], -ks[1], ls[0], 	ls[1], 	0.f, 	-ms[0], -ms[1] ,  0.f) / alphaSlow;
+		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 	0.f, 	la[0], 	la[1], 	0.f, 	-la[0], -la[1] ,  0.f) * sgnBx;
+		eigenvectorsWrtSymmetrized8[7] = (real8)(kf[0], -kf[1], -lf[0],	-lf[1], 0.f,	mf[0], 	mf[1] ,  0.f) / alphaFast; 
 	}
 
 	//for all but the no-magnetic-field case transform the eigenvectors by dw/du
@@ -355,6 +354,8 @@ void calcEigenBasisSide(
 
 #ifdef DEBUG_OUTPUT
 	if (index == DEBUG_INDEX) {
+		printf("gamma %f\n", gamma);
+		printf("vaccuum permeability %f\n", vaccuumPermeability);
 		printf("side %d\n", side);
 		printf("i %d\n", index);
 		//heart of current problem: magnetic energy density is exceeding our total energy density
@@ -362,34 +363,18 @@ void calcEigenBasisSide(
 		//magnetic energy density comes from the magnetic field states
 		//total energy density comes from the the ENERGY_TOTAL state
 		// this means our eigenvectors are contributing less to total energy than they should be. 
-		printf("density %f\n", density);
-		printf("sqrt(density) %f\n", sqrtDensity);
-		printf("vaccuum permeability %f\n", vaccuumPermeability);
 		printf("magnetic field %f %f %f\n", magneticField.x, magneticField.y, magneticField.z);
 		printf("magnetic field T %f %f %f\n", magneticFieldT.x, magneticFieldT.y, magneticFieldT.z);
 		printf("magnetic field T length %f\n", magneticFieldTLen);
 		printf("magnetic field T length^2 %f\n", magneticFieldTSq);
-		printf("lf %f %f %f\n", lf.x, lf.y, lf.z);
-		printf("ls %f %f %f\n", ls.x, ls.y, ls.z);
-		printf("mf %f %f %f\n", mf.x, mf.y, mf.z);
-		printf("ms %f %f %f\n", ms.x, ms.y, ms.z);
-		printf("gamma %f\n", gamma);
-		printf("pressure %f\n", pressure);
-		printf("speedOfSound %f\n", speedOfSound);
-		printf("speedOfSoundSq %f\n", speedOfSoundSq);
-		printf("fastSpeed %f\n", fastSpeed);
-		printf("fastSpeedSq %f\n", fastSpeedSq);
-		printf("AlfvenSpeed %f\n", AlfvenSpeed);
-		printf("AlfvenSpeedSq %f\n", AlfvenSpeedSq);
-		printf("slowSpeed %f\n", slowSpeed);
-		printf("slowSpeedSq %f\n", slowSpeedSq);
+		printf("kf %f %f\n", kf.x, kf.y);
+		printf("ks %f %f\n", ks.x, ks.y);
+		printf("lf %f %f\n", lf.x, lf.y);
+		printf("ls %f %f\n", ls.x, ls.y);
+		printf("mf %f %f\n", mf.x, mf.y);
+		printf("ms %f %f\n", ms.x, ms.y);
 		printf("alphaFast %f\n", alphaFast);
 		printf("alphaSlow %f\n", alphaSlow);
-		printf("eigenvalues");
-		for (int i = 0; i < NUM_STATES; ++i) {
-			printf(" %f", eigenvalues[i]);
-		}
-		printf("\n");
 		printf("symmetrized eigenvectors\n");
 		for (int i = 0; i < NUM_STATES; ++i) {
 			for (int j = 0; j < NUM_STATES; ++j) {
@@ -398,7 +383,7 @@ void calcEigenBasisSide(
 			printf("\n");
 		}
 		printf("symmetrized eigenvector orthogonality\n");
-		real totalError = 0.f;
+		real sym_totalError = 0.f;
 		for (int i = 0; i < NUM_STATES; ++i) {
 			for (int j = 0; j < NUM_STATES; ++j) {
 				real sum = 0.f;
@@ -406,15 +391,14 @@ void calcEigenBasisSide(
 					sum += eigenvectorsWrtSymmetrized[k + NUM_STATES * i] * eigenvectorsWrtSymmetrized[k + NUM_STATES * j];	//left i,k * right k,j == right k,i * right k,j
 				}
 				printf(" %f", sum);
-				totalError += fabs(sum - (i == j ? 1.f : 0.f));
+				sym_totalError += fabs(sum - (i == j ? 1.f : 0.f));
 			}
 			printf("\n");
 		}
-		printf("symmetrized eigenvector error %f\n", totalError);
 		printf("side %d\n", side);
 		printf("i %d\n", index);
 		printf("conservative eigenvector orthogonality\n");
-		totalError = 0.f;
+		real cons_totalError = 0.f;
 		for (int i = 0; i < NUM_STATES; ++i) {
 			for (int j = 0; j < NUM_STATES; ++j) {
 				real sum = 0.f;
@@ -422,11 +406,10 @@ void calcEigenBasisSide(
 					sum += eigenvectorsInverse[i + NUM_STATES * k] * eigenvectors[k + NUM_STATES * j];
 				}
 				printf(" %f", sum);
-				totalError += fabs(sum - (i == j ? 1.f : 0.f));
+				cons_totalError += fabs(sum - (i == j ? 1.f : 0.f));
 			}
 			printf("\n");
 		}
-		printf("conservative eigenvector error %f\n", totalError);
 		printf("dCons/dSym\n");
 		for (int i = 0; i < NUM_STATES; ++i) {
 			for (int j = 0; j < NUM_STATES; ++j) {
@@ -442,7 +425,7 @@ void calcEigenBasisSide(
 			printf("\n");
 		}
 		printf("dCons/dSym_ik * dSym/dCons_kj orthogonality\n");
-		totalError = 0.f;
+		real dCons_dSym_totalError = 0.f;
 		for (int i = 0; i < NUM_STATES; ++i) {
 			for (int j = 0; j < NUM_STATES; ++j) {
 				real sum = 0.f;
@@ -450,11 +433,36 @@ void calcEigenBasisSide(
 					sum += dCons_dSym[i + NUM_STATES * k] * dSym_dCons[k + NUM_STATES * j];
 				}
 				printf(" %f", sum);
-				totalError += fabs(sum - (i == j ? 1.f : 0.f));
+				dCons_dSym_totalError += fabs(sum - (i == j ? 1.f : 0.f));
 			}
 			printf("\n");
 		}
-		printf("dCons/dSym_ik * dSym/dCons_kj error %f\n", totalError);
+		printf("eigenvalues");
+		for (int i = 0; i < NUM_STATES; ++i) {
+			printf(" %f", eigenvalues[i]);
+		}
+		printf("\n");	
+		printf("conservative eigenvector error %f\n", cons_totalError);
+		printf("symmetrized eigenvector error %f\n", sym_totalError);
+		printf("dCons/dSym_ik * dSym/dCons_kj error %f\n", dCons_dSym_totalError);
+		printf("total plasma energy density L %f R %f\n", totalPlasmaEnergyDensityL, totalPlasmaEnergyDensityR);
+		printf("magnetic energy density L %f R %f\n", magneticEnergyDensityL, magneticEnergyDensityR);
+		printf("potential energy density L %f R %f\n", potentialEnergyDensityL, potentialEnergyDensityR);
+		printf("kinetic energy density L %f R %f\n", kineticEnergyDensityL, kineticEnergyDensityR);
+		printf("total hydro energy density L %f R %f\n", totalHydroEnergyDensityL, totalHydroEnergyDensityR);
+		printf("internal energy density L %f R %f\n", internalEnergyDensityL, internalEnergyDensityR);
+		printf("pressure L %f R %f\n", pressureL, pressureR);
+		printf("density %f\n", density);
+		printf("pressure %f\n", pressure);
+		printf("speedOfSound %f\n", speedOfSound);
+		printf("fastSpeed %f\n", fastSpeed);
+		printf("AlfvenSpeed %f\n", AlfvenSpeed);
+		printf("slowSpeed %f\n", slowSpeed);
+		printf("speedOfSoundSq %f\n", speedOfSoundSq);
+		printf("fastSpeedSq %f\n", fastSpeedSq);
+		printf("AlfvenSpeedSq %f\n", AlfvenSpeedSq);
+		printf("slowSpeedSq %f\n", slowSpeedSq);
+		printf("starSpeedSq %f\n", starSpeedSq);
 	}
 #endif	//DEBUG_OUTPUT
 
