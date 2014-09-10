@@ -64,7 +64,7 @@ vectorFieldScale = .125
 gamma = 1.4
 
 -- specific to MHD
-vaccuumPermeability = 10	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
+vaccuumPermeability = 100	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)

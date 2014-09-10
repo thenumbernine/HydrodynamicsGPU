@@ -203,29 +203,55 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 	fails on hydro discontinuities with magnetic field along normal
 	*/
 	else if (magneticFieldTLen < 1e-7f) {
+		//this condition doesn't seem to influence things too much, but it ensures we have the cf and cs eigenvalues in the same place for all conditions
+ 		if (speedOfSound > AlfvenSpeed) {	//c > ca, so c = cf, ca = cs
 #ifdef DEBUG_OUTPUT
-		if (index == DEBUG_INDEX) {
-			printf("using normal-B != 0, tangent-B == 0, c > ca eigensystem\n");
-		}
+			if (index == DEBUG_INDEX) {
+				printf("using normal-B != 0, tangent-B == 0, c > ca eigensystem\n");
+			}
 #endif
-		//potentially out of order depending on speed of sound vs alfven speed
-		eigenvalues[0] = velocity.x - speedOfSound;
-		eigenvalues[1] = velocity.x - AlfvenSpeed;
-		eigenvalues[2] = velocity.x - AlfvenSpeed;
-		eigenvalues[3] = velocity.x;
-		eigenvalues[4] = velocity.x;
-		eigenvalues[5] = velocity.x + AlfvenSpeed;
-		eigenvalues[6] = velocity.x + AlfvenSpeed;
-		eigenvalues[7] = velocity.x + speedOfSound;
+			eigenvalues[0] = velocity.x - speedOfSound;
+			eigenvalues[1] = velocity.x - AlfvenSpeed;
+			eigenvalues[2] = velocity.x - AlfvenSpeed;
+			eigenvalues[3] = velocity.x;
+			eigenvalues[4] = velocity.x;
+			eigenvalues[5] = velocity.x + AlfvenSpeed;
+			eigenvalues[6] = velocity.x + AlfvenSpeed;
+			eigenvalues[7] = velocity.x + speedOfSound;
 
-		eigenvectorsWrtSymmetrized8[0] = (real8)(1.f, -1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
-		eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
-		eigenvectorsWrtSymmetrized8[2] = (real8)(0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
-		eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f);
-		eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		eigenvectorsWrtSymmetrized8[5] = (real8)(0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
-		eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
-		eigenvectorsWrtSymmetrized8[7] = (real8)(1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
+			eigenvectorsWrtSymmetrized8[0] = (real8)(1.f, -1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
+			eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
+			eigenvectorsWrtSymmetrized8[2] = (real8)(0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
+			eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f);
+			eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+			eigenvectorsWrtSymmetrized8[5] = (real8)(0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
+			eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
+			eigenvectorsWrtSymmetrized8[7] = (real8)(1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
+		} else {	//ca > c, so ca = cf, c = cs
+#ifdef DEBUG_OUTPUT
+			if (index == DEBUG_INDEX) {
+				printf("using normal-B != 0, tangent-B == 0, ca > c eigensystem\n");
+			}
+#endif		
+			eigenvalues[0] = velocity.x - AlfvenSpeed;
+			eigenvalues[1] = velocity.x - AlfvenSpeed;
+			eigenvalues[2] = velocity.x - speedOfSound;
+			eigenvalues[3] = velocity.x;
+			eigenvalues[4] = velocity.x;
+			eigenvalues[5] = velocity.x + speedOfSound;
+			eigenvalues[6] = velocity.x + AlfvenSpeed;
+			eigenvalues[7] = velocity.x + AlfvenSpeed;
+
+			//I exchanged 0 & 2, 5 & 7.  should I rotate them instead?
+			eigenvectorsWrtSymmetrized8[0] = (real8)(0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
+			eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
+			eigenvectorsWrtSymmetrized8[2] = (real8)(1.f, -1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
+			eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f);
+			eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+			eigenvectorsWrtSymmetrized8[5] = (real8)(1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;	
+			eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
+			eigenvectorsWrtSymmetrized8[7] = (real8)(0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
+		}
 	}
 #endif	
 	else {
@@ -268,7 +294,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		alphaFast = sqrt(dot(kf,kf) + dot(lf,lf) + dot(mf,mf));
 		alphaSlow = sqrt(dot(ks,ks) + dot(ls,ls) + dot(ms,ms));
 
-		//if alpha fast is zero then fast[2] = fast[5] = 1.f;
+		//if alpha fast is zero then the fast vectors are zero
+		//looking at it shows empty rows 2 and 5, so set set fast[2] = fast[5] = 1.f;
 		if (alphaFast < 1e-7f) {
 			alphaFast = M_SQRT_2;
 			lf[0] = 1.f;
