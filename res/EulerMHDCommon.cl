@@ -69,7 +69,9 @@ magneticFieldMagn += dx[2] * (stateBuffer[STATE_MAGNETIC_FIELD_Z + NUM_STATES * 
 #endif
 
 #else	//!MHD
+#if DIM == 1	//can harmlessly be there for dim>1, but never referenced unless dim = 1
 	real magneticFieldMagn = 0.f;
+#endif
 #endif
 
 #if DIM == 1

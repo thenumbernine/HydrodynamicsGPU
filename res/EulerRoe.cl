@@ -208,11 +208,11 @@ void calcEigenBasisSide(
 
 #if DIM > 1
 	if (side == 1) {
-		velocity = (real4)(velocity.y, -velocity.x, velocity.z, 0.f);	// -90' rotation to put the y axis contents into the x axis
+		velocity = (real4)(velocity.y, velocity.x, velocity.z, 0.f);	// -90' rotation to put the y axis contents into the x axis
 	} 
 #if DIM > 2
 	else if (side == 2) {
-		velocity = (real4)(velocity.z, velocity.y, -velocity.x, 0.f);	//-90' rotation to put the z axis in the x axis
+		velocity = (real4)(velocity.z, velocity.y, velocity.x, 0.f);	//-90' rotation to put the z axis in the x axis
 	}
 #endif
 #endif
@@ -345,13 +345,13 @@ void calcEigenBasisSide(
 			//and while a rotation applied to the LHS of a vector rotates the elements of its column vectors, a rotation applied to the RHS rotates the elements of its row vectors 
 			//each row's y <- x, x <- -y
 			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y];
 			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y] = tmp;
 			//a -90' rotation applied to the RHS of A must be corrected with a 90' rotation on the LHS of A
 			//this rotates the elements of the column vectors by 90'
 			//each column's x <- y, y <- -x
 			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = -eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i];
 			eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i] = tmp;
 		}
 	}
@@ -360,10 +360,10 @@ void calcEigenBasisSide(
 		for (int i = 0; i < NUM_STATES; ++i) {
 			real tmp;
 			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z];
 			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z] = tmp;
 			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = -eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i];
 			eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i] = tmp;
 		}
 	}

@@ -158,9 +158,6 @@ void calcFluxSide(
 	int indexPrev = index - stepsize[side];
 	int interfaceIndex = side + DIM * index;
 
-	real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
-	normal[side] = 1;
-
 	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
 
@@ -170,7 +167,6 @@ void calcFluxSide(
 	real invDensityL = 1.f / densityL;
 	real4 velocityL = VELOCITY(stateL);
 	real velocitySqL = dot(velocityL, velocityL);
-	real velocityNL = dot(velocityL, normal);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
 	real energyKineticL = .5f * velocitySqL;
 	real energyPotentialL = potentialBuffer[indexPrev];
@@ -178,14 +174,12 @@ void calcFluxSide(
 	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
 	real speedOfSoundL = sqrt((gamma - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
-	real eigenvaluesMinL = velocityNL - speedOfSoundL;
 	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
 	real4 velocityR = VELOCITY(stateR);
 	real velocitySqR = dot(velocityR, velocityR);
-	real velocityNR = dot(velocityR, normal);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
 	real energyKineticR = .5f * velocitySqR;
 	real energyPotentialR = potentialBuffer[index];
@@ -193,17 +187,47 @@ void calcFluxSide(
 	real pressureR = (gamma - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
 	real speedOfSoundR = sqrt((gamma - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
-	real eigenvaluesMaxR = velocityNR + speedOfSoundR;
 	real roeWeightR = sqrt(densityR);
 
 	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
 	real4 velocity = (roeWeightL * velocityL + roeWeightR * velocityR) * roeWeightNormalization;
+	real velocitySq = dot(velocity, velocity);
 	real enthalpyTotal = (roeWeightL * enthalpyTotalL + roeWeightR * enthalpyTotalR) * roeWeightNormalization;
 	real energyPotential = (roeWeightL * energyPotentialL + roeWeightR * energyPotentialR) * roeWeightNormalization; 
-	
-	real velocitySq = dot(velocity, velocity);
 	real speedOfSound = sqrt((gamma - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
+
+#if 0
+//calculate flux in x-axis and rotate into normal
+#if DIM > 1
+	if (side == 1) {
+		velocity = (real4)(velocity.y, velocity.x, velocity.z, 0.f);	// -90' rotation to put the y axis contents into the x axis
+		velocityL = (real4)(velocityL.y, velocity.x, velocityL.z, 0.f);	// -90' rotation to put the y axis contents into the x axis
+		velocityR = (real4)(velocityR.y, velocity.x, velocityR.z, 0.f);	// -90' rotation to put the y axis contents into the x axis
+	} 
+#if DIM > 2
+	else if (side == 2) {
+		velocity = (real4)(velocity.z, velocity.y, velocity.x, 0.f);	//-90' rotation to put the z axis in the x axis
+		velocityL = (real4)(velocityL.z, velocityL.y, velocity.x, 0.f);	//-90' rotation to put the z axis in the x axis
+		velocityR = (real4)(velocityR.z, velocityR.y, velocity.x, 0.f);	//-90' rotation to put the z axis in the x axis
+	}
+#endif
+#endif
+	
+	real velocityNL = velocityL.x;
+	real velocityNR = velocityR.x;
+	real eigenvaluesMinL = velocityNL - speedOfSoundL;
+	real eigenvaluesMaxR = velocityNR + speedOfSoundR;
+	real velocityN = velocity.x;
+#else
+	real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
+	normal[side] = 1.f;
+	real velocityNL = dot(velocityL, normal);
+	real velocityNR = dot(velocityR, normal);
 	real velocityN = dot(velocity, normal);
+#endif
+	real eigenvaluesMinL = velocityNL - speedOfSoundL;
+	real eigenvaluesMaxR = velocityNR + speedOfSoundR;
+	
 
 	real eigenvalues[NUM_STATES];
 	for (int i = 0; i < NUM_STATES; ++i) {
@@ -211,8 +235,8 @@ void calcFluxSide(
 	}
 	eigenvalues[0] -= speedOfSound;
 	real eigenvaluesMin = eigenvalues[0];
-	eigenvalues[DIM+1] += speedOfSound;
-	real eigenvaluesMax = eigenvalues[DIM+1];
+	eigenvalues[NUM_STATES-1] += speedOfSound;
+	real eigenvaluesMax = eigenvalues[NUM_STATES-1];
 
 	//flux
 
@@ -247,11 +271,12 @@ void calcFluxSide(
 #endif
 	fluxR[DIM+1] = densityR * enthalpyTotalR * velocityNR;	
 
-	if (sl >= 0.f) {
+#if 1	//HLL
+	if (0.f <= sl) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i];
 		}
-	} else if (sl <= 0.f && sr >= 0.f) {
+	} else if (sl <= 0.f && 0.f <= sr) {
 		//(sr * fluxL[j] - sl * fluxR[j] + sl * sr * (stateR[j] - stateL[j])) / (sr - sl)
 		real invDenom = 1.f / (sr - sl);
 		for (int i = 0; i < NUM_STATES; ++i) {
@@ -262,8 +287,16 @@ void calcFluxSide(
 			flux[i] = fluxR[i];
 		}
 	}
+#endif
+
+#if 0	//HLLC
+
+#endif
+
 
 /*
+slope limiter?
+
 theta = sign of eigenvalues
 
 fhalf = 1/2 (fR + fL) - 1/2 (theta + phi (epsilon - theta)) (fR - fL)
@@ -305,6 +338,24 @@ or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, ch
 		real epsilon = eigenvalue * dt_dx;
 		flux[i] -= .5f * deltaFlux * (theta + phi * (epsilon - theta) / (float)DIM);
 	}
+#endif
+
+#if 0
+//rotate x-axis back to normal
+#if DIM > 1
+	if (side == 1) {
+		real tmp = flux[STATE_MOMENTUM_X];
+		flux[STATE_MOMENTUM_X] = flux[STATE_MOMENTUM_Y];
+		flux[STATE_MOMENTUM_Y] = tmp;
+	} 
+#if DIM > 2
+	else if (side == 2) {
+		real tmp = flux[STATE_MOMENTUM_X];
+		flux[STATE_MOMENTUM_X] = flux[STATE_MOMENTUM_Z];
+		flux[STATE_MOMENTUM_Z] = tmp;
+	}
+#endif
+#endif
 #endif
 }
 

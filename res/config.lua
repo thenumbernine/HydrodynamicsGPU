@@ -6,11 +6,11 @@ local configurations = require 'configurations'	--holds catalog of configuration
 
 
 --solverName = 'EulerBurgers'
---solverName = 'EulerHLL' -- needs 2nd order support.
+solverName = 'EulerHLL' -- needs 2nd order support.
 --solverName = 'EulerRoe'
 --solverName = 'SRHDRoe' -- in the works
 --solverName = 'MHDBurgers'
-solverName = 'MHDRoe' -- in the works
+--solverName = 'MHDRoe' -- in the works
 --solverName = 'ADMRoe' -- exploding
 
 
@@ -31,8 +31,8 @@ solverName = 'MHDRoe' -- in the works
 --slopeLimiterName = 'VanAlbada1'
 --slopeLimiterName = 'VanAlbada2'
 --slopeLimiterName = 'VanLeer'		-- not behaving correctly
---slopeLimiterName = 'MonotizedCentral'
-slopeLimiterName = 'Superbee'
+slopeLimiterName = 'MonotizedCentral'
+--slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
@@ -50,7 +50,7 @@ fixedDT = .01
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false 
@@ -82,5 +82,5 @@ displayScale = .25
 
 
 -- see initState for a list of options
-configurations['Brio-Wu']()
+configurations['Colella-Woodward']()
 

@@ -47,7 +47,7 @@ return {
 				density = inside and 1 or .1,
 				specificEnergyInternal = 1,
 --debugging
-magneticFieldX = 1,
+--magneticFieldX = 1,
 --magneticFieldY = 1,
 --magneticFieldZ = 1,
 			}
@@ -174,7 +174,6 @@ magneticFieldX = 1,
 	-- http://www.astro.princeton.edu/~jstone/Athena/tests/brio-wu/Brio-Wu.html
 	['Brio-Wu'] = function()
 		gamma = 2
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 		initState = function(x,y,z)
 			local lhs = x < 0
 			return buildStateEuler{

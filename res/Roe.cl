@@ -29,6 +29,7 @@ __kernel void calcCFL(
 	
 		real minLambda = 0.f;
 		real maxLambda = 0.f;
+		//TODO assume eigenvectors are sorted and just test abs-min and abs-max
 		for (int i = 0; i < NUM_STATES; ++i) {	
 			maxLambda = max(maxLambda, eigenvaluesL[i]);
 			minLambda = min(minLambda, eigenvaluesR[i]);
