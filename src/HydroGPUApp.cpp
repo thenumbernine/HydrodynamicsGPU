@@ -1,5 +1,6 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Solver/EulerHLL.h"
+#include "HydroGPU/Solver/EulerHLLC.h"
 #include "HydroGPU/Solver/EulerBurgers.h"
 #include "HydroGPU/Solver/EulerRoe.h"
 #include "HydroGPU/Solver/SRHDRoe.h"
@@ -169,14 +170,16 @@ void HydroGPUApp::init() {
 		solver = std::make_shared<HydroGPU::Solver::EulerBurgers>(*this);
 	} else if (solverName == "EulerHLL") {
 		solver = std::make_shared<HydroGPU::Solver::EulerHLL>(*this);
+	} else if (solverName == "EulerHLLC") {
+		solver = std::make_shared<HydroGPU::Solver::EulerHLLC>(*this);
 	} else if (solverName == "EulerRoe") {
 		solver = std::make_shared<HydroGPU::Solver::EulerRoe>(*this);
 	} else if (solverName == "SRHDRoe") {
 		solver = std::make_shared<HydroGPU::Solver::SRHDRoe>(*this);	//FIXME
 	} else if (solverName == "MHDBurgers") {
-		solver = std::make_shared<HydroGPU::Solver::MHDBurgers>(*this);	//FIXME
+		solver = std::make_shared<HydroGPU::Solver::MHDBurgers>(*this);
 	} else if (solverName == "MHDRoe") {
-		solver = std::make_shared<HydroGPU::Solver::MHDRoe>(*this);	//FIXME
+		solver = std::make_shared<HydroGPU::Solver::MHDRoe>(*this);
 	} else if (solverName == "ADMRoe") {
 		solver = std::make_shared<HydroGPU::Solver::ADMRoe>(*this);
 	} else if (solverName == "BSSNOKRoe") {

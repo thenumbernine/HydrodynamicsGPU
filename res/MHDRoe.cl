@@ -498,15 +498,19 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 	//other sources say "if pressure is negative then use HLLC" or "if lambda-min to lambda-max span zero then use Rusanov flux"
 	{
 		//assumes all eigenvalues are sorted
-		real delta = 2.f * fabs(velocity.x);
+		//real delta = 2.f * fabs(velocity.x);
 		//real delta = 2.f * max(fabs(eigenvalues[NUM_STATES-1]), fabs(eigenvalues[0]));
-		//const real delta = 1e-3;
-		for (int i = 0; i < 8; ++i) {
+		const real delta = .2f;
+		int wavesToCheck[] = {0,1,2,5,6,7};
+#define numberof(x)	(sizeof(x)/sizeof((x)[0]))
+		for (int* w = wavesToCheck; w < wavesToCheck + numberof(wavesToCheck); ++w) {
+			int i = *w;
 			float lambda = eigenvalues[i];
 			float absLambda = fabs(lambda);
 			float sgnLambda = sign(lambda);
 			if (absLambda < delta) {
-				absLambda = (absLambda * absLambda + delta * delta) / (2.f * delta);
+				//absLambda = (absLambda * absLambda + delta * delta) / (2.f * delta);
+				//absLambda = (absLambda * absLambda / delta + delta) / 2.f;
 			}
 			eigenvalues[i] = absLambda * sgnLambda;
 		}

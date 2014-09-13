@@ -1,3 +1,6 @@
+//HLLC based on
+//http://math.lanl.gov/~shenli/publications/hllc_mhd.pdf
+
 #include "HydroGPU/Shared/Common.h"
 
 void calcEigenvaluesSide(
@@ -261,22 +264,48 @@ void calcFluxSide(
 #endif
 	fluxR[DIM+1] = densityR * enthalpyTotalR * velocityR.x;	
 
-	//HLL-specific
-	if (0.f <= sl) {
+	//HLLC-specific
+	real qStar = (densityR * velocityR.x * (sr - velocityR.x) - densityL * velocityL.x * (sl - velocityL.x) + pressureL - pressureR) / (densityR * (sr - velocityR.x) - densityL * (sl - velocityL.x));
+	if (0 <= sl) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i];
 		}
-	} else if (sl <= 0.f && 0.f <= sr) {
-		//(sr * fluxL[j] - sl * fluxR[j] + sl * sr * (stateR[j] - stateL[j])) / (sr - sl)
-		real invDenom = 1.f / (sr - sl);
+	} else if (sl <= qStar) {
+		real pressureStar = densityL * (sl - velocityL.x) * (qStar - velocityL.x) + pressureL;
+		real stateLStar[NUM_STATES];
+		stateLStar[STATE_DENSITY] = densityL * (sl - velocityL.x) / (sl - qStar);
+		stateLStar[STATE_MOMENTUM_X] = stateLStar[STATE_DENSITY] * qStar;
+#if DIM > 1
+		stateLStar[STATE_MOMENTUM_Y] = stateL[STATE_MOMENTUM_Y] * (sl - velocityL.x) / (sl - qStar);
+#if DIM > 2
+		stateLStar[STATE_MOMENTUM_Z] = stateL[STATE_MOMENTUM_Z] * (sl - velocityL.x) / (sl - qStar);
+#endif
+#endif
+		stateLStar[STATE_ENERGY_TOTAL] = stateL[STATE_ENERGY_TOTAL] * (sl - velocityL.x) / (sl - qStar) + (pressureStar * qStar - pressureL * velocityL.x) / (sl - qStar);
 		for (int i = 0; i < NUM_STATES; ++i) {
-			flux[i] = (sr * fluxL[i] - sl * fluxR[i] + sl * sr * (stateR[i] - stateL[i])) * invDenom; 
+			flux[i] = fluxL[i] + sl * (stateLStar[i] - stateL[i]);
 		}
-	} else if (sr <= 0.f) {
+	} else if (qStar <= sr) {
+		real pressureStar = densityR * (sl - velocityR.x) * (qStar - velocityR.x) + pressureR;
+		real stateRStar[NUM_STATES];
+		stateRStar[STATE_DENSITY] = densityR * (sl - velocityR.x) / (sl - qStar);
+		stateRStar[STATE_MOMENTUM_X] = stateRStar[STATE_DENSITY] * qStar;
+#if DIM > 1
+		stateRStar[STATE_MOMENTUM_Y] = stateR[STATE_MOMENTUM_Y] * (sl - velocityR.x) / (sl - qStar);
+#if DIM > 2
+		stateRStar[STATE_MOMENTUM_Z] = stateR[STATE_MOMENTUM_Z] * (sl - velocityR.x) / (sl - qStar);
+#endif
+#endif
+		stateRStar[STATE_ENERGY_TOTAL] = stateR[STATE_ENERGY_TOTAL] * (sl - velocityR.x) / (sl - qStar) + (pressureStar * qStar - pressureR * velocityR.x) / (sl - qStar);	
+		for (int i = 0; i < NUM_STATES; ++i) {
+			flux[i] = fluxR[i] + sr * (stateRStar[i] - stateR[i]);
+		}
+	} else if (sr <= 0) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxR[i];
 		}
 	}
+
 
 /*
 slope limiter?

@@ -25,6 +25,7 @@ struct EulerHLL : public Solver {
 
 protected:
 	virtual std::vector<std::string> getProgramSources();
+	virtual std::string getFluxSource();
 	virtual void initStep();
 	virtual void calcTimestep();
 	virtual void step();

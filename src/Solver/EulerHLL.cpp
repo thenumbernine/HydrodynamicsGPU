@@ -7,7 +7,7 @@ namespace HydroGPU {
 namespace Solver {
 
 EulerHLL::EulerHLL(
-	HydroGPUApp &app_)
+	HydroGPUApp& app_)
 : Super(app_)
 {
 	equation = std::make_shared<HydroGPU::Equation::Euler>(*this);
@@ -37,10 +37,14 @@ void EulerHLL::init() {
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	calcFluxDerivKernel.setArg(1, fluxBuffer);
 }	
-	
+
+std::string EulerHLL::getFluxSource() {
+	return Common::File::read("EulerHLL.cl");
+}
+
 std::vector<std::string> EulerHLL::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
-	sources.push_back(Common::File::read("EulerHLL.cl"));
+	sources.push_back(getFluxSource());
 	return sources;
 }
 
