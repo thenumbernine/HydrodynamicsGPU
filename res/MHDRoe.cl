@@ -95,14 +95,14 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 #if DIM > 1
 	if (side == 1) {
 		// -90' rotation to put the y axis contents into the x axis
-		velocity = (real4)(velocity.y, -velocity.x, velocity.z, 0.f);
-		magneticField = (real4)(magneticField.y, -magneticField.x, magneticField.z, 0.f);
+		velocity.xy = velocity.yx;
+		magneticField.xy = magneticField.yx;
 	} 
 #if DIM > 2
 	else if (side == 2) {
 		//-90' rotation to put the z axis in the x axis
-		velocity = (real4)(velocity.z, velocity.y, -velocity.x, 0.f);
-		magneticField = (real4)(magneticField.z, magneticField.y, -magneticField.x, 0.f);
+		velocity.xz = velocity.zx;
+		magneticField.xz = magneticField.zx;
 	}
 #endif
 #endif
@@ -493,6 +493,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 	}
 #endif	//DEBUG_OUTPUT
 
+#if 0
 	//entropy fix (?)
 	//currently prevents divergence, but causes lots of oscillations
 	//other sources say "if pressure is negative then use HLLC" or "if lambda-min to lambda-max span zero then use Rusanov flux"
@@ -515,6 +516,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 			eigenvalues[i] = absLambda * sgnLambda;
 		}
 	}
+#endif
 
 #if DIM > 1
 	if (side == 1) {
@@ -528,22 +530,22 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 			//and while a rotation applied to the LHS of a vector rotates the elements of its column vectors, a rotation applied to the RHS rotates the elements of its row vectors 
 			//each row's y <- x, x <- -y
 			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y];
 			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y] = tmp;
 			
 			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Y];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Y];
 			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Y] = tmp;
 			
 			//a -90' rotation applied to the RHS of A must be corrected with a 90' rotation on the LHS of A
 			//this rotates the elements of the column vectors by 90'
 			//each column's x <- y, y <- -x
 			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = -eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i];
 			eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i] = tmp;
 			
 			tmp = eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i];
-			eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i] = -eigenvectors[STATE_MAGNETIC_FIELD_Y + NUM_STATES * i];
+			eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i] = eigenvectors[STATE_MAGNETIC_FIELD_Y + NUM_STATES * i];
 			eigenvectors[STATE_MAGNETIC_FIELD_Y + NUM_STATES * i] = tmp;
 		}
 	}

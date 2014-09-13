@@ -6,12 +6,12 @@ local configurations = require 'configurations'	--holds catalog of configuration
 
 
 --solverName = 'EulerBurgers'
---solverName = 'EulerHLL' -- needs 2nd order support?
-solverName = 'EulerHLLC' -- needs 2nd order support?
+--solverName = 'EulerHLL' -- needs 2nd order support
+--solverName = 'EulerHLLC' -- needs 2nd order support
 --solverName = 'EulerRoe' -- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe' -- in the works
 --solverName = 'MHDBurgers'
---solverName = 'MHDRoe' -- in the works
+solverName = 'MHDRoe' -- in the works
 --solverName = 'ADMRoe' -- exploding
 
 
@@ -42,7 +42,7 @@ integratorName = 'ForwardEuler'
 
 
 useGPU = true
-maxFrames = 1000			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -51,7 +51,7 @@ fixedDT = .01
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
+boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false 
@@ -83,5 +83,5 @@ displayScale = .25
 
 
 -- see initState for a list of options
-configurations['Sod']()
+configurations['Brio-Wu']()
 

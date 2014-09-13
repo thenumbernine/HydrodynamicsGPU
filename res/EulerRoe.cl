@@ -64,143 +64,6 @@ void calcEigenBasisSide(
 	real velocitySq = dot(velocity, velocity);
 	real speedOfSound = sqrt((enthalpyTotal - .5f * velocitySq - energyPotential) * (gamma - 1.f));
 
-//calculate flux based on normal
-//contains subtle numerical errors along the x axis
-#if 0	
-
-	real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
-	normal[side] = 1;
-
-	real velocityN = dot(velocity, normal);
-#if DIM > 1
-	real4 tangentA = (real4)(normal.y, normal.z, normal.x, 0.f);
-	real velocityTA = dot(velocity, tangentA);
-#if DIM > 2
-	real4 tangentB = (real4)(normal.z, normal.x, normal.y, 0.f);
-	real velocityTB = dot(velocity, tangentB);
-#endif
-#endif
-
-	//eigenvalues
-
-	eigenvalues[0] = velocityN - speedOfSound;
-	eigenvalues[1] = velocityN;
-#if DIM > 1
-	eigenvalues[2] = velocityN;
-#if DIM > 2
-	eigenvalues[3] = velocityN;
-#endif
-#endif
-	eigenvalues[DIM+1] = velocityN + speedOfSound;
-
-	//eigenvectors
-
-
-	//min col 
-	eigenvectors[0 + NUM_STATES * 0] = 1.f;
-	eigenvectors[1 + NUM_STATES * 0] = velocity.x - speedOfSound * normal.x;
-#if DIM > 1
-	eigenvectors[2 + NUM_STATES * 0] = velocity.y - speedOfSound * normal.y;
-#if DIM > 2
-	eigenvectors[3 + NUM_STATES * 0] = velocity.z - speedOfSound * normal.z;
-#endif
-#endif
-	eigenvectors[(DIM+1) + NUM_STATES * 0] = enthalpyTotal - speedOfSound * velocityN;
-	//mid col (normal)
-	eigenvectors[0 + NUM_STATES * 1] = 1.f;
-	eigenvectors[1 + NUM_STATES * 1] = velocity.x;
-#if DIM > 1
-	eigenvectors[2 + NUM_STATES * 1] = velocity.y;
-#if DIM > 2
-	eigenvectors[3 + NUM_STATES * 1] = velocity.z;
-#endif
-#endif
-	eigenvectors[(DIM+1) + NUM_STATES * 1] = .5f * velocitySq;
-	//mid col (tangent A)
-#if DIM > 1
-	eigenvectors[0 + NUM_STATES * 2] = 0.f;
-	eigenvectors[1 + NUM_STATES * 2] = tangentA.x;
-	eigenvectors[2 + NUM_STATES * 2] = tangentA.y;
-#if DIM > 2
-	eigenvectors[3 + NUM_STATES * 2] = tangentA.z;
-#endif
-	eigenvectors[(DIM+1) + NUM_STATES * 2] = velocityTA;
-#endif
-	//mid col (tangent B)
-#if DIM > 2
-	eigenvectors[0 + NUM_STATES * 3] = 0.f;
-	eigenvectors[1 + NUM_STATES * 3] = tangentB.x;
-	eigenvectors[2 + NUM_STATES * 3] = tangentB.y;
-	eigenvectors[3 + NUM_STATES * 3] = tangentB.z;
-	eigenvectors[(DIM+1) + NUM_STATES * 3] = velocityTB;
-#endif
-	//max col 
-	eigenvectors[0 + NUM_STATES * (DIM+1)] = 1.f;
-	eigenvectors[1 + NUM_STATES * (DIM+1)] = velocity.x + speedOfSound * normal.x;
-#if DIM > 1
-	eigenvectors[2 + NUM_STATES * (DIM+1)] = velocity.y + speedOfSound * normal.y;
-#if DIM > 2
-	eigenvectors[3 + NUM_STATES * (DIM+1)] = velocity.z + speedOfSound * normal.z;
-#endif
-#endif
-	eigenvectors[(DIM+1) + NUM_STATES * (DIM+1)] = enthalpyTotal + speedOfSound * velocityN;
-	
-
-	//calculate eigenvector inverses ... 
-	real invDenom = .5f / (speedOfSound * speedOfSound);
-	
-	//min row
-	eigenvectorsInverse[0 + NUM_STATES * 0] = (.5f * (gamma - 1.f) * velocitySq + speedOfSound * velocityN) * invDenom;
-	eigenvectorsInverse[0 + NUM_STATES * 1] = -(normal.x * speedOfSound + (gamma - 1.f) * velocity.x) * invDenom;
-#if DIM > 1
-	eigenvectorsInverse[0 + NUM_STATES * 2] = -(normal.y * speedOfSound + (gamma - 1.f) * velocity.y) * invDenom;
-#if DIM > 2
-	eigenvectorsInverse[0 + NUM_STATES * 3] = -(normal.z * speedOfSound + (gamma - 1.f) * velocity.z) * invDenom;
-#endif
-#endif
-	eigenvectorsInverse[0 + NUM_STATES * (DIM+1)] = (gamma - 1.f) * invDenom;
-	//mid normal row
-	eigenvectorsInverse[1 + NUM_STATES * 0] = 1.f - (gamma - 1.f) * velocitySq * invDenom;
-	eigenvectorsInverse[1 + NUM_STATES * 1] = (gamma - 1.f) * velocity.x * 2.f * invDenom;
-#if DIM > 1
-	eigenvectorsInverse[1 + NUM_STATES * 2] = (gamma - 1.f) * velocity.y * 2.f * invDenom;
-#if DIM > 2
-	eigenvectorsInverse[1 + NUM_STATES * 3] = (gamma - 1.f) * velocity.z * 2.f * invDenom;
-#endif
-#endif
-	eigenvectorsInverse[1 + NUM_STATES * (DIM+1)] = -(gamma - 1.f) * 2.f * invDenom;
-	//mid tangent A row
-#if DIM > 1
-	eigenvectorsInverse[2 + NUM_STATES * 0] = -velocityTA; 
-	eigenvectorsInverse[2 + NUM_STATES * 1] = tangentA.x;
-	eigenvectorsInverse[2 + NUM_STATES * 2] = tangentA.y;
-#if DIM > 2
-	eigenvectorsInverse[2 + NUM_STATES * 3] = tangentA.z;
-#endif
-	eigenvectorsInverse[2 + NUM_STATES * (DIM+1)] = 0.f;
-#endif
-	//mid tangent B row
-#if DIM > 2
-	eigenvectorsInverse[3 + NUM_STATES * 0] = -velocityTB;
-	eigenvectorsInverse[3 + NUM_STATES * 1] = tangentB.x;
-	eigenvectorsInverse[3 + NUM_STATES * 2] = tangentB.y;
-	eigenvectorsInverse[3 + NUM_STATES * 3] = tangentB.z;
-	eigenvectorsInverse[3 + NUM_STATES * (DIM+1)] = 0.f;
-#endif
-	//max row
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 0] = (.5f * (gamma - 1.f) * velocitySq - speedOfSound * velocityN) * invDenom;
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 1] = (normal.x * speedOfSound - (gamma - 1.f) * velocity.x) * invDenom;
-#if DIM > 1
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 2] = (normal.y * speedOfSound - (gamma - 1.f) * velocity.y) * invDenom;
-#if DIM > 2
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 3] = (normal.z * speedOfSound - (gamma - 1.f) * velocity.z) * invDenom;
-#endif
-#endif
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * (DIM+1)] = (gamma - 1.f) * invDenom;
-#endif
-
-
-
 
 //calculate flux in x-axis and rotate into normal
 //works a bit more accurately than above
@@ -208,11 +71,11 @@ void calcEigenBasisSide(
 
 #if DIM > 1
 	if (side == 1) {
-		velocity = (real4)(velocity.y, velocity.x, velocity.z, 0.f);	// -90' rotation to put the y axis contents into the x axis
+		velocity.xy = velocity.yx;
 	} 
 #if DIM > 2
 	else if (side == 2) {
-		velocity = (real4)(velocity.z, velocity.y, velocity.x, 0.f);	//-90' rotation to put the z axis in the x axis
+		velocity.xz = velocity.zx;
 	}
 #endif
 #endif
