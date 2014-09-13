@@ -1,15 +1,14 @@
 #pragma once
 
-#include "HydroGPU/Solver/HLL.h"
+#include "HydroGPU/Solver/EulerHLL.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
 namespace Solver {
 
-struct EulerHLL : public HLL {
-	typedef HLL Super;
-
-	EulerHLL(HydroGPUApp&);
+struct MHDHLLC : public EulerHLL {
+	typedef EulerHLL Super;
+	MHDHLLC(HydroGPUApp&);
 
 protected:
 	virtual std::string getFluxSource();

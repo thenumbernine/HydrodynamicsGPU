@@ -555,19 +555,19 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 			real tmp;
 			
 			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z];
 			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z] = tmp;
 			
 			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Z];
+			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Z];
 			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Z] = tmp;
 			
 			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = -eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i];
+			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i];
 			eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i] = tmp;
 			
 			tmp = eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i];
-			eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i] = -eigenvectors[STATE_MAGNETIC_FIELD_Z + NUM_STATES * i];
+			eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i] = eigenvectors[STATE_MAGNETIC_FIELD_Z + NUM_STATES * i];
 			eigenvectors[STATE_MAGNETIC_FIELD_Z + NUM_STATES * i] = tmp;
 		}
 	}

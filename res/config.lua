@@ -7,11 +7,12 @@ local configurations = require 'configurations'	--holds catalog of configuration
 
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL' -- needs 2nd order support
---solverName = 'EulerHLLC' -- needs 2nd order support
+--solverName = 'EulerHLLC' -- after a while on Sod+mirror it explodes. needs 2nd order support
 --solverName = 'EulerRoe' -- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe' -- in the works
 --solverName = 'MHDBurgers'
-solverName = 'MHDRoe' -- in the works
+solverName = 'MHDHLLC'	-- needs 2nd order support
+--solverName = 'MHDRoe' -- suffers from negative pressure.
 --solverName = 'ADMRoe' -- exploding
 
 
