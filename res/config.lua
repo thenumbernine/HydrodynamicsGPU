@@ -11,9 +11,9 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'EulerRoe' -- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe' -- in the works
 --solverName = 'MHDBurgers'
-solverName = 'MHDHLLC'	-- needs 2nd order support
---solverName = 'MHDRoe' -- suffers from negative pressure.
---solverName = 'ADMRoe' -- exploding
+--solverName = 'MHDHLLC'	-- needs 2nd order support, suffers same as EulerHLLC
+solverName = 'MHDRoe' -- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
+--solverName = 'ADMRoe' -- exploding.  is it supposed to?  "Gauge shock" ... ?
 
 
 --slopeLimiterName = 'DonorCell'

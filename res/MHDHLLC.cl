@@ -1,5 +1,5 @@
 //HLLC based on
-//http://math.lanl.gov/~shenli/publications/hllc_mhd.pdf
+//"An HLLC Riemann Solver for Magnetohydrodynamics", Shengtai Li, 2003
 
 #include "HydroGPU/Shared/Common.h"
 
@@ -368,19 +368,19 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		magneticFieldStar.z = ((sl - velocityR.x - magneticFieldR.x * magneticFieldStar.x / (densityR * (sl - velocityR.x))) * magneticFieldR.z - (magneticFieldStar.x - magneticFieldR.x) * velocityR.z) / (sl - qStar - magneticFieldStar.x * magneticFieldStar.x / (densityR * (sl - velocityR.x)));
 		magneticFieldStar.w = 0.f;
 		real pressureStar = densityR * (sl - velocityR.x) * (qStar - velocityR.x) + pressureR + .5f * magneticFieldSqR - magneticFieldR.x * magneticFieldR.x + magneticFieldStar.x * magneticFieldStar.x;
-		real stateLStar[NUM_STATES];
-		stateLStar[STATE_DENSITY] = densityR * (sl - velocityR.x) / (sl - qStar);
-		stateLStar[STATE_MOMENTUM_X] = stateLStar[STATE_DENSITY] * qStar;
-		stateLStar[STATE_MOMENTUM_Y] = (stateR[STATE_MOMENTUM_Y] * (sl - velocityR.x) - (magneticFieldStar.x * magneticFieldStar.y - magneticFieldR.x * magneticFieldR.y)) / (sl - qStar);
-		stateLStar[STATE_MOMENTUM_Z] = (stateR[STATE_MOMENTUM_Z] * (sl - velocityR.x) - (magneticFieldStar.x * magneticFieldStar.z - magneticFieldR.x * magneticFieldR.z)) / (sl - qStar);
-		real4 velocityStar = (real4)(stateLStar[STATE_MOMENTUM_X], stateLStar[STATE_MOMENTUM_Y], stateLStar[STATE_MOMENTUM_Z], 0.f) / stateLStar[STATE_DENSITY];
+		real stateRStar[NUM_STATES];
+		stateRStar[STATE_DENSITY] = densityR * (sl - velocityR.x) / (sl - qStar);
+		stateRStar[STATE_MOMENTUM_X] = stateRStar[STATE_DENSITY] * qStar;
+		stateRStar[STATE_MOMENTUM_Y] = (stateR[STATE_MOMENTUM_Y] * (sl - velocityR.x) - (magneticFieldStar.x * magneticFieldStar.y - magneticFieldR.x * magneticFieldR.y)) / (sl - qStar);
+		stateRStar[STATE_MOMENTUM_Z] = (stateR[STATE_MOMENTUM_Z] * (sl - velocityR.x) - (magneticFieldStar.x * magneticFieldStar.z - magneticFieldR.x * magneticFieldR.z)) / (sl - qStar);
+		real4 velocityStar = (real4)(stateRStar[STATE_MOMENTUM_X], stateRStar[STATE_MOMENTUM_Y], stateRStar[STATE_MOMENTUM_Z], 0.f) / stateRStar[STATE_DENSITY];
 		real vDotBStar = dot(magneticFieldStar, velocityStar);
-		stateLStar[STATE_MAGNETIC_FIELD_X] = magneticFieldStar.x;
-		stateLStar[STATE_MAGNETIC_FIELD_Y] = magneticFieldStar.y;
-		stateLStar[STATE_MAGNETIC_FIELD_Z] = magneticFieldStar.z;
-		stateLStar[STATE_ENERGY_TOTAL] = (stateR[STATE_ENERGY_TOTAL] * (sl - velocityR.x) + (pressureStar * qStar - pressureR * velocityR.x) - (magneticFieldStar.x * vDotBStar - magneticFieldR.x * vDotBR)) / (sl - qStar);
+		stateRStar[STATE_MAGNETIC_FIELD_X] = magneticFieldStar.x;
+		stateRStar[STATE_MAGNETIC_FIELD_Y] = magneticFieldStar.y;
+		stateRStar[STATE_MAGNETIC_FIELD_Z] = magneticFieldStar.z;
+		stateRStar[STATE_ENERGY_TOTAL] = (stateR[STATE_ENERGY_TOTAL] * (sl - velocityR.x) + (pressureStar * qStar - pressureR * velocityR.x) - (magneticFieldStar.x * vDotBStar - magneticFieldR.x * vDotBR)) / (sl - qStar);
 		for (int i = 0; i < NUM_STATES; ++i) {
-			flux[i] = fluxR[i] + sl * (stateLStar[i] - stateR[i]);
+			flux[i] = fluxR[i] + sl * (stateRStar[i] - stateR[i]);
 		}
 	} else if (sr <= 0) {
 		for (int i = 0; i < NUM_STATES; ++i) {

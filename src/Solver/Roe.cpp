@@ -79,9 +79,13 @@ void Roe::step() {
 	applyPotential();
 }
 
+void Roe::calcFlux() {
+	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
+}
+
 void Roe::calcDeriv(cl::Buffer derivBuffer) {
 	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, nullptr, &calcDeltaQTildeEvent.clEvent);
-	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
+	calcFlux();
 	calcFluxDerivKernel.setArg(0, derivBuffer);
 	commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
 }

@@ -38,6 +38,7 @@ protected:
 	virtual void calcTimestep();
 	virtual void step();
 	virtual void calcDeriv(cl::Buffer derivBuffer);
+	virtual void calcFlux();
 };
 
 }

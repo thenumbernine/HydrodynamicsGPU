@@ -14,6 +14,14 @@ struct MHDRoe : public Roe {
 	MHDRoe(HydroGPUApp& app);
 protected:
 	virtual std::vector<std::string> getProgramSources();
+	virtual void init();
+	virtual void initStep();
+	virtual void calcFlux();
+
+	//whether the flux has been written this frame or not
+	cl::Buffer fluxFlagBuffer;
+
+	cl::Kernel calcMHDFluxKernel;
 };
 
 }

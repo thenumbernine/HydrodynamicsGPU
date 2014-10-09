@@ -31,6 +31,7 @@ void calcEigenvaluesSide(
 	real densityL = stateL[STATE_DENSITY];
 	real invDensityL = 1.f / densityL;
 	real4 velocityL = VELOCITY(stateL);
+	real velocityNL = dot(velocityL, normal);
 	real velocitySqL = dot(velocityL, velocityL);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
 	real energyKineticL = .5f * velocitySqL;
@@ -38,11 +39,13 @@ void calcEigenvaluesSide(
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
+	real speedOfSoundL = sqrt((gamma - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
 	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
 	real4 velocityR = VELOCITY(stateR);
+	real velocityNR = dot(velocityR, normal);
 	real velocitySqR = dot(velocityR, velocityR);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
 	real energyKineticR = .5f * velocitySqR;
@@ -50,6 +53,7 @@ void calcEigenvaluesSide(
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 	real pressureR = (gamma - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
+	real speedOfSoundR = sqrt((gamma - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
 	real roeWeightR = sqrt(densityR);
 	
 	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
@@ -63,6 +67,7 @@ void calcEigenvaluesSide(
 
 	//eigenvalues
 
+#if 0	//Roe
 	eigenvalues[0] = velocityN - speedOfSound;
 	eigenvalues[1] = velocityN;
 #if DIM > 1
@@ -72,6 +77,28 @@ void calcEigenvaluesSide(
 	eigenvalues[3] = velocityN;
 #endif
 	eigenvalues[DIM+1] = velocityN + speedOfSound;
+#endif
+
+#if 1	//using HLL wavespeed calc
+
+	real eigenvaluesMinL = velocityNL - speedOfSoundL;
+	real eigenvaluesMaxR = velocityNR + speedOfSoundR;
+	real eigenvaluesMin = velocity.x - speedOfSound;
+	real eigenvaluesMax = velocity.x + speedOfSound;
+	real sl = min(eigenvaluesMinL, eigenvaluesMin);
+	real sr = max(eigenvaluesMaxR, eigenvaluesMax);
+
+	eigenvalues[0] = sl;
+	eigenvalues[1] = velocityN;
+#if DIM > 1
+	eigenvalues[2] = velocityN;
+#if DIM > 2
+	eigenvalues[3] = velocityN;
+#endif
+#endif
+	eigenvalues[DIM+1] = sr;
+
+#endif
 }
 
 __kernel void calcEigenvalues(

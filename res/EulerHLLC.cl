@@ -34,6 +34,7 @@ void calcEigenvaluesSide(
 	real densityL = stateL[STATE_DENSITY];
 	real invDensityL = 1.f / densityL;
 	real4 velocityL = VELOCITY(stateL);
+	real velocityNL = dot(velocityL, normal);
 	real velocitySqL = dot(velocityL, velocityL);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
 	real energyKineticL = .5f * velocitySqL;
@@ -41,11 +42,13 @@ void calcEigenvaluesSide(
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
+	real speedOfSoundL = sqrt((gamma - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
 	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
 	real4 velocityR = VELOCITY(stateR);
+	real velocityNR = dot(velocityR, normal);
 	real velocitySqR = dot(velocityR, velocityR);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
 	real energyKineticR = .5f * velocitySqR;
@@ -53,6 +56,7 @@ void calcEigenvaluesSide(
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 	real pressureR = (gamma - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
+	real speedOfSoundR = sqrt((gamma - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
 	real roeWeightR = sqrt(densityR);
 	
 	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
@@ -66,6 +70,7 @@ void calcEigenvaluesSide(
 
 	//eigenvalues
 
+#if 0	//Roe
 	eigenvalues[0] = velocityN - speedOfSound;
 	eigenvalues[1] = velocityN;
 #if DIM > 1
@@ -75,6 +80,28 @@ void calcEigenvaluesSide(
 	eigenvalues[3] = velocityN;
 #endif
 	eigenvalues[DIM+1] = velocityN + speedOfSound;
+#endif
+
+#if 1	//using HLL wavespeed calc
+
+	real eigenvaluesMinL = velocityNL - speedOfSoundL;
+	real eigenvaluesMaxR = velocityNR + speedOfSoundR;
+	real eigenvaluesMin = velocity.x - speedOfSound;
+	real eigenvaluesMax = velocity.x + speedOfSound;
+	real sl = min(eigenvaluesMinL, eigenvaluesMin);
+	real sr = max(eigenvaluesMaxR, eigenvaluesMax);
+
+	eigenvalues[0] = sl;
+	eigenvalues[1] = velocityN;
+#if DIM > 1
+	eigenvalues[2] = velocityN;
+#if DIM > 2
+	eigenvalues[3] = velocityN;
+#endif
+#endif
+	eigenvalues[DIM+1] = sr;
+
+#endif
 }
 
 __kernel void calcEigenvalues(
@@ -265,38 +292,51 @@ void calcFluxSide(
 	fluxR[DIM+1] = densityR * enthalpyTotalR * velocityR.x;	
 
 	//HLLC-specific
-	real qStar = (densityR * velocityR.x * (sr - velocityR.x) - densityL * velocityL.x * (sl - velocityL.x) + pressureL - pressureR) / (densityR * (sr - velocityR.x) - densityL * (sl - velocityL.x));
+	real uStar = (densityR * velocityR.x * (sr - velocityR.x) - densityL * velocityL.x * (sl - velocityL.x) + pressureL - pressureR) / (densityR * (sr - velocityR.x) - densityL * (sl - velocityL.x));
+	real pressureStar = densityL * (sl - velocityL.x) * (uStar - velocityL.x) + pressureL;
 	if (0 <= sl) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i];
 		}
-	} else if (sl <= qStar) {
-		real pressureStar = densityL * (sl - velocityL.x) * (qStar - velocityL.x) + pressureL;
+	} else if (sl <= uStar) {
+		//10.50 of Toro
+		if (pressureStar >= pressureL) {
+			sl = velocityL.x - speedOfSoundL * sqrt(1.f + (gamma - 1.f) / (2.f * gamma) * (pressureStar / pressureL - 1.f));
+		}
+		if (pressureStar >= pressureR) {
+			sr = velocityR.x - speedOfSoundR * sqrt(1.f + (gamma - 1.f) / (2.f * gamma) * (pressureStar / pressureR - 1.f));
+		}
 		real stateLStar[NUM_STATES];
-		stateLStar[STATE_DENSITY] = densityL * (sl - velocityL.x) / (sl - qStar);
-		stateLStar[STATE_MOMENTUM_X] = stateLStar[STATE_DENSITY] * qStar;
+		stateLStar[STATE_DENSITY] = densityL * (sl - velocityL.x) / (sl - uStar);
+		stateLStar[STATE_MOMENTUM_X] = stateLStar[STATE_DENSITY] * uStar;
 #if DIM > 1
-		stateLStar[STATE_MOMENTUM_Y] = stateL[STATE_MOMENTUM_Y] * (sl - velocityL.x) / (sl - qStar);
+		stateLStar[STATE_MOMENTUM_Y] = stateL[STATE_MOMENTUM_Y] * (sl - velocityL.x) / (sl - uStar);
 #if DIM > 2
-		stateLStar[STATE_MOMENTUM_Z] = stateL[STATE_MOMENTUM_Z] * (sl - velocityL.x) / (sl - qStar);
+		stateLStar[STATE_MOMENTUM_Z] = stateL[STATE_MOMENTUM_Z] * (sl - velocityL.x) / (sl - uStar);
 #endif
 #endif
-		stateLStar[STATE_ENERGY_TOTAL] = stateL[STATE_ENERGY_TOTAL] * (sl - velocityL.x) / (sl - qStar) + (pressureStar * qStar - pressureL * velocityL.x) / (sl - qStar);
+		stateLStar[STATE_ENERGY_TOTAL] = stateL[STATE_ENERGY_TOTAL] * (sl - velocityL.x) / (sl - uStar) + (pressureStar * uStar - pressureL * velocityL.x) / (sl - uStar);
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i] + sl * (stateLStar[i] - stateL[i]);
 		}
-	} else if (qStar <= sr) {
-		real pressureStar = densityR * (sl - velocityR.x) * (qStar - velocityR.x) + pressureR;
+	} else if (uStar <= sr) {
+		//10.50 of Toro
+		if (pressureStar >= pressureL) {
+			sl = velocityL.x - speedOfSoundL * sqrt(1.f + (gamma - 1.f) / (2.f * gamma) * (pressureStar / pressureL - 1.f));
+		}
+		if (pressureStar >= pressureR) {
+			sr = velocityR.x - speedOfSoundR * sqrt(1.f + (gamma - 1.f) / (2.f * gamma) * (pressureStar / pressureR - 1.f));
+		}
 		real stateRStar[NUM_STATES];
-		stateRStar[STATE_DENSITY] = densityR * (sl - velocityR.x) / (sl - qStar);
-		stateRStar[STATE_MOMENTUM_X] = stateRStar[STATE_DENSITY] * qStar;
+		stateRStar[STATE_DENSITY] = densityR * (sl - velocityR.x) / (sl - uStar);
+		stateRStar[STATE_MOMENTUM_X] = stateRStar[STATE_DENSITY] * uStar;
 #if DIM > 1
-		stateRStar[STATE_MOMENTUM_Y] = stateR[STATE_MOMENTUM_Y] * (sl - velocityR.x) / (sl - qStar);
+		stateRStar[STATE_MOMENTUM_Y] = stateR[STATE_MOMENTUM_Y] * (sl - velocityR.x) / (sl - uStar);
 #if DIM > 2
-		stateRStar[STATE_MOMENTUM_Z] = stateR[STATE_MOMENTUM_Z] * (sl - velocityR.x) / (sl - qStar);
+		stateRStar[STATE_MOMENTUM_Z] = stateR[STATE_MOMENTUM_Z] * (sl - velocityR.x) / (sl - uStar);
 #endif
 #endif
-		stateRStar[STATE_ENERGY_TOTAL] = stateR[STATE_ENERGY_TOTAL] * (sl - velocityR.x) / (sl - qStar) + (pressureStar * qStar - pressureR * velocityR.x) / (sl - qStar);	
+		stateRStar[STATE_ENERGY_TOTAL] = stateR[STATE_ENERGY_TOTAL] * (sl - velocityR.x) / (sl - uStar) + (pressureStar * uStar - pressureR * velocityR.x) / (sl - uStar);
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxR[i] + sr * (stateRStar[i] - stateR[i]);
 		}
