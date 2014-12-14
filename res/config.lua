@@ -7,12 +7,12 @@ local configurations = require 'configurations'	--holds catalog of configuration
 
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL' -- needs 2nd order support
---solverName = 'EulerHLLC' -- after a while on Sod+mirror it explodes. needs 2nd order support
+solverName = 'EulerHLLC' -- after a while on Sod+mirror it explodes. needs 2nd order support
 --solverName = 'EulerRoe' -- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe' -- in the works
 --solverName = 'MHDBurgers'
 --solverName = 'MHDHLLC'	-- needs 2nd order support, suffers same as EulerHLLC
-solverName = 'MHDRoe' -- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
+--solverName = 'MHDRoe' -- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
 --solverName = 'ADMRoe' -- exploding.  is it supposed to?  "Gauge shock" ... ?
 
 
@@ -34,7 +34,7 @@ solverName = 'MHDRoe' -- suffers from negative pressure with magnetic problems. 
 --slopeLimiterName = 'VanAlbada2'
 --slopeLimiterName = 'VanLeer'		-- not behaving correctly
 --slopeLimiterName = 'MonotizedCentral'
-slopeLimiterName = 'Superbee'
+--slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
@@ -42,7 +42,7 @@ integratorName = 'ForwardEuler'
 --integratorName = 'RungeKutta4'
 
 
-useGPU = true
+useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
 maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
@@ -52,7 +52,7 @@ fixedDT = .01
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false 
@@ -62,10 +62,11 @@ gaussSeidelMaxIter = 20
 showVectorField = true
 vectorFieldResolution = 64
 vectorFieldScale = .125
+
 -- Euler equations' constants:
 gamma = 1.4
 
--- specific to MHD
+-- MHD constants:
 vaccuumPermeability = 100	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
 
 -- the number of non-1-sized elements in 'size' determine the dimension
@@ -74,15 +75,15 @@ vaccuumPermeability = 100	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-
 size = {64, 64, 64}
 vectorFieldResolution = 16
 --]]
---[[ 2D
+-- [[ 2D
 size = {512, 512}
 --]]
--- [[ 1D
-size = {1024}
+--[[ 1D
+size = {512}
 displayScale = .25
 --]]
 
 
 -- see initState for a list of options
-configurations['Brio-Wu']()
+configurations['Sod']()
 

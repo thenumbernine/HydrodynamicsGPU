@@ -6,6 +6,12 @@ void calcEigenvaluesSide(
 	const __global real* potentialBuffer,
 	int side);
 
+//I'm wondering if I could move a few calculations up here to before the dt calculation
+//eigenvalues are needed for the cfl calculation
+//and the cfl calculation is needed for the dt value
+//dt is needed for Burgers for the 2nd order stuff in the flux calculations
+// but not necessarily for the HLL/C solvers?  unless I finally added 2nd order slope limiters to HLL/C, maybe?
+//
 void calcEigenvaluesSide(
 	__global real* eigenvaluesBuffer,
 	const __global real* stateBuffer,

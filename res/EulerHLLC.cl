@@ -1,5 +1,6 @@
 //HLLC based on
 //http://math.lanl.gov/~shenli/publications/hllc_mhd.pdf
+//http://marian.fsik.cvut.cz/~bodnar/PragueSum_2012/Toro_2-HLLC-RiemannSolver.pdf
 
 #include "HydroGPU/Shared/Common.h"
 
@@ -293,54 +294,56 @@ void calcFluxSide(
 
 	//HLLC-specific
 	real uStar = (densityR * velocityR.x * (sr - velocityR.x) - densityL * velocityL.x * (sl - velocityL.x) + pressureL - pressureR) / (densityR * (sr - velocityR.x) - densityL * (sl - velocityL.x));
-	real pressureStar = densityL * (sl - velocityL.x) * (uStar - velocityL.x) + pressureL;
+	real sStar = uStar;
+	
+//	real pressureStar = densityL * (sl - velocityL.x) * (uStar - velocityL.x) + pressureL;
 	if (0 <= sl) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i];
 		}
-	} else if (sl <= uStar) {
-		//10.50 of Toro
+	} else if (sl <= 0.f && 0.f <= sStar) {
+/*		//10.50 of Toro
 		if (pressureStar >= pressureL) {
 			sl = velocityL.x - speedOfSoundL * sqrt(1.f + (gamma - 1.f) / (2.f * gamma) * (pressureStar / pressureL - 1.f));
 		}
 		if (pressureStar >= pressureR) {
 			sr = velocityR.x - speedOfSoundR * sqrt(1.f + (gamma - 1.f) / (2.f * gamma) * (pressureStar / pressureR - 1.f));
-		}
+		} */
 		real stateLStar[NUM_STATES];
-		stateLStar[STATE_DENSITY] = densityL * (sl - velocityL.x) / (sl - uStar);
-		stateLStar[STATE_MOMENTUM_X] = stateLStar[STATE_DENSITY] * uStar;
+		stateLStar[STATE_DENSITY] = densityL * (sl - velocityL.x) / (sl - sStar);
+		stateLStar[STATE_MOMENTUM_X] = stateLStar[STATE_DENSITY] * sStar;
 #if DIM > 1
-		stateLStar[STATE_MOMENTUM_Y] = stateL[STATE_MOMENTUM_Y] * (sl - velocityL.x) / (sl - uStar);
+		stateLStar[STATE_MOMENTUM_Y] = stateLStar[STATE_DENSITY] * velocityL.y;
 #if DIM > 2
-		stateLStar[STATE_MOMENTUM_Z] = stateL[STATE_MOMENTUM_Z] * (sl - velocityL.x) / (sl - uStar);
+		stateLStar[STATE_MOMENTUM_Z] = stateLStar[STATE_DENSITY] * velocityL.z;
 #endif
 #endif
-		stateLStar[STATE_ENERGY_TOTAL] = stateL[STATE_ENERGY_TOTAL] * (sl - velocityL.x) / (sl - uStar) + (pressureStar * uStar - pressureL * velocityL.x) / (sl - uStar);
+		stateLStar[STATE_ENERGY_TOTAL] = stateLStar[STATE_DENSITY] * (energyTotalL + (sStar - velocityL.x) * (sStar + pressureL / (densityL * (sl - velocityL.x))));
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i] + sl * (stateLStar[i] - stateL[i]);
 		}
-	} else if (uStar <= sr) {
-		//10.50 of Toro
+	} else if (sStar <= 0.f && 0.f <= sr) {
+/*		//10.50 of Toro
 		if (pressureStar >= pressureL) {
 			sl = velocityL.x - speedOfSoundL * sqrt(1.f + (gamma - 1.f) / (2.f * gamma) * (pressureStar / pressureL - 1.f));
 		}
 		if (pressureStar >= pressureR) {
 			sr = velocityR.x - speedOfSoundR * sqrt(1.f + (gamma - 1.f) / (2.f * gamma) * (pressureStar / pressureR - 1.f));
-		}
+		} */
 		real stateRStar[NUM_STATES];
-		stateRStar[STATE_DENSITY] = densityR * (sl - velocityR.x) / (sl - uStar);
-		stateRStar[STATE_MOMENTUM_X] = stateRStar[STATE_DENSITY] * uStar;
+		stateRStar[STATE_DENSITY] = densityR * (sr - velocityR.x) / (sr - sStar);
+		stateRStar[STATE_MOMENTUM_X] = stateRStar[STATE_DENSITY] * sStar;
 #if DIM > 1
-		stateRStar[STATE_MOMENTUM_Y] = stateR[STATE_MOMENTUM_Y] * (sl - velocityR.x) / (sl - uStar);
+		stateRStar[STATE_MOMENTUM_Y] = stateRStar[STATE_DENSITY] * velocityR.y;
 #if DIM > 2
-		stateRStar[STATE_MOMENTUM_Z] = stateR[STATE_MOMENTUM_Z] * (sl - velocityR.x) / (sl - uStar);
+		stateRStar[STATE_MOMENTUM_Z] = stateRStar[STATE_DENSITY] * velocityR.z;
 #endif
 #endif
-		stateRStar[STATE_ENERGY_TOTAL] = stateR[STATE_ENERGY_TOTAL] * (sl - velocityR.x) / (sl - uStar) + (pressureStar * uStar - pressureR * velocityR.x) / (sl - uStar);
+		stateRStar[STATE_ENERGY_TOTAL] = stateRStar[STATE_DENSITY] * (energyTotalR + (sStar - velocityR.x) * (sStar + pressureR / (densityR * (sr - velocityR.x))));
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxR[i] + sr * (stateRStar[i] - stateR[i]);
 		}
-	} else if (sr <= 0) {
+	} else if (sr <= 0.f) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxR[i];
 		}
