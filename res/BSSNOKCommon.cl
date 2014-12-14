@@ -66,7 +66,7 @@ __kernel void convertToTex(
 	}
 	value *= displayScale;
 
-	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value).bgra;
+	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
 #endif
 	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
 }

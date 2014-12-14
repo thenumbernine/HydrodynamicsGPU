@@ -14,6 +14,7 @@
 #include "Common/File.h"
 #include "Common/Macros.h"
 #include <SDL2/SDL.h>
+#include <OpenCL/cl.hpp>
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h>
 #include <iostream>
