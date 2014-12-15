@@ -334,55 +334,63 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 	fluxR[STATE_ENERGY_TOTAL] = densityR * (enthalpyTotalR + .5f * magneticFieldSqR) * velocityR.x - vDotBR * magneticFieldR.x / vaccuumPermeability;
 	
 
-	//HLLC-specific
 	real sStar = (densityR * velocityR.x * (sr - velocityR.x) - densityL * velocityL.x * (sl - velocityL.x) + pressureL - pressureR - magneticFieldL.x * magneticFieldL.x + magneticFieldR.x * magneticFieldR.x) 
 					/ (densityR * (sr - velocityR.x) - densityL * (sl - velocityL.x));
+	
 	if (0 <= sl) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i];
 		}
 	} else if (sl <= 0.f && 0.f <= sStar) {
+		
 		real4 magneticFieldStar;
 		magneticFieldStar.x = (sr * magneticFieldR.x - sl * magneticFieldL.x) / (sr - sl);
 		magneticFieldStar.y = ((sl - velocityL.x - magneticFieldL.x * magneticFieldStar.x / (densityL * (sl - velocityL.x))) * magneticFieldL.y - (magneticFieldStar.x - magneticFieldL.x) * velocityL.y) / (sl - sStar - magneticFieldStar.x * magneticFieldStar.x / (densityL * (sl - velocityL.x)));
 		magneticFieldStar.z = ((sl - velocityL.x - magneticFieldL.x * magneticFieldStar.x / (densityL * (sl - velocityL.x))) * magneticFieldL.z - (magneticFieldStar.x - magneticFieldL.x) * velocityL.z) / (sl - sStar - magneticFieldStar.x * magneticFieldStar.x / (densityL * (sl - velocityL.x)));
 		magneticFieldStar.w = 0.f;
 		real pressureStar = densityL * (sl - velocityL.x) * (sStar - velocityL.x) + pressureL + .5f * magneticFieldSqL - magneticFieldL.x * magneticFieldL.x + magneticFieldStar.x * magneticFieldStar.x;
+		
 		real stateLStar[NUM_STATES];
 		stateLStar[STATE_DENSITY] = densityL * (sl - velocityL.x) / (sl - sStar);
 		stateLStar[STATE_MOMENTUM_X] = stateLStar[STATE_DENSITY] * sStar;
-		stateLStar[STATE_MOMENTUM_Y] = (stateL[STATE_MOMENTUM_Y] * (sl - velocityL.x) - (magneticFieldStar.x * magneticFieldStar.y - magneticFieldL.x * magneticFieldL.y)) / (sl - sStar);
-		stateLStar[STATE_MOMENTUM_Z] = (stateL[STATE_MOMENTUM_Z] * (sl - velocityL.x) - (magneticFieldStar.x * magneticFieldStar.z - magneticFieldL.x * magneticFieldL.z)) / (sl - sStar);
+		stateLStar[STATE_MOMENTUM_Y] = stateLStar[STATE_DENSITY] * velocityL.y - (magneticFieldStar.x * magneticFieldStar.y - magneticFieldL.x * magneticFieldL.y) / (sl - sStar);
+		stateLStar[STATE_MOMENTUM_Z] = stateLStar[STATE_DENSITY] * velocityL.z - (magneticFieldStar.x * magneticFieldStar.z - magneticFieldL.x * magneticFieldL.z) / (sl - sStar);
 		real4 velocityStar = (real4)(stateLStar[STATE_MOMENTUM_X], stateLStar[STATE_MOMENTUM_Y], stateLStar[STATE_MOMENTUM_Z], 0.f) / stateLStar[STATE_DENSITY];
 		real vDotBStar = dot(magneticFieldStar, velocityStar);
 		stateLStar[STATE_MAGNETIC_FIELD_X] = magneticFieldStar.x;
 		stateLStar[STATE_MAGNETIC_FIELD_Y] = magneticFieldStar.y;
 		stateLStar[STATE_MAGNETIC_FIELD_Z] = magneticFieldStar.z;
 		stateLStar[STATE_ENERGY_TOTAL] = (stateL[STATE_ENERGY_TOTAL] * (sl - velocityL.x) + (pressureStar * sStar - pressureL * velocityL.x) - (magneticFieldStar.x * vDotBStar - magneticFieldL.x * vDotBL)) / (sl - sStar);
+		
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i] + sl * (stateLStar[i] - stateL[i]);
 		}
+	
 	} else if (sStar <= 0.f && 0.f <= sr) {
+		
 		real4 magneticFieldStar;
 		magneticFieldStar.x = (sr * magneticFieldR.x - sl * magneticFieldL.x) / (sr - sl);
 		magneticFieldStar.y = ((sl - velocityR.x - magneticFieldR.x * magneticFieldStar.x / (densityR * (sl - velocityR.x))) * magneticFieldR.y - (magneticFieldStar.x - magneticFieldR.x) * velocityR.y) / (sl - sStar - magneticFieldStar.x * magneticFieldStar.x / (densityR * (sl - velocityR.x)));
 		magneticFieldStar.z = ((sl - velocityR.x - magneticFieldR.x * magneticFieldStar.x / (densityR * (sl - velocityR.x))) * magneticFieldR.z - (magneticFieldStar.x - magneticFieldR.x) * velocityR.z) / (sl - sStar - magneticFieldStar.x * magneticFieldStar.x / (densityR * (sl - velocityR.x)));
 		magneticFieldStar.w = 0.f;
 		real pressureStar = densityR * (sl - velocityR.x) * (sStar - velocityR.x) + pressureR + .5f * magneticFieldSqR - magneticFieldR.x * magneticFieldR.x + magneticFieldStar.x * magneticFieldStar.x;
+		
 		real stateRStar[NUM_STATES];
 		stateRStar[STATE_DENSITY] = densityR * (sr - velocityR.x) / (sr - sStar);
 		stateRStar[STATE_MOMENTUM_X] = stateRStar[STATE_DENSITY] * sStar;
-		stateRStar[STATE_MOMENTUM_Y] = (stateR[STATE_MOMENTUM_Y] * (sl - velocityR.x) - (magneticFieldStar.x * magneticFieldStar.y - magneticFieldR.x * magneticFieldR.y)) / (sl - sStar);
-		stateRStar[STATE_MOMENTUM_Z] = (stateR[STATE_MOMENTUM_Z] * (sl - velocityR.x) - (magneticFieldStar.x * magneticFieldStar.z - magneticFieldR.x * magneticFieldR.z)) / (sl - sStar);
+		stateRStar[STATE_MOMENTUM_Y] = stateRStar[STATE_DENSITY] * velocityR.y - (magneticFieldStar.x * magneticFieldStar.y - magneticFieldR.x * magneticFieldR.y) / (sr - sStar);
+		stateRStar[STATE_MOMENTUM_Z] = stateRStar[STATE_DENSITY] * velocityR.z - (magneticFieldStar.x * magneticFieldStar.z - magneticFieldR.x * magneticFieldR.z) / (sr - sStar);
 		real4 velocityStar = (real4)(stateRStar[STATE_MOMENTUM_X], stateRStar[STATE_MOMENTUM_Y], stateRStar[STATE_MOMENTUM_Z], 0.f) / stateRStar[STATE_DENSITY];
 		real vDotBStar = dot(magneticFieldStar, velocityStar);
 		stateRStar[STATE_MAGNETIC_FIELD_X] = magneticFieldStar.x;
 		stateRStar[STATE_MAGNETIC_FIELD_Y] = magneticFieldStar.y;
 		stateRStar[STATE_MAGNETIC_FIELD_Z] = magneticFieldStar.z;
-		stateRStar[STATE_ENERGY_TOTAL] = (stateR[STATE_ENERGY_TOTAL] * (sl - velocityR.x) + (pressureStar * sStar - pressureR * velocityR.x) - (magneticFieldStar.x * vDotBStar - magneticFieldR.x * vDotBR)) / (sl - sStar);
+		stateRStar[STATE_ENERGY_TOTAL] = (stateR[STATE_ENERGY_TOTAL] * (sr - velocityR.x) + (pressureStar * sStar - pressureR * velocityR.x) - (magneticFieldStar.x * vDotBStar - magneticFieldR.x * vDotBR)) / (sr - sStar);
+		
 		for (int i = 0; i < NUM_STATES; ++i) {
-			flux[i] = fluxR[i] + sl * (stateRStar[i] - stateR[i]);
+			flux[i] = fluxR[i] + sr * (stateRStar[i] - stateR[i]);
 		}
+	
 	} else if (sr <= 0.f) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxR[i];
