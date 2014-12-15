@@ -87,6 +87,7 @@ return {
 
 	-- HLL looks good
 	-- Roe gets noise along -x axis, shows antisymmetry between axii, then blows up near the noise
+	--   only when using the arbitrary-normal method.  when rotating into the x-axis it works fine
 	['Configuration 3'] = function()
 		cfl = .475
 		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}

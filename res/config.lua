@@ -75,10 +75,10 @@ vaccuumPermeability = 100	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-
 size = {64, 64, 64}
 vectorFieldResolution = 16
 --]]
--- [[ 2D
+--[[ 2D
 size = {512, 512}
 --]]
---[[ 1D
+-- [[ 1D
 size = {512}
 displayScale = .25
 --]]
