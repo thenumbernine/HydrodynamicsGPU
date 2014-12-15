@@ -225,7 +225,7 @@ void calcFluxSide(
 	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
 	real speedOfSoundL = sqrt((gamma - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
-	real roeWeightL = sqrt(densityL);
+//	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
@@ -238,37 +238,24 @@ void calcFluxSide(
 	real pressureR = (gamma - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
 	real speedOfSoundR = sqrt((gamma - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
-	real roeWeightR = sqrt(densityR);
+//	real roeWeightR = sqrt(densityR);
 
-	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
-	real4 velocity = (roeWeightL * velocityL + roeWeightR * velocityR) * roeWeightNormalization;
-	real velocitySq = dot(velocity, velocity);
-	real enthalpyTotal = (roeWeightL * enthalpyTotalL + roeWeightR * enthalpyTotalR) * roeWeightNormalization;
-	real energyPotential = (roeWeightL * energyPotentialL + roeWeightR * energyPotentialR) * roeWeightNormalization; 
-	real speedOfSound = sqrt((gamma - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
+//	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
+//	real4 velocity = (roeWeightL * velocityL + roeWeightR * velocityR) * roeWeightNormalization;
+//	real velocitySq = dot(velocity, velocity);
+//	real enthalpyTotal = (roeWeightL * enthalpyTotalL + roeWeightR * enthalpyTotalR) * roeWeightNormalization;
+//	real energyPotential = (roeWeightL * energyPotentialL + roeWeightR * energyPotentialR) * roeWeightNormalization; 
+//	real speedOfSound = sqrt((gamma - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
 	
-	real eigenvaluesMinL = velocityL.x - speedOfSoundL;
-	real eigenvaluesMaxR = velocityR.x + speedOfSoundR;
-
-	real eigenvalues[NUM_STATES];
-	for (int i = 0; i < NUM_STATES; ++i) {
-		eigenvalues[i] = velocity.x;
-	}
-	eigenvalues[0] -= speedOfSound;
-	real eigenvaluesMin = eigenvalues[0];
-	eigenvalues[NUM_STATES-1] += speedOfSound;
-	real eigenvaluesMax = eigenvalues[NUM_STATES-1];
-
 	//flux
 
-#if 0	//Davis direct
-	real sl = eigenvaluesMinL;
-	real sr = eigenvaluesMaxR;
-#endif
-#if 1	//Davis direct bounded
-	real sl = min(eigenvaluesMinL, eigenvaluesMin);
-	real sr = max(eigenvaluesMaxR, eigenvaluesMax);
-#endif
+	real pressureStar = max(0.f, .5f * (pressureL + pressureR) - .5f * (velocityR.x - velocityL.x) * .5f * (densityL + densityR) * .5f * (speedOfSoundL + speedOfSoundR));		//Toro, 1991
+	real qL = pressureStar <= pressureL ? 1.f : sqrt(1.f + (gamma + 1.f) / (2.f * gamma) * (pressureStar / pressureL - 1.f));
+	real qR = pressureStar <= pressureR ? 1.f : sqrt(1.f + (gamma + 1.f) / (2.f * gamma) * (pressureStar / pressureR - 1.f));
+
+	real sl = velocityL.x - speedOfSoundL * qL;
+	real sr = velocityR.x + speedOfSoundR * qR;
+
 
 	real fluxL[NUM_STATES];
 	fluxL[0] = densityL * velocityL.x;
@@ -280,7 +267,8 @@ void calcFluxSide(
 	fluxL[3] = densityL * velocityL.z * velocityL.x;
 #endif
 	fluxL[DIM+1] = densityL * enthalpyTotalL * velocityL.x;
-	
+
+
 	real fluxR[NUM_STATES];
 	fluxR[0] = densityR * velocityR.x;
 	fluxR[1] = densityR * velocityR.x * velocityR.x + pressureR;
@@ -305,7 +293,7 @@ void calcFluxSide(
 		}
 	} else if (sl <= 0.f && 0.f <= sStar) {
 #if HLLC_METHOD == 0
-		
+
 		real stateLStar[NUM_STATES];
 		stateLStar[STATE_DENSITY] = densityL * (sl - velocityL.x) / (sl - sStar);
 		stateLStar[STATE_MOMENTUM_X] = stateLStar[STATE_DENSITY] * sStar;
@@ -438,7 +426,7 @@ or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, ch
 		}
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
-		flux[i] -= .5f * deltaFlux * (theta + phi * (epsilon - theta) / (float)DIM);
+		flux[i] -= .5f * deltaFlux * (theta + phi * (epsilon - theta) / (real)DIM);
 	}
 #endif
 
