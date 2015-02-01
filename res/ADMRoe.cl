@@ -14,8 +14,6 @@ __kernel void calcEigenBasis(
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer)
 {
-	real4 dx = (real4)(DX, DY, DZ, 1.f);
-
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
@@ -27,22 +25,19 @@ __kernel void calcEigenBasis(
 	) return;
 	int index = INDEXV(i);
 
-#if NUM_STATES != 3
+#if NUM_STATES != 5
 #error only supports 1D 
 #endif
 	
 	//for (int side = 0; side < DIM; ++side) {
-{const int side = 0;
+	{const int side = 0;
 		int indexPrev = index - stepsize[side];
-		int indexPrev2 = indexPrev - stepsize[side];
 		int indexNext = indexNext + stepsize[side];
 
 		int interfaceIndex = side + DIM * index;
 		
-		const __global real* stateL2 = stateBuffer + NUM_STATES * indexPrev2;
 		const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
 		const __global real* stateR = stateBuffer + NUM_STATES * index;
-		const __global real* stateR2 = stateBuffer + NUM_STATES * indexNext;
 		
 		__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 		__global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
@@ -50,68 +45,118 @@ __kernel void calcEigenBasis(
 
 		//q0 = d/dx ln alpha
 		//q1 = d/dx ln g = d/dx ln g_xx
-		
-		real ln_alphaL = (stateR[STATE_DX_LN_ALPHA] - stateL2[STATE_DX_LN_ALPHA]) / (2.f * dx[side]);
-		real alphaL = exp(ln_alphaL);
-		real ln_gL = (stateR[STATE_DX_LN_G] - stateL2[STATE_DX_LN_G]) / (2.f * dx[side]);
-		real gL = exp(ln_gL);
-		real weightL = .5f;
-		
-		real ln_alphaR = (stateR2[STATE_DX_LN_ALPHA] - stateL[STATE_DX_LN_ALPHA]) / (2.f * dx[side]);
-		real alphaR = exp(ln_alphaR);
-		real ln_gR = (stateR2[STATE_DX_LN_G] - stateL[STATE_DX_LN_G]) / (2.f * dx[side]);
-		real gR = exp(ln_gR);
-		real weightR = .5f;
 	
-		real invDenom = weightL + weightR;
-		real alpha = (alphaL * weightL + alphaR * weightR) * invDenom;
-		real g = (gL * weightL + gR * weightR) * invDenom;
-
+		real alpha = .5f * (stateL[STATE_ALPHA] + stateR[STATE_ALPHA]);
+		real g = .5f * (stateL[STATE_G] + stateR[STATE_G]);
+		real A = .5f * (stateL[STATE_A] + stateR[STATE_A]);
+		//real D = .5f * (stateL[STATE_D] + stateR[STATE_D]);
+		real K = .5f * (stateL[STATE_K] + stateR[STATE_K]);
+		
 		const real f = ADM_BONA_MASSO_F;
-		
-		real sqrtF = sqrt(f);
-		real oneOverF = 1.f / f;
-		real oneOverSqrtF = sqrt(oneOverF);
-		
-		real sqrtG = sqrt(g);
-		real oneOverSqrtG = 1.f / sqrtG;	
 		
 		//eigenvalues
 
-		real eigenvalue = alpha * sqrtF * oneOverSqrtG;
+		real eigenvalue = alpha * sqrt(f/g); 
 		eigenvalues[0] = -eigenvalue;
 		eigenvalues[1] = 0.f;
-		eigenvalues[2] = eigenvalue;
+		eigenvalues[2] = 0.f;
+		eigenvalues[3] = 0.f;
+		eigenvalues[4] = eigenvalue;
 
 		//eigenvectors
 
 		//col
-		
-		eigenvectors[0 + NUM_STATES * 0] = f;
-		eigenvectors[1 + NUM_STATES * 0] = 2.f; 
-		eigenvectors[2 + NUM_STATES * 0] = -sqrtF;
+		eigenvectors[0 + NUM_STATES * 0] = 0.f;
+		eigenvectors[1 + NUM_STATES * 0] = 0.f; 
+		eigenvectors[2 + NUM_STATES * 0] = f/g; 
+		eigenvectors[3 + NUM_STATES * 0] = 1.f; 
+		eigenvectors[4 + NUM_STATES * 0] = -sqrt(f/g); 
 		//col
-		eigenvectors[0 + NUM_STATES * 1] = 0.f;
-		eigenvectors[1 + NUM_STATES * 1] = 1.f;
-		eigenvectors[2 + NUM_STATES * 1] = 0.f;
+		eigenvectors[0 + NUM_STATES * 1] = alpha;
+		eigenvectors[1 + NUM_STATES * 1] = 0.f;
+		eigenvectors[2 + NUM_STATES * 1] = -A;
+		eigenvectors[3 + NUM_STATES * 1] = 0.f;
+		eigenvectors[4 + NUM_STATES * 1] = -K;
 		//col
-		eigenvectors[0 + NUM_STATES * 2] = f;
-		eigenvectors[1 + NUM_STATES * 2] = 2.f;
-		eigenvectors[2 + NUM_STATES * 2] = sqrtF;
+		eigenvectors[0 + NUM_STATES * 2] = 0.f;
+		eigenvectors[1 + NUM_STATES * 2] = 0.f;
+		eigenvectors[2 + NUM_STATES * 2] = 0.f;
+		eigenvectors[3 + NUM_STATES * 2] = 1.f;
+		eigenvectors[4 + NUM_STATES * 2] = 0.f;
+		//col
+		eigenvectors[0 + NUM_STATES * 3] = 0.f;
+		eigenvectors[1 + NUM_STATES * 3] = 1.f;
+		eigenvectors[2 + NUM_STATES * 3] = 0.f;
+		eigenvectors[3 + NUM_STATES * 3] = 0.f;
+		eigenvectors[4 + NUM_STATES * 3] = 0.f;
+		//col
+		eigenvectors[0 + NUM_STATES * 4] = 0.f;
+		eigenvectors[1 + NUM_STATES * 4] = 0.f;
+		eigenvectors[2 + NUM_STATES * 4] = f/g;
+		eigenvectors[3 + NUM_STATES * 4] = 1.f;
+		eigenvectors[4 + NUM_STATES * 4] = sqrt(f/g);
 
 		//calculate eigenvector inverses ... 
-		//min row
-		eigenvectorsInverse[0 + NUM_STATES * 0] = .5f * oneOverF;
-		eigenvectorsInverse[0 + NUM_STATES * 1] = 0.f;
-		eigenvectorsInverse[0 + NUM_STATES * 2] = -.5f * oneOverSqrtF;
-		//mid normal row
-		eigenvectorsInverse[1 + NUM_STATES * 0] = -2.f * oneOverF;
-		eigenvectorsInverse[1 + NUM_STATES * 1] = 1.f;
+		//min 
+		eigenvectorsInverse[0 + NUM_STATES * 0] = (g * A / f - K * sqrt(g / f)) / (2.f * alpha); 
+		eigenvectorsInverse[0 + NUM_STATES * 1] = 0.f; 
+		eigenvectorsInverse[0 + NUM_STATES * 2] = g / (2.f * f); 
+		eigenvectorsInverse[0 + NUM_STATES * 3] = 0.f; 
+		eigenvectorsInverse[0 + NUM_STATES * 4] = -.5f * sqrt(g / f); 
+		//row
+		eigenvectorsInverse[1 + NUM_STATES * 0] = 1.f / alpha;
+		eigenvectorsInverse[1 + NUM_STATES * 1] = 0.f;
 		eigenvectorsInverse[1 + NUM_STATES * 2] = 0.f;
-		//mid tangent A row
-		eigenvectorsInverse[2 + NUM_STATES * 0] = .5f * oneOverF;
-		eigenvectorsInverse[2 + NUM_STATES * 1] = 0.f;
-		eigenvectorsInverse[2 + NUM_STATES * 2] = .5f * oneOverSqrtF;
+		eigenvectorsInverse[1 + NUM_STATES * 3] = 0.f;
+		eigenvectorsInverse[1 + NUM_STATES * 4] = 0.f;
+		//row
+		eigenvectorsInverse[2 + NUM_STATES * 0] = -(g * A) / (alpha * f); 
+		eigenvectorsInverse[2 + NUM_STATES * 1] = 0.f; 
+		eigenvectorsInverse[2 + NUM_STATES * 2] = -g / f; 
+		eigenvectorsInverse[2 + NUM_STATES * 3] = 1.f; 
+		eigenvectorsInverse[2 + NUM_STATES * 4] = 0.f; 
+		//row
+		eigenvectorsInverse[3 + NUM_STATES * 0] = 0.f;
+		eigenvectorsInverse[3 + NUM_STATES * 1] = 1.f;
+		eigenvectorsInverse[3 + NUM_STATES * 2] = 0.f;
+		eigenvectorsInverse[3 + NUM_STATES * 3] = 0.f;
+		eigenvectorsInverse[3 + NUM_STATES * 4] = 0.f;
+		//row
+		eigenvectorsInverse[4 + NUM_STATES * 0] = (g * A / f + K * sqrt(g / f)) / (2.f * alpha); 
+		eigenvectorsInverse[4 + NUM_STATES * 1] = 0.f; 
+		eigenvectorsInverse[4 + NUM_STATES * 2] = g / (2.f * f); 
+		eigenvectorsInverse[4 + NUM_STATES * 3] = 0.f; 
+		eigenvectorsInverse[4 + NUM_STATES * 4] = .5f * sqrt(g / f); 
 	}
 }
 
+__kernel void addSource(
+	__global real* derivBuffer,
+	const __global real* stateBuffer)
+{
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
+#endif
+	) {
+		return;
+	}
+	int index = INDEXV(i);
+	
+	__global real* deriv = derivBuffer + NUM_STATES * index;
+	const __global real* state = stateBuffer + NUM_STATES * index;
+
+	real alpha = state[0];
+	real g = state[1];
+	real A = state[2];
+	real D = state[3];
+	real K = state[4];
+	real f = ADM_BONA_MASSO_F;
+	deriv[0] += -alpha * alpha * f * K / g;
+	deriv[1] += -2.f * alpha * K;
+	deriv[4] += + alpha * (A * D - K * K) / g;
+}

@@ -11,9 +11,9 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'EulerRoe' -- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe' -- in the works
 --solverName = 'MHDBurgers'
-solverName = 'MHDHLLC'	-- needs 2nd order support, suffers same as EulerHLLC
+--solverName = 'MHDHLLC'	-- needs 2nd order support, suffers same as EulerHLLC
 --solverName = 'MHDRoe' -- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
---solverName = 'ADMRoe' -- exploding.  is it supposed to?  "Gauge shock" ... ?
+solverName = 'ADMRoe' -- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
 
 
 --slopeLimiterName = 'DonorCell'
@@ -34,12 +34,12 @@ solverName = 'MHDHLLC'	-- needs 2nd order support, suffers same as EulerHLLC
 --slopeLimiterName = 'VanAlbada2'
 --slopeLimiterName = 'VanLeer'		-- not behaving correctly
 --slopeLimiterName = 'MonotizedCentral'
---slopeLimiterName = 'Superbee'
+slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
-integratorName = 'ForwardEuler'
---integratorName = 'RungeKutta4'
+--integratorName = 'ForwardEuler'
+integratorName = 'RungeKutta4'
 
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
@@ -47,8 +47,8 @@ maxFrames = 1			--enable to automatically pause the solver after this many frame
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
-useFixedDT = false 
-fixedDT = .01
+useFixedDT = false
+fixedDT = .125
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
@@ -59,7 +59,7 @@ useGravity = false
 gravitationalConstant = 25	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful units please
 gaussSeidelMaxIter = 20
 
-showVectorField = true
+showVectorField = false
 vectorFieldResolution = 64
 vectorFieldScale = .125
 
@@ -85,5 +85,13 @@ displayScale = .25
 
 
 -- see initState for a list of options
-configurations['Sod']()
+--configurations['Brio-Wu']()
+
+
+-- set up for ADM ...
+configurations['ADM-1D']()
+boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+displayMethod = 'ALPHA'
+size = {1024}
+displayScale = 128
 

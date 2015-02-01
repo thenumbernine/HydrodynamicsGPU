@@ -37,6 +37,8 @@ protected:
 	
 	virtual void calcTimestep();
 	virtual void step();
+
+	virtual void applyPotential();
 };
 
 }

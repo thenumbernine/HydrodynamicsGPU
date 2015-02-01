@@ -66,6 +66,13 @@ std::vector<std::string> MHDBurgers::getProgramSources() {
 	return sources;
 }
 
+void MHDBurgers::applyPotential() {
+	Super::applyPotential();
+	
+	//TODO do this for all MHD solver based methods
+	// remove divergence from magnetic field
+}
+
 void MHDBurgers::calcTimestep() {
 	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize);
 	findMinTimestep();	

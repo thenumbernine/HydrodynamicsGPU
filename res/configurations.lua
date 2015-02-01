@@ -340,22 +340,21 @@ return {
 
 
 	['ADM-1D'] = function()
-		xmin = {-30, -30, -30}
-		xmax = {30, 30, 30}
+		xmin = {0, 0, 0,}
+		xmax = {300, 300, 300}
 		local xmid = (xmax[1] + xmin[1]) * .5
-		adm_BonaMasso_f = 1
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		local sigma = 10
+		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'
 		initState = function(x,y,z)
-			x = (x - xmid) / ((xmax[1] - xmid) / 3)
-			local h = math.exp(-x*x); 
-			local dh_dx = -2 * x * h;
-			local d2h_dx2 = 2 * h * (2 * x * x - 1);
-			local g = 1 - dh_dx * dh_dx;
-			local D_g = -2 * dh_dx * d2h_dx2 / g;
-			local KTilde = -d2h_dx2 / g;
-			local f = adm_BonaMasso_f;
-			local D_alpha = math.sqrt(f) * KTilde;
-			return D_alpha, D_g, KTilde, 0, 0, 0, 0, 0	
+			local h = 5 * math.exp(-((x - xmid) / sigma)^2)
+			local dx_h = -2 * (x - xmid) / sigma^2 * h
+			local d2x_h = (-2 / sigma^2 + 4 * (x - xmid)^2 / sigma^4) * h
+			local alpha = 1
+			local g = 1 - dx_h^2
+			local A = 0	-- dx ln alpha
+			local D = -dx_h * d2x_h
+			local K = -d2x_h / math.sqrt(g)
+			return alpha, g, A, D, K
 		end
 	end,
 }

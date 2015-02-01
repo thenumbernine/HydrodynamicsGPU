@@ -258,6 +258,7 @@ void calcFluxSide(
 	real qL = pressureStar <= pressureL ? 1.f : sqrt(1.f + (gamma + 1.f) / (2.f * gamma) * (pressureStar / pressureL - 1.f));
 	real qR = pressureStar <= pressureR ? 1.f : sqrt(1.f + (gamma + 1.f) / (2.f * gamma) * (pressureStar / pressureR - 1.f));
 
+	//NOTICE: qL = qR = 1 seems to work just fine, and in that case pressureStar doesn't need to be calculated
 	real sl = velocityL.x - speedOfSoundL * qL;
 	real sr = velocityR.x + speedOfSoundR * qR;
 
@@ -292,7 +293,7 @@ void calcFluxSide(
 	//HLLC-specific
 	real sStar = (densityR * velocityR.x * (sr - velocityR.x) - densityL * velocityL.x * (sl - velocityL.x) + pressureL - pressureR) 
 					/ (densityR * (sr - velocityR.x) - densityL * (sl - velocityL.x));
-	if (0 <= sl) {
+	if (0.f <= sl) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i];
 		}

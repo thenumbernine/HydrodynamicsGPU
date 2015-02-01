@@ -19,11 +19,11 @@ ADM::ADM(HydroGPU::Solver::Solver& solver)
 {
 	//TODO fixme
 	displayMethods = std::vector<std::string>{
-		"DENSITY",
-		"VELOCITY",
-		"PRESSURE",
-		"MAGNETIC_FIELD",
-		"POTENTIAL"
+		"ALPHA",
+		"G",
+		"A",
+		"D",
+		"K"
 	};
 
 	//matches above
@@ -33,17 +33,25 @@ ADM::ADM(HydroGPU::Solver::Solver& solver)
 		"FREEFLOW"
 	};
 
-	states.push_back("DX_LN_ALPHA");
-	states.push_back("DX_LN_G");
-	states.push_back("K_TILDE");
+	states.push_back("ALPHA");
+	states.push_back("G");
+	states.push_back("A");	// = dx ln alpha
+	states.push_back("D");	// = dx ln g
+	states.push_back("K");
 }
 
 void ADM::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources) {
 	Super::getProgramSources(solver, sources);
-	
-	real adm_BonaMasso_f = 1.f;
+
+	//TODO detect type, cast number to CL string or use literal string
+	//if type is number ...
+	//real adm_BonaMasso_f = 1.f;
+	//solver.app.lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
+	//sources[0] += "#define ADM_BONA_MASSO_F " + toNumericString<real>(adm_BonaMasso_f) + "\n";
+	//else if type is string ...
+	std::string adm_BonaMasso_f = "1.f";
 	solver.app.lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
-	sources[0] += "#define ADM_BONA_MASSO_F " + toNumericString<real>(adm_BonaMasso_f) + "\n";
+	sources[0] += "#define ADM_BONA_MASSO_F " + adm_BonaMasso_f + "\n";
 	
 	sources.push_back(Common::File::read("ADMCommon.cl"));
 }
