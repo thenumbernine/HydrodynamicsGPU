@@ -13,8 +13,9 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'MHDBurgers'
 --solverName = 'MHDHLLC'	-- needs 2nd order support, suffers same as EulerHLLC
 --solverName = 'MHDRoe' -- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
-solverName = 'ADMRoe' -- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
-
+solverName = 'MaxwellRoe'	-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
+--solverName = 'ADMRoe' -- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
+--solverName = 'BSSNOKRoe'	--BSSNOK Roe
 
 --slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'LaxWendroff'
@@ -38,8 +39,8 @@ slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
---integratorName = 'ForwardEuler'
-integratorName = 'RungeKutta4'
+integratorName = 'ForwardEuler'
+--integratorName = 'RungeKutta4'
 
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
@@ -69,6 +70,11 @@ gamma = 1.4
 -- MHD constants:
 vaccuumPermeability = 100	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
 
+-- Maxwell constants:
+permittivity = 1
+permeability = 1
+conductivity = 1
+
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
 --[[ 3D
@@ -85,13 +91,15 @@ displayScale = .25
 
 
 -- see initState for a list of options
---configurations['Brio-Wu']()
+displayMethod = 'ELECTRIC'
+configurations['Maxwell-1']()
 
 
--- set up for ADM ...
+--[[ set up for ADM ...
 configurations['ADM-1D']()
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 displayMethod = 'ALPHA'
 size = {1024}
 displayScale = 128
+--]]
 

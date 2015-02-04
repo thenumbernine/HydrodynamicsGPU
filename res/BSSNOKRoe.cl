@@ -262,7 +262,7 @@ __kernel void calcEigenBasis(
 	for (int side = 0; side < DIM; ++side) {
 		int indexPrev = index - stepsize[side];
 		int indexPrev2 = indexPrev - stepsize[side];
-		int indexNext = indexNext + stepsize[side];
+		int indexNext = index + stepsize[side];
 
 		int interfaceIndex = side + DIM * index;
 		

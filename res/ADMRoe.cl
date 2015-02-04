@@ -32,7 +32,6 @@ __kernel void calcEigenBasis(
 	//for (int side = 0; side < DIM; ++side) {
 	{const int side = 0;
 		int indexPrev = index - stepsize[side];
-		int indexNext = indexNext + stepsize[side];
 
 		int interfaceIndex = side + DIM * index;
 		
@@ -156,7 +155,9 @@ __kernel void addSource(
 	real D = state[3];
 	real K = state[4];
 	real f = ADM_BONA_MASSO_F;
-	deriv[0] += -alpha * alpha * f * K / g;
-	deriv[1] += -2.f * alpha * K;
-	deriv[4] += + alpha * (A * D - K * K) / g;
+	real df_dalpha = ADM_BONA_MASSO_DF_DALPHA;
+	deriv[STATE_ALPHA] += -alpha * alpha * f * K / g;
+	deriv[STATE_G] += -2.f * alpha * K;
+	deriv[STATE_A] += -alpha * K / g * df_dalpha;
+	deriv[STATE_K] += + alpha * (A * D - K * K) / g;
 }

@@ -344,7 +344,8 @@ return {
 		xmax = {300, 300, 300}
 		local xmid = (xmax[1] + xmin[1]) * .5
 		local sigma = 10
-		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'
+		adm_BonaMasso_f = '1.f'	--'1.f + 1.f / (alpha * alpha)'
+		adm_BonaMasso_df_dalpha = '0.f'	--'-2.f / (alpha * alpha * alpha)'
 		initState = function(x,y,z)
 			local h = 5 * math.exp(-((x - xmid) / sigma)^2)
 			local dx_h = -2 * (x - xmid) / sigma^2 * h
@@ -355,6 +356,19 @@ return {
 			local D = -dx_h * d2x_h
 			local K = -d2x_h / math.sqrt(g)
 			return alpha, g, A, D, K
+		end
+	end,
+
+	['Maxwell-1'] = function()
+		initState = function(x,y,z)
+			local inside = x <= 0 and y <= 0 and z <= 0
+			local ex = 1
+			local ey = 0
+			local ez = 1
+			local bx = 0
+			local by = inside and -1 or 1
+			local bz = 0
+			return ex * permittivity, ey * permittivity, ez * permittivity, bx, by, bz
 		end
 	end,
 }

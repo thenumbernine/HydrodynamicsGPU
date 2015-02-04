@@ -52,6 +52,9 @@ void ADM::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::s
 	std::string adm_BonaMasso_f = "1.f";
 	solver.app.lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	sources[0] += "#define ADM_BONA_MASSO_F " + adm_BonaMasso_f + "\n";
+	std::string adm_BonaMasso_df_dalpha = "0.f";
+	solver.app.lua.ref()["adm_BonaMasso_df_dalpha"] >> adm_BonaMasso_df_dalpha;
+	sources[0] += "#define ADM_BONA_MASSO_DF_DALPHA " + adm_BonaMasso_df_dalpha + "\n";
 	
 	sources.push_back(Common::File::read("ADMCommon.cl"));
 }

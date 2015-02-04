@@ -7,6 +7,7 @@
 #include "HydroGPU/Solver/MHDBurgers.h"
 #include "HydroGPU/Solver/MHDHLLC.h"
 #include "HydroGPU/Solver/MHDRoe.h"
+#include "HydroGPU/Solver/MaxwellRoe.h"
 #include "HydroGPU/Solver/ADMRoe.h"
 #include "HydroGPU/Solver/BSSNOKRoe.h"
 #include "Profiler/Profiler.h"
@@ -184,6 +185,8 @@ void HydroGPUApp::init() {
 		solver = std::make_shared<HydroGPU::Solver::MHDHLLC>(*this);
 	} else if (solverName == "MHDRoe") {
 		solver = std::make_shared<HydroGPU::Solver::MHDRoe>(*this);
+	} else if (solverName == "MaxwellRoe") {
+		solver = std::make_shared<HydroGPU::Solver::MaxwellRoe>(*this);
 	} else if (solverName == "ADMRoe") {
 		solver = std::make_shared<HydroGPU::Solver::ADMRoe>(*this);
 	} else if (solverName == "BSSNOKRoe") {
