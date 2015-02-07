@@ -43,56 +43,100 @@ __kernel void calcEigenBasisSide(
 	//eigenvectors
 
 	const float M_SQRT_1_2 = 0.7071067811865475727373109293694142252206802368164f;
-	
+
+	float se = sqrtPermittivity * M_SQRT_1_2;
+	float su = sqrtPermeability * M_SQRT_1_2;
+
 	//col
 	eigenvectors[0 + NUM_STATES * 0] = 0.f;
 	eigenvectors[1 + NUM_STATES * 0] = 0.f;
-	eigenvectors[2 + NUM_STATES * 0] = sqrtPermittivity * M_SQRT_1_2;
+	eigenvectors[2 + NUM_STATES * 0] = se;
 	eigenvectors[3 + NUM_STATES * 0] = 0.f; 
-	eigenvectors[4 + NUM_STATES * 0] = sqrtPermeability * M_SQRT_1_2;
+	eigenvectors[4 + NUM_STATES * 0] = su;
 	eigenvectors[5 + NUM_STATES * 0] = 0.f;
 	//col
 	eigenvectors[0 + NUM_STATES * 1] = 0.f;
-	eigenvectors[1 + NUM_STATES * 1] = -sqrtPermittivity * M_SQRT_1_2;
+	eigenvectors[1 + NUM_STATES * 1] = -se;
 	eigenvectors[2 + NUM_STATES * 1] = 0.f;
 	eigenvectors[3 + NUM_STATES * 1] = 0.f;
 	eigenvectors[4 + NUM_STATES * 1] = 0.f;
-	eigenvectors[5 + NUM_STATES * 1] = sqrtPermeability * M_SQRT_1_2;
+	eigenvectors[5 + NUM_STATES * 1] = su;
 	//col
-	eigenvectors[0 + NUM_STATES * 2] = -sqrtPermittivity * M_SQRT_1_2;
+	eigenvectors[0 + NUM_STATES * 2] = -se;
 	eigenvectors[1 + NUM_STATES * 2] = 0.f;
 	eigenvectors[2 + NUM_STATES * 2] = 0.f;
-	eigenvectors[3 + NUM_STATES * 2] = sqrtPermeability * M_SQRT_1_2;
+	eigenvectors[3 + NUM_STATES * 2] = su;
 	eigenvectors[4 + NUM_STATES * 2] = 0.f;
 	eigenvectors[5 + NUM_STATES * 2] = 0.f;
 	//col
-	eigenvectors[0 + NUM_STATES * 3] = sqrtPermittivity * M_SQRT_1_2;
+	eigenvectors[0 + NUM_STATES * 3] = se;
 	eigenvectors[1 + NUM_STATES * 3] = 0.f;
 	eigenvectors[2 + NUM_STATES * 3] = 0.f;
-	eigenvectors[3 + NUM_STATES * 3] = sqrtPermeability * M_SQRT_1_2;
+	eigenvectors[3 + NUM_STATES * 3] = su;
 	eigenvectors[4 + NUM_STATES * 3] = 0.f;
 	eigenvectors[5 + NUM_STATES * 3] = 0.f;
 	//col
 	eigenvectors[0 + NUM_STATES * 4] = 0.f;
-	eigenvectors[1 + NUM_STATES * 4] = sqrtPermittivity * M_SQRT_1_2;
+	eigenvectors[1 + NUM_STATES * 4] = se;
 	eigenvectors[2 + NUM_STATES * 4] = 0.f;
 	eigenvectors[3 + NUM_STATES * 4] = 0.f;
 	eigenvectors[4 + NUM_STATES * 4] = 0.f;
-	eigenvectors[5 + NUM_STATES * 4] = sqrtPermeability * M_SQRT_1_2;
+	eigenvectors[5 + NUM_STATES * 4] = su;
 	//col
-	eigenvectors[0 + NUM_STATES * 4] = 0.f;
-	eigenvectors[1 + NUM_STATES * 4] = 0.f;
-	eigenvectors[2 + NUM_STATES * 4] = -sqrtPermittivity * M_SQRT_1_2;
-	eigenvectors[3 + NUM_STATES * 4] = 0.f;
-	eigenvectors[4 + NUM_STATES * 4] = sqrtPermeability * M_SQRT_1_2;
-	eigenvectors[5 + NUM_STATES * 4] = 0.f;
+	eigenvectors[0 + NUM_STATES * 5] = 0.f;
+	eigenvectors[1 + NUM_STATES * 5] = 0.f;
+	eigenvectors[2 + NUM_STATES * 5] = -se;
+	eigenvectors[3 + NUM_STATES * 5] = 0.f;
+	eigenvectors[4 + NUM_STATES * 5] = su;
+	eigenvectors[5 + NUM_STATES * 5] = 0.f;
 
-	//eigenvector inverses = 1/transpose of eigenvector
-	for (int i = 0; i < NUM_STATES; ++i) {
-		for (int j = 0; j < NUM_STATES; ++j) {
-			eigenvectorsInverse[i + NUM_STATES * j] = 1.f / eigenvectors[j + NUM_STATES * i];
-		}
-	}
+	float ise = 1.f / se;
+	float isu = 1.f / su;
+
+	//eigenvector inverses = 1/nonzero transpose of eigenvector
+	//row
+	eigenvectorsInverse[0 + NUM_STATES * 0] = 0.f;
+	eigenvectorsInverse[0 + NUM_STATES * 1] = 0.f;
+	eigenvectorsInverse[0 + NUM_STATES * 2] = ise;
+	eigenvectorsInverse[0 + NUM_STATES * 3] = 0.f; 
+	eigenvectorsInverse[0 + NUM_STATES * 4] = isu;
+	eigenvectorsInverse[0 + NUM_STATES * 5] = 0.f;
+	//row
+	eigenvectorsInverse[1 + NUM_STATES * 0] = 0.f;
+	eigenvectorsInverse[1 + NUM_STATES * 1] = -se;
+	eigenvectorsInverse[1 + NUM_STATES * 2] = 0.f;
+	eigenvectorsInverse[1 + NUM_STATES * 3] = 0.f;
+	eigenvectorsInverse[1 + NUM_STATES * 4] = 0.f;
+	eigenvectorsInverse[1 + NUM_STATES * 5] = isu;
+	//row
+	eigenvectorsInverse[2 + NUM_STATES * 0] = -se;
+	eigenvectorsInverse[2 + NUM_STATES * 1] = 0.f;
+	eigenvectorsInverse[2 + NUM_STATES * 2] = 0.f;
+	eigenvectorsInverse[2 + NUM_STATES * 3] = isu;
+	eigenvectorsInverse[2 + NUM_STATES * 4] = 0.f;
+	eigenvectorsInverse[2 + NUM_STATES * 5] = 0.f;
+	//row
+	eigenvectorsInverse[3 + NUM_STATES * 0] = ise;
+	eigenvectorsInverse[3 + NUM_STATES * 1] = 0.f;
+	eigenvectorsInverse[3 + NUM_STATES * 2] = 0.f;
+	eigenvectorsInverse[3 + NUM_STATES * 3] = isu;
+	eigenvectorsInverse[3 + NUM_STATES * 4] = 0.f;
+	eigenvectorsInverse[3 + NUM_STATES * 5] = 0.f;
+	//row
+	eigenvectorsInverse[4 + NUM_STATES * 0] = 0.f;
+	eigenvectorsInverse[4 + NUM_STATES * 1] = ise;
+	eigenvectorsInverse[4 + NUM_STATES * 2] = 0.f;
+	eigenvectorsInverse[4 + NUM_STATES * 3] = 0.f;
+	eigenvectorsInverse[4 + NUM_STATES * 4] = 0.f;
+	eigenvectorsInverse[4 + NUM_STATES * 5] = isu;
+	//row
+	eigenvectorsInverse[5 + NUM_STATES * 0] = 0.f;
+	eigenvectorsInverse[5 + NUM_STATES * 1] = 0.f;
+	eigenvectorsInverse[5 + NUM_STATES * 2] = -se;
+	eigenvectorsInverse[5 + NUM_STATES * 3] = 0.f;
+	eigenvectorsInverse[5 + NUM_STATES * 4] = isu;
+	eigenvectorsInverse[5 + NUM_STATES * 5] = 0.f;
+
 
 #if DIM > 1
 	if (side == 1) {

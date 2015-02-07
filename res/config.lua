@@ -17,7 +17,7 @@ solverName = 'MaxwellRoe'	-- Roe solver based on Trangenstein's Maxwell equation
 --solverName = 'ADMRoe' -- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
 --solverName = 'BSSNOKRoe'	--BSSNOK Roe
 
---slopeLimiterName = 'DonorCell'
+slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'LaxWendroff'
 --slopeLimiterName = 'BeamWarming'	-- not behaving correctly
 --slopeLimiterName = 'Fromm'		-- not behaving correctly
@@ -35,7 +35,7 @@ solverName = 'MaxwellRoe'	-- Roe solver based on Trangenstein's Maxwell equation
 --slopeLimiterName = 'VanAlbada2'
 --slopeLimiterName = 'VanLeer'		-- not behaving correctly
 --slopeLimiterName = 'MonotizedCentral'
-slopeLimiterName = 'Superbee'
+--slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
