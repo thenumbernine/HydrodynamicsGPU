@@ -6,18 +6,18 @@ local configurations = require 'configurations'	--holds catalog of configuration
 
 
 --solverName = 'EulerBurgers'
---solverName = 'EulerHLL' -- needs 2nd order support
+solverName = 'EulerHLL' -- needs 2nd order support
 --solverName = 'EulerHLLC' -- after a while on Sod+mirror it explodes. needs 2nd order support
 --solverName = 'EulerRoe' -- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe' -- in the works
 --solverName = 'MHDBurgers'
 --solverName = 'MHDHLLC'	-- needs 2nd order support, suffers same as EulerHLLC
 --solverName = 'MHDRoe' -- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
-solverName = 'MaxwellRoe'	-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
+--solverName = 'MaxwellRoe'	-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
 --solverName = 'ADMRoe' -- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
 --solverName = 'BSSNOKRoe'	--BSSNOK Roe
 
-slopeLimiterName = 'DonorCell'
+--slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'LaxWendroff'
 --slopeLimiterName = 'BeamWarming'	-- not behaving correctly
 --slopeLimiterName = 'Fromm'		-- not behaving correctly
@@ -35,7 +35,7 @@ slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'VanAlbada2'
 --slopeLimiterName = 'VanLeer'		-- not behaving correctly
 --slopeLimiterName = 'MonotizedCentral'
---slopeLimiterName = 'Superbee'
+slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
@@ -53,7 +53,7 @@ fixedDT = .125
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
+boundaryMethods = {'PERIODIC', 'PERIODIC', 'PERIODIC'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false 
@@ -81,19 +81,23 @@ conductivity = 1
 size = {64, 64, 64}
 vectorFieldResolution = 16
 --]]
---[[ 2D
+-- [[ 2D
 size = {512, 512}
 --]]
--- [[ 1D
+--[[ 1D
 size = {512}
 displayScale = .25
 --]]
 
 
--- see initState for a list of options
-displayMethod = 'ELECTRIC'
-configurations['Maxwell-1']()
+configurations['Sod']()
+--configurations['Orszag-Tang']()
 
+--[[ see initState for a list of options
+displayMethod = 'ELECTRIC'
+boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+configurations['Maxwell-1']()
+--]]
 
 --[[ set up for ADM ...
 configurations['ADM-1D']()

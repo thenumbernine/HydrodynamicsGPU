@@ -21,11 +21,28 @@ void calcEigenvaluesSide(
 	int indexPrev = index - stepsize[side];
 	int interfaceIndex = side + DIM * index;
 
-	real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
-	normal[side] = 1;
+	const __global real* srcStateL = stateBuffer + NUM_STATES * indexPrev;
+	const __global real* srcStateR = stateBuffer + NUM_STATES * index;
 
-	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
-	const __global real* stateR = stateBuffer + NUM_STATES * index;
+	real stateL[NUM_STATES];
+	real stateR[NUM_STATES];
+
+	// rotate into x axis
+	for (int i = 0; i < NUM_STATES; ++i) {
+		stateL[i] = srcStateL[i];
+		stateR[i] = srcStateR[i];
+	}
+	{
+		real tmp;
+		
+		tmp = stateL[STATE_MOMENTUM_X];
+		stateL[STATE_MOMENTUM_X] = stateL[STATE_MOMENTUM_X+side];
+		stateL[STATE_MOMENTUM_X+side] = tmp;
+		
+		tmp = stateR[STATE_MOMENTUM_X];
+		stateR[STATE_MOMENTUM_X] = stateR[STATE_MOMENTUM_X+side];
+		stateR[STATE_MOMENTUM_X+side] = tmp;
+	}
 
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 
@@ -35,7 +52,6 @@ void calcEigenvaluesSide(
 	real densityL = stateL[STATE_DENSITY];
 	real invDensityL = 1.f / densityL;
 	real4 velocityL = VELOCITY(stateL);
-	real velocityNL = dot(velocityL, normal);
 	real velocitySqL = dot(velocityL, velocityL);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
 	real energyKineticL = .5f * velocitySqL;
@@ -49,7 +65,6 @@ void calcEigenvaluesSide(
 	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
 	real4 velocityR = VELOCITY(stateR);
-	real velocityNR = dot(velocityR, normal);
 	real velocitySqR = dot(velocityR, velocityR);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
 	real energyKineticR = .5f * velocitySqR;
@@ -62,47 +77,30 @@ void calcEigenvaluesSide(
 	
 	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
 	real4 velocity = (roeWeightL * velocityL + roeWeightR * velocityR) * roeWeightNormalization;
-	real enthalpyTotal = (roeWeightL * enthalpyTotalL + roeWeightR * enthalpyTotalR) * roeWeightNormalization;
-	real energyPotential = (roeWeightL * energyPotentialL + roeWeightR * energyPotentialR) * roeWeightNormalization; 
-	
-	real velocitySq = dot(velocity, velocity);
-	real speedOfSound = sqrt((gamma - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
-	real velocityN = dot(velocity, normal);
 
 	//eigenvalues
 
-#if 0	//Roe
-	eigenvalues[0] = velocityN - speedOfSound;
-	eigenvalues[1] = velocityN;
-#if DIM > 1
-	eigenvalues[2] = velocityN;
-#endif
-#if DIM > 2
-	eigenvalues[3] = velocityN;
-#endif
-	eigenvalues[DIM+1] = velocityN + speedOfSound;
-#endif
-
-#if 1	//using HLL wavespeed calc
-
-	real eigenvaluesMinL = velocityNL - speedOfSoundL;
-	real eigenvaluesMaxR = velocityNR + speedOfSoundR;
-	real eigenvaluesMin = velocity.x - speedOfSound;
-	real eigenvaluesMax = velocity.x + speedOfSound;
-	real sl = min(eigenvaluesMinL, eigenvaluesMin);
-	real sr = max(eigenvaluesMaxR, eigenvaluesMax);
+	//acoustic-type approximation: Toro, 1991
+	//real pressureStar = max(0.f, .5f * (pressureL + pressureR) - .5f * (velocityR.x - velocityL.x) * .5f * (densityL + densityR) * .5f * (speedOfSoundL + speedOfSoundR));
+	//Two-Rarefaction Riemann solver:
+	real z = .5f - .5f / gamma;
+	real pressureStar = pow((speedOfSoundL + speedOfSoundR - .5f * (gamma - 1.f) * (velocityR.x - velocityL.x)) / (speedOfSoundL / pow(pressureL, z) + speedOfSoundR * pow(pressureR, z)), 1.f / z);
+	
+	real qL = pressureStar <= pressureL ? 1.f : sqrt(1.f + (gamma + 1.f) / (2.f * gamma) * (pressureStar / pressureL - 1.f));
+	real qR = pressureStar <= pressureR ? 1.f : sqrt(1.f + (gamma + 1.f) / (2.f * gamma) * (pressureStar / pressureR - 1.f));
+	
+	real sl = velocityL.x - speedOfSoundL * qL;
+	real sr = velocityR.x + speedOfSoundR * qR;
 
 	eigenvalues[0] = sl;
-	eigenvalues[1] = velocityN;
+	eigenvalues[1] = velocity.x;
 #if DIM > 1
-	eigenvalues[2] = velocityN;
+	eigenvalues[2] = velocity.x;
 #if DIM > 2
-	eigenvalues[3] = velocityN;
+	eigenvalues[3] = velocity.x;
 #endif
 #endif
 	eigenvalues[DIM+1] = sr;
-
-#endif
 }
 
 __kernel void calcEigenvalues(
@@ -225,7 +223,6 @@ void calcFluxSide(
 	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
 	real speedOfSoundL = sqrt((gamma - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
-//	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
@@ -238,20 +235,13 @@ void calcFluxSide(
 	real pressureR = (gamma - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
 	real speedOfSoundR = sqrt((gamma - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
-//	real roeWeightR = sqrt(densityR);
 
-//	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
-//	real4 velocity = (roeWeightL * velocityL + roeWeightR * velocityR) * roeWeightNormalization;
-//	real velocitySq = dot(velocity, velocity);
-//	real enthalpyTotal = (roeWeightL * enthalpyTotalL + roeWeightR * enthalpyTotalR) * roeWeightNormalization;
-//	real energyPotential = (roeWeightL * energyPotentialL + roeWeightR * energyPotentialR) * roeWeightNormalization; 
-//	real speedOfSound = sqrt((gamma - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
 	
 	//flux
 
 	//acoustic-type approximation: Toro, 1991
 	//real pressureStar = max(0.f, .5f * (pressureL + pressureR) - .5f * (velocityR.x - velocityL.x) * .5f * (densityL + densityR) * .5f * (speedOfSoundL + speedOfSoundR));
-	//Two-Rarefction Riemann solver:
+	//Two-Rarefaction Riemann solver:
 	real z = .5f - .5f / gamma;
 	real pressureStar = pow((speedOfSoundL + speedOfSoundR - .5f * (gamma - 1.f) * (velocityR.x - velocityL.x)) / (speedOfSoundL / pow(pressureL, z) + speedOfSoundR * pow(pressureR, z)), 1.f / z);
 	
@@ -441,6 +431,7 @@ or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, ch
 __kernel void calcFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
 	const __global real* potentialBuffer,
 	const __global real* dtBuffer)
 {

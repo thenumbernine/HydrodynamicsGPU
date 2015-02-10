@@ -22,6 +22,7 @@ MHD::MHD(HydroGPU::Solver::Solver& solver)
 		"VELOCITY",
 		"PRESSURE",
 		"MAGNETIC_FIELD",
+		"MAGNETIC_DIVERGENCE",
 		"POTENTIAL"
 	};
 
@@ -59,7 +60,7 @@ void MHD::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::s
 	sources[0] += "constant real sqrtVaccuumPermeability = " + toNumericString<real>(sqrt(vaccuumPermeability)) + ";\n";
 
 	//for EulerMHDCommon.cl
-	sources[0] += "#define MHD\n";
+	sources[0] += "#define MHD 1\n";
 
 	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
 }

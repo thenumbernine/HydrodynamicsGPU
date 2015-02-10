@@ -176,12 +176,32 @@ return {
 	['Brio-Wu'] = function()
 		gamma = 2
 		initState = function(x,y,z)
-			local lhs = x < 0
+			local lhs = x <= 0 and y <= 0 and z <= 0
 			return buildStateEuler{
 				density = lhs and 1 or .125,
 				pressure = lhs and 1 or .1,
 				magneticFieldX = .75,
 				magneticFieldY = lhs and 1 or -1,
+				magneticFieldZ = 0,
+			}
+		end
+	end,
+
+	-- http://www.astro.virginia.edu/VITA/ATHENA/ot.html
+	-- http://www.astro.princeton.edu/~jstone/Athena/tests/orszag-tang/pagesource.html
+	['Orszag-Tang'] = function()
+		gamma = 5/3
+		local B0 = 1/math.sqrt(4 * math.pi)
+		-- assumes coordinate space to be [-.5,.5]^2
+		initState = function(x,y,z)
+			return buildStateEuler{
+				density = 25/(36*math.pi),
+				velocityX = -math.sin(2*math.pi*(y+.5)),
+				velocityY = math.sin(2*math.pi*(x+.5)),
+				velocityZ = 0,
+				pressure = 5/(12*math.pi),	-- is this hydro pressure or total pressure?
+				magneticFieldX = -B0 * math.sin(2 * math.pi * (y+.5)),
+				magneticFieldY = B0 * math.sin(4 * math.pi * (x+.5)),
 				magneticFieldZ = 0,
 			}
 		end
@@ -361,13 +381,13 @@ return {
 
 	['Maxwell-1'] = function()
 		initState = function(x,y,z)
-			local inside = x <= 0 and y <= 0 and z <= 0
-			local ex = 1
-			local ey = 0
-			local ez = 1
+			--local inside = x <= 0 and y <= 0 and z <= 0
+			local ex = -y 
+			local ey = x
+			local ez = 0
 			local bx = 0
-			local by = inside and -1 or 1
-			local bz = 0
+			local by = 0
+			local bz = 1
 			return ex * permittivity, ey * permittivity, ez * permittivity, bx, by, bz
 		end
 	end,

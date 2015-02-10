@@ -23,11 +23,28 @@ void calcEigenvaluesSide(
 	int indexPrev = index - stepsize[side];
 	int interfaceIndex = side + DIM * index;
 
-	real4 normal = (real4)(0.f, 0.f, 0.f, 0.f);
-	normal[side] = 1;
+	const __global real* srcStateL = stateBuffer + NUM_STATES * indexPrev;
+	const __global real* srcStateR = stateBuffer + NUM_STATES * index;
 
-	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
-	const __global real* stateR = stateBuffer + NUM_STATES * index;
+	real stateL[NUM_STATES];
+	real stateR[NUM_STATES];
+
+	// rotate into x axis
+	for (int i = 0; i < NUM_STATES; ++i) {
+		stateL[i] = srcStateL[i];
+		stateR[i] = srcStateR[i];
+	}
+	{
+		real tmp;
+		
+		tmp = stateL[STATE_MOMENTUM_X];
+		stateL[STATE_MOMENTUM_X] = stateL[STATE_MOMENTUM_X+side];
+		stateL[STATE_MOMENTUM_X+side] = tmp;
+		
+		tmp = stateR[STATE_MOMENTUM_X];
+		stateR[STATE_MOMENTUM_X] = stateR[STATE_MOMENTUM_X+side];
+		stateR[STATE_MOMENTUM_X+side] = tmp;
+	}
 
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 
@@ -37,7 +54,6 @@ void calcEigenvaluesSide(
 	real densityL = stateL[STATE_DENSITY];
 	real invDensityL = 1.f / densityL;
 	real4 velocityL = VELOCITY(stateL);
-	real velocityNL = dot(velocityL, normal);
 	real velocitySqL = dot(velocityL, velocityL);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
 	real energyKineticL = .5f * velocitySqL;
@@ -51,7 +67,6 @@ void calcEigenvaluesSide(
 	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
 	real4 velocityR = VELOCITY(stateR);
-	real velocityNR = dot(velocityR, normal);
 	real velocitySqR = dot(velocityR, velocityR);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
 	real energyKineticR = .5f * velocitySqR;
@@ -69,42 +84,32 @@ void calcEigenvaluesSide(
 	
 	real velocitySq = dot(velocity, velocity);
 	real speedOfSound = sqrt((gamma - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
-	real velocityN = dot(velocity, normal);
 
 	//eigenvalues
 
-#if 0	//Roe
-	eigenvalues[0] = velocityN - speedOfSound;
-	eigenvalues[1] = velocityN;
-#if DIM > 1
-	eigenvalues[2] = velocityN;
-#endif
-#if DIM > 2
-	eigenvalues[3] = velocityN;
-#endif
-	eigenvalues[DIM+1] = velocityN + speedOfSound;
-#endif
-
-#if 1	//using HLL wavespeed calc
-
-	real eigenvaluesMinL = velocityNL - speedOfSoundL;
-	real eigenvaluesMaxR = velocityNR + speedOfSoundR;
+	real eigenvaluesMinL = velocityL.x - speedOfSoundL;
+	real eigenvaluesMaxR = velocityR.x + speedOfSoundR;
 	real eigenvaluesMin = velocity.x - speedOfSound;
 	real eigenvaluesMax = velocity.x + speedOfSound;
+#if 0	//Davis direct
+	real sl = eigenvaluesMinL;
+	real sr = eigenvaluesMaxR;
+#endif
+#if 1	//Davis direct bounded
 	real sl = min(eigenvaluesMinL, eigenvaluesMin);
 	real sr = max(eigenvaluesMaxR, eigenvaluesMax);
+#endif
+
 
 	eigenvalues[0] = sl;
-	eigenvalues[1] = velocityN;
+	eigenvalues[1] = velocity.x;
 #if DIM > 1
-	eigenvalues[2] = velocityN;
+	eigenvalues[2] = velocity.x;
 #if DIM > 2
-	eigenvalues[3] = velocityN;
+	eigenvalues[3] = velocity.x;
 #endif
 #endif
 	eigenvalues[DIM+1] = sr;
-
-#endif
 }
 
 __kernel void calcEigenvalues(
@@ -158,12 +163,8 @@ __kernel void calcCFL(
 		const __global real* eigenvaluesL = eigenvaluesBuffer + NUM_STATES * (side + DIM * index);
 		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexNext);
 
-		real minLambda = 0.f;
-		real maxLambda = 0.f;
-		for (int i = 0; i < NUM_STATES; ++i) {	
-			maxLambda = max(maxLambda, eigenvaluesL[i]);
-			minLambda = min(minLambda, eigenvaluesR[i]);
-		}
+		real minLambda = min(0.f, eigenvaluesR[0]);
+		real maxLambda = max(0.f, eigenvaluesL[DIM+1]);
 
 		real dum = dx[side] / (maxLambda - minLambda);
 		result = min(result, dum);
@@ -175,6 +176,7 @@ __kernel void calcCFL(
 void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
 	const __global real* potentialBuffer,
 	real dt_dx,
 	int side);
@@ -182,6 +184,7 @@ void calcFluxSide(
 void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
 	const __global real* potentialBuffer,
 	real dt_dx,
 	int side)
@@ -213,6 +216,8 @@ void calcFluxSide(
 		stateR[STATE_MOMENTUM_X] = stateR[STATE_MOMENTUM_X+side];
 		stateR[STATE_MOMENTUM_X+side] = tmp;
 	}
+	
+	const __global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 
 	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
 
@@ -226,8 +231,6 @@ void calcFluxSide(
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
-	real speedOfSoundL = sqrt((gamma - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
-	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
@@ -239,38 +242,11 @@ void calcFluxSide(
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 	real pressureR = (gamma - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
-	real speedOfSoundR = sqrt((gamma - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
-	real roeWeightR = sqrt(densityR);
-
-	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
-	real4 velocity = (roeWeightL * velocityL + roeWeightR * velocityR) * roeWeightNormalization;
-	real velocitySq = dot(velocity, velocity);
-	real enthalpyTotal = (roeWeightL * enthalpyTotalL + roeWeightR * enthalpyTotalR) * roeWeightNormalization;
-	real energyPotential = (roeWeightL * energyPotentialL + roeWeightR * energyPotentialR) * roeWeightNormalization; 
-	real speedOfSound = sqrt((gamma - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
 	
-	real eigenvaluesMinL = velocityL.x - speedOfSoundL;
-	real eigenvaluesMaxR = velocityR.x + speedOfSoundR;
-
-	real eigenvalues[NUM_STATES];
-	for (int i = 0; i < NUM_STATES; ++i) {
-		eigenvalues[i] = velocity.x;
-	}
-	eigenvalues[0] -= speedOfSound;
-	real eigenvaluesMin = eigenvalues[0];
-	eigenvalues[NUM_STATES-1] += speedOfSound;
-	real eigenvaluesMax = eigenvalues[NUM_STATES-1];
+	real sl = eigenvalues[0];
+	real sr = eigenvalues[NUM_STATES-1];
 
 	//flux
-
-#if 0	//Davis direct
-	real sl = eigenvaluesMinL;
-	real sr = eigenvaluesMaxR;
-#endif
-#if 1	//Davis direct bounded
-	real sl = min(eigenvaluesMinL, eigenvaluesMin);
-	real sr = max(eigenvaluesMaxR, eigenvaluesMax);
-#endif
 
 	real fluxL[NUM_STATES];
 	fluxL[0] = densityL * velocityL.x;
@@ -368,6 +344,7 @@ or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, ch
 __kernel void calcFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
 	const __global real* potentialBuffer,
 	const __global real* dtBuffer)
 {
@@ -383,12 +360,12 @@ __kernel void calcFlux(
 	
 	real dt = dtBuffer[0];
 	
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DX, 0);
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dt/DX, 0);
 #if DIM > 1
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DY, 1);
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dt/DY, 1);
 #endif
 #if DIM > 2
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DZ, 2);
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dt/DZ, 2);
 #endif
 }
 

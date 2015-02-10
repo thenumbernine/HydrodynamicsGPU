@@ -41,32 +41,8 @@ __kernel void convertToTex(
 
 #ifdef MHD
 	
-#if 1
 	real4 magneticField = (real4)(state[STATE_MAGNETIC_FIELD_X], state[STATE_MAGNETIC_FIELD_Y], state[STATE_MAGNETIC_FIELD_Z], 0.f);
 	real magneticFieldMagn = length(magneticField);
-#else
-//debugging: show magnetic field divergence
-int4 ixp = i;
-ixp[0] = (ixp[0] + 1) % size[0];
-int4 ixn = i;
-ixn[0] = (ixn[0] + size[0] - 1) % size[0];
-real magneticFieldMagn = dx[0] * (stateBuffer[STATE_MAGNETIC_FIELD_X + NUM_STATES * INDEXV(ixp)] - stateBuffer[STATE_MAGNETIC_FIELD_X + NUM_STATES * INDEXV(ixn)]);
-#if DIM > 1
-int4 iyp = i;
-iyp[1] = (iyp[1] + 1) % size[1];
-int4 iyn = i;
-iyn[1] = (iyn[1] + size[1] - 1) % size[1];
-magneticFieldMagn += dx[1] * (stateBuffer[STATE_MAGNETIC_FIELD_Y + NUM_STATES * INDEXV(iyp)] - stateBuffer[STATE_MAGNETIC_FIELD_Y + NUM_STATES * INDEXV(iyn)]);
-#endif
-#if DIM > 2
-int4 izp = i;
-izp[2] = (izp[2] + 1) % size[2];
-int4 izn = i;
-izn[2] = (izn[2] + size[2] - 1) % size[2];
-magneticFieldMagn += dx[2] * (stateBuffer[STATE_MAGNETIC_FIELD_Z + NUM_STATES * INDEXV(izp)] - stateBuffer[STATE_MAGNETIC_FIELD_Z + NUM_STATES * INDEXV(izn)]);
-#endif
-
-#endif
 
 #else	//!MHD
 #if DIM == 1	//can harmlessly be there for dim>1, but never referenced unless dim = 1
@@ -94,6 +70,32 @@ magneticFieldMagn += dx[2] * (stateBuffer[STATE_MAGNETIC_FIELD_Z + NUM_STATES * 
 #ifdef MHD
 	case DISPLAY_MAGNETIC_FIELD:
 		value = magneticFieldMagn;
+		break;
+	case DISPLAY_MAGNETIC_DIVERGENCE:
+		{
+			value = 0.f;
+			
+			//debugging: show magnetic field divergence
+			int4 ixp = i;
+			ixp[0] = (ixp[0] + 1) % size[0];
+			int4 ixn = i;
+			ixn[0] = (ixn[0] + size[0] - 1) % size[0];
+			value = dx[0] * (stateBuffer[STATE_MAGNETIC_FIELD_X + NUM_STATES * INDEXV(ixp)] - stateBuffer[STATE_MAGNETIC_FIELD_X + NUM_STATES * INDEXV(ixn)]);
+#if DIM > 1
+			int4 iyp = i;
+			iyp[1] = (iyp[1] + 1) % size[1];
+			int4 iyn = i;
+			iyn[1] = (iyn[1] + size[1] - 1) % size[1];
+			value += dx[1] * (stateBuffer[STATE_MAGNETIC_FIELD_Y + NUM_STATES * INDEXV(iyp)] - stateBuffer[STATE_MAGNETIC_FIELD_Y + NUM_STATES * INDEXV(iyn)]);
+#endif
+#if DIM > 2
+			int4 izp = i;
+			izp[2] = (izp[2] + 1) % size[2];
+			int4 izn = i;
+			izn[2] = (izn[2] + size[2] - 1) % size[2];
+			value += dx[2] * (stateBuffer[STATE_MAGNETIC_FIELD_Z + NUM_STATES * INDEXV(izp)] - stateBuffer[STATE_MAGNETIC_FIELD_Z + NUM_STATES * INDEXV(izn)]);
+#endif
+		}
 		break;
 #endif
 	default:

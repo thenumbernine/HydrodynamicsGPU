@@ -249,6 +249,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		real2 mf = (real2)(0.f, 0.f);
 		real2 ms = (real2)(0.f, 0.f);
 
+#define EPSILON	1e-7f
 		/*
 		the conditions Bx=0 and Bx=By=Bz=0 have similar eigenvalues so I lumped them together
 		
@@ -256,7 +257,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		works for Sod with no field
 		fails after a bit for Sod with YZ field
 		*/
-		if (fabs(magneticField.x) < 1e-7f) {
+		if (fabs(magneticField.x) < EPSILON) {
 #ifdef DEBUG_OUTPUT
 			if (index == DEBUG_INDEX) {
 				printf("using normal-B == 0 eigensystem\n");
@@ -296,7 +297,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		works for hydro discontinuities with no magnetic field
 		fails on hydro discontinuities with magnetic field along normal
 		*/
-		else if (magneticFieldTLen < 1e-7f) {
+		else if (magneticFieldTLen < EPSILON) {
 			//this condition doesn't seem to influence things too much, but it ensures we have the cf and cs eigenvalues in the same place for all conditions
 			if (speedOfSound > AlfvenSpeed) {	//c > ca, so c = cf, ca = cs
 #ifdef DEBUG_OUTPUT
@@ -368,8 +369,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 			//Alfven eigenvectors are of the form [0 l -/+l 0]
 			
 			real2 la;
-			if (magneticFieldTLen < 1e-7f) {
-				la = (real2)(0.f, 1.f) * M_SQRT_1_2;
+			if (magneticFieldTLen < EPSILON) {
+				la = (real2)(0.f, 1.f/*-sign(magneticField.y)*/) * M_SQRT_1_2;
 			} else {
 				la = (real2)(magneticField.z, -magneticField.y) * (M_SQRT_1_2 / magneticFieldTLen);
 			}
@@ -385,26 +386,43 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 
 			//normalizing scalars for the fast and slow eigenvectors
 			//no need to do so for the Alfven wave since it is only composed of the 'la' vector, which only itself needs to be normalized (and scaled by sqrt(1/2) since it appears twice)
+			//without the max() I get errors when the alpha values are low.  I wonder if removing the sqrt() helps and factoring these out would make a difference?
 			alphaFast = sqrt(dot(kf,kf) + dot(lf,lf) + dot(mf,mf));
 			alphaSlow = sqrt(dot(ks,ks) + dot(ls,ls) + dot(ms,ms));
 
 			//if alpha fast is zero then the fast vectors are zero
 			//looking at it shows empty rows 2 and 5, so set set fast[2] = fast[5] = 1.f;
-			if (alphaFast < 1e-7f) {
+			if (alphaFast < EPSILON) {
 				alphaFast = M_SQRT_2;
-				lf[0] = 1.f;
-				mf[0] = 1.f;
+				lf[0] = 1.f;//sign(magneticField.x * magneticField.y);
+				lf[1] = 0.f;
+				mf[0] = 1.f;//sign(magneticField.y);
+				mf[1] = 0.f;
+			} else {
 			}
+			kf /= alphaFast;
+			lf /= alphaFast;
+			mf /= alphaFast;
+
+			if (alphaSlow < EPSILON) {
+				//ks = (real2)(0.f, 0.f);
+				//ls = (real2)(1.f, 0.f);
+				//ms = (real2)(1.f, 0.f);
+			} else {
+			}
+			ks /= alphaSlow;
+			ls /= alphaSlow;
+			ms /= alphaSlow;
 
 			//column-major (represented transposed)
-			eigenvectorsWrtSymmetrized8[0] = (real8)(kf[0],	kf[1], 	lf[0], 	lf[1], 	0.f, 	mf[0], 	mf[1],	0.f) / alphaFast; 
+			eigenvectorsWrtSymmetrized8[0] = (real8)(kf[0],	kf[1], 	lf[0], 	lf[1], 	0.f, 	mf[0], 	mf[1],	0.f); 
 			eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 	0.f, 	la[0], 	la[1], 	0.f, 	la[0],	la[1],	0.f) * sgnBx;
-			eigenvectorsWrtSymmetrized8[2] = (real8)(ks[0], ks[1], 	-ls[0], -ls[1],	0.f, 	-ms[0],	-ms[1],	0.f) / alphaSlow;
+			eigenvectorsWrtSymmetrized8[2] = (real8)(ks[0], ks[1], 	-ls[0], -ls[1],	0.f, 	-ms[0],	-ms[1],	0.f);
 			eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 	0.f, 	0.f, 	0.f, 	1.f, 	0.f, 	0.f,  	0.f);
 			eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f,  	1.f);
-			eigenvectorsWrtSymmetrized8[5] = (real8)(ks[0], -ks[1], ls[0], 	ls[1], 	0.f, 	-ms[0], -ms[1] ,  0.f) / alphaSlow;
+			eigenvectorsWrtSymmetrized8[5] = (real8)(ks[0], -ks[1], ls[0], 	ls[1], 	0.f, 	-ms[0], -ms[1] ,  0.f);
 			eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 	0.f, 	la[0], 	la[1], 	0.f, 	-la[0], -la[1] ,  0.f) * sgnBx;
-			eigenvectorsWrtSymmetrized8[7] = (real8)(kf[0], -kf[1], -lf[0],	-lf[1], 0.f,	mf[0], 	mf[1] ,  0.f) / alphaFast; 
+			eigenvectorsWrtSymmetrized8[7] = (real8)(kf[0], -kf[1], -lf[0],	-lf[1], 0.f,	mf[0], 	mf[1] ,  0.f); 
 		}
 
 		//for all but the no-magnetic-field case transform the eigenvectors by dw/du

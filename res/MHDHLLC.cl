@@ -40,7 +40,7 @@ void calcEigenvaluesSide(
 internalEnergyDensityL = max(0.f, internalEnergyDensityL);	//magnetic energy is exceeding total energy ...
 	real pressureL = gammaMinusOne * internalEnergyDensityL;
 	//real enthalpyTotalL = (totalHydroEnergyDensityL + pressureL) / densityL;
-	real roeWeightL = sqrt(densityL);
+	real roeWeightL = 1.f;//sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
 	real4 velocityR = VELOCITY(stateR);
@@ -55,7 +55,7 @@ internalEnergyDensityL = max(0.f, internalEnergyDensityL);	//magnetic energy is 
 internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is exceeding total energy ...
 	real pressureR = gammaMinusOne * internalEnergyDensityR;
 	//real enthalpyTotalR = (totalHydroEnergyDensityR + pressureR) / densityR;
-	real roeWeightR = sqrt(densityR);
+	real roeWeightR = 1.f;//sqrt(densityR);
 
 	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
 	real4 velocity = (velocityL * roeWeightL + velocityR * roeWeightR) * roeWeightNormalization;
@@ -63,8 +63,9 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 	real pressure = (pressureL * roeWeightL + pressureR * roeWeightR) * roeWeightNormalization;
 	//non-mhd hydro papers say to do this, but I get much greater dCons/dPrim eigenvector orthogonality error with this enthalpyTotal
 	//real enthalpyTotal = (enthalpyTotalL * roeWeightL + enthalpyTotalR * roeWeightR) * roeWeightNormalization;
-	real density = sqrt(densityL * densityR);
-	
+	//real density = sqrt(densityL * densityR);
+	real density = (densityL * roeWeightL + densityR * roeWeightR) * roeWeightNormalization;
+
 #if DIM > 1
 	if (side == 1) {
 		// -90' rotation to put the y axis contents into the x axis
@@ -85,10 +86,40 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 	
 	//matrices are stored as A_ij = A[i + height * j]
 
+	//left wavespeed
+	real speedOfSoundL = gamma * pressureL / densityL;
+	real speedOfSoundSqL = speedOfSoundL * speedOfSoundL;
+	real magneticFieldSqL = dot(magneticFieldL, magneticFieldL);
+	real sqrtDensityL = sqrt(densityL);
+	real AlfvenSpeedL = fabs(magneticFieldL.x) / (sqrtDensityL * sqrtVaccuumPermeability);
+	real AlfvenSpeedSqL = AlfvenSpeedL * AlfvenSpeedL;
+	real starSpeedSqL = .5f * (speedOfSoundSqL + magneticFieldSqL / (densityL * vaccuumPermeability));
+	real discrL = starSpeedSqL * starSpeedSqL - speedOfSoundSqL * AlfvenSpeedSqL;
+	real discrSqrtL = sqrt(discrL);
+	real fastSpeedSqL = starSpeedSqL + discrSqrtL;
+	real fastSpeedL = sqrt(fastSpeedSqL);
+	real slowSpeedSqL = starSpeedSqL - discrSqrtL;
+	real slowSpeedL = sqrt(slowSpeedSqL);
+
+	//right wavespeed
+	real speedOfSoundR = gamma * pressureR / densityR;
+	real speedOfSoundSqR = speedOfSoundR * speedOfSoundR;
+	real magneticFieldSqR = dot(magneticFieldR, magneticFieldR);
+	real sqrtDensityR = sqrt(densityR);
+	real AlfvenSpeedR = fabs(magneticFieldR.x) / (sqrtDensityR * sqrtVaccuumPermeability);
+	real AlfvenSpeedSqR = AlfvenSpeedR * AlfvenSpeedR;
+	real starSpeedSqR = .5f * (speedOfSoundSqR + magneticFieldSqR / (densityR * vaccuumPermeability));
+	real discrR = starSpeedSqR * starSpeedSqR - speedOfSoundSqR * AlfvenSpeedSqR;
+	real discrSqrtR = sqrt(discrR);
+	real fastSpeedSqR = starSpeedSqR + discrSqrtR;
+	real fastSpeedR = sqrt(fastSpeedSqR);
+	real slowSpeedSqR = starSpeedSqR - discrSqrtR;
+	real slowSpeedR = sqrt(slowSpeedSqR);
+
+	//average-state wavespeed
 	real speedOfSoundSq = gamma * pressure / density;
 	real AlfvenSpeed = fabs(magneticField.x) / (sqrtDensity * sqrtVaccuumPermeability);
 	real AlfvenSpeedSq = AlfvenSpeed * AlfvenSpeed;
-	
 	real starSpeedSq = .5f * (speedOfSoundSq + magneticFieldSq / (density * vaccuumPermeability));
 	real discr = starSpeedSq * starSpeedSq - speedOfSoundSq * AlfvenSpeedSq;
 	real discrSqrt = sqrt(discr);
@@ -96,15 +127,21 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 	real fastSpeed = sqrt(fastSpeedSq);
 	real slowSpeedSq = starSpeedSq - discrSqrt;
 	real slowSpeed = sqrt(slowSpeedSq);
-		
-	eigenvalues[0] = velocity.x - fastSpeed;
-	eigenvalues[1] = velocity.x - AlfvenSpeed;
-	eigenvalues[2] = velocity.x - slowSpeed;
+
+	//the Euler HLLC calculates the left and right wavespeeds here
+	// as the min of the left and avg eigenvalue; and the max of the middle and right wavespeeds
+	// ... which are the only wavespeeds considered by the timestep solver
+
+	//here I'm testing on an individual basis ...
+	// I'm pretty sure only the min and max are used anyways
+	eigenvalues[0] = min(velocityL.x - fastSpeedL, velocity.x - fastSpeed);
+	eigenvalues[1] = min(velocityL.x - AlfvenSpeedL, velocity.x - AlfvenSpeed);
+	eigenvalues[2] = min(velocityL.x - slowSpeedL, velocity.x - slowSpeed);
 	eigenvalues[3] = velocity.x;
 	eigenvalues[4] = velocity.x;
-	eigenvalues[5] = velocity.x + slowSpeed;
-	eigenvalues[6] = velocity.x + AlfvenSpeed;
-	eigenvalues[7] = velocity.x + fastSpeed;
+	eigenvalues[5] = max(velocityR.x + slowSpeedR, velocity.x + slowSpeed);
+	eigenvalues[6] = max(velocityR.x + AlfvenSpeedR, velocity.x + AlfvenSpeed);
+	eigenvalues[7] = max(velocityR.x + fastSpeedR, velocity.x + fastSpeed);
 }
 
 __kernel void calcEigenvalues(
@@ -335,6 +372,15 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i];
 		}
+#if 1	//HLL
+	} else if (sl <= 0.f && 0.f <= sr) {
+		//(sr * fluxL[j] - sl * fluxR[j] + sl * sr * (stateR[j] - stateL[j])) / (sr - sl)
+		real invDenom = 1.f / (sr - sl);
+		for (int i = 0; i < NUM_STATES; ++i) {
+			flux[i] = (sr * fluxL[i] - sl * fluxR[i] + sl * sr * (stateR[i] - stateL[i])) * invDenom; 
+		}
+		
+#else	//HLLC
 	} else if (sl <= 0.f && 0.f <= sStar) {
 		
 		real4 magneticFieldStar;
@@ -386,7 +432,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxR[i] + sr * (stateRStar[i] - stateR[i]);
 		}
-	
+#endif	
 	} else if (sr <= 0.f) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxR[i];
@@ -457,6 +503,7 @@ or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, ch
 __kernel void calcFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
 	const __global real* potentialBuffer,
 	const __global real* dtBuffer)
 {

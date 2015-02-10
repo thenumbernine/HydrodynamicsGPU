@@ -19,7 +19,13 @@ Maxwell::Maxwell(HydroGPU::Solver::Solver& solver)
 {
 	displayMethods = std::vector<std::string>{
 		"ELECTRIC",
+		"ELECTRIC_X",
+		"ELECTRIC_Y",
+		"ELECTRIC_Z",
 		"MAGNETIC",
+		"MAGNETIC_X",
+		"MAGNETIC_Y",
+		"MAGNETIC_Z",
 		"POTENTIAL"
 	};
 

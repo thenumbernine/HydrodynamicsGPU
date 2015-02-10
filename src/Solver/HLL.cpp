@@ -21,7 +21,7 @@ void HLL::init() {
 	app.setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer, potentialBuffer);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, potentialBuffer, dtBuffer);
+	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dtBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
 	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.cfl);

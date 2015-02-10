@@ -230,11 +230,16 @@ __kernel void addSource(
 		return;
 	}
 	int index = INDEXV(i);
-	
+
+//for some odd reason, with source I'm getting bias in movement to the left and
+return;
+//I'm also getting reflections off the right-hand side, regradless of source
+
 	const __global real* state = stateBuffer + NUM_STATES * index;
+	__global real* deriv = derivBuffer + NUM_STATES * index;
+	
 	real4 conductiveElectric = (real4)(state[STATE_ELECTRIC_X], state[STATE_ELECTRIC_Y], state[STATE_ELECTRIC_Z], 0.f) * (conductivity / permittivity);
 	
-	__global real* deriv = derivBuffer + NUM_STATES * index;
 	deriv[STATE_ELECTRIC_X] -= conductiveElectric.x;
 	deriv[STATE_ELECTRIC_Y] -= conductiveElectric.y;
 	deriv[STATE_ELECTRIC_Z] -= conductiveElectric.z;

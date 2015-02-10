@@ -25,11 +25,21 @@ __kernel void convertToTex(
 	case DISPLAY_ELECTRIC:
 		value = electric;
 		break;
+	case DISPLAY_ELECTRIC_X:
+	case DISPLAY_ELECTRIC_Y:
+	case DISPLAY_ELECTRIC_Z:
+		value = state[STATE_ELECTRIC_X + displayMethod - DISPLAY_ELECTRIC_X];
+		break;
 	case DISPLAY_MAGNETIC:
 		value = magnetic;
 		break;
+	case DISPLAY_MAGNETIC_X:
+	case DISPLAY_MAGNETIC_Y:
+	case DISPLAY_MAGNETIC_Z:
+		value = state[STATE_MAGNETIC_X + displayMethod - DISPLAY_MAGNETIC_X];
+		break;
 	case DISPLAY_POTENTIAL:
-		value = gravityPotentialBuffer[index];
+		value = potentialBuffer[index];
 		break;
 	}
 	value *= displayScale;
