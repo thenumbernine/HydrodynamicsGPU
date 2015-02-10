@@ -154,12 +154,8 @@ __kernel void calcCFL(
 		const __global real* eigenvaluesL = eigenvaluesBuffer + NUM_STATES * (side + DIM * index);
 		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexNext);
 
-		real minLambda = 0.f;
-		real maxLambda = 0.f;
-		for (int i = 0; i < NUM_STATES; ++i) {	
-			maxLambda = max(maxLambda, eigenvaluesL[i]);
-			minLambda = min(minLambda, eigenvaluesR[i]);
-		}
+		real minLambda = min(0.f, eigenvaluesR[0]);
+		real maxLambda = max(0.f, eigenvaluesL[DIM+1]);
 
 		real dum = dx[side] / (maxLambda - minLambda);
 		result = min(result, dum);
@@ -171,6 +167,7 @@ __kernel void calcCFL(
 void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
 	const __global real* potentialBuffer,
 	real dt_dx,
 	int side);
@@ -178,6 +175,7 @@ void calcFluxSide(
 void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
 	const __global real* potentialBuffer,
 	real dt_dx,
 	int side)
@@ -209,6 +207,8 @@ void calcFluxSide(
 		stateR[STATE_MOMENTUM_X] = stateR[STATE_MOMENTUM_X+side];
 		stateR[STATE_MOMENTUM_X+side] = tmp;
 	}
+	
+	const __global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 
 	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
 
@@ -222,7 +222,6 @@ void calcFluxSide(
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
-	real speedOfSoundL = sqrt((gamma - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
 
 	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
@@ -234,24 +233,12 @@ void calcFluxSide(
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 	real pressureR = (gamma - 1.f) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
-	real speedOfSoundR = sqrt((gamma - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
 
 	
 	//flux
 
-	//acoustic-type approximation: Toro, 1991
-	//real pressureStar = max(0.f, .5f * (pressureL + pressureR) - .5f * (velocityR.x - velocityL.x) * .5f * (densityL + densityR) * .5f * (speedOfSoundL + speedOfSoundR));
-	//Two-Rarefaction Riemann solver:
-	real z = .5f - .5f / gamma;
-	real pressureStar = pow((speedOfSoundL + speedOfSoundR - .5f * (gamma - 1.f) * (velocityR.x - velocityL.x)) / (speedOfSoundL / pow(pressureL, z) + speedOfSoundR * pow(pressureR, z)), 1.f / z);
-	
-	real qL = pressureStar <= pressureL ? 1.f : sqrt(1.f + (gamma + 1.f) / (2.f * gamma) * (pressureStar / pressureL - 1.f));
-	real qR = pressureStar <= pressureR ? 1.f : sqrt(1.f + (gamma + 1.f) / (2.f * gamma) * (pressureStar / pressureR - 1.f));
-
-	//NOTICE: qL = qR = 1 seems to work just fine, and in that case pressureStar doesn't need to be calculated
-	real sl = velocityL.x - speedOfSoundL * qL;
-	real sr = velocityR.x + speedOfSoundR * qR;
-
+	real sl = eigenvalues[0];
+	real sr = eigenvalues[DIM+1];
 
 	real fluxL[NUM_STATES];
 	fluxL[0] = densityL * velocityL.x;
@@ -447,12 +434,12 @@ __kernel void calcFlux(
 	
 	real dt = dtBuffer[0];
 	
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DX, 0);
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dt/DX, 0);
 #if DIM > 1
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DY, 1);
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dt/DY, 1);
 #endif
 #if DIM > 2
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DZ, 2);
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dt/DZ, 2);
 #endif
 }
 
