@@ -7,10 +7,10 @@ local configurations = require 'configurations'	--holds catalog of configuration
 
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL' -- needs 2nd order support
-solverName = 'EulerHLLC' -- after a while on Sod+mirror it explodes. needs 2nd order support
+--solverName = 'EulerHLLC' -- after a while on Sod+mirror it explodes. needs 2nd order support
 --solverName = 'EulerRoe' -- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe' -- in the works
---solverName = 'MHDBurgers'
+solverName = 'MHDBurgers'	-- has errors where the magnetic field has divergence. maybe if i added the divergence removal then this would be stable?
 --solverName = 'MHDHLLC'	-- needs 2nd order support, suffers same as EulerHLLC
 --solverName = 'MHDRoe' -- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
 --solverName = 'MaxwellRoe'	-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
@@ -90,7 +90,7 @@ displayScale = .25
 --]]
 
 
-configurations['Sod']()
+configurations['Orszag-Tang']()
 --configurations['Orszag-Tang']()
 
 --[[ see initState for a list of options

@@ -15,6 +15,9 @@ protected:
 	cl::Buffer interfaceMagneticFieldBuffer;
 	cl::Buffer fluxBuffer;
 	cl::Buffer pressureBuffer;
+	//for removing magnetic field divergence
+	cl::Buffer magneticFieldDivergenceBuffer;
+	cl::Buffer magneticFieldPotentialBuffer;
 
 	cl::Kernel calcCFLKernel;
 	cl::Kernel calcInterfaceVelocityKernel;
@@ -25,7 +28,10 @@ protected:
 	cl::Kernel computePressureKernel;
 	cl::Kernel diffuseMomentumKernel;
 	cl::Kernel diffuseWorkKernel;
-	
+	cl::Kernel calcMagneticFieldDivergenceKernel;
+	cl::Kernel magneticPotentialPoissonRelaxKernel;
+	cl::Kernel magneticFieldRemoveDivergenceKernel;
+
 	//matches MHDRoe -- belongs in the MHDEquation class maybe?
 	cl::Kernel initVariablesKernel;
 
@@ -38,7 +44,7 @@ protected:
 	virtual void calcTimestep();
 	virtual void step();
 
-	virtual void applyPotential();
+	void magneticFieldPotentialBoundary();
 };
 
 }

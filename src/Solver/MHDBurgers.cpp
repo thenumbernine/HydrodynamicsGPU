@@ -25,6 +25,8 @@ void MHDBurgers::init() {
 	interfaceMagneticFieldBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume * app.dim);
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app.dim);
 	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
+	magneticFieldDivergenceBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
+	magneticFieldPotentialBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 
 	commands.enqueueFillBuffer(interfaceVelocityBuffer, 0.f, 0, sizeof(real) * volume * app.dim);
 	commands.enqueueFillBuffer(interfaceMagneticFieldBuffer, 0.f, 0, sizeof(real) * volume * app.dim);
@@ -58,19 +60,21 @@ void MHDBurgers::init() {
 	diffuseWorkKernel = cl::Kernel(program, "diffuseWork");
 	diffuseWorkKernel.setArg(1, stateBuffer);
 	diffuseWorkKernel.setArg(2, pressureBuffer);
+
+	calcMagneticFieldDivergenceKernel = cl::Kernel(program, "calcMagneticFieldDivergence");
+	app.setArgs(calcMagneticFieldDivergenceKernel, magneticFieldDivergenceBuffer, stateBuffer);
+
+	magneticPotentialPoissonRelaxKernel = cl::Kernel(program, "magneticPotentialPoissonRelax");
+	app.setArgs(magneticPotentialPoissonRelaxKernel, magneticFieldPotentialBuffer, magneticFieldDivergenceBuffer);
+	
+	magneticFieldRemoveDivergenceKernel = cl::Kernel(program, "magneticFieldRemoveDivergence");
+	app.setArgs(magneticFieldRemoveDivergenceKernel, stateBuffer, magneticFieldPotentialBuffer);
 }
 
 std::vector<std::string> MHDBurgers::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
 	sources.push_back(Common::File::read("MHDBurgers.cl"));
 	return sources;
-}
-
-void MHDBurgers::applyPotential() {
-	Super::applyPotential();
-	
-	//TODO do this for all MHD solver based methods
-	// remove divergence from magnetic field
 }
 
 void MHDBurgers::calcTimestep() {
@@ -111,6 +115,31 @@ void MHDBurgers::step() {
 		commands.enqueueNDRangeKernel(diffuseWorkKernel, offsetNd, globalSize, localSize);
 	});
 	boundary();
+
+	//calculate divergence
+	commands.enqueueNDRangeKernel(calcMagneticFieldDivergenceKernel, offsetNd, globalSize, localSize);
+
+	//poisson relax divergence into potential buffer
+	int volume = getVolume();
+	commands.enqueueFillBuffer(magneticFieldPotentialBuffer, 0.f, 0, sizeof(real) * volume);
+	for (int i = 0; i < app.gaussSeidelMaxIter; ++i) {
+		magneticFieldPotentialBoundary();	//boundary to magnetic field potential buffer
+		commands.enqueueNDRangeKernel(magneticPotentialPoissonRelaxKernel, offsetNd, globalSize, localSize);
+	}
+	commands.enqueueNDRangeKernel(magneticFieldRemoveDivergenceKernel, offsetNd, globalSize, localSize);
+}
+
+//looks a lot like Solver::potentialBoundary
+// maybe I could merge them?
+void MHDBurgers::magneticFieldPotentialBoundary() {
+	cl::NDRange offset, global, local;
+	for (int i = 0; i < app.dim; ++i) {
+		int boundaryKernelIndex = equation->gravityGetBoundaryKernelForBoundaryMethod(*this, i);
+		cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i];
+		app.setArgs(kernel, magneticFieldPotentialBuffer, 1, 0);
+		getBoundaryRanges(i, offset, global, local);
+		commands.enqueueNDRangeKernel(kernel, offset, global, local);
+	}
 }
 
 }
