@@ -278,7 +278,7 @@ return {
 		initState = function(x,y,z)
 			return buildSelfGravitationState(x,y,z,{
 				sources={
-					{center={0, 0, 0}, radius = .1},
+					{center={0, 0, 0}, radius = .2},
 				},
 			})
 		end

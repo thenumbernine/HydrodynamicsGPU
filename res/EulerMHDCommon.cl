@@ -140,12 +140,12 @@ __kernel void updateVectorField(
 	int4 si = (int4)(sf.x, sf.y, sf.z, 0);
 	//float4 fp = (float4)(sf.x - (float)si.x, sf.y - (float)si.y, sf.z - (float)si.z, 0.f);
 	
-#if 1	//plotting velocity 
+#if 0	//plotting velocity 
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
 	float4 velocity = VELOCITY(state);
 #endif
-#if 0	//plotting gravity
+#if 1	//plotting gravity
 	int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
 	int4 ixR = si; ixR.x = (ixR.x + 1) % SIZE_X;
 	int4 iyL = si; iyL.y = (iyL.y + SIZE_X - 1) % SIZE_X;
@@ -210,28 +210,29 @@ __kernel void poissonRelax(
 	
 	int index = INDEXV(i);
 
-	real sum = 0.f;
-	for (int side = 0; side < DIM; ++side) {
-		int indexPrev = index - stepsize[side];
-		int indexNext = index + stepsize[side];
-		sum += gravityPotentialBuffer[indexPrev] + gravityPotentialBuffer[indexNext];
-	}
-
-	const real volumeElement = DX
+	real sum = (gravityPotentialBuffer[index + stepsize.x] + gravityPotentialBuffer[index - stepsize.x]) / (DX * DX);
 #if DIM > 1
-		* DY 
+	sum += (gravityPotentialBuffer[index + stepsize.y] + gravityPotentialBuffer[index - stepsize.y]) / (DY * DY);
+#if DIM > 2
+	sum += (gravityPotentialBuffer[index + stepsize.z] + gravityPotentialBuffer[index - stepsize.z]) / (DZ * DZ);
+#endif
+#endif
+
+	const real denom = -2.f * (1.f / (DX * DX)
+#if DIM > 1
+		+ 1.f / (DY * DY)
 #endif
 #if DIM > 2
-		* DZ
+		+ 1.f / (DZ * DZ)
 #endif
-	;
+	);
 
 	//delta^2 Phi = 4 pi G rho
 	const real pi = 3.141592653589793115997963468544185161590576171875f;
 	const real G = GRAVITATIONAL_CONSTANT;		//6.67384e-11 m^3 / (kg s^2)
-	const real fourPiGRho = 4.f * pi * G;
+	const real fourPiGRho = -4.f * pi * G;
 	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
-	gravityPotentialBuffer[index] = (fourPiGRho * density - sum / volumeElement) / (-2.f * (float)DIM / volumeElement);
+	gravityPotentialBuffer[index] = (fourPiGRho * density - sum) / denom;
 }
 
 __kernel void calcGravityDeriv(
@@ -265,10 +266,10 @@ __kernel void calcGravityDeriv(
 		int indexPrev = index - stepsize[side];
 		int indexNext = index + stepsize[side];
 	
-		real gravityPotentialGradient = .5f * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
+		real gravityPotentialGradient = (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]) / (2.f * dx[side]);
 	
 		//gravitational force = -gradient of gravitational potential
-		deriv[side + STATE_MOMENTUM_X] -= density * gravityPotentialGradient / dx[side];
+		deriv[side + STATE_MOMENTUM_X] -= density * gravityPotentialGradient;
 		deriv[STATE_ENERGY_TOTAL] -= density * gravityPotentialGradient * state[side + STATE_MOMENTUM_X];
 	}
 }

@@ -81,10 +81,12 @@ void calcEigenvaluesSide(
 	//eigenvalues
 
 	//acoustic-type approximation: Toro, 1991
-	//real pressureStar = max(0.f, .5f * (pressureL + pressureR) - .5f * (velocityR.x - velocityL.x) * .5f * (densityL + densityR) * .5f * (speedOfSoundL + speedOfSoundR));
+	//seems sharper than the two-rarefaction Riemann solver...
+	real pressureStar = max(0.f, .5f * (pressureL + pressureR) - .5f * (velocityR.x - velocityL.x) * .5f * (densityL + densityR) * .5f * (speedOfSoundL + speedOfSoundR));
+
 	//Two-Rarefaction Riemann solver:
-	real z = .5f - .5f / gamma;
-	real pressureStar = pow((speedOfSoundL + speedOfSoundR - .5f * (gamma - 1.f) * (velocityR.x - velocityL.x)) / (speedOfSoundL / pow(pressureL, z) + speedOfSoundR * pow(pressureR, z)), 1.f / z);
+	//real z = .5f - .5f / gamma;
+	//real pressureStar = pow((speedOfSoundL + speedOfSoundR - .5f * (gamma - 1.f) * (velocityR.x - velocityL.x)) / (speedOfSoundL / pow(pressureL, z) + speedOfSoundR * pow(pressureR, z)), 1.f / z);
 	
 	real qL = pressureStar <= pressureL ? 1.f : sqrt(1.f + (gamma + 1.f) / (2.f * gamma) * (pressureStar / pressureL - 1.f));
 	real qR = pressureStar <= pressureR ? 1.f : sqrt(1.f + (gamma + 1.f) / (2.f * gamma) * (pressureStar / pressureR - 1.f));

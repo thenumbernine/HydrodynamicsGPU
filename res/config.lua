@@ -6,11 +6,11 @@ local configurations = require 'configurations'	--holds catalog of configuration
 
 
 --solverName = 'EulerBurgers'
---solverName = 'EulerHLL' -- needs 2nd order support
---solverName = 'EulerHLLC' -- after a while on Sod+mirror it explodes. needs 2nd order support
+--solverName = 'EulerHLL' -- needs slope limiter support
+--solverName = 'EulerHLLC' -- needs slope limiter support
 --solverName = 'EulerRoe' -- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe' -- in the works
-solverName = 'MHDBurgers'	-- has errors where the magnetic field has divergence. maybe if i added the divergence removal then this would be stable?
+solverName = 'MHDBurgers'	-- works with Orszag-Tang and Brio-Wu, and some hydro problems too
 --solverName = 'MHDHLLC'	-- needs 2nd order support, suffers same as EulerHLLC
 --solverName = 'MHDRoe' -- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
 --solverName = 'MaxwellRoe'	-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
@@ -53,11 +53,11 @@ fixedDT = .125
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'PERIODIC', 'PERIODIC', 'PERIODIC'}
+boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 
 -- gravity is specific to the Euler fluid equation solver
-useGravity = false 
-gravitationalConstant = 25	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful units please
+useGravity = false
+gravitationalConstant = 5	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful units please
 gaussSeidelMaxIter = 20
 
 showVectorField = false
@@ -82,16 +82,16 @@ size = {64, 64, 64}
 vectorFieldResolution = 16
 --]]
 -- [[ 2D
-size = {512, 512}
+size = {256, 256}
 --]]
 --[[ 1D
-size = {512}
+size = {128}
 displayScale = .25
 --]]
 
 
+--configurations['self-gravitation test 1']()
 configurations['Orszag-Tang']()
---configurations['Orszag-Tang']()
 
 --[[ see initState for a list of options
 displayMethod = 'ELECTRIC'
