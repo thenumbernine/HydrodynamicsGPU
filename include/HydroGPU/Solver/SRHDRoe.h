@@ -9,12 +9,8 @@ namespace Solver {
 Roe solver for Euler equations
 */
 struct SRHDRoe : public Roe {
-	typedef Roe Super;
-	
-	SRHDRoe(HydroGPUApp& app);
-
 protected:
-	virtual std::vector<std::string> getProgramSources();
+	typedef Roe Super;
 
 	/*
 	The primitive buffer holds density, velocity, pressure
@@ -28,6 +24,13 @@ protected:
 	to both the primitives and the state variables of SRHD
 	*/
 	cl::Kernel initVariablesKernel;
+
+public:
+	using Super::Super;
+
+protected:
+	virtual void createEquation();
+	virtual std::vector<std::string> getProgramSources();
 
 	virtual void init();			//called last 
 

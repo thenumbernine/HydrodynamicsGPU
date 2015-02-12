@@ -6,13 +6,9 @@
 namespace HydroGPU {
 namespace Solver {
 
-MHDBurgers::MHDBurgers(HydroGPUApp& app_)
-: Super(app_), divfree(*this)
-{
-	equation = std::make_shared<HydroGPU::Equation::MHD>(*this);
-}
-
 void MHDBurgers::init() {
+	divfree = std::make_shared<MHDRemoveDivergence>(*this);
+	
 	Super::init();
 
 	cl::Context context = app.context;
@@ -59,13 +55,17 @@ void MHDBurgers::init() {
 	diffuseWorkKernel.setArg(1, stateBuffer);
 	diffuseWorkKernel.setArg(2, pressureBuffer);
 
-	divfree.init();
+	divfree->init();
+}
+
+void MHDBurgers::createEquation() {
+	equation = std::make_shared<HydroGPU::Equation::MHD>(*this);
 }
 
 std::vector<std::string> MHDBurgers::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
 	sources.push_back(Common::File::read("MHDBurgers.cl"));
-	divfree.getProgramSources(sources);
+	divfree->getProgramSources(sources);
 	return sources;
 }
 
@@ -108,7 +108,7 @@ void MHDBurgers::step() {
 	});
 	boundary();
 
-	divfree.update();
+	divfree->update();
 }
 
 }

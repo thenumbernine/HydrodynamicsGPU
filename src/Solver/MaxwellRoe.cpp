@@ -6,16 +6,14 @@
 namespace HydroGPU {
 namespace Solver {
 
-MaxwellRoe::MaxwellRoe(HydroGPUApp& app_)
-: Super(app_)
-{
-	equation = std::make_shared<HydroGPU::Equation::Maxwell>(*this);
-}
-
 void MaxwellRoe::init() {
 	Super::init();
 	addSourceKernel = cl::Kernel(program, "addSource");
 	addSourceKernel.setArg(1, stateBuffer);
+}
+	
+void MaxwellRoe::createEquation() {
+	equation = std::make_shared<HydroGPU::Equation::Maxwell>(*this);
 }
 
 std::vector<std::string> MaxwellRoe::getProgramSources() {

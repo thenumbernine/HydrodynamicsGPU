@@ -34,6 +34,7 @@ public:
 	EulerBurgers(HydroGPUApp &app);
 	virtual void init();	
 protected:
+	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 	virtual void calcTimestep();
 	virtual void step();

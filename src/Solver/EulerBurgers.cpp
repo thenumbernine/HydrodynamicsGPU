@@ -16,7 +16,6 @@ EulerBurgers::EulerBurgers(
 , diffuseMomentumEvent("diffuseMomentum")
 , diffuseWorkEvent("diffuseWork")
 {
-	equation = std::make_shared<HydroGPU::Equation::Euler>(*this);
 }
 
 void EulerBurgers::init() {
@@ -68,6 +67,10 @@ void EulerBurgers::init() {
 	diffuseWorkKernel = cl::Kernel(program, "diffuseWork");
 	diffuseWorkKernel.setArg(1, stateBuffer);
 	diffuseWorkKernel.setArg(2, pressureBuffer);
+}
+	
+void EulerBurgers::createEquation() {
+	equation = std::make_shared<HydroGPU::Equation::Euler>(*this);
 }
 
 std::vector<std::string> EulerBurgers::getProgramSources() {

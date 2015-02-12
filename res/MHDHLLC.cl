@@ -372,7 +372,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i];
 		}
-#if 1	//HLL
+#if 0	//HLL
 	} else if (sl <= 0.f && 0.f <= sr) {
 		//(sr * fluxL[j] - sl * fluxR[j] + sl * sr * (stateR[j] - stateL[j])) / (sr - sl)
 		real invDenom = 1.f / (sr - sl);

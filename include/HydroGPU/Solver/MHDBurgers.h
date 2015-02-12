@@ -9,9 +9,9 @@ namespace Solver {
 
 struct MHDBurgers : public Solver {
 	typedef Solver Super;
-	MHDBurgers(HydroGPUApp& app);
+
 protected:
-	MHDRemoveDivergence divfree;
+	std::shared_ptr<MHDRemoveDivergence> divfree;
 
 	cl::Buffer interfaceVelocityBuffer;
 	cl::Buffer interfaceMagneticFieldBuffer;
@@ -32,9 +32,11 @@ protected:
 	cl::Kernel initVariablesKernel;
 
 public:
+	using Super::Super;
 	virtual void init();
 
 protected:	
+	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 	
 	virtual void calcTimestep();

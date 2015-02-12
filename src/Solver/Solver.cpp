@@ -18,8 +18,7 @@ cl::Buffer Solver::clAlloc(size_t size) {
 	return cl::Buffer(app.context, CL_MEM_READ_WRITE, size);
 }
 
-Solver::Solver(
-	HydroGPUApp& app_)
+Solver::Solver(HydroGPUApp& app_)
 : app(app_)
 , commands(app.commands)
 , totalAlloc(0)
@@ -27,7 +26,11 @@ Solver::Solver(
 }
 
 void Solver::init() {
-	
+	//we need this first, so don't trust child classes to assign it prior to calling Super::init
+	//instead make them provide this method
+	//TODO non-virtual init() and make it call out construction code in a particular order
+	createEquation();
+
 	cl::Device device = app.device;
 	
 	// NDRanges

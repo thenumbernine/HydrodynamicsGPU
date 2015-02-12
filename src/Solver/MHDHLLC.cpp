@@ -6,14 +6,29 @@
 namespace HydroGPU {
 namespace Solver {
 
-MHDHLLC::MHDHLLC(
-	HydroGPUApp& app_)
-: Super(app_)
-{
+void MHDHLLC::init() {
+	divfree = std::make_shared<MHDRemoveDivergence>(*this);
+	Super::init();
+	divfree->init();
+}
+
+void MHDHLLC::createEquation() {
 	equation = std::make_shared<HydroGPU::Equation::MHD>(*this);
 }
+
 std::string MHDHLLC::getFluxSource() {
 	return Common::File::read("MHDHLLC.cl");
+}
+
+std::vector<std::string> MHDHLLC::getProgramSources() {
+	std::vector<std::string> sources = Super::getProgramSources();
+	divfree->getProgramSources(sources);
+	return sources;
+}
+
+void MHDHLLC::step() {
+	Super::step();
+	divfree->update();
 }
 
 }

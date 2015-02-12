@@ -53,7 +53,7 @@ fixedDT = .125
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false

@@ -6,13 +6,9 @@
 namespace HydroGPU {
 namespace Solver {
 
-MHDRoe::MHDRoe(HydroGPUApp& app_)
-: Super(app_)
-{
-	equation = std::make_shared<HydroGPU::Equation::MHD>(*this);
-}
-
 void MHDRoe::init() {
+	divfree = std::make_shared<MHDRemoveDivergence>(*this);
+	
 	Super::init();
 
 	//allocate flux flag buffer for determining if any flux values had to be pre-filled for bad eigenstate areas
@@ -26,11 +22,18 @@ void MHDRoe::init() {
 	//setup our eigenbasis kernel to accept these extras
 	calcEigenBasisKernel.setArg(5, fluxBuffer);
 	calcEigenBasisKernel.setArg(6, fluxFlagBuffer);
+	
+	divfree->init();
+}
+	
+void MHDRoe::createEquation() {
+	equation = std::make_shared<HydroGPU::Equation::MHD>(*this);
 }
 
 std::vector<std::string> MHDRoe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
 	sources.push_back(Common::File::read("MHDRoe.cl"));
+	divfree->getProgramSources(sources);
 	return sources;
 }
 
@@ -51,6 +54,11 @@ void MHDRoe::initStep() {
 //it'll call through the CL code if it's needed
 void MHDRoe::calcFlux() {
 	commands.enqueueNDRangeKernel(calcMHDFluxKernel, offsetNd, globalSize, localSize);
+}
+
+void MHDRoe::step() {
+	Super::step();
+	divfree->update();
 }
 
 }

@@ -140,12 +140,12 @@ __kernel void updateVectorField(
 	int4 si = (int4)(sf.x, sf.y, sf.z, 0);
 	//float4 fp = (float4)(sf.x - (float)si.x, sf.y - (float)si.y, sf.z - (float)si.z, 0.f);
 	
-#if 0	//plotting velocity 
+#if 1	//plotting velocity 
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
 	float4 velocity = VELOCITY(state);
 #endif
-#if 1	//plotting gravity
+#if 0	//plotting gravity
 	int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
 	int4 ixR = si; ixR.x = (ixR.x + 1) % SIZE_X;
 	int4 iyL = si; iyL.y = (iyL.y + SIZE_X - 1) % SIZE_X;

@@ -6,12 +6,6 @@
 namespace HydroGPU {
 namespace Solver {
 
-SRHDRoe::SRHDRoe(HydroGPUApp& app_)
-: Super(app_)
-{
-	equation = std::make_shared<HydroGPU::Equation::SRHD>(*this);
-}
-
 void SRHDRoe::init() {
 	Super::init();
 
@@ -30,6 +24,10 @@ void SRHDRoe::init() {
 	calcEigenBasisKernel.setArg(3, primitiveBuffer);
 	calcEigenBasisKernel.setArg(4, stateBuffer);
 	calcEigenBasisKernel.setArg(5, potentialBuffer);
+}
+	
+void SRHDRoe::createEquation() {
+	equation = std::make_shared<HydroGPU::Equation::SRHD>(*this);
 }
 
 std::vector<std::string> SRHDRoe::getProgramSources() {

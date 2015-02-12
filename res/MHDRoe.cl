@@ -387,8 +387,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 			//normalizing scalars for the fast and slow eigenvectors
 			//no need to do so for the Alfven wave since it is only composed of the 'la' vector, which only itself needs to be normalized (and scaled by sqrt(1/2) since it appears twice)
 			//without the max() I get errors when the alpha values are low.  I wonder if removing the sqrt() helps and factoring these out would make a difference?
-			alphaFast = sqrt(dot(kf,kf) + dot(lf,lf) + dot(mf,mf));
-			alphaSlow = sqrt(dot(ks,ks) + dot(ls,ls) + dot(ms,ms));
+			alphaFast = max(1e-6f, sqrt(dot(kf,kf) + dot(lf,lf) + dot(mf,mf)));
+			alphaSlow = max(1e-6f, sqrt(dot(ks,ks) + dot(ls,ls) + dot(ms,ms)));
 
 			//if alpha fast is zero then the fast vectors are zero
 			//looking at it shows empty rows 2 and 5, so set set fast[2] = fast[5] = 1.f;

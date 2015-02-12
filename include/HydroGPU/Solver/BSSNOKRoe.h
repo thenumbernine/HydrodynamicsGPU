@@ -10,8 +10,9 @@ Roe solver for BSSNOK equations
 */
 struct BSSNOKRoe : public Roe {
 	typedef Roe Super;
-	BSSNOKRoe(HydroGPUApp& app);
+	using Super::Super;
 protected:
+	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 };
 

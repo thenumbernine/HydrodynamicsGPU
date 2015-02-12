@@ -10,8 +10,9 @@ Roe solver for Euler equations
 */
 struct EulerRoe : public Roe {
 	typedef Roe Super;
-	EulerRoe(HydroGPUApp& app);
+	using Super::Super;
 protected:
+	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 };
 

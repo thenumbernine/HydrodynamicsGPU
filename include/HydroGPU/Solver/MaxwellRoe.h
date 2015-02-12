@@ -10,12 +10,16 @@ Roe solver for Maxwell equations
 */
 struct MaxwellRoe : public Roe {
 	typedef Roe Super;
-	
+
+protected:	
 	cl::Kernel addSourceKernel;
-	
-	MaxwellRoe(HydroGPUApp& app);
+
+public:
+	using Super::Super;
 	virtual void init();
+
 protected:
+	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 	virtual void calcDeriv(cl::Buffer derivBuffer);
 };

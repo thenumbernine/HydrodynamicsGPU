@@ -8,10 +8,9 @@ namespace Solver {
 
 struct EulerHLL : public HLL {
 	typedef HLL Super;
-
-	EulerHLL(HydroGPUApp&);
-
+	using Super::Super;
 protected:
+	virtual void createEquation();
 	virtual std::string getFluxSource();
 };
 

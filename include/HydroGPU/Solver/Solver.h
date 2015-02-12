@@ -71,6 +71,8 @@ public:
 	virtual ~Solver() {}
 
 	virtual void init();	//...because I'm using virtual function calls in here
+protected:
+	virtual void createEquation() = 0;
 public:	//protected:
 	virtual std::vector<std::string> getProgramSources();
 	virtual void initKernels();

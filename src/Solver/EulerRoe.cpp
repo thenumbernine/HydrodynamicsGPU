@@ -5,9 +5,7 @@
 namespace HydroGPU {
 namespace Solver {
 
-EulerRoe::EulerRoe(HydroGPUApp& app_)
-: Super(app_)
-{
+void EulerRoe::createEquation() {
 	equation = std::make_shared<HydroGPU::Equation::Euler>(*this);
 }
 
