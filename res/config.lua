@@ -53,7 +53,7 @@ fixedDT = .125
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
+boundaryMethods = {'PERIODIC', 'PERIODIC', 'PERIODIC'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false
@@ -82,7 +82,7 @@ size = {64, 64, 64}
 vectorFieldResolution = 16
 --]]
 -- [[ 2D
-size = {256, 256}
+size = {128, 128}
 --]]
 --[[ 1D
 size = {128}

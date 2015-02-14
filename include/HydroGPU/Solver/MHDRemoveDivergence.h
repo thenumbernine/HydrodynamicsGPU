@@ -15,6 +15,7 @@ public:
 	
 	cl::Buffer magneticFieldDivergenceBuffer;
 	cl::Buffer magneticFieldPotentialBuffer;
+	cl::Buffer magneticFieldPotential2Buffer;
 	
 	cl::Kernel calcMagneticFieldDivergenceKernel;
 	cl::Kernel magneticPotentialPoissonRelaxKernel;
@@ -22,7 +23,7 @@ public:
 
 	virtual void init();
 	virtual void update();
-	virtual void potentialBoundary();
+	virtual void boundary(cl::Buffer buffer);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 };
 

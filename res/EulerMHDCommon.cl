@@ -16,7 +16,11 @@ __kernel void convertToTex(
 	__write_only image3d_t fluidTex,
 	__read_only image1d_t gradientTex,
 	int displayMethod,
-	float displayScale)
+	float displayScale
+#ifdef MHD
+	, const __global real* magneticFieldDivergenceBuffer
+#endif
+	)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
@@ -73,6 +77,9 @@ __kernel void convertToTex(
 		break;
 	case DISPLAY_MAGNETIC_DIVERGENCE:
 		{
+#if 1
+			value = magneticFieldDivergenceBuffer[index];
+#else
 			value = 0.f;
 			
 			//debugging: show magnetic field divergence
@@ -94,6 +101,7 @@ __kernel void convertToTex(
 			int4 izn = i;
 			izn[2] = (izn[2] + size[2] - 1) % size[2];
 			value += dx[2] * (stateBuffer[STATE_MAGNETIC_FIELD_Z + NUM_STATES * INDEXV(izp)] - stateBuffer[STATE_MAGNETIC_FIELD_Z + NUM_STATES * INDEXV(izn)]);
+#endif
 #endif
 		}
 		break;

@@ -3,15 +3,19 @@
 /*
 MHD Burgers:
 
-    [  rho  ]             [  rho  ]              [    0   ]    [         0        ]
-  d [rho v_i]     d       [rho v_i]      d       [  -B_i  ]    [     dP* / dx_i   ]
- -- [  B_i  ] + ---- (v_j [  B_i  ]) + ---- (B_j [  -v_i  ]) + [         0        ] = 0
- dt [   E   ]   dx_j      [   E   ]    dx_j      [-v_k B_k]    [ d(P* v_j) / dx_j ]
+    [  rho  ]             [  rho  ]              [      0    ]    [         0        ]
+  d [rho v_i]     d       [rho v_i]      d       [  -B_i/mu  ]    [     dP* / dx_i   ]
+ -- [  B_i  ] + ---- (v_j [  B_i  ]) + ---- (B_j [    -v_i   ]) + [         0        ] = 0
+ dt [ rho Z ]   dx_j      [ rho Z ]    dx_j      [-v_k B_k/mu]    [ d(P* v_j) / dx_j ]
 
-for E = rho e + 1/2 B^2
-e = total specific energy = eKin + eInt = 1/2 v^2 + eInt
-and P* = P + 1/2 B^2
-P = (gamma - 1) rho eInt
+
+for...
+Z = total energy = eHydro + B^2 / (2 mu rho)
+eHydro = total hydro specific energy = eInt + eKin
+eInt = total internal specific energy
+eKin = total kinetic specific energy = 1/2 v^2
+P* = total pressure = P + B^2 / (2 mu)
+P = hydro pressure = (gamma - 1) rho eInt
 
 Looks a lot like the Euler Burgers breakdown, except with the added B advection term
 */
@@ -49,21 +53,21 @@ __kernel void calcCFL(
 	
 	real specificEnergyTotal = energyTotal / density;
 	real specificEnergyKinetic = .5f * velocitySq;
-	real specificEnergyMagnetic = .5f * magneticFieldSq;
+	real specificEnergyMagnetic = .5f * magneticFieldSq / vaccuumPermeability;
 	real specificEnergyPotential = potentialBuffer[index];
 	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential - specificEnergyMagnetic;
 
 	real speedOfSoundSq = gamma * (gamma - 1.f) * specificEnergyInternal;
 
 	//use fast speed for timestep
-	real tmp1 = speedOfSoundSq + magneticFieldSq / density;
+	real tmp1 = speedOfSoundSq + magneticFieldSq / (vaccuumPermeability * density);
 	
 	//subtract magnetic field along normal
-	//real discr = tmp1 * tmp1 - 4.f * speedOfSoundSq * magneticFieldXSq / density;
+	//real discr = tmp1 * tmp1 - 4.f * speedOfSoundSq * magneticFieldXSq / (vaccuumPermeability * density);
 	//real tmp2 = sqrt(discr);
 	//real fastSpeedSq = .5f * (tmp1 + tmp2);
-	//...or assume it to be zeor
-	real fastSpeedSq = tmp1;	
+	//...or assume it to be zero
+	real fastSpeedSq = tmp1;
 	
 	real fastSpeed = sqrt(fastSpeedSq);
 
@@ -202,6 +206,28 @@ __kernel void calcInterfaceMagneticField(
 	}
 }
 
+real8 getMagneticFluxFromState(const __global real* state);
+real8 getMagneticFluxFromState(const __global real* state) {
+	real4 velocity = VELOCITY(state);
+	real4 magneticFieldOverMu = (real4)(
+		state[STATE_MAGNETIC_FIELD_X] / vaccuumPermeability,
+		state[STATE_MAGNETIC_FIELD_Y] / vaccuumPermeability,
+		state[STATE_MAGNETIC_FIELD_Z] / vaccuumPermeability,
+		0.f);
+	//this is supposed to be negative ...
+	//but that is causing problems ...
+	return (real8)(
+		0.f,
+		magneticFieldOverMu.x,
+		magneticFieldOverMu.y,
+		magneticFieldOverMu.z,
+		velocity.x,
+		velocity.y,
+		velocity.z,
+		dot(velocity, magneticFieldOverMu)
+	);
+}
+
 __kernel void calcMagneticFieldFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
@@ -232,12 +258,20 @@ __kernel void calcMagneticFieldFlux(
 
 		real interfaceMagneticField = interfaceMagneticFieldBuffer[side + DIM * index];
 		//real theta = step(0.f, interfaceMagneticField);
-	
+
+#if NUM_STATES != 8
+#error expected 8 states
+#endif
+		real8 fluxL2 = getMagneticFluxFromState(stateBuffer + NUM_STATES * indexL2);
+		real8 fluxL = getMagneticFluxFromState(stateBuffer + NUM_STATES * indexL);
+		real8 fluxR = getMagneticFluxFromState(stateBuffer + NUM_STATES * indexR);
+		real8 fluxR2 = getMagneticFluxFromState(stateBuffer + NUM_STATES * indexR2);
+
 		for (int j = 0; j < NUM_STATES; ++j) {
-			real stateR2 = stateBuffer[j + NUM_STATES * indexR2];
-			real stateR = stateBuffer[j + NUM_STATES * indexR];
-			real stateL = stateBuffer[j + NUM_STATES * indexL];
-			real stateL2 = stateBuffer[j + NUM_STATES * indexL2];
+			real stateR2 = fluxR2[j];
+			real stateR = fluxR[j];
+			real stateL = fluxL[j];
+			real stateL2 = fluxL2[j];
 			
 			real deltaStateL = stateL - stateL2;
 			real deltaState = stateR - stateL;
@@ -329,7 +363,7 @@ __kernel void computePressure(
 	
 	real specificEnergyTotal = energyTotal / density;
 	real specificEnergyKinetic = .5f * dot(velocity, velocity);
-	real specificEnergyMagnetic = .5f * dot(magneticField, magneticField);
+	real specificEnergyMagnetic = .5f * dot(magneticField, magneticField) / vaccuumPermeability;
 	real specificEnergyPotential = potentialBuffer[index];
 	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential - specificEnergyMagnetic;
 	real pressure = (gamma - 1.f) * density * specificEnergyInternal + specificEnergyMagnetic;

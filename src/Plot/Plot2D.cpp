@@ -19,10 +19,12 @@ void Plot2D::display() {
 	glBindTexture(GL_TEXTURE_2D, fluidTex);
 	glEnable(GL_TEXTURE_2D);
 	glBegin(GL_QUADS);
-	glTexCoord2f(0,0); glVertex2f(solver.app.xmin.s[0], solver.app.xmin.s[1]);
-	glTexCoord2f(1,0); glVertex2f(solver.app.xmax.s[0], solver.app.xmin.s[1]);
-	glTexCoord2f(1,1); glVertex2f(solver.app.xmax.s[0], solver.app.xmax.s[1]);
-	glTexCoord2f(0,1); glVertex2f(solver.app.xmin.s[0], solver.app.xmax.s[1]);
+	const float xofs = 0.f;
+	const float yofs = 0.f;
+	glTexCoord2f(0+xofs,0+yofs); glVertex2f(solver.app.xmin.s[0], solver.app.xmin.s[1]);
+	glTexCoord2f(1+xofs,0+yofs); glVertex2f(solver.app.xmax.s[0], solver.app.xmin.s[1]);
+	glTexCoord2f(1+xofs,1+yofs); glVertex2f(solver.app.xmax.s[0], solver.app.xmax.s[1]);
+	glTexCoord2f(0+xofs,1+yofs); glVertex2f(solver.app.xmin.s[0], solver.app.xmax.s[1]);
 	glEnd();
 	glBindTexture(GL_TEXTURE_2D, 0);
 }

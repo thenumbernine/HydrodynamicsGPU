@@ -9,6 +9,9 @@ return {
 			return buildStateEuler{
 				density = 1,
 				pressure = 1,
+				velocityX = 1,
+				velocityY = 1,
+				velocityZ = 1,
 				magneticFieldX = 1,
 				magneticFieldY = 1,
 				magneticFieldZ = 1,
@@ -378,6 +381,10 @@ return {
 			return alpha, g, A, D, K
 		end
 	end,
+
+
+		-- Maxwell equations initial state
+
 
 	['Maxwell-1'] = function()
 		initState = function(x,y,z)

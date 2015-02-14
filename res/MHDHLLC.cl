@@ -3,6 +3,81 @@
 
 #include "HydroGPU/Shared/Common.h"
 
+typedef struct {
+	real density;
+	real pressure;
+	real pressureTotal;
+	real enthalpyTotal;
+	real4 velocity;
+	real4 magneticField;
+} Primitives_t;
+
+Primitives_t calcPrimitivesFromState(real8 state, real potentialEnergy);
+Primitives_t calcPrimitivesFromState(real8 state, real potentialEnergy) {
+	Primitives_t prims;
+	prims.density = state[STATE_DENSITY];
+	prims.velocity = VELOCITY(state);
+	prims.magneticField = (real4)(state[STATE_MAGNETIC_FIELD_X], state[STATE_MAGNETIC_FIELD_Y], state[STATE_MAGNETIC_FIELD_Z], 0.f);
+	real magneticEnergyDensity = .5f * dot(prims.magneticField, prims.magneticField) / vaccuumPermeability;
+	real totalPlasmaEnergyDensity = state[STATE_ENERGY_TOTAL];
+	real totalHydroEnergyDensity = totalPlasmaEnergyDensity - magneticEnergyDensity;
+	real kineticEnergyDensity = .5f * prims.density * dot(prims.velocity, prims.velocity);
+	real potentialEnergyDensity = prims.density * potentialEnergy; 
+	real internalEnergyDensity = totalHydroEnergyDensity - kineticEnergyDensity - potentialEnergyDensity;
+internalEnergyDensity = max(0.f, internalEnergyDensity);	//magnetic energy is exceeding total energy ...
+	prims.pressure = (gamma - 1.f) * internalEnergyDensity;
+	prims.pressureTotal = prims.pressure + magneticEnergyDensity;
+	//not used by wavespeed, only by flux calc
+	prims.enthalpyTotal = (totalHydroEnergyDensity + prims.pressure) / prims.density;
+	return prims;
+}
+
+typedef struct {
+	real slow;
+	real Alfven;
+	real fast;
+} Wavespeed_t;
+
+Wavespeed_t calcWavespeedFromPrimitives(Primitives_t prims);
+Wavespeed_t calcWavespeedFromPrimitives(Primitives_t prims) {
+	Wavespeed_t speed;
+	real speedOfSoundSq = gamma * prims.pressure / prims.density;
+	//real speedOfSound = sqrt(speedOfSoundSq);
+	real sqrtDensity = sqrt(prims.density);
+	speed.Alfven = fabs(prims.magneticField.x) / (sqrtDensity * sqrtVaccuumPermeability);
+	real AlfvenSpeedSq = speed.Alfven * speed.Alfven;
+	real magneticFieldSq = dot(prims.magneticField, prims.magneticField);
+	real starSpeedSq = .5f * (speedOfSoundSq + magneticFieldSq / (prims.density * vaccuumPermeability));
+	real discr = starSpeedSq * starSpeedSq - speedOfSoundSq * AlfvenSpeedSq;
+	real discrSqrt = sqrt(discr);
+	real fastSpeedSq = starSpeedSq + discrSqrt;
+	speed.fast = sqrt(fastSpeedSq);
+	real slowSpeedSq = starSpeedSq - discrSqrt;
+	speed.slow = sqrt(slowSpeedSq);
+	return speed;
+}
+
+real8 rotateStateToX(const __global real* srcState, int side);
+real8 rotateStateToX(const __global real* srcState, int side) {
+#if NUM_STATES != 8
+#error expected 8 states
+#endif
+	real8 state = *(const __global real8*)srcState;
+	
+	// rotate into x axis
+	real tmp;
+	
+	tmp = state[STATE_MOMENTUM_X];
+	state[STATE_MOMENTUM_X] = state[STATE_MOMENTUM_X+side];
+	state[STATE_MOMENTUM_X+side] = tmp;
+	
+	tmp = state[STATE_MAGNETIC_FIELD_X];
+	state[STATE_MAGNETIC_FIELD_X] = state[STATE_MAGNETIC_FIELD_X+side];
+	state[STATE_MAGNETIC_FIELD_X+side] = tmp;
+	
+	return state;
+}
+
 void calcEigenvaluesSide(
 	__global real* eigenvaluesBuffer,
 	const __global real* stateBuffer,
@@ -20,113 +95,31 @@ void calcEigenvaluesSide(
 	int indexPrev = index - stepsize[side];
 	int interfaceIndex = side + DIM * index;
 
-	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
-	const __global real* stateR = stateBuffer + NUM_STATES * index;
+	real8 stateL = rotateStateToX(stateBuffer + NUM_STATES * indexPrev, side);
+	real8 stateR = rotateStateToX(stateBuffer + NUM_STATES * index, side);
 
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 
-	const real gammaMinusOne = gamma - 1.f;
+	Primitives_t primsL = calcPrimitivesFromState(stateL, potentialBuffer[indexPrev]);
+	const real roeWeightL = 1.f;//sqrt(densityL);
 
-	real densityL = stateL[STATE_DENSITY];
-	real4 velocityL = VELOCITY(stateL);
-	real4 magneticFieldL = (real4)(stateL[STATE_MAGNETIC_FIELD_X], stateL[STATE_MAGNETIC_FIELD_Y], stateL[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / vaccuumPermeability;
-	real totalPlasmaEnergyDensityL = stateL[STATE_ENERGY_TOTAL];
-	real totalHydroEnergyDensityL = totalPlasmaEnergyDensityL - magneticEnergyDensityL;
-	real kineticEnergyDensityL = .5f * densityL * dot(velocityL, velocityL);
-	real potentialEnergyL = potentialBuffer[indexPrev];
-	real potentialEnergyDensityL = densityL * potentialEnergyL; 
-	real internalEnergyDensityL = totalHydroEnergyDensityL - kineticEnergyDensityL - potentialEnergyDensityL;
-internalEnergyDensityL = max(0.f, internalEnergyDensityL);	//magnetic energy is exceeding total energy ...
-	real pressureL = gammaMinusOne * internalEnergyDensityL;
-	//real enthalpyTotalL = (totalHydroEnergyDensityL + pressureL) / densityL;
-	real roeWeightL = 1.f;//sqrt(densityL);
+	Primitives_t primsR = calcPrimitivesFromState(stateR, potentialBuffer[index]);
+	const real roeWeightR = 1.f;//sqrt(primsR.density);
 
-	real densityR = stateR[STATE_DENSITY];
-	real4 velocityR = VELOCITY(stateR);
-	real4 magneticFieldR = (real4)(stateR[STATE_MAGNETIC_FIELD_X], stateR[STATE_MAGNETIC_FIELD_Y], stateR[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / vaccuumPermeability;
-	real totalPlasmaEnergyDensityR = stateR[STATE_ENERGY_TOTAL];
-	real totalHydroEnergyDensityR = totalPlasmaEnergyDensityR - magneticEnergyDensityR;
-	real kineticEnergyDensityR = .5f * densityR * dot(velocityR, velocityR);
-	real potentialEnergyR = potentialBuffer[index];
-	real potentialEnergyDensityR = densityR * potentialEnergyR;
-	real internalEnergyDensityR = totalHydroEnergyDensityR - kineticEnergyDensityR - potentialEnergyDensityR;
-internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is exceeding total energy ...
-	real pressureR = gammaMinusOne * internalEnergyDensityR;
-	//real enthalpyTotalR = (totalHydroEnergyDensityR + pressureR) / densityR;
-	real roeWeightR = 1.f;//sqrt(densityR);
-
-	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
-	real4 velocity = (velocityL * roeWeightL + velocityR * roeWeightR) * roeWeightNormalization;
-	real4 magneticField = (magneticFieldL * roeWeightL + magneticFieldR * roeWeightR) * roeWeightNormalization;
-	real pressure = (pressureL * roeWeightL + pressureR * roeWeightR) * roeWeightNormalization;
+	const real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
+	Primitives_t primsAvg;
 	//non-mhd hydro papers say to do this, but I get much greater dCons/dPrim eigenvector orthogonality error with this enthalpyTotal
-	//real enthalpyTotal = (enthalpyTotalL * roeWeightL + enthalpyTotalR * roeWeightR) * roeWeightNormalization;
-	//real density = sqrt(densityL * densityR);
-	real density = (densityL * roeWeightL + densityR * roeWeightR) * roeWeightNormalization;
+	//real enthalpyTotal = (enthalpyTotalL * roeWeightL + primsR.enthalpyTotal * roeWeightR) * roeWeightNormalization;
+	//real density = sqrt(densityL * primsR.density);
+	primsAvg.density = (primsL.density * roeWeightL + primsR.density * roeWeightR) * roeWeightNormalization;
+	primsAvg.pressure = (primsL.pressure * roeWeightL + primsR.pressure * roeWeightR) * roeWeightNormalization;
+	primsAvg.pressureTotal = (primsL.pressureTotal * roeWeightL + primsR.pressureTotal * roeWeightR) * roeWeightNormalization;
+	primsAvg.velocity = (primsL.velocity * roeWeightL + primsR.velocity * roeWeightR) * roeWeightNormalization;
+	primsAvg.magneticField = (primsL.magneticField * roeWeightL + primsR.magneticField * roeWeightR) * roeWeightNormalization;
 
-#if DIM > 1
-	if (side == 1) {
-		// -90' rotation to put the y axis contents into the x axis
-		velocity.xy = velocity.yx;
-		magneticField.xy = magneticField.yx;
-	} 
-#if DIM > 2
-	else if (side == 2) {
-		//-90' rotation to put the z axis in the x axis
-		velocity.xz = velocity.zx;
-		magneticField.xz = magneticField.zx;
-	}
-#endif
-#endif
-
-	real magneticFieldSq = dot(magneticField, magneticField);
-	real sqrtDensity = sqrt(density);
-	
-	//matrices are stored as A_ij = A[i + height * j]
-
-	//left wavespeed
-	real speedOfSoundL = gamma * pressureL / densityL;
-	real speedOfSoundSqL = speedOfSoundL * speedOfSoundL;
-	real magneticFieldSqL = dot(magneticFieldL, magneticFieldL);
-	real sqrtDensityL = sqrt(densityL);
-	real AlfvenSpeedL = fabs(magneticFieldL.x) / (sqrtDensityL * sqrtVaccuumPermeability);
-	real AlfvenSpeedSqL = AlfvenSpeedL * AlfvenSpeedL;
-	real starSpeedSqL = .5f * (speedOfSoundSqL + magneticFieldSqL / (densityL * vaccuumPermeability));
-	real discrL = starSpeedSqL * starSpeedSqL - speedOfSoundSqL * AlfvenSpeedSqL;
-	real discrSqrtL = sqrt(discrL);
-	real fastSpeedSqL = starSpeedSqL + discrSqrtL;
-	real fastSpeedL = sqrt(fastSpeedSqL);
-	real slowSpeedSqL = starSpeedSqL - discrSqrtL;
-	real slowSpeedL = sqrt(slowSpeedSqL);
-
-	//right wavespeed
-	real speedOfSoundR = gamma * pressureR / densityR;
-	real speedOfSoundSqR = speedOfSoundR * speedOfSoundR;
-	real magneticFieldSqR = dot(magneticFieldR, magneticFieldR);
-	real sqrtDensityR = sqrt(densityR);
-	real AlfvenSpeedR = fabs(magneticFieldR.x) / (sqrtDensityR * sqrtVaccuumPermeability);
-	real AlfvenSpeedSqR = AlfvenSpeedR * AlfvenSpeedR;
-	real starSpeedSqR = .5f * (speedOfSoundSqR + magneticFieldSqR / (densityR * vaccuumPermeability));
-	real discrR = starSpeedSqR * starSpeedSqR - speedOfSoundSqR * AlfvenSpeedSqR;
-	real discrSqrtR = sqrt(discrR);
-	real fastSpeedSqR = starSpeedSqR + discrSqrtR;
-	real fastSpeedR = sqrt(fastSpeedSqR);
-	real slowSpeedSqR = starSpeedSqR - discrSqrtR;
-	real slowSpeedR = sqrt(slowSpeedSqR);
-
-	//average-state wavespeed
-	real speedOfSoundSq = gamma * pressure / density;
-	real AlfvenSpeed = fabs(magneticField.x) / (sqrtDensity * sqrtVaccuumPermeability);
-	real AlfvenSpeedSq = AlfvenSpeed * AlfvenSpeed;
-	real starSpeedSq = .5f * (speedOfSoundSq + magneticFieldSq / (density * vaccuumPermeability));
-	real discr = starSpeedSq * starSpeedSq - speedOfSoundSq * AlfvenSpeedSq;
-	real discrSqrt = sqrt(discr);
-	real fastSpeedSq = starSpeedSq + discrSqrt;
-	real fastSpeed = sqrt(fastSpeedSq);
-	real slowSpeedSq = starSpeedSq - discrSqrt;
-	real slowSpeed = sqrt(slowSpeedSq);
+	Wavespeed_t speedL = calcWavespeedFromPrimitives(primsL);
+	Wavespeed_t speedR = calcWavespeedFromPrimitives(primsR);
+	Wavespeed_t speedAvg = calcWavespeedFromPrimitives(primsAvg);
 
 	//the Euler HLLC calculates the left and right wavespeeds here
 	// as the min of the left and avg eigenvalue; and the max of the middle and right wavespeeds
@@ -134,14 +127,14 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 
 	//here I'm testing on an individual basis ...
 	// I'm pretty sure only the min and max are used anyways
-	eigenvalues[0] = min(velocityL.x - fastSpeedL, velocity.x - fastSpeed);
-	eigenvalues[1] = min(velocityL.x - AlfvenSpeedL, velocity.x - AlfvenSpeed);
-	eigenvalues[2] = min(velocityL.x - slowSpeedL, velocity.x - slowSpeed);
-	eigenvalues[3] = velocity.x;
-	eigenvalues[4] = velocity.x;
-	eigenvalues[5] = max(velocityR.x + slowSpeedR, velocity.x + slowSpeed);
-	eigenvalues[6] = max(velocityR.x + AlfvenSpeedR, velocity.x + AlfvenSpeed);
-	eigenvalues[7] = max(velocityR.x + fastSpeedR, velocity.x + fastSpeed);
+	eigenvalues[0] = min(primsL.velocity.x - speedL.fast, primsAvg.velocity.x - speedAvg.fast);
+	eigenvalues[1] = min(primsL.velocity.x - speedL.Alfven, primsAvg.velocity.x - speedAvg.Alfven);
+	eigenvalues[2] = min(primsL.velocity.x - speedL.slow, primsAvg.velocity.x - speedAvg.slow);
+	eigenvalues[3] = primsAvg.velocity.x;
+	eigenvalues[4] = primsAvg.velocity.x;
+	eigenvalues[5] = max(primsR.velocity.x + speedR.slow, primsAvg.velocity.x + speedAvg.slow);
+	eigenvalues[6] = max(primsR.velocity.x + speedR.Alfven, primsAvg.velocity.x + speedAvg.Alfven);
+	eigenvalues[7] = max(primsR.velocity.x + speedR.fast, primsAvg.velocity.x + speedAvg.fast);
 }
 
 __kernel void calcEigenvalues(
@@ -195,12 +188,8 @@ __kernel void calcCFL(
 		const __global real* eigenvaluesL = eigenvaluesBuffer + NUM_STATES * (side + DIM * index);
 		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexNext);
 
-		real minLambda = 0.f;
-		real maxLambda = 0.f;
-		for (int i = 0; i < NUM_STATES; ++i) {	
-			maxLambda = max(maxLambda, eigenvaluesL[i]);
-			minLambda = min(minLambda, eigenvaluesR[i]);
-		}
+		real minLambda = min(0.f, eigenvaluesR[0]);
+		real maxLambda = max(0.f, eigenvaluesL[NUM_STATES-1]);
 
 		real dum = dx[side] / (maxLambda - minLambda);
 		result = min(result, dum);
@@ -212,6 +201,7 @@ __kernel void calcCFL(
 void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
 	const __global real* potentialBuffer,
 	real dt_dx,
 	int side);
@@ -219,6 +209,7 @@ void calcFluxSide(
 void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
 	const __global real* potentialBuffer,
 	real dt_dx,
 	int side)
@@ -228,145 +219,69 @@ void calcFluxSide(
 	int indexPrev = index - stepsize[side];
 	int interfaceIndex = side + DIM * index;
 
-	const __global real* srcStateL = stateBuffer + NUM_STATES * indexPrev;
-	const __global real* srcStateR = stateBuffer + NUM_STATES * index;
+	real8 stateL = rotateStateToX(stateBuffer + NUM_STATES * indexPrev, side);
+	real8 stateR = rotateStateToX(stateBuffer + NUM_STATES * index, side);
 
-	real stateL[NUM_STATES];
-	real stateR[NUM_STATES];
-
-	// rotate into x axis
-	for (int i = 0; i < NUM_STATES; ++i) {
-		stateL[i] = srcStateL[i];
-		stateR[i] = srcStateR[i];
-	}
-	{
-		real tmp;
-		
-		tmp = stateL[STATE_MOMENTUM_X];
-		stateL[STATE_MOMENTUM_X] = stateL[STATE_MOMENTUM_X+side];
-		stateL[STATE_MOMENTUM_X+side] = tmp;
-		
-		tmp = stateL[STATE_MAGNETIC_FIELD_X];
-		stateL[STATE_MAGNETIC_FIELD_X] = stateL[STATE_MAGNETIC_FIELD_X+side];
-		stateL[STATE_MAGNETIC_FIELD_X+side] = tmp;
-		
-		tmp = stateR[STATE_MOMENTUM_X];
-		stateR[STATE_MOMENTUM_X] = stateR[STATE_MOMENTUM_X+side];
-		stateR[STATE_MOMENTUM_X+side] = tmp;
-		
-		tmp = stateR[STATE_MAGNETIC_FIELD_X];
-		stateR[STATE_MAGNETIC_FIELD_X] = stateR[STATE_MAGNETIC_FIELD_X+side];
-		stateR[STATE_MAGNETIC_FIELD_X+side] = tmp;
-	}
-
+	const __global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
+	
 	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
 
-	const real gammaMinusOne = gamma - 1.f;
+	Primitives_t primsL = calcPrimitivesFromState(stateL, potentialBuffer[indexPrev]);
+	Wavespeed_t speedL = calcWavespeedFromPrimitives(primsL);
+	real magneticFieldSqL = dot(primsL.magneticField, primsL.magneticField);
+	const real roeWeightL = 1.f;//sqrt(primsL.density);
 
-	real densityL = stateL[STATE_DENSITY];
-	real4 velocityL = VELOCITY(stateL);
-	real4 magneticFieldL = (real4)(stateL[STATE_MAGNETIC_FIELD_X], stateL[STATE_MAGNETIC_FIELD_Y], stateL[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticFieldSqL = dot(magneticFieldL, magneticFieldL);
-	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / vaccuumPermeability;
-	real totalPlasmaEnergyDensityL = stateL[STATE_ENERGY_TOTAL];
-	real totalHydroEnergyDensityL = totalPlasmaEnergyDensityL - magneticEnergyDensityL;
-	real kineticEnergyDensityL = .5f * densityL * dot(velocityL, velocityL);
-	real potentialEnergyL = potentialBuffer[indexPrev];
-	real potentialEnergyDensityL = densityL * potentialEnergyL; 
-	real internalEnergyDensityL = totalHydroEnergyDensityL - kineticEnergyDensityL - potentialEnergyDensityL;
-internalEnergyDensityL = max(0.f, internalEnergyDensityL);	//magnetic energy is exceeding total energy ...
-	real pressureL = gammaMinusOne * internalEnergyDensityL;
-	real enthalpyTotalL = (totalHydroEnergyDensityL + pressureL) / densityL;
-	real speedOfSoundSqL = gamma * pressureL / densityL;
-	real AlfvenSpeedSqL = magneticFieldL.x * magneticFieldL.x / (densityL * vaccuumPermeability);
-	real starSpeedSqL = .5f * (speedOfSoundSqL + magneticFieldSqL / (densityL * vaccuumPermeability));
-	real discrL = starSpeedSqL * starSpeedSqL - speedOfSoundSqL * AlfvenSpeedSqL;
-	real discrSqrtL = sqrt(discrL);
-	real fastSpeedSqL = starSpeedSqL + discrSqrtL;
-	real fastSpeedL = sqrt(fastSpeedSqL);
-	real roeWeightL = sqrt(densityL);
+	Primitives_t primsR = calcPrimitivesFromState(stateR, potentialBuffer[index]);
+	Wavespeed_t speedR = calcWavespeedFromPrimitives(primsR);
+	real magneticFieldSqR = dot(primsR.magneticField, primsR.magneticField);
+	const real roeWeightR = 1.f;//sqrt(primsR.density);
 
-	real densityR = stateR[STATE_DENSITY];
-	real4 velocityR = VELOCITY(stateR);
-	real4 magneticFieldR = (real4)(stateR[STATE_MAGNETIC_FIELD_X], stateR[STATE_MAGNETIC_FIELD_Y], stateR[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticFieldSqR = dot(magneticFieldR, magneticFieldR);
-	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / vaccuumPermeability;
-	real totalPlasmaEnergyDensityR = stateR[STATE_ENERGY_TOTAL];
-	real totalHydroEnergyDensityR = totalPlasmaEnergyDensityR - magneticEnergyDensityR;
-	real kineticEnergyDensityR = .5f * densityR * dot(velocityR, velocityR);
-	real potentialEnergyR = potentialBuffer[index];
-	real potentialEnergyDensityR = densityR * potentialEnergyR;
-	real internalEnergyDensityR = totalHydroEnergyDensityR - kineticEnergyDensityR - potentialEnergyDensityR;
-internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is exceeding total energy ...
-	real pressureR = gammaMinusOne * internalEnergyDensityR;
-	real enthalpyTotalR = (totalHydroEnergyDensityR + pressureR) / densityR;
-	real speedOfSoundSqR = gamma * pressureR / densityR;
-	real AlfvenSpeedSqR = magneticFieldR.x * magneticFieldR.x / (densityR * vaccuumPermeability);
-	real starSpeedSqR = .5f * (speedOfSoundSqR + magneticFieldSqR / (densityR * vaccuumPermeability));
-	real discrR = starSpeedSqR * starSpeedSqR - speedOfSoundSqR * AlfvenSpeedSqR;
-	real discrSqrtR = sqrt(discrR);
-	real fastSpeedSqR = starSpeedSqR + discrSqrtR;
-	real fastSpeedR = sqrt(fastSpeedSqR);
-	real roeWeightR = sqrt(densityR);
+	const real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
+	Primitives_t primsAvg;
+	primsAvg.density = (primsL.density * roeWeightL + primsR.density * roeWeightR) * roeWeightNormalization;
+	primsAvg.pressure = (primsL.pressure * roeWeightL + primsR.pressure * roeWeightR) * roeWeightNormalization;
+	primsAvg.pressureTotal = (primsL.pressureTotal * roeWeightL + primsR.pressureTotal * roeWeightR) * roeWeightNormalization;
+	primsAvg.velocity = (primsL.velocity * roeWeightL + primsR.velocity * roeWeightR) * roeWeightNormalization;
+	primsAvg.magneticField = (primsL.magneticField * roeWeightL + primsR.magneticField * roeWeightR) * roeWeightNormalization;
+	Wavespeed_t speedAvg = calcWavespeedFromPrimitives(primsAvg);
 
-	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
-	real4 velocity = (velocityL * roeWeightL + velocityR * roeWeightR) * roeWeightNormalization;
-	real4 magneticField = (magneticFieldL * roeWeightL + magneticFieldR * roeWeightR) * roeWeightNormalization;
-	real pressure = (pressureL * roeWeightL + pressureR * roeWeightR) * roeWeightNormalization;
-	//non-mhd hydro papers say to do this, but I get much greater dCons/dPrim eigenvector orthogonality error with this enthalpyTotal
-	//real enthalpyTotal = (enthalpyTotalL * roeWeightL + enthalpyTotalR * roeWeightR) * roeWeightNormalization;
-	real density = sqrt(densityL * densityR);
-	real magneticFieldSq = dot(magneticField, magneticField);
-	
-	real sqrtDensity = sqrt(density);
-	
-	//matrices are stored as A_ij = A[i + height * j]
-
-	real speedOfSoundSq = gamma * pressure / density;
-	real AlfvenSpeed = fabs(magneticField.x) / (sqrtDensity * sqrtVaccuumPermeability);
-	real AlfvenSpeedSq = AlfvenSpeed * AlfvenSpeed;
-	real starSpeedSq = .5f * (speedOfSoundSq + magneticFieldSq / (density * vaccuumPermeability));
-	real discr = starSpeedSq * starSpeedSq - speedOfSoundSq * AlfvenSpeedSq;
-	real discrSqrt = sqrt(discr);
-	real fastSpeedSq = starSpeedSq + discrSqrt;
-	real fastSpeed = sqrt(fastSpeedSq);
-
-	real eigenvaluesMinL = velocityL.x - fastSpeedL;
-	real eigenvaluesMaxR = velocityR.x + fastSpeedR;
-
-	real eigenvaluesMin = velocity.x - fastSpeed;
-	real eigenvaluesMax = velocity.x + fastSpeed;
+	real eigenvaluesMinL = primsL.velocity.x - speedL.fast;
+	real eigenvaluesMaxR = primsR.velocity.x + speedR.fast;
+	real eigenvaluesMin = primsAvg.velocity.x - speedAvg.fast;
+	real eigenvaluesMax = primsAvg.velocity.x + speedAvg.fast;
 
 	//flux
 
+	//real sl = eigenvalues[0];
+	//real sr = eigenvalues[DIM+1];
 	real sl = min(eigenvaluesMinL, eigenvaluesMin);
 	real sr = max(eigenvaluesMaxR, eigenvaluesMax);
 
-	real vDotBL = dot(velocityL, magneticFieldL);
+	real vDotBL = dot(primsL.velocity, primsL.magneticField);
 	real fluxL[NUM_STATES];
-	fluxL[STATE_DENSITY] = densityL * velocityL.x;
-	fluxL[STATE_MOMENTUM_X] = densityL * velocityL.x * velocityL.x - magneticFieldL.x * magneticFieldL.x / vaccuumPermeability +  pressureL + .5f * magneticFieldSqL;
-	fluxL[STATE_MOMENTUM_Y] = densityL * velocityL.x * velocityL.y - magneticFieldL.x * magneticFieldL.y / vaccuumPermeability;
-	fluxL[STATE_MOMENTUM_Z] = densityL * velocityL.x * velocityL.z - magneticFieldL.x * magneticFieldL.z / vaccuumPermeability;
+	fluxL[STATE_DENSITY] = primsL.density * primsL.velocity.x;
+	fluxL[STATE_MOMENTUM_X] = primsL.density * primsL.velocity.x * primsL.velocity.x - primsL.magneticField.x * primsL.magneticField.x / vaccuumPermeability +  primsL.pressureTotal + .5f * magneticFieldSqL;
+	fluxL[STATE_MOMENTUM_Y] = primsL.density * primsL.velocity.x * primsL.velocity.y - primsL.magneticField.x * primsL.magneticField.y / vaccuumPermeability;
+	fluxL[STATE_MOMENTUM_Z] = primsL.density * primsL.velocity.x * primsL.velocity.z - primsL.magneticField.x * primsL.magneticField.z / vaccuumPermeability;
 	fluxL[STATE_MAGNETIC_FIELD_X] = 0.f;
-	fluxL[STATE_MAGNETIC_FIELD_Y] = velocityL.x * magneticFieldL.y - magneticFieldL.x * velocityL.y;
-	fluxL[STATE_MAGNETIC_FIELD_Z] = velocityL.x * magneticFieldL.z - magneticFieldL.x * velocityL.z;
-	fluxL[STATE_ENERGY_TOTAL] = densityL * (enthalpyTotalL + .5f * magneticFieldSqL) * velocityL.x - vDotBL * magneticFieldL.x / vaccuumPermeability;
+	fluxL[STATE_MAGNETIC_FIELD_Y] = primsL.velocity.x * primsL.magneticField.y - primsL.magneticField.x * primsL.velocity.y;
+	fluxL[STATE_MAGNETIC_FIELD_Z] = primsL.velocity.x * primsL.magneticField.z - primsL.magneticField.x * primsL.velocity.z;
+	fluxL[STATE_ENERGY_TOTAL] = primsL.density * (primsL.enthalpyTotal + .5f * magneticFieldSqL) * primsL.velocity.x - vDotBL * primsL.magneticField.x / vaccuumPermeability;
 	
-	real vDotBR = dot(velocityR, magneticFieldR);
+	real vDotBR = dot(primsR.velocity, primsR.magneticField);
 	real fluxR[NUM_STATES];
-	fluxR[STATE_DENSITY] = densityR * velocityR.x;
-	fluxR[STATE_MOMENTUM_X] = densityR * velocityR.x * velocityR.x - magneticFieldR.x * magneticFieldR.x / vaccuumPermeability +  pressureR + .5f * magneticFieldSqR;
-	fluxR[STATE_MOMENTUM_Y] = densityR * velocityR.x * velocityR.y - magneticFieldR.x * magneticFieldR.y / vaccuumPermeability;
-	fluxR[STATE_MOMENTUM_Z] = densityR * velocityR.x * velocityR.z - magneticFieldR.x * magneticFieldR.z / vaccuumPermeability;
+	fluxR[STATE_DENSITY] = primsR.density * primsR.velocity.x;
+	fluxR[STATE_MOMENTUM_X] = primsR.density * primsR.velocity.x * primsR.velocity.x - primsR.magneticField.x * primsR.magneticField.x / vaccuumPermeability +  primsR.pressureTotal + .5f * magneticFieldSqR;
+	fluxR[STATE_MOMENTUM_Y] = primsR.density * primsR.velocity.x * primsR.velocity.y - primsR.magneticField.x * primsR.magneticField.y / vaccuumPermeability;
+	fluxR[STATE_MOMENTUM_Z] = primsR.density * primsR.velocity.x * primsR.velocity.z - primsR.magneticField.x * primsR.magneticField.z / vaccuumPermeability;
 	fluxR[STATE_MAGNETIC_FIELD_X] = 0.f;
-	fluxR[STATE_MAGNETIC_FIELD_Y] = velocityR.x * magneticFieldR.y - magneticFieldR.x * velocityR.y;
-	fluxR[STATE_MAGNETIC_FIELD_Z] = velocityR.x * magneticFieldR.z - magneticFieldR.x * velocityR.z;
-	fluxR[STATE_ENERGY_TOTAL] = densityR * (enthalpyTotalR + .5f * magneticFieldSqR) * velocityR.x - vDotBR * magneticFieldR.x / vaccuumPermeability;
+	fluxR[STATE_MAGNETIC_FIELD_Y] = primsR.velocity.x * primsR.magneticField.y - primsR.magneticField.x * primsR.velocity.y;
+	fluxR[STATE_MAGNETIC_FIELD_Z] = primsR.velocity.x * primsR.magneticField.z - primsR.magneticField.x * primsR.velocity.z;
+	fluxR[STATE_ENERGY_TOTAL] = primsR.density * (primsR.enthalpyTotal + .5f * magneticFieldSqR) * primsR.velocity.x - vDotBR * primsR.magneticField.x / vaccuumPermeability;
 	
 
-	real sStar = (densityR * velocityR.x * (sr - velocityR.x) - densityL * velocityL.x * (sl - velocityL.x) + pressureL - pressureR - magneticFieldL.x * magneticFieldL.x + magneticFieldR.x * magneticFieldR.x) 
-					/ (densityR * (sr - velocityR.x) - densityL * (sl - velocityL.x));
+	real sStar = (primsR.density * primsR.velocity.x * (sr - primsR.velocity.x) - primsL.density * primsL.velocity.x * (sl - primsL.velocity.x) + primsL.pressureTotal - primsR.pressureTotal - primsL.magneticField.x * primsL.magneticField.x + primsR.magneticField.x * primsR.magneticField.x) 
+					/ (primsR.density * (sr - primsR.velocity.x) - primsL.density * (sl - primsL.velocity.x));
 	
 	if (0.f <= sl) {
 		for (int i = 0; i < NUM_STATES; ++i) {
@@ -384,25 +299,27 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 	} else if (sl <= 0.f && 0.f <= sStar) {
 		
 		real4 magneticFieldStar;
-		magneticFieldStar.x = (sr * magneticFieldR.x - sl * magneticFieldL.x) / (sr - sl);
-		magneticFieldStar.y = ((sl - velocityL.x - magneticFieldL.x * magneticFieldStar.x / (densityL * (sl - velocityL.x))) * magneticFieldL.y - (magneticFieldStar.x - magneticFieldL.x) * velocityL.y) / (sl - sStar - magneticFieldStar.x * magneticFieldStar.x / (densityL * (sl - velocityL.x)));
-		magneticFieldStar.z = ((sl - velocityL.x - magneticFieldL.x * magneticFieldStar.x / (densityL * (sl - velocityL.x))) * magneticFieldL.z - (magneticFieldStar.x - magneticFieldL.x) * velocityL.z) / (sl - sStar - magneticFieldStar.x * magneticFieldStar.x / (densityL * (sl - velocityL.x)));
+		magneticFieldStar.x = (sr * primsR.magneticField.x - sl * primsL.magneticField.x) / (sr - sl);
+		magneticFieldStar.y = ((sl - primsL.velocity.x - primsL.magneticField.x * magneticFieldStar.x / (primsL.density * (sl - primsL.velocity.x))) * primsL.magneticField.y 
+			- (magneticFieldStar.x - primsL.magneticField.x) * primsL.velocity.y) / (sl - sStar - magneticFieldStar.x * magneticFieldStar.x / (primsL.density * (sl - primsL.velocity.x)));
+		magneticFieldStar.z = ((sl - primsL.velocity.x - primsL.magneticField.x * magneticFieldStar.x / (primsL.density * (sl - primsL.velocity.x))) * primsL.magneticField.z 
+			- (magneticFieldStar.x - primsL.magneticField.x) * primsL.velocity.z) / (sl - sStar - magneticFieldStar.x * magneticFieldStar.x / (primsL.density * (sl - primsL.velocity.x)));
 		magneticFieldStar.w = 0.f;
-		real pressureStar = densityL * (sl - velocityL.x) * (sStar - velocityL.x) + pressureL + .5f * magneticFieldSqL - magneticFieldL.x * magneticFieldL.x + magneticFieldStar.x * magneticFieldStar.x;
+		real pressureStar = primsL.density * (sl - primsL.velocity.x) * (sStar - primsL.velocity.x) + primsL.pressureTotal + .5f * magneticFieldSqL - primsL.magneticField.x * primsL.magneticField.x + magneticFieldStar.x * magneticFieldStar.x;
 		
 		real stateLStar[NUM_STATES];
-		stateLStar[STATE_DENSITY] = densityL * (sl - velocityL.x) / (sl - sStar);
+		stateLStar[STATE_DENSITY] = primsL.density * (sl - primsL.velocity.x) / (sl - sStar);
 		stateLStar[STATE_MOMENTUM_X] = stateLStar[STATE_DENSITY] * sStar;
-		stateLStar[STATE_MOMENTUM_Y] = stateLStar[STATE_DENSITY] * velocityL.y;// - (magneticFieldStar.x * magneticFieldStar.y - magneticFieldL.x * magneticFieldL.y) / (sl - sStar);
-		stateLStar[STATE_MOMENTUM_Z] = stateLStar[STATE_DENSITY] * velocityL.z;// - (magneticFieldStar.x * magneticFieldStar.z - magneticFieldL.x * magneticFieldL.z) / (sl - sStar);
+		stateLStar[STATE_MOMENTUM_Y] = stateLStar[STATE_DENSITY] * primsL.velocity.y - (magneticFieldStar.x * magneticFieldStar.y - primsL.magneticField.x * primsL.magneticField.y) / (sl - sStar);
+		stateLStar[STATE_MOMENTUM_Z] = stateLStar[STATE_DENSITY] * primsL.velocity.z - (magneticFieldStar.x * magneticFieldStar.z - primsL.magneticField.x * primsL.magneticField.z) / (sl - sStar);
 		real4 velocityStar = (real4)(stateLStar[STATE_MOMENTUM_X], stateLStar[STATE_MOMENTUM_Y], stateLStar[STATE_MOMENTUM_Z], 0.f) / stateLStar[STATE_DENSITY];
 		real vDotBStar = dot(magneticFieldStar, velocityStar);
 		stateLStar[STATE_MAGNETIC_FIELD_X] = magneticFieldStar.x;
 		stateLStar[STATE_MAGNETIC_FIELD_Y] = magneticFieldStar.y;
 		stateLStar[STATE_MAGNETIC_FIELD_Z] = magneticFieldStar.z;
-		stateLStar[STATE_ENERGY_TOTAL] = stateLStar[STATE_DENSITY] * stateL[STATE_ENERGY_TOTAL] / densityL + ((pressureStar * sStar - pressureL * velocityL.x) - (magneticFieldStar.x * vDotBStar - magneticFieldL.x * vDotBL)) / (sl - sStar);
+		stateLStar[STATE_ENERGY_TOTAL] = stateLStar[STATE_DENSITY] * stateL[STATE_ENERGY_TOTAL] / primsL.density + ((pressureStar * sStar - primsL.pressureTotal * primsL.velocity.x) - (magneticFieldStar.x * vDotBStar - primsL.magneticField.x * vDotBL)) / (sl - sStar);
 		//hydro-only
-		//stateLStar[STATE_ENERGY_TOTAL] = stateLStar[STATE_DENSITY] * (energyTotalL + (sStar - velocityL.x) * (sStar + pressureL / (densityL * (sl - velocityL.x))));
+		//stateLStar[STATE_ENERGY_TOTAL] = stateLStar[STATE_DENSITY] * (energyTotalL + (sStar - primsL.velocity.x) * (sStar + primsL.pressureTotal / (primsL.density * (sl - primsL.velocity.x))));
 		
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i] + sl * (stateLStar[i] - stateL[i]);
@@ -411,23 +328,25 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 	} else if (sStar <= 0.f && 0.f <= sr) {
 		
 		real4 magneticFieldStar;
-		magneticFieldStar.x = (sr * magneticFieldR.x - sl * magneticFieldL.x) / (sr - sl);
-		magneticFieldStar.y = ((sr - velocityR.x - magneticFieldR.x * magneticFieldStar.x / (densityR * (sr - velocityR.x))) * magneticFieldR.y - (magneticFieldStar.x - magneticFieldR.x) * velocityR.y) / (sr - sStar - magneticFieldStar.x * magneticFieldStar.x / (densityR * (sr - velocityR.x)));
-		magneticFieldStar.z = ((sr - velocityR.x - magneticFieldR.x * magneticFieldStar.x / (densityR * (sr - velocityR.x))) * magneticFieldR.z - (magneticFieldStar.x - magneticFieldR.x) * velocityR.z) / (sr - sStar - magneticFieldStar.x * magneticFieldStar.x / (densityR * (sr - velocityR.x)));
+		magneticFieldStar.x = (sr * primsR.magneticField.x - sl * primsL.magneticField.x) / (sr - sl);
+		magneticFieldStar.y = ((sr - primsR.velocity.x - primsR.magneticField.x * magneticFieldStar.x / (primsR.density * (sr - primsR.velocity.x))) * primsR.magneticField.y 
+			- (magneticFieldStar.x - primsR.magneticField.x) * primsR.velocity.y) / (sr - sStar - magneticFieldStar.x * magneticFieldStar.x / (primsR.density * (sr - primsR.velocity.x)));
+		magneticFieldStar.z = ((sr - primsR.velocity.x - primsR.magneticField.x * magneticFieldStar.x / (primsR.density * (sr - primsR.velocity.x))) * primsR.magneticField.z 
+			- (magneticFieldStar.x - primsR.magneticField.x) * primsR.velocity.z) / (sr - sStar - magneticFieldStar.x * magneticFieldStar.x / (primsR.density * (sr - primsR.velocity.x)));
 		magneticFieldStar.w = 0.f;
-		real pressureStar = densityR * (sr - velocityR.x) * (sStar - velocityR.x) + pressureR + .5f * magneticFieldSqR - magneticFieldR.x * magneticFieldR.x + magneticFieldStar.x * magneticFieldStar.x;
+		real pressureStar = primsR.density * (sr - primsR.velocity.x) * (sStar - primsR.velocity.x) + primsR.pressureTotal + .5f * magneticFieldSqR - primsR.magneticField.x * primsR.magneticField.x + magneticFieldStar.x * magneticFieldStar.x;
 		
 		real stateRStar[NUM_STATES];
-		stateRStar[STATE_DENSITY] = densityR * (sr - velocityR.x) / (sr - sStar);
+		stateRStar[STATE_DENSITY] = primsR.density * (sr - primsR.velocity.x) / (sr - sStar);
 		stateRStar[STATE_MOMENTUM_X] = stateRStar[STATE_DENSITY] * sStar;
-		stateRStar[STATE_MOMENTUM_Y] = stateRStar[STATE_DENSITY] * velocityR.y;// - (magneticFieldStar.x * magneticFieldStar.y - magneticFieldR.x * magneticFieldR.y) / (sr - sStar);
-		stateRStar[STATE_MOMENTUM_Z] = stateRStar[STATE_DENSITY] * velocityR.z;// - (magneticFieldStar.x * magneticFieldStar.z - magneticFieldR.x * magneticFieldR.z) / (sr - sStar);
+		stateRStar[STATE_MOMENTUM_Y] = stateRStar[STATE_DENSITY] * primsR.velocity.y - (magneticFieldStar.x * magneticFieldStar.y - primsR.magneticField.x * primsR.magneticField.y) / (sr - sStar);
+		stateRStar[STATE_MOMENTUM_Z] = stateRStar[STATE_DENSITY] * primsR.velocity.z - (magneticFieldStar.x * magneticFieldStar.z - primsR.magneticField.x * primsR.magneticField.z) / (sr - sStar);
 		real4 velocityStar = (real4)(stateRStar[STATE_MOMENTUM_X], stateRStar[STATE_MOMENTUM_Y], stateRStar[STATE_MOMENTUM_Z], 0.f) / stateRStar[STATE_DENSITY];
 		real vDotBStar = dot(magneticFieldStar, velocityStar);
 		stateRStar[STATE_MAGNETIC_FIELD_X] = magneticFieldStar.x;
 		stateRStar[STATE_MAGNETIC_FIELD_Y] = magneticFieldStar.y;
 		stateRStar[STATE_MAGNETIC_FIELD_Z] = magneticFieldStar.z;
-		stateRStar[STATE_ENERGY_TOTAL] = stateRStar[STATE_DENSITY] * stateR[STATE_ENERGY_TOTAL] / densityR + ((pressureStar * sStar - pressureR * velocityR.x) - (magneticFieldStar.x * vDotBStar - magneticFieldR.x * vDotBR)) / (sr - sStar);
+		stateRStar[STATE_ENERGY_TOTAL] = stateRStar[STATE_DENSITY] * stateR[STATE_ENERGY_TOTAL] / primsR.density + ((pressureStar * sStar - primsR.pressureTotal * primsR.velocity.x) - (magneticFieldStar.x * vDotBStar - primsR.magneticField.x * vDotBR)) / (sr - sStar);
 		
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxR[i] + sr * (stateRStar[i] - stateR[i]);
@@ -519,12 +438,12 @@ __kernel void calcFlux(
 	
 	real dt = dtBuffer[0];
 	
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DX, 0);
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dt/DX, 0);
 #if DIM > 1
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DY, 1);
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dt/DY, 1);
 #endif
 #if DIM > 2
-	calcFluxSide(fluxBuffer, stateBuffer, potentialBuffer, dt/DZ, 2);
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dt/DZ, 2);
 #endif
 }
 

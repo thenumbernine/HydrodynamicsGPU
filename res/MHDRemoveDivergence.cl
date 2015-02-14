@@ -32,7 +32,8 @@ __kernel void calcMagneticFieldDivergence(
 }
 
 __kernel void magneticPotentialPoissonRelax(
-	__global real* magneticFieldPotentialBuffer,
+	__global real* magneticFieldPotentialWriteBuffer,
+	const __global real* magneticFieldPotentialReadBuffer,
 	const __global real* magneticFieldDivergenceBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -48,11 +49,11 @@ __kernel void magneticPotentialPoissonRelax(
 	}
 	int index = INDEXV(i);
 
-	real sum = (magneticFieldPotentialBuffer[index + stepsize.x] + magneticFieldPotentialBuffer[index - stepsize.x]) / (DX * DX);
+	real sum = (magneticFieldPotentialReadBuffer[index + stepsize.x] + magneticFieldPotentialReadBuffer[index - stepsize.x]) / (DX * DX);
 #if DIM > 1
-	sum += (magneticFieldPotentialBuffer[index + stepsize.y] + magneticFieldPotentialBuffer[index - stepsize.y]) / (DY * DY);
+	sum += (magneticFieldPotentialReadBuffer[index + stepsize.y] + magneticFieldPotentialReadBuffer[index - stepsize.y]) / (DY * DY);
 #if DIM > 2
-	sum += (magneticFieldPotentialBuffer[index + stepsize.z] + magneticFieldPotentialBuffer[index - stepsize.z]) / (DZ * DZ);
+	sum += (magneticFieldPotentialReadBuffer[index + stepsize.z] + magneticFieldPotentialReadBuffer[index - stepsize.z]) / (DZ * DZ);
 #endif
 #endif
 
@@ -66,7 +67,7 @@ __kernel void magneticPotentialPoissonRelax(
 	);
 
 	//TODO double-buffer?
-	magneticFieldPotentialBuffer[index] = (magneticFieldDivergenceBuffer[index] - sum) / denom;
+	magneticFieldPotentialWriteBuffer[index] = (magneticFieldDivergenceBuffer[index] - sum) / denom;
 }
 
 __kernel void magneticFieldRemoveDivergence(
