@@ -21,7 +21,6 @@ public:
 	Equation(HydroGPU::Solver::Solver* solver_);	
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state) = 0;
-	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim) = 0;
 	std::string buildEnumCode(const std::string& prefix, const std::vector<std::string>& enumStrs);
 	virtual void readStateCell(real* state, const real* source);
 };

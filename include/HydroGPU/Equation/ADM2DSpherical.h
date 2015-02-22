@@ -10,14 +10,13 @@ struct Solver;
 }
 namespace Equation {
 
-struct Maxwell : public Equation {
+struct ADM2DSpherical : public Equation {
 	typedef Equation Super;
-	Maxwell(HydroGPU::Solver::Solver* solver);
+	ADM2DSpherical(HydroGPU::Solver::Solver* solver);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state);
 };
 
 }
 }
-
 

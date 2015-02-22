@@ -10,8 +10,8 @@ void ADMRoe::createEquation() {
 	equation = std::make_shared<HydroGPU::Equation::ADM>(this);
 }
 
-void ADMRoe::init() {
-	Super::init();
+void ADMRoe::initKernels() {
+	Super::initKernels();
 	
 	addSourceKernel = cl::Kernel(program, "addSource");
 	addSourceKernel.setArg(1, stateBuffer);

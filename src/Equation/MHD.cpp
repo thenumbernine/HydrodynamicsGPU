@@ -7,13 +7,6 @@
 namespace HydroGPU {
 namespace Equation {
 
-enum {
-	BOUNDARY_METHOD_PERIODIC,
-	BOUNDARY_METHOD_MIRROR,
-	BOUNDARY_METHOD_FREEFLOW,
-	NUM_BOUNDARY_METHODS
-};
-
 MHD::MHD(HydroGPU::Solver::Solver* solver_)
 : Super(solver_)
 {
@@ -26,7 +19,7 @@ MHD::MHD(HydroGPU::Solver::Solver* solver_)
 		"POTENTIAL"
 	};
 
-	//matches above
+	//matches Equations/SelfGravitationBehavior 
 	boundaryMethods = std::vector<std::string>{
 		"PERIODIC",
 		"MIRROR",
@@ -73,21 +66,6 @@ int MHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int stateIndex) {
 		break;
 	case BOUNDARY_METHOD_MIRROR:
 		return (dim + 1 == stateIndex || dim + 4 == stateIndex) ? BOUNDARY_KERNEL_REFLECT : BOUNDARY_KERNEL_MIRROR;
-		break;		
-	case BOUNDARY_METHOD_FREEFLOW:
-		return BOUNDARY_KERNEL_FREEFLOW;
-		break;
-	}
-	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
-}
-
-int MHD::gravityGetBoundaryKernelForBoundaryMethod(int dim) {
-	switch (solver->app->boundaryMethods(dim)) {
-	case BOUNDARY_METHOD_PERIODIC:
-		return BOUNDARY_KERNEL_PERIODIC;
-		break;
-	case BOUNDARY_METHOD_MIRROR:
-		return BOUNDARY_KERNEL_FREEFLOW;
 		break;		
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;

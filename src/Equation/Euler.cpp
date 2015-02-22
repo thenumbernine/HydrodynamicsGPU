@@ -1,18 +1,12 @@
 #include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
 
 namespace HydroGPU {
 namespace Equation {
-
-enum {
-	BOUNDARY_METHOD_PERIODIC,
-	BOUNDARY_METHOD_MIRROR,
-	BOUNDARY_METHOD_FREEFLOW,
-	NUM_BOUNDARY_METHODS
-};
 
 Euler::Euler(HydroGPU::Solver::Solver* solver_) 
 : Super(solver_)
@@ -24,7 +18,7 @@ Euler::Euler(HydroGPU::Solver::Solver* solver_)
 		"POTENTIAL"
 	};
 
-	//matches above 
+	//matches Equations/SelfGravitationBehavior 
 	boundaryMethods = std::vector<std::string>{
 		"PERIODIC",
 		"MIRROR",
@@ -57,21 +51,6 @@ int Euler::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
 		break;
 	case BOUNDARY_METHOD_MIRROR:
 		return dim + 1 == state ? BOUNDARY_KERNEL_REFLECT : BOUNDARY_KERNEL_MIRROR;
-		break;		
-	case BOUNDARY_METHOD_FREEFLOW:
-		return BOUNDARY_KERNEL_FREEFLOW;
-		break;
-	}
-	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
-}
-
-int Euler::gravityGetBoundaryKernelForBoundaryMethod(int dim) {
-	switch (solver->app->boundaryMethods(dim)) {
-	case BOUNDARY_METHOD_PERIODIC:
-		return BOUNDARY_KERNEL_PERIODIC;
-		break;
-	case BOUNDARY_METHOD_MIRROR:
-		return BOUNDARY_KERNEL_FREEFLOW;
 		break;		
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;

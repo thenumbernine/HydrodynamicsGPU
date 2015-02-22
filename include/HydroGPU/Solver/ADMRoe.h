@@ -9,16 +9,16 @@ namespace Solver {
 Roe solver for ADM 1D 5-variable equations
 */
 struct ADMRoe : public Roe {
-protected:
 	typedef Roe Super;
-	
+
+protected:
 	cl::Kernel addSourceKernel;
 
 public:
 	using Super::Super;
-	virtual void init();
 
 protected:
+	virtual void initKernels();
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 	virtual void calcDeriv(cl::Buffer derivBuffer);

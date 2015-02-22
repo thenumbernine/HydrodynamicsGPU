@@ -16,7 +16,6 @@ struct ADM3D : public Equation {
 	ADM3D(HydroGPU::Solver::Solver* solver);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state);
-	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim);
 };
 
 }

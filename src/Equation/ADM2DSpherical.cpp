@@ -1,4 +1,4 @@
-#include "HydroGPU/Equation/ADM.h"
+#include "HydroGPU/Equation/ADM2DSpherical.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/HydroGPUApp.h"
@@ -15,7 +15,7 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-ADM::ADM(HydroGPU::Solver::Solver* solver_) 
+ADM2DSpherical::ADM2DSpherical(HydroGPU::Solver::Solver* solver_)
 : Super(solver_)
 {
 	//TODO fixme
@@ -35,21 +35,20 @@ ADM::ADM(HydroGPU::Solver::Solver* solver_)
 	};
 
 	states.push_back("ALPHA");
-	states.push_back("G");
-	states.push_back("A");	// = dx ln alpha
-	states.push_back("D");	// = dx ln g
-	states.push_back("K");
+	states.push_back("G_R_R");
+	states.push_back("G_THETA_THETA");
+	states.push_back("A");
+	states.push_back("B");
+	states.push_back("D_A");
+	states.push_back("D_B");
+	states.push_back("K_A");
+	states.push_back("K_B");
+	states.push_back("LAMBDA");
 }
-
-void ADM::getProgramSources(std::vector<std::string>& sources) {
+	
+void ADM2DSpherical::getProgramSources(std::vector<std::string>& sources) {
 	Super::getProgramSources(sources);
 
-	//TODO detect type, cast number to CL string or use literal string
-	//if type is number ...
-	//real adm_BonaMasso_f = 1.f;
-	//solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
-	//sources[0] += "#define ADM_BONA_MASSO_F " + toNumericString<real>(adm_BonaMasso_f) + "\n";
-	//else if type is string ...
 	std::string adm_BonaMasso_f = "1.f";
 	solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	sources[0] += "#define ADM_BONA_MASSO_F " + adm_BonaMasso_f + "\n";
@@ -57,10 +56,10 @@ void ADM::getProgramSources(std::vector<std::string>& sources) {
 	solver->app->lua.ref()["adm_BonaMasso_df_dalpha"] >> adm_BonaMasso_df_dalpha;
 	sources[0] += "#define ADM_BONA_MASSO_DF_DALPHA " + adm_BonaMasso_df_dalpha + "\n";
 	
-	sources.push_back(Common::File::read("ADMCommon.cl"));
+	sources.push_back(Common::File::read("ADM2DSphericalCommon.cl"));
 }
 
-int ADM::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
+int ADM2DSpherical::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
 	switch (solver->app->boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;

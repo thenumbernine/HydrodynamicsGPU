@@ -1,7 +1,8 @@
+#include "HydroGPU/Equation/SelfGravitationBehavior.h"
 #include "HydroGPU/Solver/MHDRemoveDivergence.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
-#include "HydroGPU/Solver/Solver.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -63,8 +64,9 @@ void MHDRemoveDivergence::update() {
 // maybe I could merge them?
 void MHDRemoveDivergence::boundary(cl::Buffer buffer) {
 	cl::NDRange offset, global, local;
+	std::shared_ptr<HydroGPU::Equation::SelfGravitationInterface> gravEqn = std::dynamic_pointer_cast<HydroGPU::Equation::SelfGravitationInterface>(solver->equation);
 	for (int i = 0; i < solver->app->dim; ++i) {
-		int boundaryKernelIndex = solver->equation->gravityGetBoundaryKernelForBoundaryMethod(i);
+		int boundaryKernelIndex = gravEqn->gravityGetBoundaryKernelForBoundaryMethod(i);
 		cl::Kernel& kernel = solver->boundaryKernels[boundaryKernelIndex][i];
 		solver->app->setArgs(kernel, buffer, 1, 0);
 		solver->getBoundaryRanges(i, offset, global, local);

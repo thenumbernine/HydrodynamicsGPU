@@ -10,11 +10,11 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'EulerHLLC' -- needs slope limiter support
 --solverName = 'EulerRoe' -- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe' -- in the works
-solverName = 'MHDBurgers'	-- works with Orszag-Tang and Brio-Wu, and some hydro problems too
+--solverName = 'MHDBurgers'	-- works with Orszag-Tang and Brio-Wu, and some hydro problems too
 --solverName = 'MHDHLLC'	-- needs 2nd order support, suffers same as EulerHLLC
 --solverName = 'MHDRoe' -- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
 --solverName = 'MaxwellRoe'	-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
---solverName = 'ADMRoe' -- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
+solverName = 'ADMRoe' -- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
 --solverName = 'BSSNOKRoe'	--BSSNOK Roe
 
 --slopeLimiterName = 'DonorCell'
@@ -81,10 +81,10 @@ conductivity = 1
 size = {64, 64, 64}
 vectorFieldResolution = 16
 --]]
--- [[ 2D
+--[[ 2D
 size = {128, 128}
 --]]
---[[ 1D
+-- [[ 1D
 size = {1024}
 displayScale = .25
 --]]
@@ -95,7 +95,7 @@ displayScale = .25
 --configurations['self-gravitation test 1']()
 
 -- MHD
-configurations['Orszag-Tang']()
+--configurations['Orszag-Tang']()
 
 --[[ Maxwell 
 displayMethod = 'ELECTRIC'
@@ -103,7 +103,7 @@ boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 configurations['Maxwell-1']()
 --]]
 
---[[ ADM (1D)
+-- [[ ADM (1D)
 configurations['ADM-1D']()
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 displayMethod = 'ALPHA'

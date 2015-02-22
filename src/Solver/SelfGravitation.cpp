@@ -1,3 +1,4 @@
+#include "HydroGPU/Equation/SelfGravitationBehavior.h"
 #include "HydroGPU/Solver/SelfGravitation.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
@@ -88,10 +89,10 @@ void SelfGravitation::applyPotential() {
 
 void SelfGravitation::potentialBoundary() {
 	cl::CommandQueue commands = solver->commands;
-	
 	cl::NDRange offset, global, local;
+	std::shared_ptr<HydroGPU::Equation::SelfGravitationInterface> gravEqn = std::dynamic_pointer_cast<HydroGPU::Equation::SelfGravitationInterface>(solver->equation);
 	for (int i = 0; i < solver->app->dim; ++i) {
-		int boundaryKernelIndex = solver->equation->gravityGetBoundaryKernelForBoundaryMethod(i);
+		int boundaryKernelIndex = gravEqn->gravityGetBoundaryKernelForBoundaryMethod(i);
 		cl::Kernel& kernel = solver->boundaryKernels[boundaryKernelIndex][i];
 		solver->app->setArgs(kernel, potentialBuffer, 1, 0);
 		solver->getBoundaryRanges(i, offset, global, local);

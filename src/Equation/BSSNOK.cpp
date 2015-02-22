@@ -1,5 +1,6 @@
 #include "HydroGPU/Equation/BSSNOK.h"
 #include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
@@ -97,21 +98,6 @@ int BSSNOK::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
 		break;
 	case BOUNDARY_METHOD_MIRROR:
 		return BOUNDARY_KERNEL_MIRROR;
-		break;		
-	case BOUNDARY_METHOD_FREEFLOW:
-		return BOUNDARY_KERNEL_FREEFLOW;
-		break;
-	}
-	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
-}
-
-int BSSNOK::gravityGetBoundaryKernelForBoundaryMethod(int dim) {
-	switch (solver->app->boundaryMethods(dim)) {
-	case BOUNDARY_METHOD_PERIODIC:
-		return BOUNDARY_KERNEL_PERIODIC;
-		break;
-	case BOUNDARY_METHOD_MIRROR:
-		return BOUNDARY_KERNEL_FREEFLOW;
 		break;		
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;

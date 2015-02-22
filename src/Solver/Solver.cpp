@@ -5,6 +5,7 @@
 #include "HydroGPU/Plot/Plot1D.h"
 #include "HydroGPU/Plot/Plot2D.h"
 #include "HydroGPU/Plot/Plot3D.h"
+#include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
 #include "Common/File.h"
