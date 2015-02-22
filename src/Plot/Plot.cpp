@@ -3,7 +3,7 @@
 namespace HydroGPU {
 namespace Plot {
 
-Plot::Plot(HydroGPU::Solver::Solver& solver_)
+Plot::Plot(HydroGPU::Solver::Solver* solver_)
 : solver(solver_)
 , fluidTex(GLuint())
 {

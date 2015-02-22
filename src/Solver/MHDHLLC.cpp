@@ -7,27 +7,24 @@ namespace HydroGPU {
 namespace Solver {
 
 void MHDHLLC::init() {
-	divfree = std::make_shared<MHDRemoveDivergence>(*this);
 	Super::init();
-	divfree->init();
+	
+	//all Euler and MHD systems also have a separate potential buffer...
+	app->setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer, selfgrav->potentialBuffer);
+	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, selfgrav->potentialBuffer, dtBuffer);
 }
 
 void MHDHLLC::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::MHD>(*this);
+	equation = std::make_shared<HydroGPU::Equation::MHD>(this);
 }
 
 std::string MHDHLLC::getFluxSource() {
 	return Common::File::read("MHDHLLC.cl");
 }
 
-std::vector<std::string> MHDHLLC::getProgramSources() {
-	std::vector<std::string> sources = Super::getProgramSources();
-	divfree->getProgramSources(sources);
-	return sources;
-}
-
 void MHDHLLC::step() {
 	Super::step();
+	selfgrav->applyPotential();
 	divfree->update();
 }
 

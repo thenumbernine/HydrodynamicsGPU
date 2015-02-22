@@ -81,7 +81,6 @@ __kernel void calcInterfaceVelocity(
 	}
 	int index = INDEXV(i);
 	int indexR = index;
-
 	for (int side = 0; side < DIM; ++side) {
 		int indexL = index - stepsize[side];
 		

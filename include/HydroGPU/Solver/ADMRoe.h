@@ -6,7 +6,7 @@ namespace HydroGPU {
 namespace Solver {
 
 /*
-Roe solver for ADM equations
+Roe solver for ADM 1D 5-variable equations
 */
 struct ADMRoe : public Roe {
 protected:

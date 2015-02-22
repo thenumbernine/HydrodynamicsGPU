@@ -3,7 +3,7 @@
 namespace HydroGPU {
 namespace Equation {
 
-Equation::Equation() {}
+Equation::Equation(HydroGPU::Solver::Solver* solver_) : solver(solver_) {}
 
 std::string Equation::buildEnumCode(const std::string& prefix, const std::vector<std::string>& enumStrs) {
 	std::string str = "enum {\n";
@@ -15,10 +15,16 @@ std::string Equation::buildEnumCode(const std::string& prefix, const std::vector
 	return str;
 }
 
-void Equation::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources) {
+void Equation::getProgramSources(std::vector<std::string>& sources) {
 	sources[0] += buildEnumCode("STATE", states);
 	sources[0] += buildEnumCode("DISPLAY", displayMethods);
 	sources[0] += buildEnumCode("BOUNDARY", boundaryMethods);
+}
+
+void Equation::readStateCell(real* state, const real* source) {
+	for (int i = 0; i < (int)states.size(); ++i) {
+		state[i] = source[i];
+	}
 }
 
 }

@@ -13,7 +13,7 @@ namespace Plot {
 struct Plot3D : public Plot {
 	typedef Plot Super;
 	
-	Plot3D(HydroGPU::Solver::Solver& solver);
+	Plot3D(HydroGPU::Solver::Solver* solver);
 	
 	virtual void display();
 	virtual void resize();

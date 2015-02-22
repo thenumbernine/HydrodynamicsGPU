@@ -29,11 +29,11 @@ static int quads[] = {
 namespace HydroGPU {
 namespace Plot {
 
-Plot3D::Plot3D(HydroGPU::Solver::Solver& solver)
+Plot3D::Plot3D(HydroGPU::Solver::Solver* solver)
 : Super(solver)
 , viewDist(1.f)
 {
-	int volume = solver.getVolume();
+	int volume = solver->getVolume();
 	
 	std::string shaderCode = Common::File::read("Display3D.shader");
 	std::vector<Shader::Shader> shaders = {
@@ -43,8 +43,8 @@ Plot3D::Plot3D(HydroGPU::Solver::Solver& solver)
 	displayShader = std::make_shared<Shader::Program>(shaders);
 	displayShader->link()
 		.setUniform<int>("tex", 0)
-		.setUniform<int>("maxiter", std::max(solver.app.size.s[0], std::max(solver.app.size.s[1], solver.app.size.s[2])))
-		.setUniform<float>("scale", solver.app.xmax.s[0] - solver.app.xmin.s[0], solver.app.xmax.s[1] - solver.app.xmin.s[1], solver.app.xmax.s[2] - solver.app.xmin.s[2])
+		.setUniform<int>("maxiter", std::max(solver->app->size.s[0], std::max(solver->app->size.s[1], solver->app->size.s[2])))
+		.setUniform<float>("scale", solver->app->xmax.s[0] - solver->app->xmin.s[0], solver->app->xmax.s[1] - solver->app->xmin.s[1], solver->app->xmax.s[2] - solver->app->xmin.s[2])
 		.done();
 
 	//get a texture going for visualizing the output
@@ -54,8 +54,8 @@ Plot3D::Plot3D(HydroGPU::Solver::Solver& solver)
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	Tensor::Vector<int,3> glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
 	//specific to Euler
-	for (int i = 0; i < solver.app.dim; ++i) {
-		switch (solver.app.boundaryMethods(i)) {
+	for (int i = 0; i < solver->app->dim; ++i) {
+		switch (solver->app->boundaryMethods(i)) {
 		case 0://BOUNDARY_PERIODIC:
 			glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_REPEAT);
 			break;
@@ -65,9 +65,9 @@ Plot3D::Plot3D(HydroGPU::Solver::Solver& solver)
 			break;
 		}
 	}
-	glTexImage3D(GL_TEXTURE_3D, 0, 4, solver.app.size.s[0], solver.app.size.s[1], solver.app.size.s[2], 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	solver.totalAlloc += sizeof(char) * 4 * volume;
-	std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << solver.totalAlloc << std::endl;
+	glTexImage3D(GL_TEXTURE_3D, 0, 4, solver->app->size.s[0], solver->app->size.s[1], solver->app->size.s[2], 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	solver->totalAlloc += sizeof(char) * 4 * volume;
+	std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << solver->totalAlloc << std::endl;
 	glBindTexture(GL_TEXTURE_3D, 0);
 	int err = glGetError();
 	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
@@ -99,9 +99,9 @@ void Plot3D::display() {
 			float y = vertexes[quads[i] * 3 + 1];
 			float z = vertexes[quads[i] * 3 + 2];
 			glTexCoord3f(x, y, z);
-			x = x * (solver.app.xmax.s[0] - solver.app.xmin.s[0]) + solver.app.xmin.s[0];
-			y = y * (solver.app.xmax.s[1] - solver.app.xmin.s[1]) + solver.app.xmin.s[1];
-			z = z * (solver.app.xmax.s[2] - solver.app.xmin.s[2]) + solver.app.xmin.s[2];
+			x = x * (solver->app->xmax.s[0] - solver->app->xmin.s[0]) + solver->app->xmin.s[0];
+			y = y * (solver->app->xmax.s[1] - solver->app->xmin.s[1]) + solver->app->xmin.s[1];
+			z = z * (solver->app->xmax.s[2] - solver->app->xmin.s[2]) + solver->app->xmin.s[2];
 			glVertex3f(x, y, z);
 		}
 		glEnd();
@@ -123,7 +123,7 @@ void Plot3D::resize() {
 	const float zFar = 10;
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glFrustum(-solver.app.aspectRatio * zNear, solver.app.aspectRatio * zNear, -zNear, zNear, zNear, zFar);
+	glFrustum(-solver->app->aspectRatio * zNear, solver->app->aspectRatio * zNear, -zNear, zNear, zNear, zFar);
 }
 
 void Plot3D::mousePan(int dx, int dy) {
@@ -141,17 +141,17 @@ void Plot3D::mouseZoom(int dz) {
 
 void Plot3D::screenshot(const std::string& filename) {
 	std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(
-		Tensor::Vector<int,2>(solver.app.size.s[0], solver.app.size.s[1]),
+		Tensor::Vector<int,2>(solver->app->size.s[0], solver->app->size.s[1]),
 		nullptr, 3);
 	
-	size_t volume = solver.getVolume();
+	size_t volume = solver->getVolume();
 	std::vector<char> buffer(volume);
 	glBindTexture(GL_TEXTURE_3D, fluidTex);
 	glGetTexImage(GL_TEXTURE_3D, 0, GL_RGB, GL_UNSIGNED_BYTE, &buffer[0]);
 	glBindTexture(GL_TEXTURE_3D, 0);
 	std::vector<char>::iterator iter = buffer.begin();
-	size_t sliceSize = solver.app.size.s[0] * solver.app.size.s[1];
-	for (int z = 0; z < solver.app.size.s[2]; ++z) {
+	size_t sliceSize = solver->app->size.s[0] * solver->app->size.s[1];
+	for (int z = 0; z < solver->app->size.s[2]; ++z) {
 		std::copy(iter, iter + sliceSize, image->getData());
 		iter += sliceSize;
 		std::string layerFilename = filename + "-layer" + std::to_string(z) + ".png";

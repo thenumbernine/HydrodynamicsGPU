@@ -1,17 +1,21 @@
 #pragma once
 
+#include "HydroGPU/Solver/SelfGravitationBehavior.h"
 #include "HydroGPU/Solver/HLL.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
 namespace Solver {
 
-struct EulerHLL : public HLL {
-	typedef HLL Super;
+struct EulerHLL : public SelfGravitationBehavior<HLL> {
+	typedef SelfGravitationBehavior<HLL> Super;
 	using Super::Super;
+public:
+	virtual void init();
 protected:
 	virtual void createEquation();
 	virtual std::string getFluxSource();
+	virtual void step();
 };
 
 }

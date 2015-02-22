@@ -14,8 +14,8 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-Maxwell::Maxwell(HydroGPU::Solver::Solver& solver) 
-: Super()
+Maxwell::Maxwell(HydroGPU::Solver::Solver* solver_) 
+: Super(solver_)
 {
 	displayMethods = std::vector<std::string>{
 		"ELECTRIC",
@@ -25,8 +25,7 @@ Maxwell::Maxwell(HydroGPU::Solver::Solver& solver)
 		"MAGNETIC",
 		"MAGNETIC_X",
 		"MAGNETIC_Y",
-		"MAGNETIC_Z",
-		"POTENTIAL"
+		"MAGNETIC_Z"
 	};
 
 	//matches above 
@@ -44,31 +43,31 @@ Maxwell::Maxwell(HydroGPU::Solver::Solver& solver)
 	states.push_back("MAGNETIC_Z");
 }
 
-void Maxwell::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources) {
-	Super::getProgramSources(solver, sources);
+void Maxwell::getProgramSources(std::vector<std::string>& sources) {
+	Super::getProgramSources(sources);
 	
 	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
 
 	real permeability = 1.f;
-	solver.app.lua.ref()["permeability"] >> permeability;
+	solver->app->lua.ref()["permeability"] >> permeability;
 	sources[0] += "constant real permeability = " + toNumericString<real>(permeability) + ";\n";
 	sources[0] += "constant real sqrtPermeability = " + toNumericString<real>(sqrt(permeability)) + ";\n";
 	
 	real permittivity = 1.f;
-	solver.app.lua.ref()["permittivity"] >> permittivity;
+	solver->app->lua.ref()["permittivity"] >> permittivity;
 	sources[0] += "constant real permittivity = " + toNumericString<real>(permittivity) + ";\n";
 	sources[0] += "constant real sqrtPermittivity = " + toNumericString<real>(sqrt(permittivity)) + ";\n";
 	
 	real conductivity = 1.f;
-	solver.app.lua.ref()["conductivity"] >> conductivity;
+	solver->app->lua.ref()["conductivity"] >> conductivity;
 	sources[0] += "constant real conductivity = " + toNumericString<real>(conductivity) + ";\n";
 	sources[0] += "constant real sqrtConductivity = " + toNumericString<real>(sqrt(conductivity)) + ";\n";
 
 	sources.push_back(Common::File::read("MaxwellCommon.cl"));
 }
 
-int Maxwell::stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim, int state) {
-	switch (solver.app.boundaryMethods(dim)) {
+int Maxwell::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
+	switch (solver->app->boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
@@ -79,11 +78,11 @@ int Maxwell::stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& s
 		return BOUNDARY_KERNEL_FREEFLOW;
 		break;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
 }
 
-int Maxwell::gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim) {
-	switch (solver.app.boundaryMethods(dim)) {
+int Maxwell::gravityGetBoundaryKernelForBoundaryMethod(int dim) {
+	switch (solver->app->boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
@@ -94,7 +93,7 @@ int Maxwell::gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver&
 		return BOUNDARY_KERNEL_FREEFLOW;
 		break;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
 }
 
 }

@@ -3,14 +3,14 @@
 /*
 MHD Burgers:
 
-    [  rho  ]             [  rho  ]              [      0    ]    [         0        ]
-  d [rho v_i]     d       [rho v_i]      d       [  -B_i/mu  ]    [     dP* / dx_i   ]
- -- [  B_i  ] + ---- (v_j [  B_i  ]) + ---- (B_j [    -v_i   ]) + [         0        ] = 0
- dt [ rho Z ]   dx_j      [ rho Z ]    dx_j      [-v_k B_k/mu]    [ d(P* v_j) / dx_j ]
+    [  rho  ]             [  rho  ]              [     0    ]    [         0        ]
+  d [rho v_i]     d       [rho v_i]      d       [  B_i/mu  ]    [     dP* / dx_i   ]
+ -- [  B_i  ] + ---- (v_j [  B_i  ]) - ---- (B_j [    v_i   ]) + [         0        ] = 0
+ dt [ rho E ]   dx_j      [ rho E ]    dx_j      [v_k B_k/mu]    [ d(P* v_j) / dx_j ]
 
 
 for...
-Z = total energy = eHydro + B^2 / (2 mu rho)
+E = total energy = eHydro + B^2 / (2 mu rho)
 eHydro = total hydro specific energy = eInt + eKin
 eInt = total internal specific energy
 eKin = total kinetic specific energy = 1/2 v^2
@@ -43,37 +43,11 @@ __kernel void calcCFL(
 
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
-	real density = state[STATE_DENSITY];
-	real energyTotal = state[STATE_ENERGY_TOTAL];
-	real4 velocity = (real4)(state[STATE_MOMENTUM_X], state[STATE_MOMENTUM_Y], state[STATE_MOMENTUM_Z], 0.f) / density;
-	real4 magneticField = (real4)(state[STATE_MAGNETIC_FIELD_X], state[STATE_MAGNETIC_FIELD_Y], state[STATE_MAGNETIC_FIELD_Z], 0.f);
-	
-	real velocitySq = dot(velocity, velocity);
-	real magneticFieldSq = dot(magneticField, magneticField);
-	
-	real specificEnergyTotal = energyTotal / density;
-	real specificEnergyKinetic = .5f * velocitySq;
-	real specificEnergyMagnetic = .5f * magneticFieldSq / vaccuumPermeability;
-	real specificEnergyPotential = potentialBuffer[index];
-	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential - specificEnergyMagnetic;
-
-	real speedOfSoundSq = gamma * (gamma - 1.f) * specificEnergyInternal;
-
-	//use fast speed for timestep
-	real tmp1 = speedOfSoundSq + magneticFieldSq / (vaccuumPermeability * density);
-	
-	//subtract magnetic field along normal
-	//real discr = tmp1 * tmp1 - 4.f * speedOfSoundSq * magneticFieldXSq / (vaccuumPermeability * density);
-	//real tmp2 = sqrt(discr);
-	//real fastSpeedSq = .5f * (tmp1 + tmp2);
-	//...or assume it to be zero
-	real fastSpeedSq = tmp1;
-	
-	real fastSpeed = sqrt(fastSpeedSq);
-
-	real result = dx[0] / (fastSpeed + fabs(velocity[0]));
+	Primitives_t prims = calcPrimitivesFromState(*(const __global real8*)state, potentialBuffer[index]);
+	Wavespeed_t speed = calcWavespeedFromPrimitives(prims);
+	real result = dx[0] / (speed.fast + fabs(prims.velocity.x));
 	for (int side = 1; side < DIM; ++side) {
-		real dum = dx[side] / (fastSpeed + fabs(velocity[side]));
+		real dum = dx[side] / (speed.fast + fabs(prims.velocity[side]));
 		result = min(result, dum);
 	}
 	
@@ -208,15 +182,16 @@ __kernel void calcInterfaceMagneticField(
 
 real8 getMagneticFluxFromState(const __global real* state);
 real8 getMagneticFluxFromState(const __global real* state) {
+#if 1
+	return *(const __global real8*)state;
+#else
 	real4 velocity = VELOCITY(state);
 	real4 magneticFieldOverMu = (real4)(
 		state[STATE_MAGNETIC_FIELD_X] / vaccuumPermeability,
 		state[STATE_MAGNETIC_FIELD_Y] / vaccuumPermeability,
 		state[STATE_MAGNETIC_FIELD_Z] / vaccuumPermeability,
 		0.f);
-	//this is supposed to be negative ...
-	//but that is causing problems ...
-	return (real8)(
+	return -(real8)(
 		0.f,
 		magneticFieldOverMu.x,
 		magneticFieldOverMu.y,
@@ -226,6 +201,7 @@ real8 getMagneticFluxFromState(const __global real* state) {
 		velocity.z,
 		dot(velocity, magneticFieldOverMu)
 	);
+#endif
 }
 
 __kernel void calcMagneticFieldFlux(

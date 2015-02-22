@@ -170,27 +170,27 @@ void HydroGPUApp::init() {
 	//construct the solver
 	std::cout << "solverName " << solverName << std::endl;
 	if (solverName == "EulerBurgers") {
-		solver = std::make_shared<HydroGPU::Solver::EulerBurgers>(*this);
+		solver = std::make_shared<HydroGPU::Solver::EulerBurgers>(this);
 	} else if (solverName == "EulerHLL") {
-		solver = std::make_shared<HydroGPU::Solver::EulerHLL>(*this);
+		solver = std::make_shared<HydroGPU::Solver::EulerHLL>(this);
 	} else if (solverName == "EulerHLLC") {
-		solver = std::make_shared<HydroGPU::Solver::EulerHLLC>(*this);
+		solver = std::make_shared<HydroGPU::Solver::EulerHLLC>(this);
 	} else if (solverName == "EulerRoe") {
-		solver = std::make_shared<HydroGPU::Solver::EulerRoe>(*this);
+		solver = std::make_shared<HydroGPU::Solver::EulerRoe>(this);
 	} else if (solverName == "SRHDRoe") {
-		solver = std::make_shared<HydroGPU::Solver::SRHDRoe>(*this);	//FIXME
+		solver = std::make_shared<HydroGPU::Solver::SRHDRoe>(this);
 	} else if (solverName == "MHDBurgers") {
-		solver = std::make_shared<HydroGPU::Solver::MHDBurgers>(*this);
+		solver = std::make_shared<HydroGPU::Solver::MHDBurgers>(this);
 	} else if (solverName == "MHDHLLC") {
-		solver = std::make_shared<HydroGPU::Solver::MHDHLLC>(*this);
+		solver = std::make_shared<HydroGPU::Solver::MHDHLLC>(this);
 	} else if (solverName == "MHDRoe") {
-		solver = std::make_shared<HydroGPU::Solver::MHDRoe>(*this);
+		solver = std::make_shared<HydroGPU::Solver::MHDRoe>(this);
 	} else if (solverName == "MaxwellRoe") {
-		solver = std::make_shared<HydroGPU::Solver::MaxwellRoe>(*this);
+		solver = std::make_shared<HydroGPU::Solver::MaxwellRoe>(this);
 	} else if (solverName == "ADMRoe") {
-		solver = std::make_shared<HydroGPU::Solver::ADMRoe>(*this);
+		solver = std::make_shared<HydroGPU::Solver::ADMRoe>(this);
 	} else if (solverName == "BSSNOKRoe") {
-		solver = std::make_shared<HydroGPU::Solver::BSSNOKRoe>(*this);	//FIXME
+		solver = std::make_shared<HydroGPU::Solver::BSSNOKRoe>(this);
 	} else {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}
@@ -352,11 +352,14 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 			std::cout << "boundary " << solver->equation->boundaryMethods[boundaryMethods(0)] << std::endl;
 		} else if (event.key.keysym.sym == SDLK_u) {
 			if (doUpdate) {
+				std::cout << "stopping..." << std::endl;
 				doUpdate = 0;
 			} else {
 				if (shiftDown) {
+					std::cout << "step..." << std::endl;
 					doUpdate = 2;
 				} else {
+					std::cout << "starting..." << std::endl;
 					doUpdate = 1;
 				}
 			}

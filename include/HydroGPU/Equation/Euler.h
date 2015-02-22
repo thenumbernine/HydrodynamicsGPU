@@ -12,10 +12,11 @@ namespace Equation {
 
 struct Euler : public Equation {
 	typedef Equation Super;
-	Euler(HydroGPU::Solver::Solver& solver);
-	virtual void getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources);
-	virtual int stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim, int state);
-	virtual int gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim);
+	Euler(HydroGPU::Solver::Solver* solver);
+	virtual void getProgramSources(std::vector<std::string>& sources);
+	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state);
+	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim);
+	virtual void readStateCell(real* state, const real* source);
 };
 
 }

@@ -1,17 +1,15 @@
 #pragma once
 
+#include "HydroGPU/Solver/SelfGravitationBehavior.h"
+#include "HydroGPU/Solver/MHDRemoveDivergenceBehavior.h"
 #include "HydroGPU/Solver/HLL.h"
-#include "HydroGPU/Solver/MHDRemoveDivergence.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
 namespace Solver {
 
-struct MHDHLLC : public HLL {
-	typedef HLL Super;
-
-protected:
-	std::shared_ptr<MHDRemoveDivergence> divfree;
+struct MHDHLLC : public MHDRemoveDivergenceBehavior<SelfGravitationBehavior<HLL>> {
+	typedef MHDRemoveDivergenceBehavior<SelfGravitationBehavior<HLL>> Super;
 
 public:
 	using Super::Super;
@@ -20,7 +18,6 @@ public:
 protected:
 	virtual void createEquation();
 	virtual std::string getFluxSource();
-	std::vector<std::string> getProgramSources();
 	virtual void step();
 };
 

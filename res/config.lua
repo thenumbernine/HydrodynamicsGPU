@@ -39,8 +39,8 @@ slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
-integratorName = 'ForwardEuler'
---integratorName = 'RungeKutta4'
+--integratorName = 'ForwardEuler'
+integratorName = 'RungeKutta4'
 
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
@@ -57,7 +57,7 @@ boundaryMethods = {'PERIODIC', 'PERIODIC', 'PERIODIC'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false
-gravitationalConstant = 5	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful units please
+gravitationalConstant = 1	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful units please
 gaussSeidelMaxIter = 20
 
 showVectorField = false
@@ -68,7 +68,7 @@ vectorFieldScale = .125
 gamma = 1.4
 
 -- MHD constants:
-vaccuumPermeability = 100	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
+vaccuumPermeability = 1	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
 
 -- Maxwell constants:
 permittivity = 1
@@ -85,21 +85,25 @@ vectorFieldResolution = 16
 size = {128, 128}
 --]]
 --[[ 1D
-size = {128}
+size = {1024}
 displayScale = .25
 --]]
 
 
+-- Euler
+--configurations['Sod']()
 --configurations['self-gravitation test 1']()
+
+-- MHD
 configurations['Orszag-Tang']()
 
---[[ see initState for a list of options
+--[[ Maxwell 
 displayMethod = 'ELECTRIC'
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 configurations['Maxwell-1']()
 --]]
 
---[[ set up for ADM ...
+--[[ ADM (1D)
 configurations['ADM-1D']()
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 displayMethod = 'ALPHA'

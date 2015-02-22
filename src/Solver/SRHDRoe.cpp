@@ -13,21 +13,21 @@ void SRHDRoe::init() {
 	primitiveBuffer = clAlloc(sizeof(real) * numStates() * volume);
 
 	initVariablesKernel = cl::Kernel(program, "initVariables");
-	app.setArgs(initVariablesKernel, stateBuffer, primitiveBuffer);
+	app->setArgs(initVariablesKernel, stateBuffer, primitiveBuffer);
 	
 	convertToTexKernel.setArg(0, primitiveBuffer);
 	
-	//app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, primitiveBuffer, stateBuffer, potentialBuffer);
 	calcEigenBasisKernel.setArg(0, eigenvaluesBuffer);
 	calcEigenBasisKernel.setArg(1, eigenvectorsBuffer);
 	calcEigenBasisKernel.setArg(2, eigenvectorsInverseBuffer);
 	calcEigenBasisKernel.setArg(3, primitiveBuffer);
 	calcEigenBasisKernel.setArg(4, stateBuffer);
-	calcEigenBasisKernel.setArg(5, potentialBuffer);
+	//TODO get SRHD equation working with selfgrav by renaming STATE_REST_MASS_DENSITY to STATE_DENSITY
+	//calcEigenBasisKernel.setArg(5, selfgrav->potentialBuffer);
 }
 	
 void SRHDRoe::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::SRHD>(*this);
+	equation = std::make_shared<HydroGPU::Equation::SRHD>(this);
 }
 
 std::vector<std::string> SRHDRoe::getProgramSources() {

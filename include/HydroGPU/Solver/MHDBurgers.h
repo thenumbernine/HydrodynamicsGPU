@@ -1,18 +1,17 @@
 #pragma once
 
+#include "HydroGPU/Solver/SelfGravitationBehavior.h"
+#include "HydroGPU/Solver/MHDRemoveDivergenceBehavior.h"
 #include "HydroGPU/Solver/Solver.h"
-#include "HydroGPU/Solver/MHDRemoveDivergence.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
 namespace Solver {
 
-struct MHDBurgers : public Solver {
-	typedef Solver Super;
+struct MHDBurgers : public MHDRemoveDivergenceBehavior<SelfGravitationBehavior<Solver>> {
+	typedef MHDRemoveDivergenceBehavior<SelfGravitationBehavior<Solver>> Super;
 
 protected:
-	std::shared_ptr<MHDRemoveDivergence> divfree;
-
 	cl::Buffer interfaceVelocityBuffer;
 	cl::Buffer interfaceMagneticFieldBuffer;
 	cl::Buffer fluxBuffer;
@@ -41,6 +40,10 @@ protected:
 	
 	virtual void calcTimestep();
 	virtual void step();
+	virtual void advectVelocity();
+	virtual void advectMagneticField();
+	virtual void diffusePressure();
+	virtual void diffuseWork();
 };
 
 }

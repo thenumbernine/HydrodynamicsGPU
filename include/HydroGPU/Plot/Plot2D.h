@@ -11,7 +11,7 @@ namespace Plot {
 struct Plot2D : public Plot1D2D {
 	typedef Plot1D2D Super;
 
-	Plot2D(HydroGPU::Solver::Solver& solver);
+	Plot2D(HydroGPU::Solver::Solver* solver);
 
 	virtual void display();
 };

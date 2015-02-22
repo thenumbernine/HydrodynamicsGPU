@@ -14,8 +14,8 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-BSSNOK::BSSNOK(HydroGPU::Solver::Solver& solver) 
-: Super()
+BSSNOK::BSSNOK(HydroGPU::Solver::Solver* solver_)
+: Super(solver_)
 {
 	displayMethods = std::vector<std::string>{
 		"ALPHA",
@@ -49,7 +49,7 @@ BSSNOK::BSSNOK(HydroGPU::Solver::Solver& solver)
 	so num state variables = 30
 	*/
 
-	int dim = solver.app.dim;
+	int dim = solver->app->dim;
 
 	std::vector<std::string> dimNames = {"X", "Y", "Z"};
 
@@ -80,18 +80,18 @@ BSSNOK::BSSNOK(HydroGPU::Solver::Solver& solver)
 	}
 }
 
-void BSSNOK::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources) {
-	Super::getProgramSources(solver, sources);
+void BSSNOK::getProgramSources(std::vector<std::string>& sources) {
+	Super::getProgramSources(sources);
 	
 	real adm_BonaMasso_f = 1.f;
-	solver.app.lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
+	solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	sources[0] += "#define BSSNOK_BONA_MASSO_F " + toNumericString<real>(adm_BonaMasso_f) + "\n";
 	
 	sources.push_back(Common::File::read("BSSNOKCommon.cl"));
 }
 
-int BSSNOK::stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim, int state) {
-	switch (solver.app.boundaryMethods(dim)) {
+int BSSNOK::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
+	switch (solver->app->boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
@@ -102,11 +102,11 @@ int BSSNOK::stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& so
 		return BOUNDARY_KERNEL_FREEFLOW;
 		break;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
 }
 
-int BSSNOK::gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim) {
-	switch (solver.app.boundaryMethods(dim)) {
+int BSSNOK::gravityGetBoundaryKernelForBoundaryMethod(int dim) {
+	switch (solver->app->boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
@@ -117,7 +117,7 @@ int BSSNOK::gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& 
 		return BOUNDARY_KERNEL_FREEFLOW;
 		break;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
 }
 
 }

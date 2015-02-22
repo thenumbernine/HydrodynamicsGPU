@@ -12,7 +12,7 @@ namespace Plot {
 struct Plot1D : public Plot1D2D {
 	typedef Plot1D2D Super;
 
-	Plot1D(HydroGPU::Solver::Solver& solver);
+	Plot1D(HydroGPU::Solver::Solver* solver);
 
 	virtual void display();
 

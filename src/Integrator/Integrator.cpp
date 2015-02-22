@@ -4,7 +4,7 @@
 namespace HydroGPU {
 namespace Integrator {
 
-Integrator::Integrator(HydroGPU::Solver::Solver& solver_)
+Integrator::Integrator(HydroGPU::Solver::Solver* solver_)
 : solver(solver_)
 {}
 

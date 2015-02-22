@@ -23,12 +23,12 @@ local function primsToState(density, velocityX, velocityY, velocityZ, energyTota
 		velocityX * density,
 		velocityY * density,
 		velocityZ * density,
-		-- total energy
-		energyTotal,
 		-- magnetic field
 		magneticFieldX,
 		magneticFieldY,
 		magneticFieldZ,
+		-- total energy
+		energyTotal,
 		-- potential energy
 		potentialEnergy
 end
@@ -59,8 +59,10 @@ function buildStateEuler(args)
 	local specificEnergyKinetic = getSpecificEnergyKinetic(velocityX, velocityY, velocityZ)
 	local specificEnergyInternal = args.specificEnergyInternal or getSpecificEnergyInternalForPressure(assert(args.pressure, "you need to provide either specificEnergyInternal or pressure"), density)
 	local magneticFieldEnergy = getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFieldZ)
-	local energyTotal = density * (specificEnergyKinetic + specificEnergyInternal) + magneticFieldEnergy
 	local potentialEnergy = args.potentialEnergy or 0
+	-- dont' add potential energy to total energy.  
+	-- it is added to total energy after self-gravity optionally calculates it (if enabled)
+	local energyTotal = density * (specificEnergyKinetic + specificEnergyInternal) + magneticFieldEnergy
 	return primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ, potentialEnergy)
 end
 

@@ -1,5 +1,25 @@
 #include "HydroGPU/Shared/Common.h"
 
+float sym33determinant(const __global real* m) {
+	return m[SYM33_XX] * m[SYM33_YY] * m[SYM33_ZZ]
+		+ m[SYM33_XY] * m[SYM33_YZ] * m[SYM33_XZ]
+		+ m[SYM33_XZ] * m[SYM33_XY] * m[SYM33_YZ]
+		- m[SYM33_XZ] * m[SYM33_YY] * m[SYM33_XZ]
+		- m[SYM33_YZ] * m[SYM33_YZ] * m[SYM33_XX]
+		- m[SYM33_ZZ] * m[SYM33_XY] * m[SYM33_XY];
+}
+
+//using Cramer's method
+void sym33inverse(const __global real* m, real* mInv) {
+	float det = sym33determinant(m);
+	mInv[SYM33_XX] = (m[SYM33_YY] * m[SYM33_ZZ] - m[SYM33_YZ] * m[SYM33_YZ]) / det;
+	mInv[SYM33_YY] = (m[SYM33_XX] * m[SYM33_ZZ] - m[SYM33_XZ] * m[SYM33_XZ]) / det;
+	mInv[SYM33_ZZ] = (m[SYM33_XX] * m[SYM33_YY] - m[SYM33_XY] * m[SYM33_XY]) / det;
+	mInv[SYM33_XY] = (m[SYM33_XY] * m[SYM33_ZZ] - m[SYM33_YZ] * m[SYM33_XZ]) / det;
+	mInv[SYM33_XZ] = (m[SYM33_XY] * m[SYM33_YZ] - m[SYM33_YY] * m[SYM33_XZ]) / det;
+	mInv[SYM33_YZ] = (m[SYM33_XX] * m[SYM33_YZ] - m[SYM33_XY] * m[SYM33_XZ]) / det;
+}
+
 //specific to Euler equations
 __kernel void convertToTex(
 	const __global real* stateBuffer,
@@ -13,33 +33,33 @@ __kernel void convertToTex(
 
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
-	real electric = length((real4)(state[STATE_ELECTRIC_X], state[STATE_ELECTRIC_Y], state[STATE_ELECTRIC_Z], 0.f)) / permittivity;
-	real magnetic = length((real4)(state[STATE_MAGNETIC_X], state[STATE_MAGNETIC_Y], state[STATE_MAGNETIC_Z], 0.f));
-
-#if DIM == 1
-	float4 color = (float4)(electric, magnetic, 0.f, 0.f) * displayScale;
-#else
-	real value;
+#if DIM == 1	//pack everything into one variable
+	float alpha = states[STATE_ALPHA];
+	float volume = states[STATE_ALPHA] * sym33determinant(states + STATE_GAMMA);
+	float4 color = (float4)(alpha, volume, K, 0.f) * displayScale;
+#else			//pick a single gradient and map it to a palette
+	float value = 0.f;
 	switch (displayMethod) {
-	case DISPLAY_ELECTRIC:
-		value = electric;
+	case DISPLAY_METHOD_LAPSE:
+		value = states[STATE_ALPHA];
 		break;
-	case DISPLAY_ELECTRIC_X:
-	case DISPLAY_ELECTRIC_Y:
-	case DISPLAY_ELECTRIC_Z:
-		value = state[STATE_ELECTRIC_X + displayMethod - DISPLAY_ELECTRIC_X];
+	case DISPLAY_METHOD_VOLUME:
+		value = states[STATE_ALPHA] * sym33determinant(states + STATE_GAMMA);
 		break;
-	case DISPLAY_MAGNETIC:
-		value = magnetic;
-		break;
-	case DISPLAY_MAGNETIC_X:
-	case DISPLAY_MAGNETIC_Y:
-	case DISPLAY_MAGNETIC_Z:
-		value = state[STATE_MAGNETIC_X + displayMethod - DISPLAY_MAGNETIC_X];
+	case DISPLAY_EXTRINSIC_CURVATURE:
+		{
+			float gammaInverse[6];
+			sym33inverse(states + STATE_GAMMA, gammaInverse);
+			for (int i = 0; i < 3; ++i) {	
+				//single pass of the diagonals
+				value += states[STATE_K_XX + i] * gammaInverse[i + SYM33_XX];
+				//double pass of the skew entries (which are symmetric) ... (not skew-symmetric (i.e. antisymmetric))
+				value += 2.f * states[STATE_K_XY + i] * gammaInverse[i + SYM33_XY];
+			}
+		}
 		break;
 	}
 	value *= displayScale;
-
 	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
 #endif
 	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
@@ -76,15 +96,10 @@ __kernel void updateVectorField(
 	int4 si = (int4)(sf.x, sf.y, sf.z, 0);
 	//float4 fp = (float4)(sf.x - (float)si.x, sf.y - (float)si.y, sf.z - (float)si.z, 0.f);
 	
-#if 1	//plotting electric field
+#if 1	//plotting velocity 
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
-	float4 velocity = (float4)(state[STATE_ELECTRIC_X], state[STATE_ELECTRIC_Y], state[STATE_ELECTRIC_Z], 0.f) / permittivity;
-#endif
-#if 0	//plotting electric field
-	int stateIndex = INDEXV(si);
-	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
-	float4 velocity = (float4)(state[STATE_MAGNETIC_X], state[STATE_MAGNETIC_Y], state[STATE_MAGNETIC_Z], 0.f);
+	float4 velocity = (float4)(state[0], 0.f, 0.f, 0.f);	//extrinsic curvature?  what's velocity?
 #endif
 
 	//velocity is the first axis of the basis to draw the arrows
@@ -119,5 +134,22 @@ __kernel void updateVectorField(
 		vertex[1 + 3 * i] = f.y * (YMAX - YMIN) + YMIN + scale * (offset[i].x * velocity.y + offset[i].y * tv.y);
 		vertex[2 + 3 * i] = f.z * (ZMAX - ZMIN) + ZMIN + scale * (offset[i].x * velocity.z + offset[i].y * tv.z);
 	}
+}
+
+//no support for this in ADMEquation
+//TODO shouldn't even be linking it
+
+__kernel void poissonRelax(
+	__global real* potentialBuffer,
+	const __global real* stateBuffer,
+	int4 repeat)
+{
+}
+
+__kernel void calcGravityDeriv(
+	__global real* derivBuffer,
+	const __global real* stateBuffer,
+	const __global real* gravityPotentialBuffer)
+{
 }
 

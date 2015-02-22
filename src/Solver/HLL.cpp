@@ -8,23 +8,23 @@ namespace Solver {
 void HLL::init() {
 	Super::init();
 
-	cl::Context context = app.context;
+	cl::Context context = app->context;
 
 	//memory
 
 	int volume = getVolume();
 
-	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app.dim);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app.dim);
+	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app->dim);
+	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app->dim);
 	
 	calcEigenvaluesKernel = cl::Kernel(program, "calcEigenvalues");
-	app.setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer, potentialBuffer);
+	app->setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dtBuffer);
+	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, dtBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.cfl);
+	app->setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app->cfl);
 	
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	calcFluxDerivKernel.setArg(1, fluxBuffer);
@@ -51,8 +51,6 @@ void HLL::step() {
 		calcFluxDerivKernel.setArg(0, derivBuffer);
 		commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
 	});
-
-	applyPotential();
 }
 
 }

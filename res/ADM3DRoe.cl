@@ -2,7 +2,14 @@
 The components of the Roe solver specific to the ADM equations
 paritcularly the spectral decomposition
 
-This currently only supports 1D
+This is the 3D version
+
+looks like it will require refining from the Euler Roe
+in which the Euler Roe eigenbasis operates on all state variables
+whereas the ADM Roe only operates on certain ones ...
+
+...according to "Introduciton to Numerical Relativity"
+partial_i operates on A_i, K_jk, D_ijk
 */
 
 #include "HydroGPU/Shared/Common.h"
@@ -11,7 +18,8 @@ __kernel void calcEigenBasis(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenvectorsBuffer,
 	__global real* eigenvectorsInverseBuffer,
-	const __global real* stateBuffer)
+	const __global real* stateBuffer,
+	const __global real* potentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -24,10 +32,6 @@ __kernel void calcEigenBasis(
 	) return;
 	int index = INDEXV(i);
 
-#if NUM_STATES != 5
-#error only supports 1D 
-#endif
-	
 	//for (int side = 0; side < DIM; ++side) {
 	{const int side = 0;
 		int indexPrev = index - stepsize[side];

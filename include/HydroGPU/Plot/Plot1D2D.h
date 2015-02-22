@@ -12,7 +12,7 @@ namespace Plot {
 struct Plot1D2D : public Plot {
 	typedef Plot Super;
 	
-	Plot1D2D(HydroGPU::Solver::Solver& solver);
+	Plot1D2D(HydroGPU::Solver::Solver* solver);
 	
 	virtual void resize();
 	virtual void mousePan(int dx, int dy);

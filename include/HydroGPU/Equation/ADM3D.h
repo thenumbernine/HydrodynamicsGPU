@@ -10,9 +10,10 @@ struct Solver;
 }
 namespace Equation {
 
-struct MHD : public Equation {
+//most likely pseudo-cartesian coordinates
+struct ADM3D : public Equation {
 	typedef Equation Super;
-	MHD(HydroGPU::Solver::Solver* solver);
+	ADM3D(HydroGPU::Solver::Solver* solver);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state);
 	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim);
@@ -20,4 +21,5 @@ struct MHD : public Equation {
 
 }
 }
+
 

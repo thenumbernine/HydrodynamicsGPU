@@ -7,7 +7,7 @@ namespace HydroGPU {
 namespace Solver {
 
 void BSSNOKRoe::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::BSSNOK>(*this);
+	equation = std::make_shared<HydroGPU::Equation::BSSNOK>(this);
 }
 
 std::vector<std::string> BSSNOKRoe::getProgramSources() {

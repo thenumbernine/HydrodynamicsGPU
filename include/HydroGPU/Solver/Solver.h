@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HydroGPU/Equation/Equation.h"
+#include "HydroGPU/Solver/SelfGravitation.h"
 #include "HydroGPU/Integrator/Integrator.h"
 #include "HydroGPU/Shared/Common.h"	//cl shared header
 #include "Profiler/Stat.h"
@@ -32,7 +33,7 @@ struct Solver {
 	cl::ImageGL fluidTexMem;		//data is written to this buffer before rendering
 
 	//public for Equation...
-	HydroGPUApp &app;
+	HydroGPUApp *app;
 	
 public:	//protected:
 	cl::Program program;
@@ -42,11 +43,8 @@ public:	//protected:
 	cl::Buffer cflBuffer;
 	cl::Buffer cflSwapBuffer;
 	cl::Buffer dtBuffer;
-	cl::Buffer potentialBuffer;
 	
 	cl::Kernel calcCFLMinReduceKernel;
-	cl::Kernel poissonRelaxKernel;
-	cl::Kernel calcGravityDerivKernel;
 	cl::Kernel convertToTexKernel;
 
 	std::vector<std::vector<cl::Kernel>> boundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim];
@@ -64,31 +62,32 @@ public:	//protected:
 	cl::NDRange offsetNd;
 
 	size_t totalAlloc;
+	
 public:
 	std::shared_ptr<HydroGPU::Equation::Equation> equation;
-
-	Solver(HydroGPUApp& app);
+	
+	Solver(HydroGPUApp* app);
 	virtual ~Solver() {}
 
 	virtual void init();	//...because I'm using virtual function calls in here
 protected:
-	virtual void createEquation() = 0;
+	virtual void createEquation() {}
 public:	//protected:
 	virtual std::vector<std::string> getProgramSources();
+protected:
+	virtual void initBuffers();
 	virtual void initKernels();
-	
+public:
 	int numStates();	//shorthand
 	int getVolume();
 	
 	cl::Buffer clAlloc(size_t size);
-
-	virtual void applyPotential();
-
+protected:
 	virtual void findMinTimestep();
-
+public:
 	virtual void getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &global, cl::NDRange &local);
 	virtual void boundary();
-	virtual void potentialBoundary();
+protected:
 
 	virtual void calcTimestep() = 0;
 	virtual void initStep();
@@ -103,6 +102,16 @@ public:
 	virtual void mousePan(int dx, int dy);
 	virtual void mouseZoom(int dz);
 
+protected:
+	struct ResetStateContext {
+		std::vector<real> stateVec;
+		ResetStateContext(int volume, int numStates);
+		virtual ~ResetStateContext() {}
+	};
+	virtual std::shared_ptr<ResetStateContext> createResetStateContext();
+	virtual void resetStateCell(std::shared_ptr<ResetStateContext> ctx, int index, const std::vector<real>& cellResults);
+	virtual void resetStateDone(std::shared_ptr<ResetStateContext> ctx);
+public:
 	virtual void resetState();
 	virtual void addDrop();
 	virtual void screenshot();

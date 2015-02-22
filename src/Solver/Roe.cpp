@@ -6,7 +6,7 @@ namespace HydroGPU {
 namespace Solver {
 
 Roe::Roe(
-	HydroGPUApp &app_)
+	HydroGPUApp* app_)
 : Super(app_)
 , calcEigenBasisEvent("calcEigenBasis")
 , calcCFLEvent("calcCFL")
@@ -18,39 +18,45 @@ Roe::Roe(
 void Roe::init() {
 	Super::init();
 	
-	cl::Context context = app.context;
+	cl::Context context = app->context;
 
 	entries.push_back(&calcEigenBasisEvent);
-	if (!app.useFixedDT) {
+	if (!app->useFixedDT) {
 		entries.push_back(&calcCFLEvent);
 	}
 	entries.push_back(&calcDeltaQTildeEvent);
 	entries.push_back(&calcFluxEvent);
+}
 
-	//memory
+void Roe::initBuffers() {
+	Super::initBuffers();
 
 	int volume = getVolume();
 
-	eigenvaluesBuffer = clAlloc(sizeof(real) * numStates() * volume * app.dim);
-	eigenvectorsBuffer = clAlloc(sizeof(real) * numStates() * numStates() * volume * app.dim);
-	eigenvectorsInverseBuffer = clAlloc(sizeof(real) * numStates() * numStates() * volume * app.dim);
-	deltaQTildeBuffer = clAlloc(sizeof(real) * numStates() * volume * app.dim);
-	fluxBuffer = clAlloc(sizeof(real) * numStates() * volume * app.dim);
+	eigenvaluesBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim);
+	eigenvectorsBuffer = clAlloc(sizeof(real) * numStates() * numStates() * volume * app->dim);
+	eigenvectorsInverseBuffer = clAlloc(sizeof(real) * numStates() * numStates() * volume * app->dim);
+	deltaQTildeBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim);
+	fluxBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim);
 
 	//zero flux
-	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app.dim);
+	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app->dim);
+}
 
+void Roe::initKernels() {
+	Super::initKernels();
+	
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
-	app.setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, potentialBuffer);
+	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app.setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app.cfl);
+	app->setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app->cfl);
 	
 	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
-	app.setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer);
+	app->setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, dtBuffer);
+	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, dtBuffer);
 	
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	calcFluxDerivKernel.setArg(1, fluxBuffer);
@@ -75,8 +81,6 @@ void Roe::step() {
 	integrator->integrate([&](cl::Buffer derivBuffer) {
 		calcDeriv(derivBuffer);
 	});
-
-	applyPotential();
 }
 
 void Roe::calcFlux() {

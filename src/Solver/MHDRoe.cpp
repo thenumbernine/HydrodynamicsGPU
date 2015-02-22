@@ -7,33 +7,31 @@ namespace HydroGPU {
 namespace Solver {
 
 void MHDRoe::init() {
-	divfree = std::make_shared<MHDRemoveDivergence>(*this);
-	
 	Super::init();
+	
+	//all Euler and MHD systems also have a separate potential buffer...
+	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, selfgrav->potentialBuffer);
 
 	//allocate flux flag buffer for determining if any flux values had to be pre-filled for bad eigenstate areas
-	fluxFlagBuffer = clAlloc(sizeof(char) * getVolume() * app.dim);
+	fluxFlagBuffer = clAlloc(sizeof(char) * getVolume() * app->dim);
 
 	//just like ordinary calcMHDFluxKernel -- and calls the ordinary
 	// -- but with an extra step to bail out of the associated fluxFlag is already set 
 	calcMHDFluxKernel = cl::Kernel(program, "calcMHDFlux");
-	app.setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, dtBuffer, fluxFlagBuffer);
+	app->setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, dtBuffer, fluxFlagBuffer);
 
 	//setup our eigenbasis kernel to accept these extras
 	calcEigenBasisKernel.setArg(5, fluxBuffer);
 	calcEigenBasisKernel.setArg(6, fluxFlagBuffer);
-	
-	divfree->init();
 }
 	
 void MHDRoe::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::MHD>(*this);
+	equation = std::make_shared<HydroGPU::Equation::MHD>(this);
 }
 
 std::vector<std::string> MHDRoe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
 	sources.push_back(Common::File::read("MHDRoe.cl"));
-	divfree->getProgramSources(sources);
 	return sources;
 }
 
@@ -43,7 +41,7 @@ void MHDRoe::initStep() {
 	//(in the case of negative fluxes)
 	// so for that, I'm going to fill the flux kernel to some flag beforehand.
 	// zero is a safe flag, right?  no ... not for steady states ...
-	commands.enqueueFillBuffer(fluxFlagBuffer, 0, 0, getVolume() * app.dim);
+	commands.enqueueFillBuffer(fluxFlagBuffer, 0, 0, getVolume() * app->dim);
 	
 	//and fill buffer
 	Super::initStep();
@@ -58,6 +56,7 @@ void MHDRoe::calcFlux() {
 
 void MHDRoe::step() {
 	Super::step();
+	selfgrav->applyPotential();
 	divfree->update();
 }
 

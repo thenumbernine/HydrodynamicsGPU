@@ -7,7 +7,7 @@ namespace HydroGPU {
 namespace Solver {
 
 void ADMRoe::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::ADM>(*this);
+	equation = std::make_shared<HydroGPU::Equation::ADM>(this);
 }
 
 void ADMRoe::init() {

@@ -12,10 +12,10 @@ namespace Equation {
 
 struct SRHD : public Equation {
 	typedef Equation Super;
-	SRHD(HydroGPU::Solver::Solver& solver);
-	virtual void getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources);
-	virtual int stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim, int state);
-	virtual int gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim);
+	SRHD(HydroGPU::Solver::Solver* solver);
+	virtual void getProgramSources(std::vector<std::string>& sources);
+	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state);
+	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim);
 };
 
 }

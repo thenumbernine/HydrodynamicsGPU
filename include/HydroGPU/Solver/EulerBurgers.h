@@ -1,5 +1,6 @@
 #pragma once
 
+#include "HydroGPU/Solver/SelfGravitationBehavior.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "Tensor/Vector.h"
 
@@ -7,8 +8,8 @@ namespace HydroGPU {
 struct HydroGPUApp;
 namespace Solver {
 
-struct EulerBurgers : public Solver {
-	typedef Solver Super;
+struct EulerBurgers : public SelfGravitationBehavior<Solver> {
+	typedef SelfGravitationBehavior<Solver> Super;
 
 protected:
 	cl::Buffer interfaceVelocityBuffer;
@@ -31,9 +32,11 @@ protected:
 	EventProfileEntry diffuseWorkEvent;
 
 public:
-	EulerBurgers(HydroGPUApp &app);
-	virtual void init();	
+	EulerBurgers(HydroGPUApp* app);
+	virtual void init();
 protected:
+	virtual void initKernels();
+	virtual void initBuffers();
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 	virtual void calcTimestep();

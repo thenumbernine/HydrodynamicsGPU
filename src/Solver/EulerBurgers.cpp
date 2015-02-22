@@ -7,7 +7,7 @@ namespace HydroGPU {
 namespace Solver {
 
 EulerBurgers::EulerBurgers(
-	HydroGPUApp &app_)
+	HydroGPUApp* app_)
 : Super(app_)
 , calcCFLEvent("calcCFL")
 , calcInterfaceVelocityEvent("calcInterfaceVelocity")
@@ -20,10 +20,10 @@ EulerBurgers::EulerBurgers(
 
 void EulerBurgers::init() {
 	Super::init();
-
-	cl::Context context = app.context;
 	
-	if (!app.useFixedDT) {
+	cl::Context context = app->context;
+	
+	if (!app->useFixedDT) {
 		entries.push_back(&calcCFLEvent);
 	}
 	entries.push_back(&calcInterfaceVelocityEvent);
@@ -31,35 +31,42 @@ void EulerBurgers::init() {
 	entries.push_back(&computePressureEvent);
 	entries.push_back(&diffuseMomentumEvent);
 	entries.push_back(&diffuseWorkEvent);
+}
 
-
-	//memory
-
+void EulerBurgers::initBuffers() {
+	Super::initBuffers();
+	
+	cl::Context context = app->context;
+	
 	int volume = getVolume();
 
-	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume * app.dim);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app.dim);
+	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume * app->dim);
+	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app->dim);
 	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
 
 	//zero interface and flux
-	commands.enqueueFillBuffer(interfaceVelocityBuffer, 0.f, 0, sizeof(real) * volume * app.dim);
-	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app.dim);
+	commands.enqueueFillBuffer(interfaceVelocityBuffer, 0.f, 0, sizeof(real) * volume * app->dim);
+	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app->dim);
+}
 
+void EulerBurgers::initKernels() {
+	Super::initKernels();
+	
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app.setArgs(calcCFLKernel, cflBuffer, stateBuffer, potentialBuffer, app.cfl);
+	app->setArgs(calcCFLKernel, cflBuffer, stateBuffer, selfgrav->potentialBuffer, app->cfl);
 	
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
-	app.setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer);
+	app->setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer);
 
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app.setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, dtBuffer);
+	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, dtBuffer);
 
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	//arg0 will be provided by the integrator
 	calcFluxDerivKernel.setArg(1, fluxBuffer);
 	
 	computePressureKernel = cl::Kernel(program, "computePressure");
-	app.setArgs(computePressureKernel, pressureBuffer, stateBuffer, potentialBuffer);
+	app->setArgs(computePressureKernel, pressureBuffer, stateBuffer, selfgrav->potentialBuffer);
 
 	diffuseMomentumKernel = cl::Kernel(program, "diffuseMomentum");
 	diffuseMomentumKernel.setArg(1, pressureBuffer);
@@ -68,9 +75,9 @@ void EulerBurgers::init() {
 	diffuseWorkKernel.setArg(1, stateBuffer);
 	diffuseWorkKernel.setArg(2, pressureBuffer);
 }
-	
+
 void EulerBurgers::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::Euler>(*this);
+	equation = std::make_shared<HydroGPU::Equation::Euler>(this);
 }
 
 std::vector<std::string> EulerBurgers::getProgramSources() {
@@ -93,7 +100,7 @@ void EulerBurgers::step() {
 	});
 	boundary();
 
-	applyPotential();
+	selfgrav->applyPotential();
 	
 	//the Hydrodynamics ii paper says it's important to diffuse momentum before work
 	integrator->integrate([&](cl::Buffer derivBuffer) {
@@ -102,7 +109,7 @@ void EulerBurgers::step() {
 		commands.enqueueNDRangeKernel(diffuseMomentumKernel, offsetNd, globalSize, localSize, nullptr, &diffuseMomentumEvent.clEvent);
 	});
 	boundary();
-	
+
 	integrator->integrate([&](cl::Buffer derivBuffer) {
 		//commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize, nullptr, &computePressureEvent.clEvent);
 		diffuseWorkKernel.setArg(0, derivBuffer);

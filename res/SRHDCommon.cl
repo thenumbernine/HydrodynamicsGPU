@@ -80,11 +80,11 @@ or I could provide a wrapper like this ...
 //specific to Euler equations
 __kernel void convertToTex(
 	const __global real* primitiveBuffer,
-	const __global real* potentialBuffer,
 	__write_only image3d_t fluidTex,
 	__read_only image1d_t gradientTex,
 	int displayMethod,
 	float displayScale)
+//const __global real* potentialBuffer		//TODO get SRHD equation working with selfgrav by renaming STATE_REST_MASS_DENSITY to STATE_DENSITY
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
@@ -117,7 +117,7 @@ __kernel void convertToTex(
 		value = pressure;
 		break;
 	case DISPLAY_POTENTIAL:
-		value = potentialBuffer[index];
+		value = 0.f;//potentialBuffer[index];	//TODO get SRHD equation working with selfgrav by renaming STATE_REST_MASS_DENSITY to STATE_DENSITY
 		break;
 	default:
 		value = .5f;

@@ -1,17 +1,14 @@
 #pragma once
 
-#include "HydroGPU/Solver/Solver.h"
 #include <OpenCL/cl.hpp>
 
 namespace HydroGPU {
 namespace Solver {
+struct Solver;
 
 struct MHDRemoveDivergence {
 protected:
-	Solver& solver;
-
-public:	
-	MHDRemoveDivergence(Solver& solver_);
+	Solver* solver;
 	
 	cl::Buffer magneticFieldDivergenceBuffer;
 	cl::Buffer magneticFieldPotentialBuffer;
@@ -21,10 +18,13 @@ public:
 	cl::Kernel magneticPotentialPoissonRelaxKernel;
 	cl::Kernel magneticFieldRemoveDivergenceKernel;
 
+public:	
+	MHDRemoveDivergence(Solver* solver_);
+
 	virtual void init();
 	virtual void update();
 	virtual void boundary(cl::Buffer buffer);
-	virtual void getProgramSources(std::vector<std::string>& sources);
+	virtual std::vector<std::string> getProgramSources();
 };
 
 }

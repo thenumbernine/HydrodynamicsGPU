@@ -14,8 +14,8 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-MHD::MHD(HydroGPU::Solver::Solver& solver) 
-: Super()
+MHD::MHD(HydroGPU::Solver::Solver* solver_)
+: Super(solver_)
 {
 	displayMethods = std::vector<std::string>{
 		"DENSITY",
@@ -45,28 +45,29 @@ MHD::MHD(HydroGPU::Solver::Solver& solver)
 	};
 }
 
-void MHD::getProgramSources(HydroGPU::Solver::Solver& solver, std::vector<std::string>& sources) {
-	Super::getProgramSources(solver, sources);
+void MHD::getProgramSources(std::vector<std::string>& sources) {
+	Super::getProgramSources(sources);
 	
 	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
 	
 	real gamma = 1.4f;
-	solver.app.lua.ref()["gamma"] >> gamma;
+	solver->app->lua.ref()["gamma"] >> gamma;
 	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
 
 	real vaccuumPermeability = 1.f;
-	solver.app.lua.ref()["vaccuumPermeability"] >> vaccuumPermeability;
+	solver->app->lua.ref()["vaccuumPermeability"] >> vaccuumPermeability;
 	sources[0] += "constant real vaccuumPermeability = " + toNumericString<real>(vaccuumPermeability) + ";\n";
 	sources[0] += "constant real sqrtVaccuumPermeability = " + toNumericString<real>(sqrt(vaccuumPermeability)) + ";\n";
 
 	//for EulerMHDCommon.cl
 	sources[0] += "#define MHD 1\n";
 
+	sources.push_back(Common::File::read("MHDCommon.cl"));
 	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
 }
 
-int MHD::stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim, int stateIndex) {
-	switch (solver.app.boundaryMethods(dim)) {
+int MHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int stateIndex) {
+	switch (solver->app->boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
@@ -77,11 +78,11 @@ int MHD::stateGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solve
 		return BOUNDARY_KERNEL_FREEFLOW;
 		break;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
 }
 
-int MHD::gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& solver, int dim) {
-	switch (solver.app.boundaryMethods(dim)) {
+int MHD::gravityGetBoundaryKernelForBoundaryMethod(int dim) {
+	switch (solver->app->boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
@@ -92,7 +93,7 @@ int MHD::gravityGetBoundaryKernelForBoundaryMethod(HydroGPU::Solver::Solver& sol
 		return BOUNDARY_KERNEL_FREEFLOW;
 		break;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver.app.boundaryMethods(dim) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
 }
 
 }

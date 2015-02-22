@@ -1,7 +1,8 @@
 #pragma once
 
+#include "HydroGPU/Solver/SelfGravitationBehavior.h"
+#include "HydroGPU/Solver/MHDRemoveDivergenceBehavior.h"
 #include "HydroGPU/Solver/Roe.h"
-#include "HydroGPU/Solver/MHDRemoveDivergence.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
@@ -10,11 +11,9 @@ namespace Solver {
 /*
 Roe solver for MHD equations
 */
-struct MHDRoe : public Roe {
+struct MHDRoe : public MHDRemoveDivergenceBehavior<SelfGravitationBehavior<Roe>> {
 protected:
-	typedef Roe Super;
-
-	std::shared_ptr<MHDRemoveDivergence> divfree;
+	typedef MHDRemoveDivergenceBehavior<SelfGravitationBehavior<Roe>> Super;
 
 	//whether the flux has been written this frame or not
 	cl::Buffer fluxFlagBuffer;
@@ -23,11 +22,11 @@ protected:
 
 public:
 	using Super::Super;
+	virtual void init();
 
 protected:
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
-	virtual void init();
 	virtual void initStep();
 	virtual void calcFlux();
 	virtual void step();

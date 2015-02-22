@@ -1,5 +1,6 @@
 #pragma once
 
+#include "HydroGPU/Solver/SelfGravitationBehavior.h"
 #include "HydroGPU/Solver/Roe.h"
 
 namespace HydroGPU {
@@ -7,10 +8,11 @@ namespace Solver {
 
 /*
 Roe solver for Euler equations
+TODO to re-enable SelfGravitationBehavior, get SRHD equation working with selfgrav by renaming STATE_REST_MASS_DENSITY to STATE_DENSITY
 */
-struct SRHDRoe : public Roe {
+struct SRHDRoe : public Roe/*SelfGravitationBehavior<Roe>*/ {
 protected:
-	typedef Roe Super;
+	typedef Roe/*SelfGravitationBehavior<Roe>*/ Super;
 
 	/*
 	The primitive buffer holds density, velocity, pressure

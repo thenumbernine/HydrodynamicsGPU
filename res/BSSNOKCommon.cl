@@ -3,7 +3,6 @@
 //specific to Euler equations
 __kernel void convertToTex(
 	const __global real* stateBuffer,
-	const __global real* potentialBuffer,
 	__write_only image3d_t fluidTex,
 	__read_only image1d_t gradientTex,
 	int displayMethod,

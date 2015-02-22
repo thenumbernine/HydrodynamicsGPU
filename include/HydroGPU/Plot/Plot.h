@@ -10,7 +10,10 @@ struct Solver;
 namespace Plot {
 
 struct Plot {
-	Plot(HydroGPU::Solver::Solver& solver);
+protected:
+	HydroGPU::Solver::Solver* solver;
+public:
+	Plot(HydroGPU::Solver::Solver* solver);
 	virtual ~Plot();
 
 	virtual void display() = 0;
@@ -19,7 +22,6 @@ struct Plot {
 	virtual void mouseZoom(int dz) = 0;
 	virtual void screenshot(const std::string& filename) = 0;
 	
-	HydroGPU::Solver::Solver& solver;
 	GLuint fluidTex;
 };
 

@@ -30,9 +30,11 @@ struct Roe : public Solver {
 	EventProfileEntry calcDeltaQTildeEvent;
 	EventProfileEntry calcFluxEvent;
 	
-	Roe(HydroGPUApp& app);
+	Roe(HydroGPUApp* app);
 	virtual void init();
 protected:
+	virtual void initBuffers();
+	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();
 	virtual void initStep();
 	virtual void calcTimestep();

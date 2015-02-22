@@ -7,7 +7,7 @@
 namespace HydroGPU {
 namespace Plot {
 	
-Plot1D::Plot1D(HydroGPU::Solver::Solver& solver) 
+Plot1D::Plot1D(HydroGPU::Solver::Solver* solver) 
 : Super(solver)
 {
 	std::string shaderCode = Common::File::read("Display1D.shader");
@@ -18,8 +18,8 @@ Plot1D::Plot1D(HydroGPU::Solver::Solver& solver)
 	displayShader = std::make_shared<Shader::Program>(shaders);
 	displayShader->link();
 	displayShader->setUniform<int>("tex", 0);
-	displayShader->setUniform<float>("xmin", solver.app.xmin.s[0]);
-	displayShader->setUniform<float>("xmax", solver.app.xmax.s[0]);
+	displayShader->setUniform<float>("xmin", solver->app->xmin.s[0]);
+	displayShader->setUniform<float>("xmax", solver->app->xmax.s[0]);
 	displayShader->done();	
 }
 
@@ -44,8 +44,8 @@ void Plot1D::display() {
 		glColor3fv(colors[channel]);
 		displayShader->setUniform<int>("channel", channel);
 		glBegin(GL_LINE_STRIP);
-		for (int i = 2; i < solver.app.size.s[0]-2; ++i) {
-			real x = ((real)(i) + .5f) / (real)solver.app.size.s[0];
+		for (int i = 2; i < solver->app->size.s[0]-2; ++i) {
+			real x = ((real)(i) + .5f) / (real)solver->app->size.s[0];
 			glVertex2f(x, 0.f);
 		}
 		glEnd();
@@ -54,7 +54,7 @@ void Plot1D::display() {
 	glBindTexture(GL_TEXTURE_2D, 0);	
 
 	{
-		Tensor::Vector<double,2> viewxmax(solver.app.aspectRatio * .5, .5);
+		Tensor::Vector<double,2> viewxmax(solver->app->aspectRatio * .5, .5);
 		Tensor::Vector<double,2> viewxmin = -viewxmax;
 		viewxmin += viewPos;
 		viewxmax += viewPos;

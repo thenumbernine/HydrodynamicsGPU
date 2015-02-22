@@ -10,8 +10,8 @@ struct Solver;
 namespace Integrator {
 
 struct Integrator {
-	HydroGPU::Solver::Solver& solver;
-	Integrator(HydroGPU::Solver::Solver& solver);
+	HydroGPU::Solver::Solver* solver;
+	Integrator(HydroGPU::Solver::Solver* solver);
 	virtual void integrate(std::function<void(cl::Buffer)> callback) = 0;
 };
 

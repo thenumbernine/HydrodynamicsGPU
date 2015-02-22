@@ -3,7 +3,6 @@
 //specific to Euler equations
 __kernel void convertToTex(
 	const __global real* stateBuffer,
-	const __global real* potentialBuffer,
 	__write_only image3d_t fluidTex,
 	__read_only image1d_t gradientTex,
 	int displayMethod,
@@ -103,22 +102,5 @@ __kernel void updateVectorField(
 		vertex[1 + 3 * i] = f.y * (YMAX - YMIN) + YMIN + scale * (offset[i].x * velocity.y + offset[i].y * tv.y);
 		vertex[2 + 3 * i] = f.z * (ZMAX - ZMIN) + ZMIN + scale * (offset[i].x * velocity.z + offset[i].y * tv.z);
 	}
-}
-
-//no support for this in ADMEquation
-//TODO shouldn't even be linking it
-
-__kernel void poissonRelax(
-	__global real* potentialBuffer,
-	const __global real* stateBuffer,
-	int4 repeat)
-{
-}
-
-__kernel void calcGravityDeriv(
-	__global real* derivBuffer,
-	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer)
-{
 }
 
