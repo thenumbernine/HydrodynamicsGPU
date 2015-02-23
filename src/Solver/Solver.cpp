@@ -263,29 +263,30 @@ std::vector<std::string> Solver::getProgramSources() {
 	return sourceStrs;
 }
 
-Solver::ResetStateContext::ResetStateContext(int volume, int numStates)
-: stateVec(volume*numStates)
-{}
-
-std::shared_ptr<Solver::ResetStateContext> Solver::createResetStateContext() {
-	return std::make_shared<ResetStateContext>(getVolume(), numStates());
+std::shared_ptr<Solver::Converter> Solver::createConverter() {
+	return std::make_shared<Converter>(this);
 }
 
-void Solver::resetStateCell(std::shared_ptr<Solver::ResetStateContext> ctx, int index, const std::vector<real>& cellResults) {
-	equation->readStateCell(&ctx->stateVec[index*numStates()], cellResults.data());
+Solver::Converter::Converter(Solver* solver_)
+: solver(solver_)
+, stateVec(solver_->getVolume() * solver_->numStates()) {}
+
+//read individual cell into cpu buffer
+void Solver::Converter::readCell(int index, const std::vector<real>& cellResults) {
+	solver->equation->readStateCell(stateVec.data() + index * solver->numStates(), cellResults.data());
 }
 
-void Solver::resetStateDone(std::shared_ptr<Solver::ResetStateContext> ctx) {
+void Solver::Converter::toGPU() {
 	//write state density first for gravity potential, to then update energy
-	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * numStates() * getVolume(), ctx->stateVec.data());
-	commands.finish();
+	solver->commands.enqueueWriteBuffer(solver->stateBuffer, CL_TRUE, 0, sizeof(real) * solver->numStates() * solver->getVolume(), stateVec.data());
+	solver->commands.finish();
 }
 
 void Solver::resetState() {
-	std::shared_ptr<ResetStateContext> ctx = createResetStateContext();
-
 	if (!app->lua.ref()["initState"].isFunction()) throw Common::Exception() << "expected initState to be defined in config file";
 	std::cout << "initializing..." << std::endl;
+	
+	std::shared_ptr<Converter> converter = createConverter();
 
 	//hard-coded and centered around the MHD solver *and* the extra pressure buffer for Euler/MHD equations ...
 	//TODO multret and have each equation interpret the results
@@ -314,7 +315,7 @@ void Solver::resetState() {
 					stack.pop(cellResults[i]);
 				}
 				
-				resetStateCell(ctx, flattenedIndex, cellResults);
+				converter->readCell(flattenedIndex, cellResults);
 			}
 		}
 	}
@@ -326,7 +327,7 @@ void Solver::resetState() {
 	//once you get that, plug it into the total energy
 
 	//pass context to child class 
-	resetStateDone(ctx);
+	converter->toGPU();
 }
 
 int Solver::numStates() {

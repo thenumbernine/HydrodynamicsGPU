@@ -19,6 +19,8 @@ struct VectorField;
 }
 namespace Solver {
 
+struct Solver;
+
 struct Solver {
 	friend struct HydroGPU::Integrator::Integrator;
 
@@ -103,14 +105,16 @@ public:
 	virtual void mouseZoom(int dz);
 
 protected:
-	struct ResetStateContext {
+	//called upon resetState
+	//converts stateBuffer and whatever other buffers into CPU-side vectors
+	struct Converter {
+		Solver* solver;
 		std::vector<real> stateVec;
-		ResetStateContext(int volume, int numStates);
-		virtual ~ResetStateContext() {}
+		Converter(Solver* solver);
+		virtual void readCell(int index, const std::vector<real>& cellResults);
+		virtual void toGPU();
 	};
-	virtual std::shared_ptr<ResetStateContext> createResetStateContext();
-	virtual void resetStateCell(std::shared_ptr<ResetStateContext> ctx, int index, const std::vector<real>& cellResults);
-	virtual void resetStateDone(std::shared_ptr<ResetStateContext> ctx);
+	virtual std::shared_ptr<Converter> createConverter();
 public:
 	virtual void resetState();
 	virtual void addDrop();
