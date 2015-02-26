@@ -27,30 +27,26 @@ __kernel void calcCFL(
 		const __global real* eigenvaluesL = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexL);
 		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexR);
 	
-		real minLambda = 0.f;
-		real maxLambda = 0.f;
-		//TODO assume eigenvectors are sorted and just test abs-min and abs-max
-		for (int i = 0; i < NUM_STATES; ++i) {	
-			maxLambda = max(maxLambda, eigenvaluesL[i]);
-			minLambda = min(minLambda, eigenvaluesR[i]);
-		}
-
+		//NOTICE assumes eigenvalues are sorted from min to max
+		real maxLambda = max(0.f, eigenvaluesL[NUM_STATES-1]);
+		real minLambda = min(0.f, eigenvaluesR[0]);
+		
 		real dum = dx[side] / (fabs(maxLambda - minLambda) + 1e-9f);
 		result = min(result, dum);
 	}
-		
+	
 	cflBuffer[index] = cfl * result;
 }
 
 void calcDeltaQTildeSide(
 	__global real* deltaQTildeBuffer,
-	const __global real* eigenvectorsInverseBuffer,
+	const __global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
 	int side);
 
 void calcDeltaQTildeSide(
 	__global real* deltaQTildeBuffer,
-	const __global real* eigenvectorsInverseBuffer,
+	const __global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
 	int side)
 {
@@ -61,21 +57,23 @@ void calcDeltaQTildeSide(
 			
 	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
-	const __global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+	const __global real* eigenfields = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
 	__global real* deltaQTilde = deltaQTildeBuffer + NUM_STATES * interfaceIndex;
 
+	real deltaQ[NUM_STATES];
 	for (int i = 0; i < NUM_STATES; ++i) {
-		real sum = 0.f;
-		for (int j = 0; j < NUM_STATES; ++j) {
-			sum += eigenvectorsInverse[i + NUM_STATES * j] * (stateR[j] - stateL[j]);
-		}
-		deltaQTilde[i] = sum;
+		deltaQ[i] = stateR[i] - stateL[i];
+	}
+	real deltaQTilde_[NUM_STATES];
+	eigenfieldTransform(deltaQTilde_, eigenfields, deltaQ);
+	for (int i = 0; i < NUM_STATES; ++i) {
+		deltaQTilde[i] = deltaQTilde_[i];
 	}
 }
 
 __kernel void calcDeltaQTilde(
 	__global real* deltaQTildeBuffer,
-	const __global real* eigenvectorsInverseBuffer,
+	const __global real* eigenfieldsBuffer,
 	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -87,12 +85,12 @@ __kernel void calcDeltaQTilde(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	calcDeltaQTildeSide(deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer, 0);
+	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 0);
 #if DIM > 1
-	calcDeltaQTildeSide(deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer, 1);
+	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 1);
 #endif
 #if DIM > 2
-	calcDeltaQTildeSide(deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer, 2);
+	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 2);
 #endif
 }
 
@@ -100,8 +98,8 @@ void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* eigenvaluesBuffer,
-	const __global real* eigenvectorsBuffer,
-	const __global real* eigenvectorsInverseBuffer,
+	const __global real* eigenfieldsInverseBuffer,
+	const __global real* eigenfieldsBuffer,
 	const __global real* deltaQTildeBuffer,
 	real dt_dx,
 	int side);
@@ -110,8 +108,8 @@ void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* eigenvaluesBuffer,
-	const __global real* eigenvectorsBuffer,
-	const __global real* eigenvectorsInverseBuffer,
+	const __global real* eigenfieldsInverseBuffer,
+	const __global real* eigenfieldsBuffer,
 	const __global real* deltaQTildeBuffer,
 	real dt_dx,
 	int side)
@@ -135,19 +133,21 @@ void calcFluxSide(
 	const __global real* deltaQTildeR = deltaQTildeBuffer + NUM_STATES * interfaceRIndex;
 	
 	const __global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	const __global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
-	const __global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+	const __global real* eigenfieldsInverse = eigenfieldsInverseBuffer + EIGENFIELD_SIZE * interfaceIndex;
+	const __global real* eigenfields = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
 	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
 
+	
+	real avgQ[NUM_STATES];
+	for (int i = 0; i < NUM_STATES; ++i) {
+		avgQ[i] = .5f * (stateR[i] + stateL[i]);
+	}
 	real fluxTilde[NUM_STATES];
+	eigenfieldTransform(fluxTilde, eigenfields, avgQ);	
+
 	for (int i = 0; i < NUM_STATES; ++i) {
 		real eigenvalue = eigenvalues[i];
-		
-		real sum = 0.f;
-		for (int j = 0; j < NUM_STATES; ++j) {
-			sum += eigenvectorsInverse[i + NUM_STATES * j] * (stateR[j] + stateL[j]);
-		}
-		fluxTilde[i] = .5f * sum * eigenvalue;
+		fluxTilde[i] *= eigenvalue;
 
 		real rTilde;
 		real theta;
@@ -168,7 +168,7 @@ void calcFluxSide(
 	for (int i = 0; i < NUM_STATES; ++i) {
 		real sum = 0.f;
 		for (int j = 0; j < NUM_STATES; ++j) {
-			sum += eigenvectors[i + NUM_STATES * j] * fluxTilde[j];
+			sum += eigenfieldsInverse[i + NUM_STATES * j] * fluxTilde[j];
 		}
 		flux[i] = sum;
 	}
@@ -178,8 +178,8 @@ __kernel void calcFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* eigenvaluesBuffer,
-	const __global real* eigenvectorsBuffer,
-	const __global real* eigenvectorsInverseBuffer,
+	const __global real* eigenfieldsInverseBuffer,
+	const __global real* eigenfieldsBuffer,
 	const __global real* deltaQTildeBuffer,
 	const __global real* dtBuffer)
 {
@@ -194,12 +194,12 @@ __kernel void calcFlux(
 	) return;
 	
 	float dt = dtBuffer[0];
-	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, dt / DX, 0); 
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsInverseBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DX, 0); 
 #if DIM > 1
-	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, dt / DY, 1); 
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsInverseBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DY, 1); 
 #endif
 #if DIM > 2
-	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, dt / DZ, 2); 
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsInverseBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DZ, 2); 
 #endif
 }
 

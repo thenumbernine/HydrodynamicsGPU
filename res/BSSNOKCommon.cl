@@ -70,20 +70,3 @@ __kernel void convertToTex(
 	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
 }
 
-//no support for this in ADMEquation
-//TODO shouldn't even be linking it
-
-__kernel void poissonRelax(
-	__global real* potentialBuffer,
-	const __global real* stateBuffer,
-	int4 repeat)
-{
-}
-
-__kernel void addGravity(
-	__global real* stateBuffer,
-	const __global real* potentialBuffer,
-	const __global real* dtBuffer)
-{
-}
-

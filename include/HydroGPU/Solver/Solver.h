@@ -110,15 +110,36 @@ protected:
 	struct Converter {
 		Solver* solver;
 		std::vector<real> stateVec;
+		
 		Converter(Solver* solver);
-		virtual void readCell(int index, const std::vector<real>& cellResults);
+		
+		//lua state -> cellResults -> Converter CPU buffer
+		//all at once for convenience of compatability with config.lua's initState()
+		virtual void setValues(int index, const std::vector<real>& cellValues);
+	
+		//post readCells: Converter CPU buffer -> Solver GPU buffer
+		//call after all setValue calls are done
 		virtual void toGPU();
+		
+		//Solver GPU buffer -> Converter CPU buffer
+		//call before any getValue calls
+		virtual void fromGPU();
+
+		//Converter CPU buffer -> return individual value
+		//one at a time so I can save individual images 
+		virtual real getValue(int index, int channel);
 	};
 	virtual std::shared_ptr<Converter> createConverter();
 public:
 	virtual void resetState();
+	
 	virtual void addDrop();
 	virtual void screenshot();
+
+protected:
+	virtual std::vector<std::string> getSaveChannelNames();
+	virtual int getSaveIndex();
+public:
 	virtual void save();
 };
 

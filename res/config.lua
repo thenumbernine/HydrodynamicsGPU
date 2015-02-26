@@ -8,13 +8,13 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
---solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
+solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe'		-- in the works
 --solverName = 'MHDBurgers'		-- works with Orszag-Tang and Brio-Wu, and some hydro problems too
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
 --solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
 --solverName = 'MaxwellRoe'		-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
-solverName = 'ADMRoe'			-- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
+--solverName = 'ADMRoe'			-- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
 --solverName = 'ADM2DSpherical'	-- not yet
 --solverName = 'ADM3DRoe'		-- not yet
 --solverName = 'BSSNOKRoe'		-- BSSNOK Roe, not yet
@@ -55,7 +55,7 @@ fixedDT = .125
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'PERIODIC', 'PERIODIC', 'PERIODIC'}
+boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false
@@ -93,7 +93,7 @@ displayScale = .25
 
 
 -- Euler
---configurations['Sod']()
+configurations['Sod']()
 --configurations['self-gravitation test 1']()
 
 -- MHD
@@ -105,7 +105,7 @@ boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 configurations['Maxwell-1']()
 --]]
 
--- [[ ADM (1D)
+--[[ ADM (1D)
 configurations['ADM-1D']()
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 displayMethod = 'ALPHA'

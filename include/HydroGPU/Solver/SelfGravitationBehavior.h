@@ -46,19 +46,36 @@ protected:
 		, potentialVec(solver->getVolume())
 		{}
 	
-		virtual void readCell(int index, const std::vector<real>& cellResults) {
-			Super::readCell(index, cellResults);
-			potentialVec[index] = cellResults[cellResults.size()-1];
+		virtual void setValues(int index, const std::vector<real>& cellValues) {
+			Super::setValues(index, cellValues);
+			potentialVec[index] = cellValues[cellValues.size()-1];
 		}
 		virtual void toGPU() {
 			Super::toGPU();
-			dynamic_cast<SelfGravitationBehavior*>(Super::solver)->selfgrav->resetState(potentialVec, Super::stateVec);
+			SelfGravitationBehavior* owner = dynamic_cast<SelfGravitationBehavior*>(Super::solver);
+			owner->selfgrav->resetState(potentialVec, Super::stateVec);
+		}
+		virtual void fromGPU() {
+			Super::fromGPU();
+			SelfGravitationBehavior* owner = dynamic_cast<SelfGravitationBehavior*>(Super::solver);
+			owner->commands.enqueueReadBuffer(owner->selfgrav->potentialBuffer, CL_TRUE, 0, sizeof(real) * owner->getVolume(), potentialVec.data());
+			owner->commands.finish();
+		}
+		virtual real getValue(int index, int channel) {
+			if (channel == Super::solver->numStates()) return potentialVec[index];
+			return Super::getValue(index, channel);
 		}
 	};
 	friend struct Converter;
 
 	virtual std::shared_ptr<Solver::Converter> createConverter() {
 		return std::make_shared<Converter>(this);
+	}
+
+	virtual std::vector<std::string> getSaveChannelNames() {
+		std::vector<std::string> channelNames = Super::getSaveChannelNames();
+		channelNames.push_back("potential");
+		return channelNames;
 	}
 };
 

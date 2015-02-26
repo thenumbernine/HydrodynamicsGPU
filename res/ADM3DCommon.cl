@@ -136,20 +136,3 @@ __kernel void updateVectorField(
 	}
 }
 
-//no support for this in ADMEquation
-//TODO shouldn't even be linking it
-
-__kernel void poissonRelax(
-	__global real* potentialBuffer,
-	const __global real* stateBuffer,
-	int4 repeat)
-{
-}
-
-__kernel void calcGravityDeriv(
-	__global real* derivBuffer,
-	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer)
-{
-}
-

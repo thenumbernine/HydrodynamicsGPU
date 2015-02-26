@@ -271,15 +271,25 @@ Solver::Converter::Converter(Solver* solver_)
 : solver(solver_)
 , stateVec(solver_->getVolume() * solver_->numStates()) {}
 
-//read individual cell into cpu buffer
-void Solver::Converter::readCell(int index, const std::vector<real>& cellResults) {
-	solver->equation->readStateCell(stateVec.data() + index * solver->numStates(), cellResults.data());
+void Solver::Converter::setValues(int index, const std::vector<real>& cellValues) {
+	solver->equation->readStateCell(stateVec.data() + index * solver->numStates(), cellValues.data());
 }
 
 void Solver::Converter::toGPU() {
 	//write state density first for gravity potential, to then update energy
 	solver->commands.enqueueWriteBuffer(solver->stateBuffer, CL_TRUE, 0, sizeof(real) * solver->numStates() * solver->getVolume(), stateVec.data());
 	solver->commands.finish();
+}
+
+void Solver::Converter::fromGPU() {
+	solver->commands.enqueueReadBuffer(solver->stateBuffer, CL_TRUE, 0, sizeof(real) * solver->numStates() * solver->getVolume(), stateVec.data());
+	solver->commands.finish();
+}
+
+real Solver::Converter::getValue(int index, int channel) {
+	int numStates = solver->numStates();
+	if (channel < numStates) return stateVec[channel + numStates * index];
+	return std::nan("");
 }
 
 void Solver::resetState() {
@@ -310,12 +320,11 @@ void Solver::resetState() {
 				.push(pos.s[0], pos.s[1], pos.s[2])
 				.call(3, cellResults.size());	
 				
-				for (int i = cellResults.size()-1; i >= 0; --i) {
+				for (int i = (int)cellResults.size()-1; i >= 0; --i) {
 					cellResults[i] = real();
 					stack.pop(cellResults[i]);
 				}
-				
-				converter->readCell(flattenedIndex, cellResults);
+				converter->setValues(flattenedIndex, cellResults);
 			}
 		}
 	}
@@ -482,50 +491,47 @@ void Solver::screenshot() {
 	throw Common::Exception() << "couldn't find an available filename";
 }
 
+//returns the first available index
+//uses the first channel name to test for existence
+std::vector<std::string> Solver::getSaveChannelNames() {
+	return equation->states;
+}
+
+int Solver::getSaveIndex() {
+	std::string firstChannelName = getSaveChannelNames()[0];
+	for (int i = 0; i < 1000000; ++i) {
+		std::string filename = firstChannelName + std::to_string(i) + ".fits";
+		if (!Common::File::exists(filename)) return i;
+	}
+	throw Common::Exception() << "failed to find available save filename";
+}
+
+
 void Solver::save() {
-	std::vector<std::string> channelNames = equation->states;
-	channelNames.push_back("potential");
+	int saveIndex = getSaveIndex();
+	
+	std::shared_ptr<Converter> converter = createConverter();
+	converter->fromGPU();
 
-	for (int i = 0; i < 1000; ++i) {
-		std::string filename = channelNames[0] + std::to_string(i) + ".fits";
-		if (!Common::File::exists(filename)) {
-			
-			//hmm, rather than a plane per variable, now that I'm saving 3D stuff,
-			// how about a plane per 3rd dim, and separate save files per variable?
-			std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::Vector<int,2>(app->size.s[0], app->size.s[1]), nullptr, 1, app->size.s[2]);
-
-			int volume = getVolume();
-			
-			std::vector<real> stateVec(numStates() * volume);
-			app->commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * numStates() * volume, &stateVec[0]);
-
-//TODO re-enable saving of potential buffer.  separate filename choosing from writing, and overload the write function 
-//			std::vector<real> potentialVec(volume);
-//			app->commands.enqueueReadBuffer(selfgrav->potentialBuffer, CL_TRUE, 0, sizeof(real) * volume, &potentialVec[0]);
-			
-			app->commands.finish();
-			
-			for (int channel = 0; channel < channelNames.size(); ++channel) {
-				for (int z = 0; z < app->size.s[2]; ++z) {	
-					for (int y = 0; y < app->size.s[1]; ++y) {
-						for (int x = 0; x < app->size.s[0]; ++x) {
-							int index = x + app->size.s[0] * (y + app->size.s[1] * z);
-							real value = std::nan("");	
-							if (channel < numStates()) {
-								value = stateVec[channel + numStates() * index];
-//							} else {	//potential
-//								value = potentialVec[index];
-							}
-							(*image)(x,y,0,z) = value;
-						}
-					}
+	std::vector<std::string> channelNames = getSaveChannelNames(); 
+	
+	//hmm, rather than a plane per variable, now that I'm saving 3D stuff,
+	// how about a plane per 3rd dim, and separate save files per variable?
+	std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::Vector<int,2>(app->size.s[0], app->size.s[1]), nullptr, 1, app->size.s[2]);
+		
+	for (int channel = 0; channel < channelNames.size(); ++channel) {
+		for (int z = 0; z < app->size.s[2]; ++z) {	
+			for (int y = 0; y < app->size.s[1]; ++y) {
+				for (int x = 0; x < app->size.s[0]; ++x) {
+					int cellIndex = x + app->size.s[0] * (y + app->size.s[1] * z);
+					real value = converter->getValue(cellIndex, channel);
+					(*image)(x,y,0,z) = value;
 				}
-				std::string filename = channelNames[channel] + std::to_string(i) + ".fits";
-				std::cout << "saving file " << filename << std::endl;
-				Image::system->write(filename, image); 
 			}
-			return;
 		}
+		std::string filename = channelNames[channel] + std::to_string(saveIndex) + ".fits";
+		std::cout << "saving file " << filename << std::endl;
+		Image::system->write(filename, image); 
 	}
 }
 

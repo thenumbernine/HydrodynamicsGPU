@@ -36,6 +36,7 @@ protected:
 	virtual void initBuffers();
 	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();
+	virtual std::vector<std::string> getEigenfieldProgramSources();
 	virtual void initStep();
 	virtual void calcTimestep();
 	virtual void step();
