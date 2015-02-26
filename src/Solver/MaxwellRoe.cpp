@@ -1,7 +1,6 @@
 #include "HydroGPU/Solver/MaxwellRoe.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Equation/Maxwell.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -18,7 +17,7 @@ void MaxwellRoe::createEquation() {
 
 std::vector<std::string> MaxwellRoe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
-	sources.push_back(Common::File::read("MaxwellRoe.cl"));
+	sources.push_back("#include \"MaxwellRoe.cl\"\n");
 	return sources;
 }
 

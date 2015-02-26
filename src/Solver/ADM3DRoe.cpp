@@ -1,7 +1,6 @@
 #include "HydroGPU/Solver/ADM3DRoe.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Equation/ADM3D.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -19,7 +18,7 @@ void ADM3DRoe::init() {
 
 std::vector<std::string> ADM3DRoe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
-	sources.push_back(Common::File::read("ADM3DRoe.cl"));
+	sources.push_back("#include \"ADM3DRoe.cl\"\n");
 	return sources;
 }
 

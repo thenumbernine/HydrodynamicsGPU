@@ -1,7 +1,6 @@
 #include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/Solver/EulerRoe.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -19,7 +18,7 @@ void EulerRoe::createEquation() {
 
 std::vector<std::string> EulerRoe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
-	sources.push_back(Common::File::read("EulerRoe.cl"));
+	sources.push_back("#include \"EulerRoe.cl\"\n");
 	return sources;
 }
 

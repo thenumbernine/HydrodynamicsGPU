@@ -257,8 +257,8 @@ std::vector<std::string> Solver::getProgramSources() {
 	app->lua.ref()["gravitationalConstant"] >> gravitationalConstant;
 	sourceStrs[0] += "#define GRAVITATIONAL_CONSTANT " + toNumericString<real>(gravitationalConstant) + "\n";
 
-	sourceStrs.push_back(Common::File::read("SlopeLimiter.cl"));
-	sourceStrs.push_back(Common::File::read("Common.cl"));
+	sourceStrs.push_back("#include \"SlopeLimiter.cl\"\n");
+	sourceStrs.push_back("#include \"Common.cl\"\n");
 	equation->getProgramSources(sourceStrs);
 	return sourceStrs;
 }
@@ -534,8 +534,6 @@ void Solver::save() {
 		Image::system->write(filename, image); 
 	}
 }
-
-
 
 }
 }

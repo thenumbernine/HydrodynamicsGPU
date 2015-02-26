@@ -1,7 +1,6 @@
 #include "HydroGPU/Solver/EulerHLL.h"
 #include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -19,7 +18,7 @@ void EulerHLL::createEquation() {
 }
 
 std::string EulerHLL::getFluxSource() {
-	return Common::File::read("EulerHLL.cl");
+	return "#include \"EulerHLL.cl\"\n";
 }
 
 void EulerHLL::step() {

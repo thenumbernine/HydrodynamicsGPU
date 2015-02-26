@@ -1,6 +1,5 @@
 #include "HydroGPU/Solver/Roe.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -66,14 +65,14 @@ std::vector<std::string> Roe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
 	std::vector<std::string> added = getEigenfieldProgramSources();
 	sources.insert(sources.end(), added.begin(), added.end());
-	sources.push_back(Common::File::read("Roe.cl"));
+	sources.push_back("#include \"Roe.cl\"\n");
 	return sources;
 }
 
 std::vector<std::string> Roe::getEigenfieldProgramSources() {
 	return {
 		"#define EIGENFIELD_SIZE (NUM_STATES * NUM_STATES)\n",
-		Common::File::read("RoeEigenfieldLinear.cl")
+		"#include \"RoeEigenfieldLinear.cl\"\n"
 	};
 }
 

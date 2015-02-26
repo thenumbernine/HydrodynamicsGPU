@@ -1,7 +1,6 @@
 #include "HydroGPU/Solver/MHDBurgers.h"
 #include "HydroGPU/Equation/MHD.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -60,7 +59,7 @@ void MHDBurgers::createEquation() {
 
 std::vector<std::string> MHDBurgers::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
-	sources.push_back(Common::File::read("MHDBurgers.cl"));
+	sources.push_back("#include \"MHDBurgers.cl\"\n");
 	return sources;
 }
 

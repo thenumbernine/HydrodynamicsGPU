@@ -1,7 +1,6 @@
 #include "HydroGPU/Solver/EulerBurgers.h"
 #include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -82,7 +81,7 @@ void EulerBurgers::createEquation() {
 
 std::vector<std::string> EulerBurgers::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
-	sources.push_back(Common::File::read("EulerBurgers.cl"));
+	sources.push_back("#include \"EulerBurgers.cl\"\n");
 	return sources;
 }
 

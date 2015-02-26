@@ -1,4 +1,5 @@
 #include "HydroGPU/Shared/Common.h"
+#include "HydroGPU/Roe.h"
 
 __kernel void calcCFL(
 	__global real* cflBuffer,
@@ -165,13 +166,7 @@ void calcFluxSide(
 		fluxTilde[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta) / (float)DIM);
 	}
 
-	for (int i = 0; i < NUM_STATES; ++i) {
-		real sum = 0.f;
-		for (int j = 0; j < NUM_STATES; ++j) {
-			sum += eigenfieldsInverse[i + NUM_STATES * j] * fluxTilde[j];
-		}
-		flux[i] = sum;
-	}
+	eigenfieldInverseTransform(flux, eigenfieldsInverse, fluxTilde);
 }
 
 __kernel void calcFlux(

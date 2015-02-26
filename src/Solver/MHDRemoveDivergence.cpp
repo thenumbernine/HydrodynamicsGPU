@@ -2,7 +2,6 @@
 #include "HydroGPU/Solver/MHDRemoveDivergence.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -32,7 +31,7 @@ void MHDRemoveDivergence::init() {
 }
 	
 std::vector<std::string> MHDRemoveDivergence::getProgramSources() {
-	return {Common::File::read("MHDRemoveDivergence.cl")};
+	return {"#include \"MHDRemoveDivergence.cl\"\n"};
 }
 
 void MHDRemoveDivergence::update() {

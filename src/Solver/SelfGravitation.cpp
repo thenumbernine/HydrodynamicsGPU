@@ -2,7 +2,6 @@
 #include "HydroGPU/Solver/SelfGravitation.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -28,7 +27,7 @@ void SelfGravitation::initKernels() {
 }
 
 std::vector<std::string> SelfGravitation::getProgramSources() {
-	return {Common::File::read("SelfGravitation.cl")};
+	return {"#include \"SelfGravitation.cl\"\n"};
 }
 
 void SelfGravitation::resetState(std::vector<real>& potentialVec, std::vector<real>& stateVec) {

@@ -18,13 +18,12 @@ enum {
 ADM::ADM(HydroGPU::Solver::Solver* solver_) 
 : Super(solver_)
 {
-	//TODO fixme
 	displayMethods = std::vector<std::string>{
 		"ALPHA",
 		"G",
 		"A",
 		"D",
-		"K"
+		"K_TILDE"
 	};
 
 	//matches above
@@ -38,7 +37,7 @@ ADM::ADM(HydroGPU::Solver::Solver* solver_)
 	states.push_back("G");
 	states.push_back("A");	// = dx ln alpha
 	states.push_back("D");	// = dx ln g
-	states.push_back("K");
+	states.push_back("K_TILDE");	// = K sqrt(g)
 }
 
 void ADM::getProgramSources(std::vector<std::string>& sources) {
@@ -52,10 +51,10 @@ void ADM::getProgramSources(std::vector<std::string>& sources) {
 	//else if type is string ...
 	std::string adm_BonaMasso_f = "1.f";
 	solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
-	sources[0] += "#define ADM_BONA_MASSO_F " + adm_BonaMasso_f + "\n";
+	sources[0] += "#define ADM_BONA_MASSO_F (" + adm_BonaMasso_f + ")\n";
 	std::string adm_BonaMasso_df_dalpha = "0.f";
 	solver->app->lua.ref()["adm_BonaMasso_df_dalpha"] >> adm_BonaMasso_df_dalpha;
-	sources[0] += "#define ADM_BONA_MASSO_DF_DALPHA " + adm_BonaMasso_df_dalpha + "\n";
+	sources[0] += "#define ADM_BONA_MASSO_DF_DALPHA (" + adm_BonaMasso_df_dalpha + ")\n";
 	
 	sources.push_back(Common::File::read("ADMCommon.cl"));
 }

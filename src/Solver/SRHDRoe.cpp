@@ -1,7 +1,6 @@
 #include "HydroGPU/Solver/SRHDRoe.h"
 #include "HydroGPU/Equation/SRHD.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -32,7 +31,7 @@ void SRHDRoe::createEquation() {
 
 std::vector<std::string> SRHDRoe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
-	sources.push_back(Common::File::read("SRHDRoe.cl"));
+	sources.push_back("#include \"SRHDRoe.cl\"\n");
 	return sources;
 }
 

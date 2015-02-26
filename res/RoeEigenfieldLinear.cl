@@ -1,4 +1,4 @@
-#include "HydroGPU/Shared/Common.h"
+#include "HydroGPU/Roe.h"
 
 /*
 default implementation assumes eigenfield are inverse eigenvector matrices
@@ -9,12 +9,13 @@ and EIGENFIELD_SIZE == NUM_STATES
 #endif
 
 //c_i = a_ij b_j
-void stateMatrixTransform(
+
+void stateMatrixTransform_G_(
 	real* results,
 	const __global real* matrix,
 	const real* input);
 
-void stateMatrixTransform(
+void stateMatrixTransform_G_(
 	real* results,
 	const __global real* matrix,
 	const real* input)
@@ -28,29 +29,42 @@ void stateMatrixTransform(
 	}
 }
 
-void eigenfieldTransform(
-	real* results,
-	const __global real* eigenfield,
+// same as above but with global, global, local parameters
+
+void stateMatrixTransformGG_(
+	__global real* results,
+	const __global real* matrix,
 	const real* input);
+
+void stateMatrixTransformGG_(
+	__global real* results,
+	const __global real* matrix,
+	const real* input)
+{
+	for (int i = 0; i < NUM_STATES; ++i) {
+		real sum = 0.f;
+		for (int j = 0; j < NUM_STATES; ++j) {
+			sum += matrix[i + NUM_STATES * j] * input[j];
+		}
+		results[i] = sum;
+	}
+}
+
+// eigenfield functions
 
 void eigenfieldTransform(
 	real* results,
 	const __global real* eigenfield,
 	const real* input)
 {
-	stateMatrixTransform(results, eigenfield, input);
+	stateMatrixTransform_G_(results, eigenfield, input);
 }
 
 void eigenfieldInverseTransform(
-	real* results,
-	const __global real* eigenfieldInverse,
-	const real* input);
-
-void eigenfieldInverseTransform(
-	real* results,
+	__global real* results,
 	const __global real* eigenfieldInverse,
 	const real* input)
 {
-	stateMatrixTransform(results, eigenfieldInverse, input);
+	stateMatrixTransformGG_(results, eigenfieldInverse, input);
 }
 

@@ -15,8 +15,9 @@ __kernel void convertToTex(
 
 	real alpha = state[STATE_ALPHA];
 	real g = state[STATE_G];
-	real K = state[STATE_K];
-	
+	real KTilde = state[STATE_K_TILDE];
+	real K = KTilde / sqrt(g);
+
 	float4 color = (float4)(alpha, g, K, 0.f) * displayScale;
 	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
 }

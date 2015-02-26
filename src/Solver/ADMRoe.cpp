@@ -1,7 +1,6 @@
 #include "HydroGPU/Solver/ADMRoe.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Equation/ADM.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -19,8 +18,17 @@ void ADMRoe::initKernels() {
 
 std::vector<std::string> ADMRoe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
-	sources.push_back(Common::File::read("ADMRoe.cl"));
+	sources.push_back("#include \"ADMRoe.cl\"\n");
 	return sources;
+}
+
+std::vector<std::string> ADMRoe::getEigenfieldProgramSources() {
+	return {
+		"enum {\n"
+		"	EIGENFIELD_F,\n"
+		"	EIGENFIELD_SIZE\n"
+		"};\n"
+	};
 }
 
 void ADMRoe::calcDeriv(cl::Buffer derivBuffer) {

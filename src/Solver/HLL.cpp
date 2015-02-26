@@ -1,6 +1,5 @@
 #include "HydroGPU/Solver/HLL.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {

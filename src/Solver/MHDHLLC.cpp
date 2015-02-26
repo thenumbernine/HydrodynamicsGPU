@@ -1,7 +1,6 @@
 #include "HydroGPU/Solver/MHDHLLC.h"
 #include "HydroGPU/Equation/MHD.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -19,7 +18,7 @@ void MHDHLLC::createEquation() {
 }
 
 std::string MHDHLLC::getFluxSource() {
-	return Common::File::read("MHDHLLC.cl");
+	return "#include \"MHDHLLC.cl\"\n";
 }
 
 void MHDHLLC::step() {

@@ -21,6 +21,7 @@ protected:
 	virtual void initKernels();
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
+	virtual std::vector<std::string> getEigenfieldProgramSources();
 	virtual void calcDeriv(cl::Buffer derivBuffer);
 };
 
