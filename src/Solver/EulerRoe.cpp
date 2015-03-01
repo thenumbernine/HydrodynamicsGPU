@@ -9,7 +9,7 @@ void EulerRoe::init() {
 	Super::init();
 	
 	//all Euler and MHD systems also have a separate potential buffer...
-	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, selfgrav->potentialBuffer);
+	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, selfgrav->potentialBuffer);
 }
 
 void EulerRoe::createEquation() {

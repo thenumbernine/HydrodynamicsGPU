@@ -4,7 +4,7 @@
 default implementation assumes eigenfield are inverse eigenvector matrices
 and EIGENFIELD_SIZE == NUM_STATES
 */
-#if EIGENFIELD_SIZE != NUM_STATES * NUM_STATES
+#if EIGENFIELD_SIZE != 2 * NUM_STATES * NUM_STATES
 #error expected eignfields to be square matrices size of NUM_STATES
 #endif
 
@@ -62,9 +62,9 @@ void eigenfieldTransform(
 
 void eigenfieldInverseTransform(
 	__global real* results,
-	const __global real* eigenfieldInverse,
+	const __global real* eigenfield,
 	const real* input)
 {
-	stateMatrixTransformGG_(results, eigenfieldInverse, input);
+	stateMatrixTransformGG_(results, eigenfield + NUM_STATES * NUM_STATES, input);
 }
 

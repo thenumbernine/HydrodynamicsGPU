@@ -7,8 +7,7 @@ Described in Trangenstein, "Numeric Solutions of Hyperbolic Partial Differential
 
 __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenvectorsBuffer,
-	__global real* eigenvectorsInverseBuffer,
+	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
 	int side)
 {
@@ -26,8 +25,8 @@ __kernel void calcEigenBasisSide(
 	int interfaceIndex = side + DIM * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
-	__global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
+	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 
 	//eigenvalues
 
@@ -190,8 +189,7 @@ __kernel void calcEigenBasisSide(
 
 __kernel void calcEigenBasis(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenvectorsBuffer,
-	__global real* eigenvectorsInverseBuffer,
+	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -203,12 +201,12 @@ __kernel void calcEigenBasis(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, 0);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 0);
 #if DIM > 1
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, 1);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 1);
 #endif
 #if DIM > 2
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, 2);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 2);
 #endif
 }
 

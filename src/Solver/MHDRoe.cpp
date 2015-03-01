@@ -9,7 +9,7 @@ void MHDRoe::init() {
 	Super::init();
 	
 	//all Euler and MHD systems also have a separate potential buffer...
-	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, selfgrav->potentialBuffer);
+	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, selfgrav->potentialBuffer);
 
 	//allocate flux flag buffer for determining if any flux values had to be pre-filled for bad eigenstate areas
 	fluxFlagBuffer = clAlloc(sizeof(char) * getVolume() * app->dim);
@@ -17,11 +17,11 @@ void MHDRoe::init() {
 	//just like ordinary calcMHDFluxKernel -- and calls the ordinary
 	// -- but with an extra step to bail out of the associated fluxFlag is already set 
 	calcMHDFluxKernel = cl::Kernel(program, "calcMHDFlux");
-	app->setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, dtBuffer, fluxFlagBuffer);
+	app->setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dtBuffer, fluxFlagBuffer);
 
 	//setup our eigenbasis kernel to accept these extras
-	calcEigenBasisKernel.setArg(5, fluxBuffer);
-	calcEigenBasisKernel.setArg(6, fluxFlagBuffer);
+	calcEigenBasisKernel.setArg(4, fluxBuffer);
+	calcEigenBasisKernel.setArg(5, fluxFlagBuffer);
 }
 	
 void MHDRoe::createEquation() {

@@ -33,8 +33,7 @@ void Roe::initBuffers() {
 	int volume = getVolume();
 
 	eigenvaluesBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim);
-	eigenvectorsBuffer = clAlloc(sizeof(real) * numStates() * numStates() * volume * app->dim);
-	eigenvectorsInverseBuffer = clAlloc(sizeof(real) * numStates() * numStates() * volume * app->dim);
+	eigenfieldsBuffer = clAlloc(sizeof(real) * getEigenfieldSize() * volume * app->dim);
 	deltaQTildeBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim);
 	fluxBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim);
 
@@ -42,20 +41,24 @@ void Roe::initBuffers() {
 	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app->dim);
 }
 
+int Roe::getEigenfieldSize() {
+	return numStates() * numStates() * 2;	//times two for forward and inverse
+}
+
 void Roe::initKernels() {
 	Super::initKernels();
 	
 	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
-	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer);
+	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
 	app->setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app->cfl);
 	
 	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
-	app->setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenvectorsInverseBuffer, stateBuffer);
+	app->setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, deltaQTildeBuffer, dtBuffer);
+	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dtBuffer);
 	
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	calcFluxDerivKernel.setArg(1, fluxBuffer);
@@ -63,6 +66,7 @@ void Roe::initKernels() {
 
 std::vector<std::string> Roe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
+	sources.push_back("#define EIGENFIELD_SIZE "+std::to_string(getEigenfieldSize())+"\n");
 	std::vector<std::string> added = getEigenfieldProgramSources();
 	sources.insert(sources.end(), added.begin(), added.end());
 	sources.push_back("#include \"Roe.cl\"\n");
@@ -71,7 +75,6 @@ std::vector<std::string> Roe::getProgramSources() {
 
 std::vector<std::string> Roe::getEigenfieldProgramSources() {
 	return {
-		"#define EIGENFIELD_SIZE (NUM_STATES * NUM_STATES)\n",
 		"#include \"RoeEigenfieldLinear.cl\"\n"
 	};
 }

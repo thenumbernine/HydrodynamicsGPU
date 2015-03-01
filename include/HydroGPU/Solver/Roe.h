@@ -14,8 +14,7 @@ struct Roe : public Solver {
 	typedef Solver Super;
 
 	cl::Buffer eigenvaluesBuffer;
-	cl::Buffer eigenvectorsBuffer;
-	cl::Buffer eigenvectorsInverseBuffer;
+	cl::Buffer eigenfieldsBuffer;	//contains forward and inverse transform information
 	cl::Buffer deltaQTildeBuffer;
 	cl::Buffer fluxBuffer;
 	
@@ -34,6 +33,7 @@ struct Roe : public Solver {
 	virtual void init();
 protected:
 	virtual void initBuffers();
+	virtual int getEigenfieldSize();	//total size of forward and inverse
 	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();
 	virtual std::vector<std::string> getEigenfieldProgramSources();

@@ -7,16 +7,14 @@ paritcularly the spectral decomposition
 
 void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenvectorsBuffer,
-	__global real* eigenvectorsInverseBuffer,
+	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
 	int side);
 
 void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenvectorsBuffer,
-	__global real* eigenvectorsInverseBuffer,
+	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
 	int side)
@@ -31,8 +29,8 @@ void calcEigenBasisSide(
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
-	__global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
+	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
+	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 
 	real densityL = stateL[STATE_DENSITY];
 	real invDensityL = 1.f / densityL;
@@ -239,8 +237,7 @@ void calcEigenBasisSide(
 
 __kernel void calcEigenBasis(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenvectorsBuffer,
-	__global real* eigenvectorsInverseBuffer,
+	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer)
 {
@@ -253,12 +250,12 @@ __kernel void calcEigenBasis(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, potentialBuffer, 0);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, 0);
 #if DIM > 1
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, potentialBuffer, 1);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, 1);
 #endif
 #if DIM > 2
-	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, eigenvectorsInverseBuffer, stateBuffer, potentialBuffer, 2);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, 2);
 #endif
 }
 

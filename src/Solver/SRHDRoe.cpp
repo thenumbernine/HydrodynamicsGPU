@@ -17,8 +17,7 @@ void SRHDRoe::init() {
 	convertToTexKernel.setArg(0, primitiveBuffer);
 	
 	calcEigenBasisKernel.setArg(0, eigenvaluesBuffer);
-	calcEigenBasisKernel.setArg(1, eigenvectorsBuffer);
-	calcEigenBasisKernel.setArg(2, eigenvectorsInverseBuffer);
+	calcEigenBasisKernel.setArg(1, eigenfieldsBuffer);
 	calcEigenBasisKernel.setArg(3, primitiveBuffer);
 	calcEigenBasisKernel.setArg(4, stateBuffer);
 	//TODO get SRHD equation working with selfgrav by renaming STATE_REST_MASS_DENSITY to STATE_DENSITY

@@ -9,7 +9,6 @@ This currently only supports 1D
 
 __kernel void calcEigenBasis(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsInverseBuffer,
 	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer)
 {
@@ -24,12 +23,11 @@ __kernel void calcEigenBasis(
 	) return;
 	int index = INDEXV(i);
 
-#if NUM_STATES != 5
+#if DIM != 1 
 #error only supports 1D 
 #endif
 	
-	//for (int side = 0; side < DIM; ++side) {
-	{const int side = 0;
+	for (int side = 0; side < DIM; ++side) {
 		int indexPrev = index - stepsize[side];
 
 		int interfaceIndex = side + DIM * index;
@@ -38,7 +36,6 @@ __kernel void calcEigenBasis(
 		const __global real* stateR = stateBuffer + NUM_STATES * index;
 		
 		__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-		__global real* eigenfieldsInverse = eigenfieldsInverseBuffer + EIGENFIELD_SIZE * interfaceIndex;
 		__global real* eigenfields = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
 
 		//q0 = d/dx ln alpha
@@ -53,7 +50,7 @@ __kernel void calcEigenBasis(
 		real g = .5f * (stateL[STATE_G] + stateR[STATE_G]);
 		
 		//the only variable used for the eigenfield functions
-		eigenfieldsInverse[EIGENFIELD_F] = eigenfields[EIGENFIELD_F] = f;
+		eigenfields[EIGENFIELD_F] = f;
 
 		//eigenvalues
 
