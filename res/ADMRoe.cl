@@ -132,12 +132,7 @@ __kernel void addSource(
 	real D = state[STATE_D];
 	real KTilde = state[STATE_K_TILDE];
 	real f = ADM_BONA_MASSO_F;
-	real df_dalpha = ADM_BONA_MASSO_DF_DALPHA;
 	real tmp1 = alpha / sqrt(g);
-	real tmp2 = .5f * D - A;
 	deriv[STATE_ALPHA] -= tmp1 * alpha * f * KTilde / g;
 	deriv[STATE_G] -= 2.f * tmp1 * KTilde;
-	deriv[STATE_A] += KTilde * tmp1 * (f * tmp2 - A * alpha * df_dalpha);
-	deriv[STATE_D] += 2.f * KTilde * tmp1 * tmp2;
-	deriv[STATE_K_TILDE] += A * tmp1 * tmp2;
 }

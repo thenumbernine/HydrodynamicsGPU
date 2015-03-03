@@ -367,8 +367,7 @@ return {
 		xmax = {300, 300, 300}
 		local xmid = (xmax[1] + xmin[1]) * .5
 		local sigma = 10
-		adm_BonaMasso_f = '1.f'	--'1.f + 1.f / (alpha * alpha)'
-		adm_BonaMasso_df_dalpha = '0.f'	--'-2.f / (alpha * alpha * alpha)'
+		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'
 		initState = function(x,y,z)
 			local h = 5 * math.exp(-((x - xmid) / sigma)^2)
 			local dx_h = -2 * (x - xmid) / sigma^2 * h
