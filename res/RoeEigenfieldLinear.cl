@@ -55,7 +55,8 @@ void stateMatrixTransformGG_(
 void eigenfieldTransform(
 	real* results,
 	const __global real* eigenfield,
-	const real* input)
+	const real* input,
+	int side)
 {
 	stateMatrixTransform_G_(results, eigenfield, input);
 }
@@ -63,7 +64,8 @@ void eigenfieldTransform(
 void eigenfieldInverseTransform(
 	__global real* results,
 	const __global real* eigenfield,
-	const real* input)
+	const real* input,
+	int side)
 {
 	stateMatrixTransformGG_(results, eigenfield + NUM_STATES * NUM_STATES, input);
 }

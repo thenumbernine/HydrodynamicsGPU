@@ -66,7 +66,7 @@ void calcDeltaQTildeSide(
 		deltaQ[i] = stateR[i] - stateL[i];
 	}
 	real deltaQTilde_[NUM_STATES];
-	eigenfieldTransform(deltaQTilde_, eigenfields, deltaQ);
+	eigenfieldTransform(deltaQTilde_, eigenfields, deltaQ, side);
 	for (int i = 0; i < NUM_STATES; ++i) {
 		deltaQTilde[i] = deltaQTilde_[i];
 	}
@@ -141,7 +141,7 @@ void calcFluxSide(
 		avgQ[i] = .5f * (stateR[i] + stateL[i]);
 	}
 	real fluxTilde[NUM_STATES];
-	eigenfieldTransform(fluxTilde, eigenfields, avgQ);	
+	eigenfieldTransform(fluxTilde, eigenfields, avgQ, side);	
 
 	for (int i = 0; i < NUM_STATES; ++i) {
 		real eigenvalue = eigenvalues[i];
@@ -163,7 +163,7 @@ void calcFluxSide(
 		fluxTilde[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta) / (float)DIM);
 	}
 
-	eigenfieldInverseTransform(flux, eigenfields, fluxTilde);
+	eigenfieldInverseTransform(flux, eigenfields, fluxTilde, side);
 }
 
 __kernel void calcFlux(

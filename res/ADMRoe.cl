@@ -66,7 +66,8 @@ __kernel void calcEigenBasis(
 void eigenfieldTransform(
 	real* results,
 	const __global real* eigenfield,
-	const real* input)
+	const real* input,
+	int side)
 {
 	//cell
 	real v1 = input[STATE_A];
@@ -88,7 +89,8 @@ void eigenfieldTransform(
 void eigenfieldInverseTransform(
 	__global real* results,
 	const __global real* eigenfield,
-	const real* input)
+	const real* input,
+	int side)
 {
 	//cell
 	//correlates with the rows written in the eigenfieldTransform function

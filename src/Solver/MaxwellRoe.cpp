@@ -21,6 +21,19 @@ std::vector<std::string> MaxwellRoe::getProgramSources() {
 	return sources;
 }
 
+//zero cell-based information required.
+// unless you want to store permittivity and permeability.
+// would a dynamic permittivity and permeability affect the flux equations?
+int MaxwellRoe::getEigenfieldSize() {
+	//how will OpenCL respond to an allocation of zero bytes?
+	//not well...
+	return 1;
+}
+
+std::vector<std::string> MaxwellRoe::getEigenfieldProgramSources() {
+	return {};
+}
+
 void MaxwellRoe::calcDeriv(cl::Buffer derivBuffer) {
 	Super::calcDeriv(derivBuffer);
 	addSourceKernel.setArg(0, derivBuffer);

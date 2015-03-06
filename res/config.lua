@@ -13,8 +13,8 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'MHDBurgers'		-- works with Orszag-Tang and Brio-Wu, and some hydro problems too
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
 --solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
---solverName = 'MaxwellRoe'		-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
-solverName = 'ADMRoe'			-- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
+solverName = 'MaxwellRoe'		-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
+--solverName = 'ADMRoe'			-- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
 --solverName = 'ADM2DSpherical'	-- not yet
 --solverName = 'ADM3DRoe'		-- not yet
 --solverName = 'BSSNOKRoe'		-- not yet
@@ -101,13 +101,13 @@ displayScale = .25
 -- MHD
 --configurations['Orszag-Tang']()
 
---[[ Maxwell 
+-- [[ Maxwell 
 displayMethod = 'ELECTRIC'
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 configurations['Maxwell-1']()
 --]]
 
--- [[ ADM (1D)
+--[[ ADM (1D)
 configurations['ADM-1D']()
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 displayMethod = 'ALPHA'

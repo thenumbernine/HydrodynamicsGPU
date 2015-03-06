@@ -5,9 +5,112 @@ Described in Trangenstein, "Numeric Solutions of Hyperbolic Partial Differential
 
 #include "HydroGPU/Shared/Common.h"
 
+#define ELECTRIC_FIELD(x) (real4)(x[STATE_ELECTRIC_X], x[STATE_ELECTRIC_Y], x[STATE_ELECTRIC_Z], 0.f)
+#define MAGNETIC_FIELD(x) (real4)(x[STATE_MAGNETIC_X], x[STATE_MAGNETIC_Y], x[STATE_MAGNETIC_Z], 0.f)
+
+constant float sqrt_1_2 = 0.7071067811865475727373109293694142252206802368164f;
+
+void eigenfieldTransform(
+	real* results,
+	const __global real* eigenfield,	//not used
+	const real* input,
+	int side)
+{
+	real4 electric = ELECTRIC_FIELD(input);
+	real4 magnetic = MAGNETIC_FIELD(input);
+
+	//swap input dim x<->side
+	if (side == 1) {
+		electric.xy = electric.yx;
+		magnetic.xy = magnetic.yx;
+	} else if (side == 2) {
+		electric.xz = electric.zx;
+		magnetic.xz = magnetic.zx;
+	}
+	
+	const float se = sqrtPermittivity * sqrt_1_2;
+	const float su = sqrtPermeability * sqrt_1_2;
+	const float ise = 1.f / se;
+	const float isu = 1.f / su;
+
+	results[0] = electric.z * ise + magnetic.y * isu;
+	results[1] = electric.y * -ise + magnetic.z * isu;
+	results[2] = electric.x * -ise + magnetic.x * isu;
+	results[3] = electric.x * ise + magnetic.x * isu;
+	results[4] = electric.y * ise + magnetic.z * isu;
+	results[5] = electric.z * -ise + magnetic.y * isu;
+
+/*
+	//swap output dim x<->side
+	real tmp;
+	if (side == 1) {
+		tmp = results[0];
+		results[0] = results[1];
+		results[1] = tmp;
+		tmp = results[3];
+		results[3] = results[4];
+		results[4] = tmp;
+	} else if (side == 2) {
+		tmp = results[0];
+		results[0] = results[4];
+		results[4] = tmp;
+		tmp = results[3];
+		results[3] = results[5];
+		results[5] = tmp;
+	}
+*/
+}
+
+void eigenfieldInverseTransform(
+	__global real* results,
+	const __global real* eigenfield,	//not used
+	const real* input,
+	int side)
+{
+	real4 electric = ELECTRIC_FIELD(input);
+	real4 magnetic = MAGNETIC_FIELD(input);
+
+/*	//swap input dim x<->side
+	if (side == 1) {
+		electric.xy = electric.yx;
+		magnetic.xy = magnetic.yx;
+	} else if (side == 2) {
+		electric.xz = electric.zx;
+		magnetic.xz = magnetic.zx;
+	}
+*/	
+	const float se = sqrtPermittivity * sqrt_1_2;
+	const float su = sqrtPermeability * sqrt_1_2;
+
+	results[0] = electric.z * -se + magnetic.x * se;
+	results[1] = electric.y * -se + magnetic.y * se;
+	results[2] = electric.x * se + magnetic.z * -se;
+	results[3] = electric.z * su + magnetic.x * su;
+	results[4] = electric.x * su + magnetic.z * su;
+	results[5] = electric.y * su + magnetic.y * su;
+
+	//swap output dim x<->side
+	real tmp;
+	if (side == 1) {
+		tmp = results[0];
+		results[0] = results[1];
+		results[1] = tmp;
+		tmp = results[3];
+		results[3] = results[4];
+		results[4] = tmp;
+	} else if (side == 2) {
+		tmp = results[0];
+		results[0] = results[4];
+		results[4] = tmp;
+		tmp = results[3];
+		results[3] = results[5];
+		results[5] = tmp;
+	}
+}
+
 __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
+	__global real* eigenfieldsBuffer,	//not used
 	const __global real* stateBuffer,
 	int side)
 {
@@ -25,8 +128,6 @@ __kernel void calcEigenBasisSide(
 	int interfaceIndex = side + DIM * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
-	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 
 	//eigenvalues
 
@@ -37,154 +138,6 @@ __kernel void calcEigenBasisSide(
 	eigenvalues[3] = 0.f;
 	eigenvalues[4] = eigenvalue;
 	eigenvalues[5] = eigenvalue;
-
-	//eigenvectors
-
-	const float M_SQRT_1_2 = 0.7071067811865475727373109293694142252206802368164f;
-
-	float se = sqrtPermittivity * M_SQRT_1_2;
-	float su = sqrtPermeability * M_SQRT_1_2;
-
-	//col
-	eigenvectors[0 + NUM_STATES * 0] = 0.f;
-	eigenvectors[1 + NUM_STATES * 0] = 0.f;
-	eigenvectors[2 + NUM_STATES * 0] = se;
-	eigenvectors[3 + NUM_STATES * 0] = 0.f; 
-	eigenvectors[4 + NUM_STATES * 0] = su;
-	eigenvectors[5 + NUM_STATES * 0] = 0.f;
-	//col
-	eigenvectors[0 + NUM_STATES * 1] = 0.f;
-	eigenvectors[1 + NUM_STATES * 1] = -se;
-	eigenvectors[2 + NUM_STATES * 1] = 0.f;
-	eigenvectors[3 + NUM_STATES * 1] = 0.f;
-	eigenvectors[4 + NUM_STATES * 1] = 0.f;
-	eigenvectors[5 + NUM_STATES * 1] = su;
-	//col
-	eigenvectors[0 + NUM_STATES * 2] = -se;
-	eigenvectors[1 + NUM_STATES * 2] = 0.f;
-	eigenvectors[2 + NUM_STATES * 2] = 0.f;
-	eigenvectors[3 + NUM_STATES * 2] = su;
-	eigenvectors[4 + NUM_STATES * 2] = 0.f;
-	eigenvectors[5 + NUM_STATES * 2] = 0.f;
-	//col
-	eigenvectors[0 + NUM_STATES * 3] = se;
-	eigenvectors[1 + NUM_STATES * 3] = 0.f;
-	eigenvectors[2 + NUM_STATES * 3] = 0.f;
-	eigenvectors[3 + NUM_STATES * 3] = su;
-	eigenvectors[4 + NUM_STATES * 3] = 0.f;
-	eigenvectors[5 + NUM_STATES * 3] = 0.f;
-	//col
-	eigenvectors[0 + NUM_STATES * 4] = 0.f;
-	eigenvectors[1 + NUM_STATES * 4] = se;
-	eigenvectors[2 + NUM_STATES * 4] = 0.f;
-	eigenvectors[3 + NUM_STATES * 4] = 0.f;
-	eigenvectors[4 + NUM_STATES * 4] = 0.f;
-	eigenvectors[5 + NUM_STATES * 4] = su;
-	//col
-	eigenvectors[0 + NUM_STATES * 5] = 0.f;
-	eigenvectors[1 + NUM_STATES * 5] = 0.f;
-	eigenvectors[2 + NUM_STATES * 5] = -se;
-	eigenvectors[3 + NUM_STATES * 5] = 0.f;
-	eigenvectors[4 + NUM_STATES * 5] = su;
-	eigenvectors[5 + NUM_STATES * 5] = 0.f;
-
-	float ise = 1.f / se;
-	float isu = 1.f / su;
-
-	//eigenvector inverses = 1/nonzero transpose of eigenvector
-	//row
-	eigenvectorsInverse[0 + NUM_STATES * 0] = 0.f;
-	eigenvectorsInverse[0 + NUM_STATES * 1] = 0.f;
-	eigenvectorsInverse[0 + NUM_STATES * 2] = ise;
-	eigenvectorsInverse[0 + NUM_STATES * 3] = 0.f; 
-	eigenvectorsInverse[0 + NUM_STATES * 4] = isu;
-	eigenvectorsInverse[0 + NUM_STATES * 5] = 0.f;
-	//row
-	eigenvectorsInverse[1 + NUM_STATES * 0] = 0.f;
-	eigenvectorsInverse[1 + NUM_STATES * 1] = -se;
-	eigenvectorsInverse[1 + NUM_STATES * 2] = 0.f;
-	eigenvectorsInverse[1 + NUM_STATES * 3] = 0.f;
-	eigenvectorsInverse[1 + NUM_STATES * 4] = 0.f;
-	eigenvectorsInverse[1 + NUM_STATES * 5] = isu;
-	//row
-	eigenvectorsInverse[2 + NUM_STATES * 0] = -se;
-	eigenvectorsInverse[2 + NUM_STATES * 1] = 0.f;
-	eigenvectorsInverse[2 + NUM_STATES * 2] = 0.f;
-	eigenvectorsInverse[2 + NUM_STATES * 3] = isu;
-	eigenvectorsInverse[2 + NUM_STATES * 4] = 0.f;
-	eigenvectorsInverse[2 + NUM_STATES * 5] = 0.f;
-	//row
-	eigenvectorsInverse[3 + NUM_STATES * 0] = ise;
-	eigenvectorsInverse[3 + NUM_STATES * 1] = 0.f;
-	eigenvectorsInverse[3 + NUM_STATES * 2] = 0.f;
-	eigenvectorsInverse[3 + NUM_STATES * 3] = isu;
-	eigenvectorsInverse[3 + NUM_STATES * 4] = 0.f;
-	eigenvectorsInverse[3 + NUM_STATES * 5] = 0.f;
-	//row
-	eigenvectorsInverse[4 + NUM_STATES * 0] = 0.f;
-	eigenvectorsInverse[4 + NUM_STATES * 1] = ise;
-	eigenvectorsInverse[4 + NUM_STATES * 2] = 0.f;
-	eigenvectorsInverse[4 + NUM_STATES * 3] = 0.f;
-	eigenvectorsInverse[4 + NUM_STATES * 4] = 0.f;
-	eigenvectorsInverse[4 + NUM_STATES * 5] = isu;
-	//row
-	eigenvectorsInverse[5 + NUM_STATES * 0] = 0.f;
-	eigenvectorsInverse[5 + NUM_STATES * 1] = 0.f;
-	eigenvectorsInverse[5 + NUM_STATES * 2] = -se;
-	eigenvectorsInverse[5 + NUM_STATES * 3] = 0.f;
-	eigenvectorsInverse[5 + NUM_STATES * 4] = isu;
-	eigenvectorsInverse[5 + NUM_STATES * 5] = 0.f;
-
-
-#if DIM > 1
-	if (side == 1) {
-		for (int i = 0; i < NUM_STATES; ++i) {
-			real tmp;
-
-			//-90' rotation applied to the LHS of incoming velocity vectors, to move their y axis into the x axis
-			// is equivalent of a -90' rotation applied to the RHS of the flux jacobian A
-			// and A = Q V Q-1 for Q = the right eigenvectors and Q-1 the left eigenvectors
-			// so a -90' rotation applied to the RHS of A is a +90' rotation applied to the RHS of Q-1 the left eigenvectors
-			//and while a rotation applied to the LHS of a vector rotates the elements of its column vectors, a rotation applied to the RHS rotates the elements of its row vectors 
-			//each row's y <- x, x <- -y
-			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_ELECTRIC_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_ELECTRIC_X] = eigenvectorsInverse[i + NUM_STATES * STATE_ELECTRIC_Y];
-			eigenvectorsInverse[i + NUM_STATES * STATE_ELECTRIC_Y] = tmp;
-			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_Y];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_Y] = tmp;
-			//a -90' rotation applied to the RHS of A must be corrected with a 90' rotation on the LHS of A
-			//this rotates the elements of the column vectors by 90'
-			//each column's x <- y, y <- -x
-			tmp = eigenvectors[STATE_ELECTRIC_X + NUM_STATES * i];
-			eigenvectors[STATE_ELECTRIC_X + NUM_STATES * i] = eigenvectors[STATE_ELECTRIC_Y + NUM_STATES * i];
-			eigenvectors[STATE_ELECTRIC_Y + NUM_STATES * i] = tmp;
-			tmp = eigenvectors[STATE_MAGNETIC_X + NUM_STATES * i];
-			eigenvectors[STATE_MAGNETIC_X + NUM_STATES * i] = eigenvectors[STATE_MAGNETIC_Y + NUM_STATES * i];
-			eigenvectors[STATE_MAGNETIC_Y + NUM_STATES * i] = tmp;
-		}
-	}
-#if DIM > 2
-	else if (side == 2) {
-		for (int i = 0; i < NUM_STATES; ++i) {
-			real tmp;
-			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_ELECTRIC_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_ELECTRIC_X] = eigenvectorsInverse[i + NUM_STATES * STATE_ELECTRIC_Z];
-			eigenvectorsInverse[i + NUM_STATES * STATE_ELECTRIC_Z] = tmp;
-			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_Z];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_Z] = tmp;
-			tmp = eigenvectors[STATE_ELECTRIC_X + NUM_STATES * i];
-			eigenvectors[STATE_ELECTRIC_X + NUM_STATES * i] = eigenvectors[STATE_ELECTRIC_Z + NUM_STATES * i];
-			eigenvectors[STATE_ELECTRIC_Z + NUM_STATES * i] = tmp;
-			tmp = eigenvectors[STATE_MAGNETIC_X + NUM_STATES * i];
-			eigenvectors[STATE_MAGNETIC_X + NUM_STATES * i] = eigenvectors[STATE_MAGNETIC_Z + NUM_STATES * i];
-			eigenvectors[STATE_MAGNETIC_Z + NUM_STATES * i] = tmp;
-		}
-	}
-#endif
-#endif
-	
 }
 
 __kernel void calcEigenBasis(
