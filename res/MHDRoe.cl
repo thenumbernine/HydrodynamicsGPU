@@ -54,7 +54,7 @@ void calcEigenBasisSide(
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
-	__global real* eigenvectors = eigenvectors + NUM_STATES * NUM_STATES;
+	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 	
 	const real gammaMinusOne = gamma - 1.f;
 
