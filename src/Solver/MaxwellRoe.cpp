@@ -24,13 +24,13 @@ std::vector<std::string> MaxwellRoe::getProgramSources() {
 //zero cell-based information required.
 // unless you want to store permittivity and permeability.
 // would a dynamic permittivity and permeability affect the flux equations?
-int MaxwellRoe::getEigenfieldSize() {
+int MaxwellRoe::getEigenTransformStructSize() {
 	//how will OpenCL respond to an allocation of zero bytes?
 	//not well...
 	return 1;
 }
 
-std::vector<std::string> MaxwellRoe::getEigenfieldProgramSources() {
+std::vector<std::string> MaxwellRoe::getEigenProgramSources() {
 	return {};
 }
 

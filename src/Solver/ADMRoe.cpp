@@ -22,11 +22,11 @@ std::vector<std::string> ADMRoe::getProgramSources() {
 	return sources;
 }
 
-int ADMRoe::getEigenfieldSize() {
+int ADMRoe::getEigenTransformStructSize() {
 	return 1;
 }
 
-std::vector<std::string> ADMRoe::getEigenfieldProgramSources() {
+std::vector<std::string> ADMRoe::getEigenProgramSources() {
 	return {
 		"enum {\n"
 		"	EIGENFIELD_F\n"

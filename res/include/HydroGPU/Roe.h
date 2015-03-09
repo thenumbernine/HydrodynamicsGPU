@@ -5,7 +5,7 @@
 void eigenfieldTransform(
 	real* results,
 	const __global real* eigenfield,
-	const real* input,
+	const __global real* input,
 	int side);
 
 void eigenfieldInverseTransform(

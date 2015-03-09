@@ -32,17 +32,21 @@ void Roe::initBuffers() {
 
 	int volume = getVolume();
 
-	eigenvaluesBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim);
-	eigenfieldsBuffer = clAlloc(sizeof(real) * getEigenfieldSize() * volume * app->dim);
-	deltaQTildeBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim);
+	eigenvaluesBuffer = clAlloc(sizeof(real) * getEigenSpaceDim() * volume * app->dim);
+	eigenfieldsBuffer = clAlloc(sizeof(real) * getEigenTransformStructSize() * volume * app->dim);
+	deltaQTildeBuffer = clAlloc(sizeof(real) * getEigenSpaceDim() * volume * app->dim);
 	fluxBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim);
 
 	//zero flux
 	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app->dim);
 }
 
-int Roe::getEigenfieldSize() {
-	return numStates() * numStates() * 2;	//times two for forward and inverse
+int Roe::getEigenTransformStructSize() {
+	return getEigenSpaceDim() * getEigenSpaceDim() * 2;	//times two for forward and inverse
+}
+
+int Roe::getEigenSpaceDim() {
+	return numStates();
 }
 
 void Roe::initKernels() {
@@ -66,14 +70,15 @@ void Roe::initKernels() {
 
 std::vector<std::string> Roe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
-	sources.push_back("#define EIGENFIELD_SIZE "+std::to_string(getEigenfieldSize())+"\n");
-	std::vector<std::string> added = getEigenfieldProgramSources();
+	sources.push_back("#define EIGEN_TRANSFORM_STRUCT_SIZE "+std::to_string(getEigenTransformStructSize())+"\n");
+	sources.push_back("#define EIGEN_SPACE_DIM "+std::to_string(getEigenSpaceDim())+"\n");
+	std::vector<std::string> added = getEigenProgramSources();
 	sources.insert(sources.end(), added.begin(), added.end());
 	sources.push_back("#include \"Roe.cl\"\n");
 	return sources;
 }
 
-std::vector<std::string> Roe::getEigenfieldProgramSources() {
+std::vector<std::string> Roe::getEigenProgramSources() {
 	return {
 		"#include \"RoeEigenfieldLinear.cl\"\n"
 	};

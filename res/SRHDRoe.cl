@@ -34,7 +34,7 @@ void calcEigenBasisSide(
 	const __global real* primitiveR = primitiveBuffer + NUM_PRIMITIVE * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
+	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* eigenvectors = eigenvectors + NUM_STATES * NUM_STATES;
 
 	real properRestMassDensityL = primitiveL[PRIMITIVE_DENSITY];	//rho

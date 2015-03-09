@@ -25,6 +25,8 @@ have dug through
 //#define DEBUG_OUTPUT
 #define DEBUG_INDEX		513
 
+//#define USE_FLUX_FIX
+
 void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenfieldsBuffer,
@@ -53,7 +55,7 @@ void calcEigenBasisSide(
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
+	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 	
 	const real gammaMinusOne = gamma - 1.f;
@@ -116,6 +118,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		
 	real speedOfSound = sqrt(gamma * pressure / density);
 
+#ifdef USE_FLUX_FIX
 	if (pressure <= 0.f || densitySq <= 0.f) {
 		
 		//solve the HLL flux
@@ -199,7 +202,9 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 			flux[STATE_MOMENTUM_X + side] = tmp;
 		}
 
-	} else {	
+	} else
+#endif
+	{
 
 		real4 magneticFieldT = (real4)(0.f, magneticField.y, magneticField.z, 0.f);
 		real magneticFieldXSq = magneticField.x * magneticField.x;
@@ -634,12 +639,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		for (int i = 0; i < NUM_STATES; ++i) {
 			real tmp;
 
-			//-90' rotation applied to the LHS of incoming velocity vectors, to move their y axis into the x axis
-			// is equivalent of a -90' rotation applied to the RHS of the flux jacobian A
-			// and A = Q V Q-1 for Q = the right eigenvectors and Q-1 the left eigenvectors
-			// so a -90' rotation applied to the RHS of A is a +90' rotation applied to the RHS of Q-1 the left eigenvectors
-			//and while a rotation applied to the LHS of a vector rotates the elements of its column vectors, a rotation applied to the RHS rotates the elements of its row vectors 
-			//each row's y <- x, x <- -y
+			//each row's xy <- yx 
 			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
 			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y];
 			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y] = tmp;
@@ -648,9 +648,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Y];
 			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Y] = tmp;
 			
-			//a -90' rotation applied to the RHS of A must be corrected with a 90' rotation on the LHS of A
-			//this rotates the elements of the column vectors by 90'
-			//each column's x <- y, y <- -x
+			//each column's xy <- yx
 			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
 			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i];
 			eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i] = tmp;

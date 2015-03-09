@@ -25,13 +25,13 @@ __kernel void calcCFL(
 	for (int side = 0; side < DIM; ++side) {
 		int indexR = index + stepsize[side];
 		
-		const __global real* eigenvaluesL = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexL);
-		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexR);
+		const __global real* eigenvaluesL = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexL);
+		const __global real* eigenvaluesR = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexR);
 	
 		//NOTICE assumes eigenvalues are sorted from min to max
-		real maxLambda = max(0.f, eigenvaluesL[NUM_STATES-1]);
+		real maxLambda = max(0.f, eigenvaluesL[EIGEN_SPACE_DIM-1]);
 		real minLambda = min(0.f, eigenvaluesR[0]);
-		
+
 		real dum = dx[side] / (fabs(maxLambda - minLambda) + 1e-9f);
 		result = min(result, dum);
 	}
@@ -58,17 +58,21 @@ void calcDeltaQTildeSide(
 			
 	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
-	const __global real* eigenfields = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
-	__global real* deltaQTilde = deltaQTildeBuffer + NUM_STATES * interfaceIndex;
+	const __global real* eigenfields = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	__global real* deltaQTilde = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceIndex;
 
-	real deltaQ[NUM_STATES];
-	for (int i = 0; i < NUM_STATES; ++i) {
-		deltaQ[i] = stateR[i] - stateL[i];
-	}
-	real deltaQTilde_[NUM_STATES];
-	eigenfieldTransform(deltaQTilde_, eigenfields, deltaQ, side);
-	for (int i = 0; i < NUM_STATES; ++i) {
-		deltaQTilde[i] = deltaQTilde_[i];
+	//transform left and right separately, then compute difference
+	//this is important for nonlinear transforms from stored state into conservative state
+	//however if that transform is linear then these eigenfieldTransform's can be combined to after the delta comptuation (subtraction can be factored out)	
+	
+	real stateLTilde[EIGEN_SPACE_DIM];
+	eigenfieldTransform(stateLTilde, eigenfields, stateL, side);
+
+	real stateRTilde[EIGEN_SPACE_DIM];
+	eigenfieldTransform(stateRTilde, eigenfields, stateR, side);
+
+	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
+		deltaQTilde[i] = stateRTilde[i] - stateLTilde[i];
 	}
 }
 
@@ -127,23 +131,28 @@ void calcFluxSide(
 	const __global real* stateL = stateBuffer + NUM_STATES * indexL;
 	const __global real* stateR = stateBuffer + NUM_STATES * indexR;
 	
-	const __global real* deltaQTildeL = deltaQTildeBuffer + NUM_STATES * interfaceLIndex;
-	const __global real* deltaQTilde = deltaQTildeBuffer + NUM_STATES * interfaceIndex;
-	const __global real* deltaQTildeR = deltaQTildeBuffer + NUM_STATES * interfaceRIndex;
+	const __global real* deltaQTildeL = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceLIndex;
+	const __global real* deltaQTilde = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceIndex;
+	const __global real* deltaQTildeR = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceRIndex;
 	
-	const __global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	const __global real* eigenfields = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
+	const __global real* eigenvalues = eigenvaluesBuffer + EIGEN_SPACE_DIM * interfaceIndex;
+	const __global real* eigenfields = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
 
-	
-	real avgQ[NUM_STATES];
-	for (int i = 0; i < NUM_STATES; ++i) {
-		avgQ[i] = .5f * (stateR[i] + stateL[i]);
-	}
-	real fluxTilde[NUM_STATES];
-	eigenfieldTransform(fluxTilde, eigenfields, avgQ, side);	
+	//same disclaimer as above, eigenfield can be faactored out of avg for nonlinear transforms
 
-	for (int i = 0; i < NUM_STATES; ++i) {
+	real stateLTilde[EIGEN_SPACE_DIM];
+	eigenfieldTransform(stateLTilde, eigenfields, stateL, side);
+
+	real stateRTilde[EIGEN_SPACE_DIM];
+	eigenfieldTransform(stateRTilde, eigenfields, stateR, side);
+
+	real fluxTilde[EIGEN_SPACE_DIM];
+	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
+		fluxTilde[i] = .5f * (stateRTilde[i] + stateLTilde[i]);
+	}
+
+	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
 		real eigenvalue = eigenvalues[i];
 		fluxTilde[i] *= eigenvalue;
 

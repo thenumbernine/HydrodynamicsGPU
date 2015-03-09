@@ -387,13 +387,13 @@ return {
 
 	['Maxwell-1'] = function()
 		initState = function(x,y,z)
-			--local inside = x <= 0 and y <= 0 and z <= 0
-			local ex = -y 
-			local ey = x
-			local ez = 0
+			local inside = x <= 0 and y <= 0 and z <= 0
+			local ex = 0 
+			local ey = 0
+			local ez = 1
 			local bx = 0
 			local by = 0
-			local bz = 1
+			local bz = inside and 1 or -1
 			return ex * permittivity, ey * permittivity, ez * permittivity, bx, by, bz
 		end
 	end,

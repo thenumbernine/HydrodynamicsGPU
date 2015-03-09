@@ -5,23 +5,23 @@
 namespace HydroGPU {
 namespace Solver {
 
-void MHDRoe::init() {
-	Super::init();
+void MHDRoe::initBuffers() {
+	Super::initBuffers();
 	
-	//all Euler and MHD systems also have a separate potential buffer...
-	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, selfgrav->potentialBuffer);
-
 	//allocate flux flag buffer for determining if any flux values had to be pre-filled for bad eigenstate areas
 	fluxFlagBuffer = clAlloc(sizeof(char) * getVolume() * app->dim);
+}
+
+void MHDRoe::initKernels() {
+	Super::initKernels();
+
+	//all Euler and MHD systems also have a separate potential buffer...
+	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, selfgrav->potentialBuffer, fluxBuffer, fluxFlagBuffer);
 
 	//just like ordinary calcMHDFluxKernel -- and calls the ordinary
 	// -- but with an extra step to bail out of the associated fluxFlag is already set 
 	calcMHDFluxKernel = cl::Kernel(program, "calcMHDFlux");
 	app->setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dtBuffer, fluxFlagBuffer);
-
-	//setup our eigenbasis kernel to accept these extras
-	calcEigenBasisKernel.setArg(4, fluxBuffer);
-	calcEigenBasisKernel.setArg(5, fluxFlagBuffer);
 }
 	
 void MHDRoe::createEquation() {
@@ -33,7 +33,6 @@ std::vector<std::string> MHDRoe::getProgramSources() {
 	sources.push_back("#include \"MHDRoe.cl\"\n");
 	return sources;
 }
-
 
 void MHDRoe::initStep() {
 	//MHD-Roe is special in that it can write fluxes during the calc eigen basis kernel

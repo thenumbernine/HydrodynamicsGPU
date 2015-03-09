@@ -36,7 +36,7 @@ __kernel void calcEigenBasis(
 		const __global real* stateR = stateBuffer + NUM_STATES * index;
 		
 		__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-		__global real* eigenfields = eigenfieldsBuffer + EIGENFIELD_SIZE * interfaceIndex;
+		__global real* eigenfields = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 
 		//q0 = d/dx ln alpha
 		//q1 = d/dx ln g = d/dx ln g_xx
@@ -66,7 +66,7 @@ __kernel void calcEigenBasis(
 void eigenfieldTransform(
 	real* results,
 	const __global real* eigenfield,
-	const real* input,
+	const __global real* input,
 	int side)
 {
 	//cell

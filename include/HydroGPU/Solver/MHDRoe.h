@@ -22,8 +22,8 @@ protected:
 
 public:
 	using Super::Super;
-	virtual void init();
-
+	virtual void initBuffers();
+	virtual void initKernels();
 protected:
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();

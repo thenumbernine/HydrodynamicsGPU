@@ -10,15 +10,15 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'EulerHLLC'		-- needs slope limiter support
 --solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe'		-- not yet
---solverName = 'MHDBurgers'		-- works with Orszag-Tang and Brio-Wu, and some hydro problems too
+--solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
---solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
-solverName = 'MaxwellRoe'		-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
+solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
+--solverName = 'MaxwellRoe'		-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
 --solverName = 'ADMRoe'			-- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
 --solverName = 'ADM2DSpherical'	-- not yet
 --solverName = 'ADM3DRoe'		-- not yet
 --solverName = 'BSSNOKRoe'		-- not yet
--- TODO ImplicitNavierStokes
+-- TODO ImplicitIncompressibleNavierStokes	<- from my GPU fluid sim Lua+GLSL project
 -- TODO ImplicitBSSNOK
 
 --slopeLimiterName = 'DonorCell'
@@ -82,7 +82,7 @@ conductivity = 1
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
 --[[ 3D
-size = {64, 64, 64}
+size = {32, 32, 32}
 vectorFieldResolution = 16
 --]]
 --[[ 2D
@@ -95,13 +95,13 @@ displayScale = .25
 
 
 -- Euler
---configurations['Sod']()
+configurations['Sod']()
 --configurations['self-gravitation test 1']()
 
 -- MHD
---configurations['Orszag-Tang']()
+--configurations['Brio-Wu']()
 
--- [[ Maxwell 
+--[[ Maxwell 
 displayMethod = 'ELECTRIC'
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 configurations['Maxwell-1']()

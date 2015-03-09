@@ -2,23 +2,23 @@
 
 /*
 default implementation assumes eigenfield are inverse eigenvector matrices
-and EIGENFIELD_SIZE == NUM_STATES
+and EIGEN_TRANSFORM_STRUCT_SIZE == 2 * NUM_STATES
 */
-#if EIGENFIELD_SIZE != 2 * NUM_STATES * NUM_STATES
+#if EIGEN_TRANSFORM_STRUCT_SIZE != 2 * NUM_STATES * NUM_STATES
 #error expected eignfields to be square matrices size of NUM_STATES
 #endif
 
 //c_i = a_ij b_j
 
-void stateMatrixTransform_G_(
+void stateMatrixTransform_GG(
 	real* results,
 	const __global real* matrix,
-	const real* input);
+	const __global real* input);
 
-void stateMatrixTransform_G_(
+void stateMatrixTransform_GG(
 	real* results,
 	const __global real* matrix,
-	const real* input)
+	const __global real* input)
 {
 	for (int i = 0; i < NUM_STATES; ++i) {
 		real sum = 0.f;
@@ -55,10 +55,10 @@ void stateMatrixTransformGG_(
 void eigenfieldTransform(
 	real* results,
 	const __global real* eigenfield,
-	const real* input,
+	const __global real* input,
 	int side)
 {
-	stateMatrixTransform_G_(results, eigenfield, input);
+	stateMatrixTransform_GG(results, eigenfield, input);
 }
 
 void eigenfieldInverseTransform(

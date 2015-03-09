@@ -33,10 +33,11 @@ struct Roe : public Solver {
 	virtual void init();
 protected:
 	virtual void initBuffers();
-	virtual int getEigenfieldSize();	//total size of forward and inverse
 	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();
-	virtual std::vector<std::string> getEigenfieldProgramSources();
+	virtual std::vector<std::string> getEigenProgramSources();
+	virtual int getEigenSpaceDim();
+	virtual int getEigenTransformStructSize();	//total size of forward and inverse
 	virtual void initStep();
 	virtual void calcTimestep();
 	virtual void step();

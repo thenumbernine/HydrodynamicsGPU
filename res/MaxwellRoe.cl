@@ -13,7 +13,7 @@ constant float sqrt_1_2 = 0.7071067811865475727373109293694142252206802368164f;
 void eigenfieldTransform(
 	real* results,
 	const __global real* eigenfield,	//not used
-	const real* input,
+	const __global real* input,
 	int side)
 {
 	real4 electric = ELECTRIC_FIELD(input);
