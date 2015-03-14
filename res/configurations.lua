@@ -363,7 +363,7 @@ return {
 
 
 	['ADM-1D'] = function()
-		xmin = {0, 0, 0,}
+		xmin = {0, 0, 0}
 		xmax = {300, 300, 300}
 		local xmid = (xmax[1] + xmin[1]) * .5
 		local sigma = 10
@@ -382,49 +382,70 @@ return {
 	end,
 
 	['ADM-3D'] = function()
-		xmin = {0, 0, 0,}
+		xmin = {0, 0, 0}
 		xmax = {300, 300, 300}
 		local xmid = (xmax[1] + xmin[1]) * .5
 		local ymid = (xmax[2] + xmin[2]) * .5
 		local zmid = (xmax[3] + xmin[3]) * .5
 		local sigma = 10
+		local sigma2 = sigma * sigma
+		local sigma4 = sigma2 * sigma2
 		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO ... provide code in some more reliable way 
 		initState = function(x,y,z)
 			local dx = x - xmid
-			local dy = y - ymid
-			local dz = z - zmid
-			local dx2 = dx*dx + dy*dy + dz*dz
-			--[ [ 1D
-			local h = 5 * math.exp(-(dx2 / sigma)^2)
-			local dx_h = -2 * (x - xmid) / sigma^2 * h
-			local dy_h = 0
-			local dz_h = 0
-			local dxx_h = (-2 / sigma^2 + 4 * (x - xmid)^2 / sigma^4) * h
-			local dxy_h = 0
-			local dxz_h = 0
-			local dyy_h = 0
-			local dyz_h = 0
-			local dzz_h = 0
+			local dx2 = dx * dx
+			--[[ 1D
+			local ds2 = dx2
+			local h = 5 * math.exp(-ds2 / sigma2)
+			local hx = -2 * dx / sigma2 * h
+			local hy = 0
+			local hz = 0
+			local hxx = (-2 / sigma2 + 4 * dx2 / sigma4) * h
+			local hxy = 0
+			local hxz = 0
+			local hyy = 0
+			local hyz = 0
+			local hzz = 0
 			--]]		
-			--[[ 3D
-			local h = 5 * math.exp(-(dx2 / sigma)^2)
-			local dx_h = -2 * (x - xmid) / sigma^2 * h
-			local dy_h = -2 * (y - xmid) / sigma^2 * h
-			local dz_h = -2 * (z - xmid) / sigma^2 * h
-			local dxx_h = (-2 / sigma^2 + 4 * (x - xmid)^2 / sigma^4) * h
-			local dxy_h = 4 * (x - xmid) * (y - ymid) / sigma^4 * h
-			local dxz_h = 4 * (x - xmid) * (z - zmid) / sigma^4 * h
-			local dyy_h = (-2 / sigma^2 + 4 * (y - ymid)^2 / sigma^4) * h
-			local dyz_h = 4 * (y - ymid) * (z - zmid) / sigma^4 * h
-			local dzz_h = (-2 / sigma^2 + 4 * (z - zmid)^2 / sigma^4) * h
+			-- [[ 2D
+			local dy = y - ymid
+			local dy2 = dy * dy
+			local ds2 = dx2 + dy2
+			local h = 5 * math.exp(-ds2 / sigma2)
+			local hx = -2 * dx / sigma2 * h
+			local hy = -2 * dy / sigma2 * h
+			local hz = 0
+			local hxx = (-2 / sigma2 + 4 * dx2 / sigma4) * h
+			local hxy = 4 * dx * dy / sigma4 * h
+			local hxz = 0
+			local hyy = (-2 / sigma2 + 4 * dy2 / sigma4) * h
+			local hyz = 0
+			local hzz = 0
 			--]]
-			local alpha = 1
-			local g_xx = 1 - dx_h^2
-			local g_xy = -dx_h * dy_h
-			local g_xz = -dx_h * dz_h
-			local g_yy = 1 - dy_h^2
-			local g_yz = -dy_h * dz_h
-			local g_zz = 1 - dz_h^2
+			--[[ 3D
+			local dy = 0--y - ymid
+			local dz = 0--z - zmid
+			local dx2 = dx * dx
+			local dy2 = dy * dy
+			local dz2 = dz * dz
+			local ds2 = dx2 + dy2 + dz2
+			local h = 5 * math.exp(-ds2 / sigma2)
+			local hx = -2 * dx / sigma2 * h
+			local hy = -2 * dy / sigma2 * h
+			local hz = -2 * dz / sigma2 * h
+			local hxx = (-2 / sigma2 + 4 * dx2 / sigma4) * h
+			local hxy = 4 * dx * dy / sigma4 * h
+			local hxz = 4 * dx * dz / sigma4 * h
+			local hyy = (-2 / sigma2 + 4 * dy2 / sigma4) * h
+			local hyz = 4 * dy * dz / sigma4 * h
+			local hzz = (-2 / sigma2 + 4 * dz2 / sigma4) * h
+			--]]
+			local g_xx = 1 - hx * hx
+			local g_xy = -hx * hy
+			local g_xz = -hx * hz
+			local g_yy = 1 - hy * hy
+			local g_yz = -hy * hz
+			local g_zz = 1 - hz * hz
 			local det_g = g_xx * g_yy * g_zz + g_xy * g_yz * g_xz + g_xz * g_xy * g_yz - g_xz * g_yy * g_xz - g_yz * g_yz * g_xx - g_zz * g_xy * g_xy
 			local gUxx = (g_yy * g_zz - g_yz * g_yz) / det_g
 			local gUxy = (g_xz * g_yz - g_xy * g_zz) / det_g
@@ -432,36 +453,38 @@ return {
 			local gUyy = (g_xx * g_zz - g_xz * g_xz) / det_g
 			local gUyz = (g_xz * g_xy - g_xx * g_yz) / det_g
 			local gUzz = (g_xx * g_yy - g_xy * g_xy) / det_g
-			local A_x = 0	-- dx ln alpha
-			local A_y = 0	-- dx ln alpha
-			local A_z = 0	-- dx ln alpha
-			local D_xxx = -dx_h * dxx_h
-			local D_xxy = -.5 * (dxx_h * dy_h + dx_h * dxy_h)
-			local D_xxz = -.5 * (dxx_h * dz_h + dx_h * dxz_h)
-			local D_xyy = -dy_h * dxy_h
-			local D_xyz = -.5 * (dxy_h * dz_h + dy_h * dxz_h)
-			local D_xzz = -dz_h * dxz_h
-			local D_yxx = -dx_h * dxy_h
-			local D_yxy = -.5 * (dxy_h * dy_h + dx_h * dyy_h)
-			local D_yxz = -.5 * (dxy_h * dz_h + dx_h * dyz_h)
-			local D_yyy = -dy_h * dyy_h
-			local D_yyz = -.5 * (dyy_h * dz_h + dy_h * dyz_h)
-			local D_yzz = -dz_h * dyz_h
-			local D_zxx = -dx_h * dxz_h
-			local D_zxy = -.5 * (dxz_h * dy_h + dx_h * dyz_h)
-			local D_zxz = -.5 * (dxz_h * dz_h + dx_h * dzz_h)
-			local D_zyy = -dy_h * dyz_h
-			local D_zyz = -.5 * (dyz_h * dz_h + dy_h * dzz_h)
-			local D_zzz = -dz_h * dzz_h
-			local K_xx = -dxx_h / det_g
-			local K_xy = -dxy_h / det_g
-			local K_xz = -dxz_h / det_g
-			local K_yy = -dyy_h / det_g
-			local K_yz = -dyz_h / det_g
-			local K_zz = -dzz_h / det_g
+			local D_xxx = -hx * hxx
+			local D_xxy = -.5 * (hxx * hy + hx * hxy)
+			local D_xxz = -.5 * (hxx * hz + hx * hxz)
+			local D_xyy = -hy * hxy
+			local D_xyz = -.5 * (hxy * hz + hy * hxz)
+			local D_xzz = -hz * hxz
+			local D_yxx = -hx * hxy
+			local D_yxy = -.5 * (hxy * hy + hx * hyy)
+			local D_yxz = -.5 * (hxy * hz + hx * hyz)
+			local D_yyy = -hy * hyy
+			local D_yyz = -.5 * (hyy * hz + hy * hyz)
+			local D_yzz = -hz * hyz
+			local D_zxx = -hx * hxz
+			local D_zxy = -.5 * (hxz * hy + hx * hyz)
+			local D_zxz = -.5 * (hxz * hz + hx * hzz)
+			local D_zyy = -hy * hyz
+			local D_zyz = -.5 * (hyz * hz + hy * hzz)
+			local D_zzz = -hz * hzz
+			local sqrt_det_g = math.sqrt(det_g)	
+			local K_xx = -hxx / sqrt_det_g
+			local K_xy = -hxy / sqrt_det_g
+			local K_xz = -hxz / sqrt_det_g
+			local K_yy = -hyy / sqrt_det_g
+			local K_yz = -hyz / sqrt_det_g
+			local K_zz = -hzz / sqrt_det_g
 			local V_x = (D_xxy - D_yxx) * gUxy + (D_xxz - D_zxx) * gUxz + (D_xyy - D_yxy) * gUyy + (D_xyz - D_yxz) * gUyz + (D_xyz - D_zxy) * gUyz + (D_xzz - D_zxz) * gUzz
 			local V_y = (D_yxx - D_xxy) * gUxx + (D_yxy - D_xyy) * gUxy + (D_yxz - D_xyz) * gUxz + (D_yxz - D_zxy) * gUxz + (D_yyz - D_zyy) * gUyz + (D_yzz - D_zyz) * gUzz
 			local V_z = (D_zxx - D_xxz) * gUxx + (D_zxy - D_xyz) * gUxy + (D_zxy - D_yxz) * gUxy + (D_zxz - D_xzz) * gUxz + (D_zyy - D_yyz) * gUyy + (D_zyz - D_yzz) * gUyz
+			local alpha = 1
+			local A_x = 0	-- dx ln alpha
+			local A_y = 0	-- dy ln alpha
+			local A_z = 0	-- dz ln alpha
 			return 
 				alpha,
 				g_xx, g_xy, g_xz, g_yy, g_yz, g_zz,

@@ -271,6 +271,10 @@ Solver::Converter::Converter(Solver* solver_)
 : solver(solver_)
 , stateVec(solver_->getVolume() * solver_->numStates()) {}
 
+int Solver::Converter::numChannels() {
+	return solver->equation->numReadStateChannels();
+}
+
 void Solver::Converter::setValues(int index, const std::vector<real>& cellValues) {
 	solver->equation->readStateCell(stateVec.data() + index * solver->numStates(), cellValues.data());
 }
@@ -297,10 +301,7 @@ void Solver::resetState() {
 	std::cout << "initializing..." << std::endl;
 	
 	std::shared_ptr<Converter> converter = createConverter();
-
-	//hard-coded and centered around the MHD solver *and* the extra pressure buffer for Euler/MHD equations ...
-	//TODO multret and have each equation interpret the results
-	std::vector<real> cellResults(9);
+	std::vector<real> cellResults(converter->numChannels());
 
 	int flattenedIndex = 0;
 	int index[3];

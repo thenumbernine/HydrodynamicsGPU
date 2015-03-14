@@ -17,6 +17,7 @@ struct Euler : public SelfGravitationBehavior<Equation> {
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state);
 	virtual void readStateCell(real* state, const real* source);
+	virtual int numReadStateChannels();
 };
 
 }

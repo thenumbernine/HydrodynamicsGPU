@@ -217,6 +217,7 @@ __kernel void calcEigenBasisSide(
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 	__global real* eigenfield = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 
+	//store the intermediate state in the eigenfield and reconstruct it upon eigenfield[Inverse]Transform()
 	for (int i = 0; i < NUM_STATES; ++i) {
 		eigenfield[i] = .5f * (stateL[i] + stateR[i]);
 	}

@@ -1,4 +1,5 @@
 #include "HydroGPU/Equation/Equation.h"
+#include "HydroGPU/Solver/Solver.h"
 
 namespace HydroGPU {
 namespace Equation {
@@ -25,6 +26,10 @@ void Equation::readStateCell(real* state, const real* source) {
 	for (int i = 0; i < (int)states.size(); ++i) {
 		state[i] = source[i];
 	}
+}
+
+int Equation::numReadStateChannels() {
+	return solver->numStates();
 }
 
 }

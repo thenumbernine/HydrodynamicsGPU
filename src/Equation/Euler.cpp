@@ -77,6 +77,10 @@ void Euler::readStateCell(real* state, const real* source) {
 	state[states.size()-1] = source[7];
 }
 
+int Euler::numReadStateChannels() {
+	return 8;
+}
+
 }
 }
 

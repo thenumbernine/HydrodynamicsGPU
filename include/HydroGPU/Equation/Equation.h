@@ -23,6 +23,7 @@ public:
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state) = 0;
 	std::string buildEnumCode(const std::string& prefix, const std::vector<std::string>& enumStrs);
 	virtual void readStateCell(real* state, const real* source);
+	virtual int numReadStateChannels();
 };
 
 }

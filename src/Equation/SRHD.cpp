@@ -67,6 +67,10 @@ int SRHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
 	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
 }
 
+int SRHD::numReadStateChannels() {
+	return 8;
+}
+
 }
 }
 

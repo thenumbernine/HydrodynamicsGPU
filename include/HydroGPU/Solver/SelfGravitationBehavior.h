@@ -45,7 +45,10 @@ protected:
 		: Super(solver)
 		, potentialVec(solver->getVolume())
 		{}
-	
+
+		virtual int numChannels() {
+			return Super::numChannels() + 1;
+		}
 		virtual void setValues(int index, const std::vector<real>& cellValues) {
 			Super::setValues(index, cellValues);
 			potentialVec[index] = cellValues[cellValues.size()-1];
@@ -65,6 +68,7 @@ protected:
 			if (channel == Super::solver->numStates()) return potentialVec[index];
 			return Super::getValue(index, channel);
 		}
+		
 	};
 	friend struct Converter;
 

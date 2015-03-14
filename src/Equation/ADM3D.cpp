@@ -80,10 +80,10 @@ void ADM3D::getProgramSources(std::vector<std::string>& sources) {
 
 	{
 		int i = 0;
-		std::for_each(sym33suffixes.begin(), sym33suffixes.end(), [&](const std::string& suffix){
+		for (const std::string& suffix : sym33suffixes){
 			sources[0] += "#define SYM33_" + suffix + " " + std::to_string(i) + "\n";
 			++i;
-		});
+		}
 	}
 
 	//and shorthand for the suffix states

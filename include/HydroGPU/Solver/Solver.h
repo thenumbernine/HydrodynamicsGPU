@@ -112,7 +112,13 @@ protected:
 		std::vector<real> stateVec;
 		
 		Converter(Solver* solver);
-		
+
+		//how large the stack size for lua is.
+		//TODO use some other method to read in info that doesn't need this info.
+		//this calls through to the Equation
+		//use this instead so it can add extra channels (like potential energy for self-gravitation)
+		virtual int numChannels();
+
 		//lua state -> cellResults -> Converter CPU buffer
 		//all at once for convenience of compatability with config.lua's initState()
 		virtual void setValues(int index, const std::vector<real>& cellValues);
