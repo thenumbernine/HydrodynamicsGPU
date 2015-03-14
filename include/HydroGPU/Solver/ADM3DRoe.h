@@ -21,6 +21,8 @@ public:
 protected:
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
+	virtual std::vector<std::string> getEigenProgramSources();
+	virtual int getEigenTransformStructSize();
 	virtual void calcDeriv(cl::Buffer derivBuffer);
 };
 

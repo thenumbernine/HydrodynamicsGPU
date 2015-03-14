@@ -22,6 +22,14 @@ std::vector<std::string> ADM3DRoe::getProgramSources() {
 	return sources;
 }
 
+std::vector<std::string> ADM3DRoe::getEigenProgramSources() {
+	return {};
+}
+
+int ADM3DRoe::getEigenTransformStructSize() {
+	return numStates() + 6 + 1 + 1;	//states, gInv, g, f
+}
+
 void ADM3DRoe::calcDeriv(cl::Buffer derivBuffer) {
 	Super::calcDeriv(derivBuffer);
 	addSourceKernel.setArg(0, derivBuffer);

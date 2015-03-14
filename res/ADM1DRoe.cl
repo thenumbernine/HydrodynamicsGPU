@@ -130,8 +130,8 @@ __kernel void addSource(
 	const __global real* state = stateBuffer + NUM_STATES * index;
 	real alpha = state[STATE_ALPHA];
 	real g = state[STATE_G];
-	real A = state[STATE_A];
-	real D = state[STATE_D];
+	//real A = state[STATE_A];
+	//real D = state[STATE_D];
 	real KTilde = state[STATE_K_TILDE];
 	real f = ADM_BONA_MASSO_F;
 	real tmp1 = alpha / sqrt(g);

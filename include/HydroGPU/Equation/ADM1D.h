@@ -22,9 +22,9 @@ two solutions to this:
 1) separate alpha and g into a separate texture, add it to the param list of update sources
 2) modify underlying roe routines to operate on a subset of states
 */
-struct ADM : public Equation {
+struct ADM1D : public Equation {
 	typedef Equation Super;
-	ADM(HydroGPU::Solver::Solver* solver);
+	ADM1D(HydroGPU::Solver::Solver* solver);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state);
 };

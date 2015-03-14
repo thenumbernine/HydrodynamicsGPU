@@ -8,7 +8,7 @@ namespace Solver {
 /*
 Roe solver for ADM 1D 5-variable equations
 */
-struct ADMRoe : public Roe {
+struct ADM1DRoe : public Roe {
 	typedef Roe Super;
 
 protected:

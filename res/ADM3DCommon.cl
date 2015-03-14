@@ -1,23 +1,24 @@
 #include "HydroGPU/Shared/Common.h"
+#include "HydroGPU/Shared/ADM3DCommon.h"
 
-float sym33determinant(const __global real* m) {
-	return m[SYM33_XX] * m[SYM33_YY] * m[SYM33_ZZ]
-		+ m[SYM33_XY] * m[SYM33_YZ] * m[SYM33_XZ]
-		+ m[SYM33_XZ] * m[SYM33_XY] * m[SYM33_YZ]
-		- m[SYM33_XZ] * m[SYM33_YY] * m[SYM33_XZ]
-		- m[SYM33_YZ] * m[SYM33_YZ] * m[SYM33_XX]
-		- m[SYM33_ZZ] * m[SYM33_XY] * m[SYM33_XY];
+real det3x3sym(real xx, real xy, real xz, real yy, real yz, real zz) {
+	return xx * yy * zz
+		+ xy * yz * xz
+		+ xz * xy * yz
+		- xz * yy * xz
+		- yz * yz * xx
+		- zz * xy * xy;
 }
-
-//using Cramer's method
-void sym33inverse(const __global real* m, real* mInv) {
-	float det = sym33determinant(m);
-	mInv[SYM33_XX] = (m[SYM33_YY] * m[SYM33_ZZ] - m[SYM33_YZ] * m[SYM33_YZ]) / det;
-	mInv[SYM33_YY] = (m[SYM33_XX] * m[SYM33_ZZ] - m[SYM33_XZ] * m[SYM33_XZ]) / det;
-	mInv[SYM33_ZZ] = (m[SYM33_XX] * m[SYM33_YY] - m[SYM33_XY] * m[SYM33_XY]) / det;
-	mInv[SYM33_XY] = (m[SYM33_XY] * m[SYM33_ZZ] - m[SYM33_YZ] * m[SYM33_XZ]) / det;
-	mInv[SYM33_XZ] = (m[SYM33_XY] * m[SYM33_YZ] - m[SYM33_YY] * m[SYM33_XZ]) / det;
-	mInv[SYM33_YZ] = (m[SYM33_XX] * m[SYM33_YZ] - m[SYM33_XY] * m[SYM33_XZ]) / det;
+	
+real8 inv3x3sym(real xx, real xy, real xz, real yy, real yz, real zz, real det) {
+	return (real8)(
+		(yy * zz - yz * yz) / det,		// xx
+		(xz * yz - xy * zz)  / det,	// xy
+		(xy * yz - xz * yy) / det,	// xz
+		(xx * zz - xz * xz) / det,		// yy
+		(xz * xy - xx * yz) / det,	// yz
+		(xx * yy - xy * xy) / det,		// zz
+		0.f, 0.f);
 }
 
 //specific to Euler equations
@@ -33,30 +34,28 @@ __kernel void convertToTex(
 
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
+	real alpha = state[0];
+	real g_xx = state[1], g_xy = state[2], g_xz = state[3], g_yy = state[4], g_yz = state[5], g_zz = state[6];
+	real K_xx = state[28], K_xy = state[29], K_xz = state[30], K_yy = state[31], K_yz = state[32], K_zz = state[33];
+	real g = det3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz);
+	real8 gInv = inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz, g);
+	real gUxx = gInv[0], gUxy = gInv[1], gUxz = gInv[2], gUyy = gInv[3], gUyz = gInv[4], gUzz = gInv[5];
+	real tr_K = K_xx * gUxx + K_yy * gUyy + K_zz * gUzz + 2.f * K_xy * gUxy + 2.f * K_yz * gUyz + 2.f * K_xz * gUxz;
+
 #if DIM == 1	//pack everything into one variable
-	float alpha = states[STATE_ALPHA];
-	float volume = states[STATE_ALPHA] * sym33determinant(states + STATE_GAMMA);
-	float4 color = (float4)(alpha, volume, K, 0.f) * displayScale;
+	float volume = alpha * g;
+	float4 color = (float4)(alpha, volume, tr_K, 0.f) * displayScale;
 #else			//pick a single gradient and map it to a palette
 	float value = 0.f;
 	switch (displayMethod) {
-	case DISPLAY_METHOD_LAPSE:
-		value = states[STATE_ALPHA];
+	case DISPLAY_ALPHA:
+		value = alpha;
 		break;
-	case DISPLAY_METHOD_VOLUME:
-		value = states[STATE_ALPHA] * sym33determinant(states + STATE_GAMMA);
+	case DISPLAY_VOLUME:
+		value = alpha * g; 
 		break;
-	case DISPLAY_EXTRINSIC_CURVATURE:
-		{
-			float gammaInverse[6];
-			sym33inverse(states + STATE_GAMMA, gammaInverse);
-			for (int i = 0; i < 3; ++i) {	
-				//single pass of the diagonals
-				value += states[STATE_K_XX + i] * gammaInverse[i + SYM33_XX];
-				//double pass of the skew entries (which are symmetric) ... (not skew-symmetric (i.e. antisymmetric))
-				value += 2.f * states[STATE_K_XY + i] * gammaInverse[i + SYM33_XY];
-			}
-		}
+	case DISPLAY_K:
+		value = tr_K;
 		break;
 	}
 	value *= displayScale;

@@ -381,6 +381,99 @@ return {
 		end
 	end,
 
+	['ADM-3D'] = function()
+		xmin = {0, 0, 0,}
+		xmax = {300, 300, 300}
+		local xmid = (xmax[1] + xmin[1]) * .5
+		local ymid = (xmax[2] + xmin[2]) * .5
+		local zmid = (xmax[3] + xmin[3]) * .5
+		local sigma = 10
+		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO ... provide code in some more reliable way 
+		initState = function(x,y,z)
+			local dx = x - xmid
+			local dy = y - ymid
+			local dz = z - zmid
+			local dx2 = dx*dx + dy*dy + dz*dz
+			--[ [ 1D
+			local h = 5 * math.exp(-(dx2 / sigma)^2)
+			local dx_h = -2 * (x - xmid) / sigma^2 * h
+			local dy_h = 0
+			local dz_h = 0
+			local dxx_h = (-2 / sigma^2 + 4 * (x - xmid)^2 / sigma^4) * h
+			local dxy_h = 0
+			local dxz_h = 0
+			local dyy_h = 0
+			local dyz_h = 0
+			local dzz_h = 0
+			--]]		
+			--[[ 3D
+			local h = 5 * math.exp(-(dx2 / sigma)^2)
+			local dx_h = -2 * (x - xmid) / sigma^2 * h
+			local dy_h = -2 * (y - xmid) / sigma^2 * h
+			local dz_h = -2 * (z - xmid) / sigma^2 * h
+			local dxx_h = (-2 / sigma^2 + 4 * (x - xmid)^2 / sigma^4) * h
+			local dxy_h = 4 * (x - xmid) * (y - ymid) / sigma^4 * h
+			local dxz_h = 4 * (x - xmid) * (z - zmid) / sigma^4 * h
+			local dyy_h = (-2 / sigma^2 + 4 * (y - ymid)^2 / sigma^4) * h
+			local dyz_h = 4 * (y - ymid) * (z - zmid) / sigma^4 * h
+			local dzz_h = (-2 / sigma^2 + 4 * (z - zmid)^2 / sigma^4) * h
+			--]]
+			local alpha = 1
+			local g_xx = 1 - dx_h^2
+			local g_xy = -dx_h * dy_h
+			local g_xz = -dx_h * dz_h
+			local g_yy = 1 - dy_h^2
+			local g_yz = -dy_h * dz_h
+			local g_zz = 1 - dz_h^2
+			local det_g = g_xx * g_yy * g_zz + g_xy * g_yz * g_xz + g_xz * g_xy * g_yz - g_xz * g_yy * g_xz - g_yz * g_yz * g_xx - g_zz * g_xy * g_xy
+			local gUxx = (g_yy * g_zz - g_yz * g_yz) / det_g
+			local gUxy = (g_xz * g_yz - g_xy * g_zz) / det_g
+			local gUxz = (g_xy * g_yz - g_xz * g_yy) / det_g
+			local gUyy = (g_xx * g_zz - g_xz * g_xz) / det_g
+			local gUyz = (g_xz * g_xy - g_xx * g_yz) / det_g
+			local gUzz = (g_xx * g_yy - g_xy * g_xy) / det_g
+			local A_x = 0	-- dx ln alpha
+			local A_y = 0	-- dx ln alpha
+			local A_z = 0	-- dx ln alpha
+			local D_xxx = -dx_h * dxx_h
+			local D_xxy = -.5 * (dxx_h * dy_h + dx_h * dxy_h)
+			local D_xxz = -.5 * (dxx_h * dz_h + dx_h * dxz_h)
+			local D_xyy = -dy_h * dxy_h
+			local D_xyz = -.5 * (dxy_h * dz_h + dy_h * dxz_h)
+			local D_xzz = -dz_h * dxz_h
+			local D_yxx = -dx_h * dxy_h
+			local D_yxy = -.5 * (dxy_h * dy_h + dx_h * dyy_h)
+			local D_yxz = -.5 * (dxy_h * dz_h + dx_h * dyz_h)
+			local D_yyy = -dy_h * dyy_h
+			local D_yyz = -.5 * (dyy_h * dz_h + dy_h * dyz_h)
+			local D_yzz = -dz_h * dyz_h
+			local D_zxx = -dx_h * dxz_h
+			local D_zxy = -.5 * (dxz_h * dy_h + dx_h * dyz_h)
+			local D_zxz = -.5 * (dxz_h * dz_h + dx_h * dzz_h)
+			local D_zyy = -dy_h * dyz_h
+			local D_zyz = -.5 * (dyz_h * dz_h + dy_h * dzz_h)
+			local D_zzz = -dz_h * dzz_h
+			local K_xx = -dxx_h / det_g
+			local K_xy = -dxy_h / det_g
+			local K_xz = -dxz_h / det_g
+			local K_yy = -dyy_h / det_g
+			local K_yz = -dyz_h / det_g
+			local K_zz = -dzz_h / det_g
+			local V_x = (D_xxy - D_yxx) * gUxy + (D_xxz - D_zxx) * gUxz + (D_xyy - D_yxy) * gUyy + (D_xyz - D_yxz) * gUyz + (D_xyz - D_zxy) * gUyz + (D_xzz - D_zxz) * gUzz
+			local V_y = (D_yxx - D_xxy) * gUxx + (D_yxy - D_xyy) * gUxy + (D_yxz - D_xyz) * gUxz + (D_yxz - D_zxy) * gUxz + (D_yyz - D_zyy) * gUyz + (D_yzz - D_zyz) * gUzz
+			local V_z = (D_zxx - D_xxz) * gUxx + (D_zxy - D_xyz) * gUxy + (D_zxy - D_yxz) * gUxy + (D_zxz - D_xzz) * gUxz + (D_zyy - D_yyz) * gUyy + (D_zyz - D_yzz) * gUyz
+			return 
+				alpha,
+				g_xx, g_xy, g_xz, g_yy, g_yz, g_zz,
+				A_x, A_y, A_z,
+				D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz,
+				D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz,
+				D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz,
+				K_xx, K_xy, K_xz, K_yy, K_yz, K_zz,
+				V_x, V_y, V_z
+		end
+	end,
+
 
 		-- Maxwell equations initial state
 

@@ -2,7 +2,6 @@
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 #include "Common/Exception.h"
 
 namespace HydroGPU {
@@ -19,30 +18,20 @@ static std::vector<std::string> spaceSuffixes {"X", "Y", "Z"};
 
 static std::vector<std::string> sym33suffixes {
 	"XX",
-	"YY",
-	"ZZ",
 	"XY",
 	"XZ",
+	"YY",
 	"YZ",
+	"ZZ",
 };
-
-static void addStatesWithSuffix(
-	std::vector<std::string>& states,
-	const std::string& variable,
-	const std::vector<std::string>& suffixes)
-{
-	std::for_each(suffixes.begin(), suffixes.end(), [&](const std::string& field) {
-		states.push_back(variable + field);
-	});
-}
 
 ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 : Super(solver_)
 {
 	displayMethods = std::vector<std::string>{
-		"LAPSE",
+		"ALPHA",
 		"VOLUME",
-		"EXTRINSIC_CURVATURE"
+		"K"
 	};
 
 	//matches above
@@ -51,17 +40,26 @@ ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 		"MIRROR",
 		"FREEFLOW"
 	};
-	
+
+	std::function<void(const std::string&, const std::vector<std::string>&)> addStatesWithSuffix = [&](
+		const std::string& variable,
+		const std::vector<std::string>& suffixes)
+	{
+		for (const std::string& field : suffixes) {
+			states.push_back(variable + field);
+		}
+	};
+
 	//you can factor these out someday ...
 	states.push_back("ALPHA");
-	addStatesWithSuffix(states, "GAMMA_", sym33suffixes);
+	addStatesWithSuffix("GAMMA_", sym33suffixes);
 	//these form the hyperbolic system ...
-	addStatesWithSuffix(states, "A_", spaceSuffixes);	//A_i = partial_i alpha
-	addStatesWithSuffix(states, "D_X", sym33suffixes);	//D_kij = 1/2 partial_k gamma_ij
-	addStatesWithSuffix(states, "D_Y", sym33suffixes);
-	addStatesWithSuffix(states, "D_Z", sym33suffixes);
-	addStatesWithSuffix(states, "K_", sym33suffixes);	//extrinsic curvature
-	addStatesWithSuffix(states, "V_", spaceSuffixes);	//V_k = D_km^m - D^m_mk
+	addStatesWithSuffix("A_", spaceSuffixes);	//A_i = partial_i alpha
+	addStatesWithSuffix("D_X", sym33suffixes);	//D_kij = 1/2 partial_k gamma_ij
+	addStatesWithSuffix("D_Y", sym33suffixes);
+	addStatesWithSuffix("D_Z", sym33suffixes);
+	addStatesWithSuffix("K_", sym33suffixes);	//extrinsic curvature
+	addStatesWithSuffix("V_", spaceSuffixes);	//V_k = D_km^m - D^m_mk
 }
 
 void ADM3D::getProgramSources(std::vector<std::string>& sources) {
@@ -98,7 +96,7 @@ void ADM3D::getProgramSources(std::vector<std::string>& sources) {
 	sources[0] += "#define STATE_K STATE_K_XX\n";
 	sources[0] += "#define STATE_V STATE_V_X\n";
 
-	sources.push_back(Common::File::read("ADM3DCommon.cl"));
+	sources.push_back("#include \"ADM3DCommon.cl\"\n");
 }
 
 int ADM3D::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {

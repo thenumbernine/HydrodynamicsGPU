@@ -188,13 +188,13 @@ rewrite our few inner products of the Roe.cl to call external functions, and hav
 */
 
 #include "HydroGPU/Shared/Common.h"
+#include "HydroGPU/Shared/ADM3DCommon.h"
 
-__kernel void calcEigenBasis(
+__kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenvectorsBuffer,
-	__global real* eigenvectorsInverseBuffer,
+	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
-	const __global real* potentialBuffer)
+	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -207,103 +207,228 @@ __kernel void calcEigenBasis(
 	) return;
 	int index = INDEXV(i);
 
-	for (int side = 0; side < DIM; ++side) {
-		int indexPrev = index - stepsize[side];
+	int indexPrev = index - stepsize[side];
 
-		int interfaceIndex = side + DIM * index;
-		
-		const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
-		const __global real* stateR = stateBuffer + NUM_STATES * index;
-		
-		__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-		__global real* eigenvectors = eigenvectorsBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
-		__global real* eigenvectorsInverse = eigenvectorsInverseBuffer + NUM_STATES * NUM_STATES * interfaceIndex;
-
-		//q0 = d/dx ln alpha
-		//q1 = d/dx ln g = d/dx ln g_xx
+	int interfaceIndex = side + DIM * index;
 	
-		real alpha = .5f * (stateL[STATE_ALPHA] + stateR[STATE_ALPHA]);
-		real g = .5f * (stateL[STATE_G] + stateR[STATE_G]);
-		real A = .5f * (stateL[STATE_A] + stateR[STATE_A]);
-		//real D = .5f * (stateL[STATE_D] + stateR[STATE_D]);
-		real K = .5f * (stateL[STATE_K] + stateR[STATE_K]);
-		
-		const real f = ADM_BONA_MASSO_F;
-		
-		//eigenvalues
+	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
+	const __global real* stateR = stateBuffer + NUM_STATES * index;
+	
+	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
+	__global real* eigenfield = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 
-		real eigenvalue = alpha * sqrt(f/g); 
-		eigenvalues[0] = -eigenvalue;
-		eigenvalues[1] = 0.f;
-		eigenvalues[2] = 0.f;
-		eigenvalues[3] = 0.f;
-		eigenvalues[4] = eigenvalue;
-
-		//eigenvectors
-
-		//col
-		eigenvectors[0 + NUM_STATES * 0] = 0.f;
-		eigenvectors[1 + NUM_STATES * 0] = 0.f; 
-		eigenvectors[2 + NUM_STATES * 0] = f/g; 
-		eigenvectors[3 + NUM_STATES * 0] = 1.f; 
-		eigenvectors[4 + NUM_STATES * 0] = -sqrt(f/g); 
-		//col
-		eigenvectors[0 + NUM_STATES * 1] = alpha;
-		eigenvectors[1 + NUM_STATES * 1] = 0.f;
-		eigenvectors[2 + NUM_STATES * 1] = -A;
-		eigenvectors[3 + NUM_STATES * 1] = 0.f;
-		eigenvectors[4 + NUM_STATES * 1] = -K;
-		//col
-		eigenvectors[0 + NUM_STATES * 2] = 0.f;
-		eigenvectors[1 + NUM_STATES * 2] = 0.f;
-		eigenvectors[2 + NUM_STATES * 2] = 0.f;
-		eigenvectors[3 + NUM_STATES * 2] = 1.f;
-		eigenvectors[4 + NUM_STATES * 2] = 0.f;
-		//col
-		eigenvectors[0 + NUM_STATES * 3] = 0.f;
-		eigenvectors[1 + NUM_STATES * 3] = 1.f;
-		eigenvectors[2 + NUM_STATES * 3] = 0.f;
-		eigenvectors[3 + NUM_STATES * 3] = 0.f;
-		eigenvectors[4 + NUM_STATES * 3] = 0.f;
-		//col
-		eigenvectors[0 + NUM_STATES * 4] = 0.f;
-		eigenvectors[1 + NUM_STATES * 4] = 0.f;
-		eigenvectors[2 + NUM_STATES * 4] = f/g;
-		eigenvectors[3 + NUM_STATES * 4] = 1.f;
-		eigenvectors[4 + NUM_STATES * 4] = sqrt(f/g);
-
-		//calculate eigenvector inverses ... 
-		//min 
-		eigenvectorsInverse[0 + NUM_STATES * 0] = (g * A / f - K * sqrt(g / f)) / (2.f * alpha); 
-		eigenvectorsInverse[0 + NUM_STATES * 1] = 0.f; 
-		eigenvectorsInverse[0 + NUM_STATES * 2] = g / (2.f * f); 
-		eigenvectorsInverse[0 + NUM_STATES * 3] = 0.f; 
-		eigenvectorsInverse[0 + NUM_STATES * 4] = -.5f * sqrt(g / f); 
-		//row
-		eigenvectorsInverse[1 + NUM_STATES * 0] = 1.f / alpha;
-		eigenvectorsInverse[1 + NUM_STATES * 1] = 0.f;
-		eigenvectorsInverse[1 + NUM_STATES * 2] = 0.f;
-		eigenvectorsInverse[1 + NUM_STATES * 3] = 0.f;
-		eigenvectorsInverse[1 + NUM_STATES * 4] = 0.f;
-		//row
-		eigenvectorsInverse[2 + NUM_STATES * 0] = -(g * A) / (alpha * f); 
-		eigenvectorsInverse[2 + NUM_STATES * 1] = 0.f; 
-		eigenvectorsInverse[2 + NUM_STATES * 2] = -g / f; 
-		eigenvectorsInverse[2 + NUM_STATES * 3] = 1.f; 
-		eigenvectorsInverse[2 + NUM_STATES * 4] = 0.f; 
-		//row
-		eigenvectorsInverse[3 + NUM_STATES * 0] = 0.f;
-		eigenvectorsInverse[3 + NUM_STATES * 1] = 1.f;
-		eigenvectorsInverse[3 + NUM_STATES * 2] = 0.f;
-		eigenvectorsInverse[3 + NUM_STATES * 3] = 0.f;
-		eigenvectorsInverse[3 + NUM_STATES * 4] = 0.f;
-		//row
-		eigenvectorsInverse[4 + NUM_STATES * 0] = (g * A / f + K * sqrt(g / f)) / (2.f * alpha); 
-		eigenvectorsInverse[4 + NUM_STATES * 1] = 0.f; 
-		eigenvectorsInverse[4 + NUM_STATES * 2] = g / (2.f * f); 
-		eigenvectorsInverse[4 + NUM_STATES * 3] = 0.f; 
-		eigenvectorsInverse[4 + NUM_STATES * 4] = .5f * sqrt(g / f); 
+	for (int i = 0; i < NUM_STATES; ++i) {
+		eigenfield[i] = .5f * (stateL[i] + stateR[i]);
 	}
+
+	real alpha = eigenfield[0];
+	real g_xx = eigenfield[1], g_xy = eigenfield[2], g_xz = eigenfield[3], g_yy = eigenfield[4], g_yz = eigenfield[5], g_zz = eigenfield[6];
+	//real A_x = eigenfield[7], A_y = eigenfield[8], A_z = eigenfield[9];
+	//real D_xxx = eigenfield[10], D_xxy = eigenfield[11], D_xxz = eigenfield[12], D_xyy = eigenfield[13], D_xyz = eigenfield[14], D_xzz = eigenfield[15];
+	//real D_yxx = eigenfield[16], D_yxy = eigenfield[17], D_yxz = eigenfield[18], D_yyy = eigenfield[19], D_yyz = eigenfield[20], D_yzz = eigenfield[21];
+	//real D_zxx = eigenfield[22], D_zxy = eigenfield[23], D_zxz = eigenfield[24], D_zyy = eigenfield[25], D_zyz = eigenfield[26], D_zzz = eigenfield[27];
+	//real K_xx = eigenfield[28], K_xy = eigenfield[29], K_xz = eigenfield[30], K_yy = eigenfield[31], K_yz = eigenfield[32], K_zz = eigenfield[33];
+	//real V_x = eigenfield[34], V_y = eigenfield[35], V_z = eigenfield[36];
+	real g = det3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz);
+	real8 gInv = inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz, g);
+	real gUxx = gInv[0], gUxy = gInv[1], gUxz = gInv[2], gUyy = gInv[3], gUyz = gInv[4], gUzz = gInv[5];
+	real f = ADM_BONA_MASSO_F;	//could be based on alpha...
+	
+	eigenfield[37] = gUxx;
+	eigenfield[38] = gUxy;
+	eigenfield[39] = gUxz;
+	eigenfield[40] = gUyy;
+	eigenfield[41] = gUyz;
+	eigenfield[42] = gUzz;
+	eigenfield[43] = g;
+	eigenfield[44] = f;
+
+	//eigenvalues
+
+	real lambdaLight = alpha * sqrt(gUxx); 
+	real lambdaGauge = lambdaLight * sqrt(f);
+	eigenvalues[0] = -lambdaGauge;
+	eigenvalues[1] = -lambdaLight;
+	eigenvalues[2] = -lambdaLight;
+	eigenvalues[3] = -lambdaLight;
+	eigenvalues[4] = -lambdaLight;
+	eigenvalues[5] = -lambdaLight;
+	eigenvalues[6] = 0.f;
+	eigenvalues[7] = 0.f;
+	eigenvalues[8] = 0.f;
+	eigenvalues[9] = 0.f;
+	eigenvalues[10] = 0.f;
+	eigenvalues[11] = 0.f;
+	eigenvalues[12] = 0.f;
+	eigenvalues[13] = 0.f;
+	eigenvalues[14] = 0.f;
+	eigenvalues[15] = 0.f;
+	eigenvalues[16] = 0.f;
+	eigenvalues[17] = 0.f;
+	eigenvalues[18] = 0.f;
+	eigenvalues[19] = 0.f;
+	eigenvalues[20] = 0.f;
+	eigenvalues[21] = 0.f;
+	eigenvalues[22] = 0.f;
+	eigenvalues[23] = 0.f;
+	eigenvalues[24] = 0.f;
+	eigenvalues[25] = 0.f;
+	eigenvalues[26] = 0.f;
+	eigenvalues[27] = 0.f;
+	eigenvalues[28] = 0.f;
+	eigenvalues[29] = 0.f;
+	eigenvalues[30] = 0.f;
+	eigenvalues[31] = lambdaLight;
+	eigenvalues[32] = lambdaLight;
+	eigenvalues[33] = lambdaLight;
+	eigenvalues[34] = lambdaLight;
+	eigenvalues[35] = lambdaLight;
+	eigenvalues[36] = lambdaGauge;
+}
+
+__kernel void calcEigenBasis(
+	__global real* eigenvaluesBuffer,
+	__global real* eigenfieldsBuffer,
+	const __global real* stateBuffer)
+{
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 1
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 1
+#endif
+	) return;
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 0);
+#if DIM > 1
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 1);
+#endif
+#if DIM > 2
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 2);
+#endif
+}
+
+void eigenfieldTransform(
+	real* results,
+	const __global real* eigenfield,
+	const __global real* input,
+	int side)
+{
+	//real alpha = eigenfield[0];
+	//real g_xx = eigenfield[1], g_xy = eigenfield[2], g_xz = eigenfield[3], g_yy = eigenfield[4], g_yz = eigenfield[5], g_zz = eigenfield[6];
+	//real A_x = eigenfield[7], A_y = eigenfield[8], A_z = eigenfield[9];
+	//real D_xxx = eigenfield[10], D_xxy = eigenfield[11], D_xxz = eigenfield[12], D_xyy = eigenfield[13], D_xyz = eigenfield[14], D_xzz = eigenfield[15];
+	//real D_yxx = eigenfield[16], D_yxy = eigenfield[17], D_yxz = eigenfield[18], D_yyy = eigenfield[19], D_yyz = eigenfield[20], D_yzz = eigenfield[21];
+	//real D_zxx = eigenfield[22], D_zxy = eigenfield[23], D_zxz = eigenfield[24], D_zyy = eigenfield[25], D_zyz = eigenfield[26], D_zzz = eigenfield[27];
+	//real K_xx = eigenfield[28], K_xy = eigenfield[29], K_xz = eigenfield[30], K_yy = eigenfield[31], K_yz = eigenfield[32], K_zz = eigenfield[33];
+	//real V_x = eigenfield[34], V_y = eigenfield[35], V_z = eigenfield[36];
+	real gUxx = eigenfield[37], gUxy = eigenfield[38], gUxz = eigenfield[39], gUyy = eigenfield[40], gUyz = eigenfield[41], gUzz = eigenfield[42];
+	//real g = eigenfield[43];
+	real f = eigenfield[44];
+
+	real sqrt_f = sqrt(f);
+	real sqrt_gUxx = sqrt(gUxx);
+	real gUxx_toThe_3_2 = sqrt_gUxx * gUxx;
+
+	results[0] = ((((-(2.f * gUxz * input[37-1])) - (gUxx * input[8-1])) + (sqrt_f * gUxx_toThe_3_2 * input[29-1]) + (sqrt_f * gUxy * input[30-1] * sqrt_gUxx) + (sqrt_f * gUxz * input[31-1] * sqrt_gUxx) + (sqrt_f * gUyy * input[32-1] * sqrt_gUxx) + (sqrt_f * gUyz * input[33-1] * sqrt_gUxx) + (((sqrt_f * gUzz * input[34-1] * sqrt_gUxx) - (2.f * gUxx * input[35-1])) - (2.f * gUxy * input[36-1]))) / sqrt_gUxx);
+	results[1] = (((-(gUxx_toThe_3_2 * input[12-1])) + ((input[30-1] * gUxx) - (input[36-1]))) / gUxx);
+	results[2] = (((-(gUxx_toThe_3_2 * input[13-1])) + ((input[31-1] * gUxx) - (input[37-1]))) / gUxx);
+	results[3] = ((-(sqrt_gUxx * input[14-1])) + input[32-1]);
+	results[4] = ((-(sqrt_gUxx * input[15-1])) + input[33-1]);
+	results[5] = ((-(sqrt_gUxx * input[16-1])) + input[34-1]);
+	results[6] = input[1-1];
+	results[7] = input[2-1];
+	results[8] = input[3-1];
+	results[9] = input[4-1];
+	results[10] = input[5-1];
+	results[11] = input[6-1];
+	results[12] = input[7-1];
+	results[13] = input[9-1];
+	results[14] = input[10-1];
+	results[15] = input[17-1];
+	results[16] = input[18-1];
+	results[17] = input[19-1];
+	results[18] = input[20-1];
+	results[19] = input[21-1];
+	results[20] = input[22-1];
+	results[21] = input[23-1];
+	results[22] = input[24-1];
+	results[23] = input[25-1];
+	results[24] = input[26-1];
+	results[25] = input[27-1];
+	results[26] = input[28-1];
+	results[27] = input[35-1];
+	results[28] = input[36-1];
+	results[29] = input[37-1];
+	results[30] = (((((((input[8-1] - (f * gUxx * input[11-1])) - (f * gUxy * input[12-1])) - (f * gUxz * input[13-1])) - (f * gUyy * input[14-1])) - (f * gUyz * input[15-1])) - (f * gUzz * input[16-1])));
+	results[31] = (((gUxx_toThe_3_2 * input[12-1]) + (input[30-1] * gUxx) + input[36-1]) / gUxx);
+	results[32] = (((gUxx_toThe_3_2 * input[13-1]) + (input[31-1] * gUxx) + input[37-1]) / gUxx);
+	results[33] = ((sqrt_gUxx * input[14-1]) + input[32-1]);
+	results[34] = ((sqrt_gUxx * input[15-1]) + input[33-1]);
+	results[35] = ((sqrt_gUxx * input[16-1]) + input[34-1]);
+	results[36] = (((gUxx_toThe_3_2 * input[8-1]) + (sqrt_f * (gUxx * gUxx) * input[29-1]) + (sqrt_f * gUxy * input[30-1] * gUxx) + (sqrt_f * gUxz * input[31-1] * gUxx) + (sqrt_f * gUyy * input[32-1] * gUxx) + (sqrt_f * gUyz * input[33-1] * gUxx) + (sqrt_f * gUzz * input[34-1] * gUxx) + (2.f * input[35-1])) / gUxx);
+}
+
+void eigenfieldInverseTransform(
+	__global real* results,
+	const __global real* eigenfield,
+	const real* input,
+	int side)
+{
+	//real alpha = eigenfield[0];
+	//real g_xx = eigenfield[1], g_xy = eigenfield[2], g_xz = eigenfield[3], g_yy = eigenfield[4], g_yz = eigenfield[5], g_zz = eigenfield[6];
+	//real A_x = eigenfield[7], A_y = eigenfield[8], A_z = eigenfield[9];
+	//real D_xxx = eigenfield[10], D_xxy = eigenfield[11], D_xxz = eigenfield[12], D_xyy = eigenfield[13], D_xyz = eigenfield[14], D_xzz = eigenfield[15];
+	//real D_yxx = eigenfield[16], D_yxy = eigenfield[17], D_yxz = eigenfield[18], D_yyy = eigenfield[19], D_yyz = eigenfield[20], D_yzz = eigenfield[21];
+	//real D_zxx = eigenfield[22], D_zxy = eigenfield[23], D_zxz = eigenfield[24], D_zyy = eigenfield[25], D_zyz = eigenfield[26], D_zzz = eigenfield[27];
+	//real K_xx = eigenfield[28], K_xy = eigenfield[29], K_xz = eigenfield[30], K_yy = eigenfield[31], K_yz = eigenfield[32], K_zz = eigenfield[33];
+	//real V_x = eigenfield[34], V_y = eigenfield[35], V_z = eigenfield[36];
+	real gUxx = eigenfield[37], gUxy = eigenfield[38], gUxz = eigenfield[39], gUyy = eigenfield[40], gUyz = eigenfield[41], gUzz = eigenfield[42];
+	//real g = eigenfield[43];
+	real f = eigenfield[44];
+
+	real sqrt_gUxx = sqrt(gUxx);
+	real gUxx_toThe_3_2 = sqrt_gUxx * gUxx;
+	real gUxx_toThe_5_2 = gUxx_toThe_3_2 * gUxx;
+
+	results[0] = input[7-1];
+	results[1] = input[8-1];
+	results[2] = input[9-1];
+	results[3] = input[10-1];
+	results[4] = input[11-1];
+	results[5] = input[12-1];
+	results[6] = input[13-1];
+	results[7] = (((-(input[37-1] * gUxx)) + (2.f * gUxz * input[30-1] * sqrt_gUxx) + (2.f * gUxy * input[29-1] * sqrt_gUxx) + (input[1-1] * gUxx) + (2.f * input[28-1]) + (2.f * gUxx_toThe_3_2 * input[28-1])) / (-(2.f * gUxx_toThe_3_2)));
+	results[8] = input[14-1];
+	results[9] = input[15-1];
+	results[10] = (((-(input[37-1] * gUxx)) + (gUzz * input[36-1] * gUxx * f) + (gUyz * input[35-1] * gUxx * f) + (gUyy * input[34-1] * gUxx * f) + (gUxz * input[33-1] * gUxx * f) + (gUxy * input[32-1] * gUxx * f) + (2.f * input[31-1] * gUxx_toThe_3_2) + ((2.f * gUxz * sqrt_gUxx * input[30-1]) - (2.f * gUxz * f * input[30-1])) + (((((((2.f * gUxy * sqrt_gUxx * input[29-1]) - (2.f * gUxy * f * input[29-1])) - (gUzz * input[6-1] * f * gUxx)) - (gUyz * input[5-1] * f * gUxx)) - (gUyy * input[4-1] * f * gUxx)) - (gUxz * input[3-1] * f * gUxx)) - (gUxy * input[2-1] * f * gUxx)) + (input[1-1] * gUxx) + (2.f * input[28-1]) + (2.f * gUxx_toThe_3_2 * input[28-1])) / (-(2.f * gUxx_toThe_5_2 * f)));
+	results[11] = (((-(input[32-1] * gUxx)) + (input[2-1] * gUxx) + (2.f * input[29-1])) / (-(2.f * gUxx_toThe_3_2)));
+	results[12] = (((-(input[33-1] * gUxx)) + (input[3-1] * gUxx) + (2.f * input[30-1])) / (-(2.f * gUxx_toThe_3_2)));
+	results[13] = (((-(input[34-1])) + input[4-1]) / (-(2.f * sqrt_gUxx)));
+	results[14] = (((-(input[35-1])) + input[5-1]) / (-(2.f * sqrt_gUxx)));
+	results[15] = (((-(input[36-1])) + input[6-1]) / (-(2.f * sqrt_gUxx)));
+	results[16] = input[16-1];
+	results[17] = input[17-1];
+	results[18] = input[18-1];
+	results[19] = input[19-1];
+	results[20] = input[20-1];
+	results[21] = input[21-1];
+	results[22] = input[22-1];
+	results[23] = input[23-1];
+	results[24] = input[24-1];
+	results[25] = input[25-1];
+	results[26] = input[26-1];
+	results[27] = input[27-1];
+	results[28] = ((((((((input[37-1] * gUxx) - (gUzz * input[36-1] * gUxx * sqrt(f))) - (gUyz * input[35-1] * gUxx * sqrt(f))) - (gUyy * input[34-1] * gUxx * sqrt(f))) - (gUxz * input[33-1] * gUxx * sqrt(f))) - (gUxy * input[32-1] * gUxx * sqrt(f))) + (2.f * gUxz * input[30-1] * sqrt_gUxx) + ((((((2.f * gUxy * input[29-1] * sqrt_gUxx) - (gUzz * input[6-1] * sqrt(f) * gUxx)) - (gUyz * input[5-1] * sqrt(f) * gUxx)) - (gUyy * input[4-1] * sqrt(f) * gUxx)) - (gUxz * input[3-1] * sqrt(f) * gUxx)) - (gUxy * input[2-1] * sqrt(f) * gUxx)) + ((input[1-1] * gUxx) - (2.f * input[28-1])) + (2.f * gUxx_toThe_3_2 * input[28-1])) / (2.f * (gUxx * gUxx) * sqrt(f)));
+	results[29] = ((input[32-1] + input[2-1]) / 2.f);
+	results[30] = ((input[33-1] + input[3-1]) / 2.f);
+	results[31] = ((input[34-1] + input[4-1]) / 2.f);
+	results[32] = ((input[35-1] + input[5-1]) / 2.f);
+	results[33] = ((input[36-1] + input[6-1]) / 2.f);
+	results[34] = input[28-1];
+	results[35] = input[29-1];
+	results[36] = input[30-1];
 }
 
 __kernel void addSource(
@@ -327,13 +452,27 @@ __kernel void addSource(
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
 	real alpha = state[0];
-	real g = state[1];
-	real A = state[2];
-	real D = state[3];
-	real K = state[4];
-	real f = ADM_BONA_MASSO_F;
-	deriv[STATE_ALPHA] += -alpha * alpha * f * K / g;
-	deriv[STATE_G] += -2.f * alpha * K;
-	deriv[STATE_K] += + alpha * (A * D - K * K) / g;
+	real g_xx = state[1], g_xy = state[2], g_xz = state[3], g_yy = state[4], g_yz = state[5], g_zz = state[6];
+	//real A_x = state[7], A_y = state[8], A_z = state[9];
+	//real D_xxx = state[10], D_xxy = state[11], D_xxz = state[12], D_xyy = state[13], D_xyz = state[14], D_xzz = state[15];
+	//real D_yxx = state[16], D_yxy = state[17], D_yxz = state[18], D_yyy = state[19], D_yyz = state[20], D_yzz = state[21];
+	//real D_zxx = state[22], D_zxy = state[23], D_zxz = state[24], D_zyy = state[25], D_zyz = state[26], D_zzz = state[27];
+	real K_xx = state[28], K_xy = state[29], K_xz = state[30], K_yy = state[31], K_yz = state[32], K_zz = state[33];
+	//real V_x = state[34], V_y = state[35], V_z = state[36];
+	real g = det3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz);
+	real8 gInv = inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz, g);
+	real gUxx = gInv[0], gUxy = gInv[1], gUxz = gInv[2], gUyy = gInv[3], gUyz = gInv[4], gUzz = gInv[5];
+	real f = ADM_BONA_MASSO_F;	//could be based on alpha...
+	real tr_K =  K_xx * gUxx + K_yy * gUyy + K_zz * gUzz + 2.f * K_xy * gUxy + 2.f * K_yz * gUyz + 2.f * K_xz * gUxz;
+	
+	deriv[0] += -alpha * alpha * f * tr_K;
+	deriv[1] += -2.f * alpha * K_xx;
+	deriv[2] += -2.f * alpha * K_xy;
+	deriv[3] += -2.f * alpha * K_xz;
+	deriv[4] += -2.f * alpha * K_yy;
+	deriv[5] += -2.f * alpha * K_yz;
+	deriv[6] += -2.f * alpha * K_zz;
+	// TODO dq_dts[i][28..33] == partial_t K_ij += alpha * S_ij
+	// partial_t V_k = alpha * P_k
 }
 

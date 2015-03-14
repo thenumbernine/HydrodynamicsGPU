@@ -1,4 +1,4 @@
-#include "HydroGPU/Equation/ADM.h"
+#include "HydroGPU/Equation/ADM1D.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/HydroGPUApp.h"
@@ -15,7 +15,7 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-ADM::ADM(HydroGPU::Solver::Solver* solver_) 
+ADM1D::ADM1D(HydroGPU::Solver::Solver* solver_) 
 : Super(solver_)
 {
 	displayMethods = std::vector<std::string>{
@@ -40,7 +40,7 @@ ADM::ADM(HydroGPU::Solver::Solver* solver_)
 	states.push_back("K_TILDE");	// = K sqrt(g)
 }
 
-void ADM::getProgramSources(std::vector<std::string>& sources) {
+void ADM1D::getProgramSources(std::vector<std::string>& sources) {
 	Super::getProgramSources(sources);
 
 	//TODO detect type, cast number to CL string or use literal string
@@ -52,11 +52,10 @@ void ADM::getProgramSources(std::vector<std::string>& sources) {
 	std::string adm_BonaMasso_f = "1.f";
 	solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	sources[0] += "#define ADM_BONA_MASSO_F (" + adm_BonaMasso_f + ")\n";
-	
-	sources.push_back(Common::File::read("ADMCommon.cl"));
+	sources.push_back("#include \"ADM1DCommon.cl\"\n");
 }
 
-int ADM::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
+int ADM1D::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
 	switch (solver->app->boundaryMethods(dim)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;

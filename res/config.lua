@@ -12,11 +12,11 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'SRHDRoe'		-- not yet
 --solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
-solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
+--solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
 --solverName = 'MaxwellRoe'		-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
---solverName = 'ADMRoe'			-- Bona-Masso basd on Alcubierre's paper rather than my attempt to follow his book which failed.
+--solverName = 'ADM1DRoe'			-- Bona-Masso based on "The Appearance of Coordinate Shocks in Hyperbolic Formalisms of General Relativity" by Alcubierre, 1997 
 --solverName = 'ADM2DSpherical'	-- not yet
---solverName = 'ADM3DRoe'		-- not yet
+solverName = 'ADM3DRoe'		-- same as ADM1DRoe but for 3D 
 --solverName = 'BSSNOKRoe'		-- not yet
 -- TODO ImplicitIncompressibleNavierStokes	<- from my GPU fluid sim Lua+GLSL project
 -- TODO ImplicitBSSNOK
@@ -95,20 +95,34 @@ displayScale = .25
 
 
 -- Euler
-configurations['Sod']()
+--configurations['Sod']()
 --configurations['self-gravitation test 1']()
 
--- MHD
---configurations['Brio-Wu']()
+--[[ MHD
+solverName = 'MHDRoe'
+--configurations['Sod']()
+configurations['Brio-Wu']()
+--]]
 
 --[[ Maxwell 
+solverName = 'MaxwellRoe'
 displayMethod = 'ELECTRIC'
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 configurations['Maxwell-1']()
 --]]
 
---[[ ADM (1D)
+-- [[ ADM (1D)
+solverName = 'ADM1DRoe'
 configurations['ADM-1D']()
+boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+displayMethod = 'ALPHA'
+size = {1024}
+displayScale = 128
+--]]
+
+--[[ ADM (3D)
+solverName = 'ADM3DRoe'
+configurations['ADM-3D']()
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 displayMethod = 'ALPHA'
 size = {1024}
