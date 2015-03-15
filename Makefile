@@ -1,3 +1,4 @@
+HYDROGPU_PATH=$(dir $(lastword $(MAKEFILE_LIST)))
 DIST_FILENAME=HydroGPU
 DIST_TYPE=app
 
@@ -11,5 +12,13 @@ include ../Image/Include.mk
 include ../Shader/Include.mk
 include ../LuaCxx/Include.mk
 
-INCLUDE+=res/include
+LUA_EXT_PATH=$(HYDROGPU_PATH)/../lua/ext
+LUA_SYMMATH_PATH=$(HYDROGPU_PATH)/../lua/symmath
+DIST_RESOURCE_PATH=$(DISTDIR)/$(call concat,$(call buildVar,DIST_PREFIX)$(DIST_FILENAME)).app/Contents/Resources/
 
+INCLUDE+=res/include
+post_builddist_osx_app::
+	@echo "copying Lua scripts..."
+	rsync -avm --include='*.lua' -f 'hide,! */' $(LUA_EXT_PATH) $(DIST_RESOURCE_PATH)
+	rsync -avm --include='*.lua' -f 'hide,! */' $(LUA_SYMMATH_PATH) $(DIST_RESOURCE_PATH)
+	@echo "done copying Lua scripts."

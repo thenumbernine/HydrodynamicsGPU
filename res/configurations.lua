@@ -382,32 +382,74 @@ return {
 	end,
 
 	['ADM-3D'] = function()
+		print('deriving and compiling...')
+		local function det3x3sym(msym)
+			local xx, xy, xz, yy, yz, zz = unpack(msym)
+			return xx * yy * zz + xy * yz * xz + xz * xy * yz - xz * yy * xz - yz * yz * xx - zz * xy * xy
+		end
+		local function inv3x3sym(msym, det)
+			local xx, xy, xz, yy, yz, zz = unpack(msym)
+			if not det then det = det3x3sym(msym) end
+			return  (yy * zz - yz * yz) / det, (xz * yz - xy * zz) / det, (xy * yz - xz * yy) / det, (xx * zz - xz * xz) / det, (xz * xy - xx * yz) / det, (xx * yy - xy * xy) / det
+		end	
+		local function sym3x3unpack(m) 
+			return {m[1][1], m[1][2], m[1][3], m[2][2], m[2][3], m[3][3]} 
+		end
+		local function sym3x3pack(xx,xy,xz,yy,yz,zz) 
+			return {{xx,xy,xz},{xy,yy,yz},{xz,yz,zz}} 
+		end
+		local symmath = require 'symmath'	-- this is failing ...
 		xmin = {0, 0, 0}
 		xmax = {300, 300, 300}
-		local xmid = (xmax[1] + xmin[1]) * .5
-		local ymid = (xmax[2] + xmin[2]) * .5
-		local zmid = (xmax[3] + xmin[3]) * .5
+		local xc = (xmax[1] + xmin[1]) * .5
+		local yc = (xmax[2] + xmin[2]) * .5
+		local zc = (xmax[3] + xmin[3]) * .5
 		local sigma = 10
-		local sigma2 = sigma * sigma
-		local sigma4 = sigma2 * sigma2
-		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO ... provide code in some more reliable way 
+		local x = symmath.var'x'
+		local y = symmath.var'y'
+		local z = symmath.var'z'
+		local xs = table{x,y,z}
+		local function delta(i,j) return i == j and 1 or 0 end
+		local h = 5 * symmath.exp(-(x - xc)^2 / sigma^2)
+		local dh = xs:map(function(xi) return h:diff(xi):simplify() end)
+		local d2h = dh:map(function(dhi) return xs:map(function(xj) return dhi:diff(xj):simplify() end) end)
+		local g = xs:map(function(xi,i) return xs:map(function(xj,j) return (delta(xi,xj) - dh[i] * dh[j]):simplify() end) end)
+		local det_g = det3x3sym(sym3x3unpack(g)):simplify()
+		local gU = sym3x3pack(inv3x3sym(sym3x3unpack(g), det_g))
+		local K = xs:map(function(xi,i) return xs:map(function(xj,j) return (-d2h[i][j] / det_g^.5):simplify() end) end)
+		local D = xs:map(function(xk,k) return xs:map(function(xi,i) return xs:map(function(xj,j) return (g[i][j]:diff(xk)/2):simplify() end) end) end)
+		local alpha = symmath.Constant(1)
+		local A = xs:map(function(xi) return (alpha:diff(xi) / alpha):simplify() end)
+		local V = xs:map(function(xi,i)
+			local s = 0
+			for j=1,3 do
+				for k=1,3 do
+					s = s + (D[i][j][k] - D[k][j][i]) * gU[j][k]
+				end
+			end
+			return s:simplify()
+		end)
+		local exprs = table{
+			alpha = alpha,
+			A = A,
+			g = sym3x3unpack(g),
+			gU = sym3x3unpack(gU),
+			D = xs:map(function(xi,i) return sym3x3unpack(D[i]) end),
+			K = sym3x3unpack(K),
+			V = V,
+		}
+		local function buildCalc(expr, name)
+			assert(type(expr) == 'table')
+			if expr.isa and expr:isa(symmath.Expression) then 
+				return expr:simplify():compile(xs), name
+			end
+			return table.map(expr, buildCalc), name
+		end
+		local calc = exprs:map(buildCalc)
+		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO OpenCL exporter with lua symmath
+		print('...done deriving and compiling.')
 		initState = function(x,y,z)
-			local dx = x - xmid
-			local dx2 = dx * dx
-			--[[ 1D
-			local ds2 = dx2
-			local h = 5 * math.exp(-ds2 / sigma2)
-			local hx = -2 * dx / sigma2 * h
-			local hy = 0
-			local hz = 0
-			local hxx = (-2 / sigma2 + 4 * dx2 / sigma4) * h
-			local hxy = 0
-			local hxz = 0
-			local hyy = 0
-			local hyz = 0
-			local hzz = 0
-			--]]		
-			-- [[ 2D
+			--[[ 2D
 			local dy = y - ymid
 			local dy2 = dy * dy
 			local ds2 = dx2 + dy2
@@ -440,51 +482,15 @@ return {
 			local hyz = 4 * dy * dz / sigma4 * h
 			local hzz = (-2 / sigma2 + 4 * dz2 / sigma4) * h
 			--]]
-			local g_xx = 1 - hx * hx
-			local g_xy = -hx * hy
-			local g_xz = -hx * hz
-			local g_yy = 1 - hy * hy
-			local g_yz = -hy * hz
-			local g_zz = 1 - hz * hz
-			local det_g = g_xx * g_yy * g_zz + g_xy * g_yz * g_xz + g_xz * g_xy * g_yz - g_xz * g_yy * g_xz - g_yz * g_yz * g_xx - g_zz * g_xy * g_xy
-			local gUxx = (g_yy * g_zz - g_yz * g_yz) / det_g
-			local gUxy = (g_xz * g_yz - g_xy * g_zz) / det_g
-			local gUxz = (g_xy * g_yz - g_xz * g_yy) / det_g
-			local gUyy = (g_xx * g_zz - g_xz * g_xz) / det_g
-			local gUyz = (g_xz * g_xy - g_xx * g_yz) / det_g
-			local gUzz = (g_xx * g_yy - g_xy * g_xy) / det_g
-			local D_xxx = -hx * hxx
-			local D_xxy = -.5 * (hxx * hy + hx * hxy)
-			local D_xxz = -.5 * (hxx * hz + hx * hxz)
-			local D_xyy = -hy * hxy
-			local D_xyz = -.5 * (hxy * hz + hy * hxz)
-			local D_xzz = -hz * hxz
-			local D_yxx = -hx * hxy
-			local D_yxy = -.5 * (hxy * hy + hx * hyy)
-			local D_yxz = -.5 * (hxy * hz + hx * hyz)
-			local D_yyy = -hy * hyy
-			local D_yyz = -.5 * (hyy * hz + hy * hyz)
-			local D_yzz = -hz * hyz
-			local D_zxx = -hx * hxz
-			local D_zxy = -.5 * (hxz * hy + hx * hyz)
-			local D_zxz = -.5 * (hxz * hz + hx * hzz)
-			local D_zyy = -hy * hyz
-			local D_zyz = -.5 * (hyz * hz + hy * hzz)
-			local D_zzz = -hz * hzz
-			local sqrt_det_g = math.sqrt(det_g)	
-			local K_xx = -hxx / sqrt_det_g
-			local K_xy = -hxy / sqrt_det_g
-			local K_xz = -hxz / sqrt_det_g
-			local K_yy = -hyy / sqrt_det_g
-			local K_yz = -hyz / sqrt_det_g
-			local K_zz = -hzz / sqrt_det_g
-			local V_x = (D_xxy - D_yxx) * gUxy + (D_xxz - D_zxx) * gUxz + (D_xyy - D_yxy) * gUyy + (D_xyz - D_yxz) * gUyz + (D_xyz - D_zxy) * gUyz + (D_xzz - D_zxz) * gUzz
-			local V_y = (D_yxx - D_xxy) * gUxx + (D_yxy - D_xyy) * gUxy + (D_yxz - D_xyz) * gUxz + (D_yxz - D_zxy) * gUxz + (D_yyz - D_zyy) * gUyz + (D_yzz - D_zyz) * gUzz
-			local V_z = (D_zxx - D_xxz) * gUxx + (D_zxy - D_xyz) * gUxy + (D_zxy - D_yxz) * gUxy + (D_zxz - D_xzz) * gUxz + (D_zyy - D_yyz) * gUyy + (D_zyz - D_yzz) * gUyz
-			local alpha = 1
-			local A_x = 0	-- dx ln alpha
-			local A_y = 0	-- dy ln alpha
-			local A_z = 0	-- dz ln alpha
+			local alpha = calc.alpha(x,y,z)
+			local A_x = calc.A:map(function(A_k) return A_k(x,y,z) end):unpack()
+			local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = calc.g:map(function(g_ij) return g_ij(x,y,z) end):unpack()
+			local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = calc.gU:map(function(gUij) return gUij(x,y,z) end):unpack()
+			local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = calc.D[1]:map(function(D_xjk) return D_xjk(x,y,z) end):unpack()
+			local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = calc.D[2]:map(function(D_yjk) return D_yjk(x,y,z) end):unpack()
+			local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = calc.D[3]:map(function(D_zjk) return D_zjk(x,y,z) end):unpack()
+			local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = calc.K:map(function(K_ij) return K_ij(x,y,z) end):unpack()
+			local V_x, V_y, V_z = calc.V:map(function(V_k) return V_k(x,y,z) end):unpack()
 			return 
 				alpha,
 				g_xx, g_xy, g_xz, g_yy, g_yz, g_zz,
@@ -497,6 +503,8 @@ return {
 		end
 	end,
 
+	['Alcubierre'] = function()
+	end,
 
 		-- Maxwell equations initial state
 

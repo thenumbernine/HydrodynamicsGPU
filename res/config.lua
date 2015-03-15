@@ -1,3 +1,5 @@
+package.path = '?.lua;?/init.lua'
+
 require 'util'	--holds helper functions
 local configurations = require 'configurations'	--holds catalog of configurations
 
@@ -125,7 +127,7 @@ solverName = 'ADM3DRoe'
 configurations['ADM-3D']()
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 displayMethod = 'ALPHA'
---size = {1024} displayScale = 128
-size = {64, 64} displayScale = 1
+size = {1024} displayScale = 128
+--size = {64, 64} displayScale = 1
 --]]
 
