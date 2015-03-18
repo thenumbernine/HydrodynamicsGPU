@@ -26,7 +26,7 @@ args:
 	pressure				\_ one of these two
 	specificEnergyInternal	/
 	potentialEnergy (optional)
-	boundaryX, boundaryY, boundaryZ
+	solid
 --]=]
 function buildStateEuler(args)
 	local dim = #size
@@ -47,13 +47,7 @@ function buildStateEuler(args)
 	-- it is added to total energy after self-gravity optionally calculates it (if enabled)
 	local energyTotal = density * (specificEnergyKinetic + specificEnergyInternal) + magneticFieldEnergy
 	
-	-- what should boundary be ...
-	-- for now I'm passing numbers that correlate to the specific Equation's boundaryMethod
-	-- -1 means none
-	local boundaryX = args.boundaryX or -1
-	local boundaryY = args.boundaryY or -1
-	local boundaryZ = args.boundaryZ or -1
-	
+	local solid = args.solid or 0	-- 0 or 1
 	return 
 		density,
 		-- momentum
@@ -67,10 +61,8 @@ function buildStateEuler(args)
 		-- energy
 		energyTotal,
 		potentialEnergy,
-		-- boundary
-		boundaryX,
-		boundaryY,
-		boundaryZ
+		-- solid or not
+		solid	
 end
 
 function buildStateEulerQuadrant(x,y,z,args)

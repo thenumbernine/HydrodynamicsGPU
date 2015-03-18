@@ -52,27 +52,30 @@ void EulerBurgers::initKernels() {
 	Super::initKernels();
 	
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app->setArgs(calcCFLKernel, cflBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->boundaryBuffer, app->cfl);
+	app->setArgs(calcCFLKernel, cflBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer, app->cfl);
 	
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
-	app->setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer);
+	app->setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer, selfgrav->solidBuffer);
 
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, dtBuffer);
+	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, selfgrav->solidBuffer, dtBuffer);
 
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	//arg0 will be provided by the integrator
 	calcFluxDerivKernel.setArg(1, fluxBuffer);
+	calcFluxDerivKernel.setArg(2, selfgrav->solidBuffer);
 	
 	computePressureKernel = cl::Kernel(program, "computePressure");
-	app->setArgs(computePressureKernel, pressureBuffer, stateBuffer, selfgrav->potentialBuffer);
+	app->setArgs(computePressureKernel, pressureBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer);
 
 	diffuseMomentumKernel = cl::Kernel(program, "diffuseMomentum");
 	diffuseMomentumKernel.setArg(1, pressureBuffer);
+	diffuseMomentumKernel.setArg(2, selfgrav->solidBuffer);
 	
 	diffuseWorkKernel = cl::Kernel(program, "diffuseWork");
 	diffuseWorkKernel.setArg(1, stateBuffer);
 	diffuseWorkKernel.setArg(2, pressureBuffer);
+	diffuseWorkKernel.setArg(3, selfgrav->solidBuffer);
 }
 
 void EulerBurgers::createEquation() {
