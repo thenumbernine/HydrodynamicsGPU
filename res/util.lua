@@ -15,24 +15,6 @@ local function getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFi
 	return .5 * (magneticFieldX * magneticFieldX + magneticFieldY * magneticFieldY + magneticFieldZ * magneticFieldZ) / vaccuumPermeability
 end
 
-local function primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ, potentialEnergy)
-	return 
-		-- density
-		density,
-		-- momentum
-		velocityX * density,
-		velocityY * density,
-		velocityZ * density,
-		-- magnetic field
-		magneticFieldX,
-		magneticFieldY,
-		magneticFieldZ,
-		-- total energy
-		energyTotal,
-		-- potential energy
-		potentialEnergy
-end
-
 --[=[
 table-driven so may be slower, but much more readable 
 args:
@@ -44,6 +26,7 @@ args:
 	pressure				\_ one of these two
 	specificEnergyInternal	/
 	potentialEnergy (optional)
+	boundaryX, boundaryY, boundaryZ
 --]=]
 function buildStateEuler(args)
 	local dim = #size
@@ -63,7 +46,31 @@ function buildStateEuler(args)
 	-- dont' add potential energy to total energy.  
 	-- it is added to total energy after self-gravity optionally calculates it (if enabled)
 	local energyTotal = density * (specificEnergyKinetic + specificEnergyInternal) + magneticFieldEnergy
-	return primsToState(density, velocityX, velocityY, velocityZ, energyTotal, magneticFieldX, magneticFieldY, magneticFieldZ, potentialEnergy)
+	
+	-- what should boundary be ...
+	-- for now I'm passing numbers that correlate to the specific Equation's boundaryMethod
+	-- -1 means none
+	local boundaryX = args.boundaryX or -1
+	local boundaryY = args.boundaryY or -1
+	local boundaryZ = args.boundaryZ or -1
+	
+	return 
+		density,
+		-- momentum
+		density * velocityX,
+		density * velocityY, 
+		density * velocityZ, 
+		-- magnetic field
+		magneticFieldX,
+		magneticFieldY,
+		magneticFieldZ, 
+		-- energy
+		energyTotal,
+		potentialEnergy,
+		-- boundary
+		boundaryX,
+		boundaryY,
+		boundaryZ
 end
 
 function buildStateEulerQuadrant(x,y,z,args)

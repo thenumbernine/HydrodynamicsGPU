@@ -188,7 +188,7 @@ rewrite our few inner products of the Roe.cl to call external functions, and hav
 */
 
 #include "HydroGPU/Shared/Common.h"
-#include "HydroGPU/Shared/ADM3DCommon.h"
+#include "HydroGPU/ADM3D.h"
 
 __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,

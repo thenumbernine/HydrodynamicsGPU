@@ -1,4 +1,5 @@
 #include "HydroGPU/Shared/Common.h"
+#include "HydroGPU/Euler.h"
 
 /*
 Euler Burgers:
@@ -12,11 +13,15 @@ the 1st and 3rd terms are integrated via the pressure integration
 	that is split into first the momentum and then the work diffusion 
 */
 
-//based on max inter-cell wavespeed
+//the Hydrodynamics II book I went by said to use cell values for interface ...
+//but now that I'm introducing boundary conditions, I'll have to cull cells based on whether they have boundaries
+// and it's just easier to cull cell boundaries themselves.
+// so I'm going to try this based on cell boundaries instead of cells.
 __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
+	const __global char* boundaryBuffer,
 	real cfl)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -32,35 +37,46 @@ __kernel void calcCFL(
 		cflBuffer[index] = INFINITY;
 		return;
 	}
+	int indexL = index;
 
-	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
-	real energyTotal = stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index];
-#if DIM == 1
-	real velocity = stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index] / density;
-#elif DIM == 2
-	real2 velocity = (real2)(stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index], stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index]) / density;
-#elif DIM == 3
-	real4 velocity = (real4)(
-		stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index],
-		stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index],
-		stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * index],
-		0.f) / density;
-#endif
-	real specificEnergyTotal = energyTotal / density;
-	real specificEnergyKinetic = .5f * dot(velocity, velocity);
-	real specificEnergyPotential = potentialBuffer[index];
-	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
+	real result = INFINITY;
+	for (int side = 0; side < DIM; ++side) {
+		int indexR = index + stepsize[side];
 
-	real speedOfSound = sqrt(gamma * (gamma - 1.f) * specificEnergyInternal);
+		const __global real* stateL = stateBuffer + NUM_STATES * indexL;
+		const __global real* stateR = stateBuffer + NUM_STATES * indexR;
+
+		//Roe averages?  regular averages?  no averages and just use cells instead of interfaces?
+		
+		real densityL = stateL[STATE_DENSITY];
+		real4 velocityL = VELOCITY(stateL);
+		real energyTotalL = stateL[STATE_ENERGY_TOTAL];
+		
+		real densityR = stateR[STATE_DENSITY];
+		real4 velocityR = VELOCITY(stateR);
+		real energyTotalR = stateR[STATE_ENERGY_TOTAL];
+
+		real density = .5f * (densityL + densityR);
+		real4 velocity = .5f * (velocityL + velocityR);
+		real energyTotal = .5f * (energyTotalL + energyTotalR);
+		
+		real specificEnergyTotal = energyTotal / density;
+		real specificEnergyKinetic = .5f * dot(velocity, velocity);
+		real specificEnergyPotential = potentialBuffer[index];
+		real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
+
+		real speedOfSound = sqrt(gamma * (gamma - 1.f) * specificEnergyInternal);
+
 #if DIM == 1
-	real result = dx[0] / (speedOfSound + fabs(velocity));
-#else
-	real result = dx[0] / (speedOfSound + fabs(velocity[0]));
-	for (int side = 1; side < DIM; ++side) {
-		real dum = dx[side] / (speedOfSound + fabs(velocity[side]));
+		real dim = dx[0] / (speedOfSound + fabs(velocity));
 		result = min(result, dum);
-	}
+#else
+		for (int side = 0; side < DIM; ++side) {
+			real dum = dx[side] / (speedOfSound + fabs(velocity[side]));
+			result = min(result, dum);
+		}
 #endif
+	}
 	cflBuffer[index] = cfl * result;
 }
 
@@ -208,20 +224,11 @@ __kernel void computePressure(
 		return;
 	}
 	int index = INDEXV(i);
+	const __global real* state = stateBuffer + NUM_STATES * index;
 
-	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
-	real energyTotal = stateBuffer[STATE_ENERGY_TOTAL + NUM_STATES * index];
-#if DIM == 1
-	real velocity = stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index] / density;
-#elif DIM == 2
-	real2 velocity = (real2)(stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index], stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index]) / density;
-#elif DIM == 3
-	real4 velocity = (real4)(
-		stateBuffer[STATE_MOMENTUM_X + NUM_STATES * index],
-		stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * index],
-		stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * index],
-		0.f) / density;
-#endif
+	real density = state[STATE_DENSITY];
+	real energyTotal = state[STATE_ENERGY_TOTAL];
+	real4 velocity = VELOCITY(state);
 	real specificEnergyTotal = energyTotal / density;
 	real specificEnergyKinetic = .5f * dot(velocity, velocity);
 	real specificEnergyPotential = potentialBuffer[index];
@@ -231,10 +238,11 @@ __kernel void computePressure(
 	real deltaVelocitySq = 0.f;
 	for (int side = 0; side < DIM; ++side) {
 		int indexL = index - stepsize[side];
-		int indexR = index + stepsize[side];	
-
-		real velocityL = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexL];
-		real velocityR = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexR];
+		int indexR = index + stepsize[side];
+		const __global real* stateL = stateBuffer + NUM_STATES * indexL;
+		const __global real* stateR = stateBuffer + NUM_STATES * indexR;
+		real velocityL = stateL[side+STATE_MOMENTUM_X];
+		real velocityR = stateR[side+STATE_MOMENTUM_X];
 		const float ZETA = 2.f;
 		real deltaVelocity = ZETA * .5f * (velocityR - velocityL);
 		deltaVelocitySq += deltaVelocity * deltaVelocity; 

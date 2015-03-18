@@ -52,7 +52,7 @@ void EulerBurgers::initKernels() {
 	Super::initKernels();
 	
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app->setArgs(calcCFLKernel, cflBuffer, stateBuffer, selfgrav->potentialBuffer, app->cfl);
+	app->setArgs(calcCFLKernel, cflBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->boundaryBuffer, app->cfl);
 	
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
 	app->setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer);

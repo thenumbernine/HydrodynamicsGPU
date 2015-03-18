@@ -7,10 +7,10 @@ local configurations = require 'configurations'	--holds catalog of configuration
 	-- solver variables
 
 
---solverName = 'EulerBurgers'
+solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
-solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
+--solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe'		-- not yet
 --solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
@@ -87,10 +87,10 @@ conductivity = 1
 size = {32, 32, 32}
 vectorFieldResolution = 16
 --]]
---[[ 2D
+-- [[ 2D
 size = {128, 128}
 --]]
--- [[ 1D
+--[[ 1D
 size = {1024}
 displayScale = .25
 --]]
@@ -122,7 +122,7 @@ size = {1024}
 displayScale = 128
 --]]
 
--- [[ ADM (3D)
+--[[ ADM (3D)
 solverName = 'ADM3DRoe'
 configurations['ADM-3D']()
 boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}

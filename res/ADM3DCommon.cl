@@ -1,5 +1,5 @@
 #include "HydroGPU/Shared/Common.h"
-#include "HydroGPU/Shared/ADM3DCommon.h"
+#include "HydroGPU/ADM3D.h"
 
 real det3x3sym(real xx, real xy, real xz, real yy, real yz, real zz) {
 	return xx * yy * zz

@@ -13,6 +13,7 @@ protected:
 
 public:
 	cl::Buffer potentialBuffer;
+	cl::Buffer boundaryBuffer;
 
 protected:
 	cl::Kernel gravityPotentialPoissonRelaxKernel;
@@ -23,7 +24,7 @@ public:
 	virtual void initBuffers();
 	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();
-	virtual void resetState(std::vector<real>& potentialVec, std::vector<real>& stateVec);
+	virtual void resetState(std::vector<real>& stateVec, std::vector<real>& potentialVec, std::vector<char>& boundaryVec);
 	virtual void applyPotential();
 	virtual void potentialBoundary();
 };

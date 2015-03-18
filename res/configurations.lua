@@ -160,17 +160,20 @@ return {
 			local x = x - xmid[1]
 			local y = y - xmid[2]
 			local z = z - xmid[3]
-			local state = {buildStateEuler{
-				density = 1,
-				pressure = 1e-5,
-			}}
-			if math.abs(x) < dx[1]
-			and math.abs(y) < dx[2]
-			and math.abs(z) < dx[3]
+			if math.abs(x) < 1.5 * dx[1]
+			and math.abs(y) < 1.5 * dx[2]
+			and math.abs(z) < 1.5 * dx[3]
 			then
-				state[5] = 1e+5
+				return buildStateEuler{
+					density = 1,
+					pressure = 1e+5,
+				}
+			else
+				return buildStateEuler{
+					density = 1,
+					pressure = 1e-5,
+				}
 			end
-			return unpack(state)
 		end
 	end,
 
@@ -449,39 +452,6 @@ return {
 		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO OpenCL exporter with lua symmath
 		print('...done deriving and compiling.')
 		initState = function(x,y,z)
-			--[[ 2D
-			local dy = y - ymid
-			local dy2 = dy * dy
-			local ds2 = dx2 + dy2
-			local h = 5 * math.exp(-ds2 / sigma2)
-			local hx = -2 * dx / sigma2 * h
-			local hy = -2 * dy / sigma2 * h
-			local hz = 0
-			local hxx = (-2 / sigma2 + 4 * dx2 / sigma4) * h
-			local hxy = 4 * dx * dy / sigma4 * h
-			local hxz = 0
-			local hyy = (-2 / sigma2 + 4 * dy2 / sigma4) * h
-			local hyz = 0
-			local hzz = 0
-			--]]
-			--[[ 3D
-			local dy = 0--y - ymid
-			local dz = 0--z - zmid
-			local dx2 = dx * dx
-			local dy2 = dy * dy
-			local dz2 = dz * dz
-			local ds2 = dx2 + dy2 + dz2
-			local h = 5 * math.exp(-ds2 / sigma2)
-			local hx = -2 * dx / sigma2 * h
-			local hy = -2 * dy / sigma2 * h
-			local hz = -2 * dz / sigma2 * h
-			local hxx = (-2 / sigma2 + 4 * dx2 / sigma4) * h
-			local hxy = 4 * dx * dy / sigma4 * h
-			local hxz = 4 * dx * dz / sigma4 * h
-			local hyy = (-2 / sigma2 + 4 * dy2 / sigma4) * h
-			local hyz = 4 * dy * dz / sigma4 * h
-			local hzz = (-2 / sigma2 + 4 * dz2 / sigma4) * h
-			--]]
 			local alpha = calc.alpha(x,y,z)
 			local A_x = calc.A:map(function(A_k) return A_k(x,y,z) end):unpack()
 			local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = calc.g:map(function(g_ij) return g_ij(x,y,z) end):unpack()

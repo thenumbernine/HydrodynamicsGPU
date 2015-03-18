@@ -11,6 +11,7 @@ SelfGravitation::SelfGravitation(Solver* solver_) : solver(solver_) {}
 void SelfGravitation::initBuffers() {
 	int volume = solver->getVolume();
 	potentialBuffer = solver->clAlloc(sizeof(real) * volume);
+	boundaryBuffer = solver->clAlloc(sizeof(char) * volume * solver->app->dim);
 }
 
 void SelfGravitation::initKernels() {
@@ -30,7 +31,7 @@ std::vector<std::string> SelfGravitation::getProgramSources() {
 	return {"#include \"SelfGravitation.cl\"\n"};
 }
 
-void SelfGravitation::resetState(std::vector<real>& potentialVec, std::vector<real>& stateVec) {
+void SelfGravitation::resetState(std::vector<real>& stateVec, std::vector<real>& potentialVec, std::vector<char>& boundaryVec) {
 	cl::CommandQueue commands = solver->commands;
 	cl::NDRange globalSize = solver->globalSize;
 	cl::NDRange localSize = solver->localSize;
@@ -46,6 +47,7 @@ void SelfGravitation::resetState(std::vector<real>& potentialVec, std::vector<re
 	}
 	
 	commands.enqueueWriteBuffer(potentialBuffer, CL_TRUE, 0, sizeof(real) * volume, potentialVec.data());
+	commands.enqueueWriteBuffer(boundaryBuffer, CL_TRUE, 0, sizeof(char) * volume * solver->app->dim, boundaryVec.data());
 	
 	if (solver->app->useGravity) {
 		//solve for gravitational potential via gauss seidel

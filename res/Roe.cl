@@ -27,11 +27,11 @@ __kernel void calcCFL(
 		
 		const __global real* eigenvaluesL = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexL);
 		const __global real* eigenvaluesR = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexR);
-	
+		
 		//NOTICE assumes eigenvalues are sorted from min to max
 		real maxLambda = max(0.f, eigenvaluesL[EIGEN_SPACE_DIM-1]);
 		real minLambda = min(0.f, eigenvaluesR[0]);
-
+		
 		real dum = dx[side] / (fabs(maxLambda - minLambda) + 1e-9f);
 		result = min(result, dum);
 	}
@@ -169,7 +169,9 @@ void calcFluxSide(
 		real epsilon = eigenvalue * dt_dx;
 
 		real deltaFluxTilde = eigenvalue * deltaQTilde[i];
-		fluxTilde[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta) / (float)DIM);
+		fluxTilde[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta)
+			// / (float)DIM	//?
+		);
 	}
 
 	eigenfieldInverseTransform(flux, eigenfields, fluxTilde, side);
