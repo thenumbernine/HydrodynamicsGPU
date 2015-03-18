@@ -46,8 +46,8 @@ function buildStateEuler(args)
 	-- dont' add potential energy to total energy.  
 	-- it is added to total energy after self-gravity optionally calculates it (if enabled)
 	local energyTotal = density * (specificEnergyKinetic + specificEnergyInternal) + magneticFieldEnergy
-	
 	local solid = args.solid or 0	-- 0 or 1
+	
 	return 
 		density,
 		-- momentum

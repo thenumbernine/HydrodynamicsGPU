@@ -59,7 +59,7 @@ fixedDT = .125
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
+boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false
@@ -96,9 +96,38 @@ displayScale = .25
 --]]
 
 
--- Euler
+-- [[ Euler
+
+-- override solids:
+
+--[=[ cylinder
+function calcSolid(x,y,z)
+	local cx = .35 * xmin[1] + .65 * xmax[1]
+	local cy = .35 * xmin[2] + .65 * xmax[2]
+	local cz = .35 * xmin[3] + .65 * xmax[3]
+	local dx = #size >= 1 and x - cx or 0
+	local dy = #size >= 2 and y - cy or 0
+	local dz = #size >= 3 and z - cz or 0
+	local rSq = dx * dx + dy * dy + dz * dz
+	return rSq < .1 * .1 and 1 or 0
+end
+--]=]
+
+--[=[ arbitrary
+-- hmm ... loading images from Lua ...
+-- 1) provide a filename, but that means interjecting it into the resetState() converter code, which is a long way to carry it ... maybe not ...
+-- 2) Lua image loading libraries.  the current one depends on FFI.  the LuaCxx binding based ones are venturing into dll hell ...
+function calcSolid(x,y,z)
+	if x > -.275 and x < -.225 and y > -.4 and y < .4 then
+		return 1
+	end
+end
+--]]=]
+solidFilename = 'test-solid.png'
+
 configurations['Sod']()
 --configurations['self-gravitation test 1']()
+--]]
 
 --[[ MHD
 solverName = 'MHDRoe'

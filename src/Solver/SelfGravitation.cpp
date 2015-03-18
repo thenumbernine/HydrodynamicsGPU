@@ -2,6 +2,7 @@
 #include "HydroGPU/Solver/SelfGravitation.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "Image/System.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -31,7 +32,11 @@ std::vector<std::string> SelfGravitation::getProgramSources() {
 	return {"#include \"SelfGravitation.cl\"\n"};
 }
 
-void SelfGravitation::resetState(std::vector<real>& stateVec, std::vector<real>& potentialVec, std::vector<char>& solidVec) {
+void SelfGravitation::resetState(
+	std::vector<real>& stateVec,
+	std::vector<real>& potentialVec,
+	std::vector<char>& solidVec)
+{
 	cl::CommandQueue commands = solver->commands;
 	cl::NDRange globalSize = solver->globalSize;
 	cl::NDRange localSize = solver->localSize;
@@ -45,7 +50,27 @@ void SelfGravitation::resetState(std::vector<real>& stateVec, std::vector<real>&
 			potentialVec[i] = stateVec[0 + solver->numStates() * i];
 		}
 	}
-	
+
+	//HACK: if the Lua state has a solid filename then load that and use it for the solid channel ...
+	std::string solidFilename;
+	if ((solver->app->lua.ref()["solidFilename"] >> solidFilename).good()) {
+		std::shared_ptr<Image::IImage> image_ = Image::system->read(solidFilename);
+		std::shared_ptr<Image::Image> image = std::dynamic_pointer_cast<Image::Image>(image_);
+		for (int z = 0; z < solver->app->size.s[2]; ++z) {
+			for (int y = 0;  y < solver->app->size.s[1]; ++y) {
+				for (int x = 0; x < solver->app->size.s[0]; ++x) {
+					int cellIndex = x + solver->app->size.s[0] * (y + solver->app->size.s[1] * z);
+					int srcX = x * image->getSize()(0) / solver->app->size.s[0];
+					int srcY = y * image->getSize()(1) / solver->app->size.s[1];
+					srcY = image->getSize()(1) - 1 - srcY;
+					int srcZ = z * image->getPlanes() / solver->app->size.s[2];
+					unsigned char solid = (*image)(srcX, srcY, 0, srcZ);
+					solidVec[cellIndex] = solid > 127;
+				}
+			}
+		}
+	}
+
 	commands.enqueueWriteBuffer(potentialBuffer, CL_TRUE, 0, sizeof(real) * volume, potentialVec.data());
 	commands.enqueueWriteBuffer(solidBuffer, CL_TRUE, 0, sizeof(char) * volume, solidVec.data());
 	

@@ -45,22 +45,11 @@ return {
 	['Sod'] = function()
 		--boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
 		initState = function(x,y,z)
-			local inside = x <= 0 and y <= 0 and z <= 0
-			
-			local cx = .35 * xmin[1] + .65 * xmax[1]
-			local cy = .35 * xmin[2] + .65 * xmax[2]
-			local dx = x - cx
-			local dy = y - cy
-			local rSq = dx * dx + dy * dy
-			local solid = (rSq < .1 * .1) and 1 or 0
+			local inside = x <= 0 and y <= 0 and z <= 0	
 			return buildStateEuler{
 				density = inside and 1 or .1,
 				specificEnergyInternal = 1,
---debugging
---magneticFieldX = 1,
---magneticFieldY = 1,
---magneticFieldZ = 1,
-				solid = solid,
+				solid = calcSolid and calcSolid(x,y,z),
 			}
 		end
 	end,
