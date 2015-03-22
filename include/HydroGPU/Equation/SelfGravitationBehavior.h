@@ -10,6 +10,7 @@ namespace Equation {
 //it's in each equation as well as here
 //probably put back in Solver.h along with BOUNDARY_KERNEL_* enum
 enum {
+	BOUNDARY_METHOD_NONE = -1,
 	BOUNDARY_METHOD_PERIODIC,
 	BOUNDARY_METHOD_MIRROR,
 	BOUNDARY_METHOD_FREEFLOW,
@@ -30,15 +31,14 @@ struct SelfGravitationBehavior : public Parent, public SelfGravitationInterface 
 template<typename Parent>
 int SelfGravitationBehavior<Parent>::gravityGetBoundaryKernelForBoundaryMethod(int dim, int minmax) {
 	switch (Super::solver->app->boundaryMethods(dim, minmax)) {
+	case BOUNDARY_METHOD_NONE:
+		return BOUNDARY_KERNEL_NONE;
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
-		break;
 	case BOUNDARY_METHOD_MIRROR:
 		return BOUNDARY_KERNEL_FREEFLOW;
-		break;		
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;
-		break;
 	}
 	throw Common::Exception() << "got an unknown boundary method " << Super::solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }

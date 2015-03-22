@@ -10,6 +10,7 @@ void calcEigenBasisSide(
 	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
+	const __global char* solidBuffer,
 	int side);
 
 void calcEigenBasisSide(
@@ -17,6 +18,7 @@ void calcEigenBasisSide(
 	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
+	const __global char* solidBuffer,
 	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -32,9 +34,26 @@ void calcEigenBasisSide(
 	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 
+	char solidL = solidBuffer[indexPrev];
+	char solidR = solidBuffer[index];
+
 	real densityL = stateL[STATE_DENSITY];
-	real invDensityL = 1.f / densityL;
 	real4 velocityL = VELOCITY(stateL);
+	real densityR = stateR[STATE_DENSITY];
+	real4 velocityR = VELOCITY(stateR);
+	
+	if (solidL && !solidR) {
+		densityL = densityR;
+		velocityL = velocityR;
+		velocityL[side+1] = -velocityR[side+1];
+	}
+	if (solidR && !solidL) {
+		densityR = densityL;
+		velocityR = velocityL;
+		velocityR[side+1] = -velocityL[side+1];
+	}
+
+	real invDensityL = 1.f / densityL;
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
 	real energyKineticL = .5f * dot(velocityL, velocityL);
 	real energyPotentialL = potentialBuffer[indexPrev];
@@ -43,9 +62,7 @@ void calcEigenBasisSide(
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;		//<- should I remove potential energy from hTotal?
 	real roeWeightL = sqrt(densityL);
 
-	real densityR = stateR[STATE_DENSITY];
 	real invDensityR = 1.f / densityR;
-	real4 velocityR = VELOCITY(stateR);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
 	real energyKineticR = .5f * dot(velocityR, velocityR);
 	real energyPotentialR = potentialBuffer[index];
@@ -231,7 +248,8 @@ __kernel void calcEigenBasis(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
-	const __global real* potentialBuffer)
+	const __global real* potentialBuffer,
+	const __global char* solidBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -242,12 +260,12 @@ __kernel void calcEigenBasis(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, 0);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, solidBuffer, 0);
 #if DIM > 1
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, 1);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, solidBuffer, 1);
 #endif
 #if DIM > 2
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, 2);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, solidBuffer, 2);
 #endif
 }
 

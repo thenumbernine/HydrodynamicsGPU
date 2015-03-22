@@ -8,6 +8,7 @@ namespace HydroGPU {
 namespace Equation {
 
 enum {
+	BOUNDARY_METHOD_NONE = -1,
 	BOUNDARY_METHOD_PERIODIC,
 	BOUNDARY_METHOD_MIRROR,
 	BOUNDARY_METHOD_FREEFLOW,
@@ -101,15 +102,14 @@ void ADM3D::getProgramSources(std::vector<std::string>& sources) {
 
 int ADM3D::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {
 	switch (solver->app->boundaryMethods(dim, minmax)) {
+	case BOUNDARY_METHOD_NONE:
+		return BOUNDARY_KERNEL_NONE;
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
-		break;
 	case BOUNDARY_METHOD_MIRROR:
 		return BOUNDARY_KERNEL_MIRROR;	//which states should be negative'd and which shouldn't ...
-		break;		
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;
-		break;
 	}
 	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }

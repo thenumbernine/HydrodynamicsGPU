@@ -277,7 +277,7 @@ return {
 	['Square Cavity'] = function()
 		boundaryMethods = {
 			{min='MIRROR', max='MIRROR'},
-			{min='MIRROR', max='FREEFLOW'},
+			{min='MIRROR', max='NONE'},
 			{min='MIRROR', max='MIRROR'},
 		}
 		initState = function(x,y,z)
@@ -286,6 +286,24 @@ return {
 				density = 1,
 				velocityX = y > .45 and 1 or 0,
 				pressure = 1,
+			}
+		end
+	end,
+
+	['Flow Around Cylinder'] = function()
+		boundaryMethods = {
+			{min='NONE', max='FREEFLOW'},
+			{min='FREEFLOW', max='FREEFLOW'},
+			{min='FREEFLOW', max='FREEFLOW'},
+		}
+		initState = function(x,y,z)
+			local r2 = x*x + y*y + z*z
+			return buildStateEuler{
+				x=x, y=y, z=z,
+				density = 1,
+				velocityX = .7,
+				pressure = 1,
+				solid = r2 < .15*.15 and 1 or 0
 			}
 		end
 	end,

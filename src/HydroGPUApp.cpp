@@ -222,7 +222,12 @@ void HydroGPUApp::init() {
 				boundaryMethodNames[i][minmax]) 
 				- solver->equation->boundaryMethods.begin();
 			if (boundaryMethods(i,minmax) == solver->equation->boundaryMethods.size()) {
-				throw Common::Exception() << "couldn't interpret boundary method " << boundaryMethodNames[i][minmax];
+				//special case
+				if (boundaryMethodNames[i][minmax] == "NONE") {
+					boundaryMethods(i,minmax) = -1;
+				} else {
+					throw Common::Exception() << "couldn't interpret boundary method " << boundaryMethodNames[i][minmax];
+				}
 			}
 		}
 	}

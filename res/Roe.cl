@@ -4,7 +4,11 @@
 __kernel void calcCFL(
 	__global real* cflBuffer,
 	const __global real* eigenvaluesBuffer,
-	real cfl)
+	real cfl
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
@@ -24,7 +28,11 @@ __kernel void calcCFL(
 	real result = INFINITY;
 	for (int side = 0; side < DIM; ++side) {
 		int indexR = index + stepsize[side];
-		
+
+#ifdef SOLID
+		if (solidBuffer[indexL] || solidBuffer[indexR]) continue;
+#endif
+
 		const __global real* eigenvaluesL = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexL);
 		const __global real* eigenvaluesR = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexR);
 		
@@ -43,28 +51,54 @@ void calcDeltaQTildeSide(
 	__global real* deltaQTildeBuffer,
 	const __global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
-	int side);
+	int side
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif	
+	);
 
 void calcDeltaQTildeSide(
 	__global real* deltaQTildeBuffer,
 	const __global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
-	int side)
+	int side
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	int indexPrev = index - stepsize[side];
 	int interfaceIndex = side + DIM * index;
 			
-	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
-	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	const __global real* eigenfields = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* deltaQTilde = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceIndex;
 
-	//transform left and right separately, then compute difference
-	//this is important for nonlinear transforms from stored state into conservative state
-	//however if that transform is linear then these eigenfieldTransform's can be combined to after the delta comptuation (subtraction can be factored out)	
-	
+	real stateL[NUM_STATES];
+	real stateR[NUM_STATES];
+	for (int i = 0; i < NUM_STATES; ++i) {
+		stateL[i] = stateBuffer[i + NUM_STATES * indexPrev];
+		stateR[i] = stateBuffer[i + NUM_STATES * index];
+	}
+#ifdef SOLID
+	char solidL = solidBuffer[indexPrev];
+	char solidR = solidBuffer[index];
+	if (solidL && !solidR) {
+		for (int i = 0; i < NUM_STATES; ++i) {
+			stateL[i] = stateR[i];
+		}
+		stateL[side+STATE_MOMENTUM_X] = -stateL[side+STATE_MOMENTUM_X];
+	} else if (solidR && !solidL) {
+		for (int i = 0; i < NUM_STATES; ++i) {
+			stateR[i] = stateL[i];
+		}
+		stateR[side+STATE_MOMENTUM_X] = -stateR[side+STATE_MOMENTUM_X];
+	}
+#endif
+
+	//calculating this twice because eigenfieldTransform could use the state variables to construct the field information on the fly
+
 	real stateLTilde[EIGEN_SPACE_DIM];
 	eigenfieldTransform(stateLTilde, eigenfields, stateL, side);
 
@@ -79,7 +113,11 @@ void calcDeltaQTildeSide(
 __kernel void calcDeltaQTilde(
 	__global real* deltaQTildeBuffer,
 	const __global real* eigenfieldsBuffer,
-	const __global real* stateBuffer)
+	const __global real* stateBuffer
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -90,12 +128,24 @@ __kernel void calcDeltaQTilde(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 0);
+	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 0
+#ifdef SOLID
+		, solidBuffer
+#endif
+	);
 #if DIM > 1
-	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 1);
+	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 1
+#ifdef SOLID
+		, solidBuffer
+#endif
+	);
 #endif
 #if DIM > 2
-	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 2);
+	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 2
+#ifdef SOLID
+		, solidBuffer
+#endif
+	);
 #endif
 }
 
@@ -106,7 +156,11 @@ void calcFluxSide(
 	const __global real* eigenfieldsBuffer,
 	const __global real* deltaQTildeBuffer,
 	real dt_dx,
-	int side);
+	int side
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+	);
 
 void calcFluxSide(
 	__global real* fluxBuffer,
@@ -115,21 +169,23 @@ void calcFluxSide(
 	const __global real* eigenfieldsBuffer,
 	const __global real* deltaQTildeBuffer,
 	real dt_dx,
-	int side)
+	int side
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	int indexR = index;	
 	
 	int indexL = index - stepsize[side];
-	int indexR2 = index + stepsize[side];
+	int indexL2 = indexL - stepsize[side];
+	int indexR2 = indexR + stepsize[side];
 
 	int interfaceLIndex = side + DIM * indexL;
 	int interfaceIndex = side + DIM * indexR;
 	int interfaceRIndex = side + DIM * indexR2;
-	
-	const __global real* stateL = stateBuffer + NUM_STATES * indexL;
-	const __global real* stateR = stateBuffer + NUM_STATES * indexR;
 	
 	const __global real* deltaQTildeL = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceLIndex;
 	const __global real* deltaQTilde = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceIndex;
@@ -139,8 +195,32 @@ void calcFluxSide(
 	const __global real* eigenfields = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
 
-	//same disclaimer as above, eigenfield can be faactored out of avg for nonlinear transforms
-
+	real stateL[NUM_STATES];
+	for (int i = 0; i < NUM_STATES; ++i) {
+		stateL[i] = stateBuffer[i + NUM_STATES * indexL];
+	}
+	real stateR[NUM_STATES];
+	for (int i = 0; i < NUM_STATES; ++i) {
+		stateR[i] = stateBuffer[i + NUM_STATES * indexR];
+	}
+#ifdef SOLID
+	char solidL = solidBuffer[indexL];
+	char solidR = solidBuffer[indexR];
+	if (solidL && !solidR) {
+		for (int i = 0; i < NUM_STATES; ++i) {
+			stateL[i] = stateR[i];
+		}
+		stateL[side+STATE_MOMENTUM_X] = -stateL[side+STATE_MOMENTUM_X];
+	} else if (solidR && !solidL) {
+		for (int i = 0; i < NUM_STATES; ++i) {
+			stateR[i] = stateL[i];
+		}
+		stateR[side+STATE_MOMENTUM_X] = -stateR[side+STATE_MOMENTUM_X];
+	}
+	char solidL2 = solidBuffer[indexL2];
+	char solidR2 = solidBuffer[indexR2];
+#endif
+	
 	real stateLTilde[EIGEN_SPACE_DIM];
 	eigenfieldTransform(stateLTilde, eigenfields, stateL, side);
 
@@ -161,9 +241,15 @@ void calcFluxSide(
 		if (eigenvalue >= 0.f) {
 			rTilde = deltaQTildeL[i] / deltaQTilde[i];
 			theta = 1.f;
+#ifdef SOLID
+			if (solidL2) rTilde = 1.f;
+#endif
 		} else {
 			rTilde = deltaQTildeR[i] / deltaQTilde[i];
 			theta = -1.f;
+#ifdef SOLID
+			if (solidR2) rTilde = 1.f;
+#endif
 		}
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
@@ -183,7 +269,11 @@ __kernel void calcFlux(
 	const __global real* eigenvaluesBuffer,
 	const __global real* eigenfieldsBuffer,
 	const __global real* deltaQTildeBuffer,
-	const __global real* dtBuffer)
+	const __global real* dtBuffer
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -196,18 +286,34 @@ __kernel void calcFlux(
 	) return;
 	
 	float dt = dtBuffer[0];
-	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DX, 0); 
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DX, 0
+#ifdef SOLID
+	, solidBuffer
+#endif
+	); 
 #if DIM > 1
-	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DY, 1); 
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DY, 1
+#ifdef SOLID
+	, solidBuffer
+#endif
+	); 
 #endif
 #if DIM > 2
-	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DZ, 2); 
+	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DZ, 2
+#ifdef SOLID
+	, solidBuffer
+#endif
+	); 
 #endif
 }
 
 __kernel void calcFluxDeriv(
 	__global real* derivBuffer,
-	const __global real* fluxBuffer)
+	const __global real* fluxBuffer
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+	)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
@@ -221,7 +327,11 @@ __kernel void calcFluxDeriv(
 		return;
 	}
 	int index = INDEXV(i);
-	
+
+#ifdef SOLID
+	if (solidBuffer[index]) return;
+#endif
+
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
 	for (int side = 0; side < DIM; ++side) {

@@ -67,7 +67,7 @@ gravitationalConstant = 1	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful unit
 gaussSeidelMaxIter = 20
 
 showVectorField = false
-vectorFieldResolution = 64
+vectorFieldResolution = 32
 vectorFieldScale = .125
 
 -- Euler equations' constants:
@@ -126,7 +126,7 @@ end
 --solidFilename = 'test-solid.png'
 
 --configurations['Sod']()
-configurations['Square Cavity']()
+configurations['Flow Around Cylinder']()
 --configurations['self-gravitation test 1']()
 --]]
 

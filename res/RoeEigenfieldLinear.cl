@@ -10,15 +10,15 @@ and EIGEN_TRANSFORM_STRUCT_SIZE == 2 * NUM_STATES
 
 //c_i = a_ij b_j
 
-void stateMatrixTransform_GG(
+void stateMatrixTransform_G_(
 	real* results,
 	const __global real* matrix,
-	const __global real* input);
+	const real* input);
 
-void stateMatrixTransform_GG(
+void stateMatrixTransform_G_(
 	real* results,
 	const __global real* matrix,
-	const __global real* input)
+	const real* input)
 {
 	for (int i = 0; i < NUM_STATES; ++i) {
 		real sum = 0.f;
@@ -55,10 +55,10 @@ void stateMatrixTransformGG_(
 void eigenfieldTransform(
 	real* results,
 	const __global real* eigenfield,
-	const __global real* input,
+	const real* input,
 	int side)
 {
-	stateMatrixTransform_GG(results, eigenfield, input);
+	stateMatrixTransform_G_(results, eigenfield, input);
 }
 
 void eigenfieldInverseTransform(

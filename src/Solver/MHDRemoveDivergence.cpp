@@ -67,6 +67,7 @@ void MHDRemoveDivergence::boundary(cl::Buffer buffer) {
 	for (int i = 0; i < solver->app->dim; ++i) {
 		for (int minmax = 0; minmax < 2; ++minmax) {
 			int boundaryKernelIndex = gravEqn->gravityGetBoundaryKernelForBoundaryMethod(i, minmax);
+			if (boundaryKernelIndex < 0 || boundaryKernelIndex >= solver->boundaryKernels.size()) continue;
 			cl::Kernel& kernel = solver->boundaryKernels[boundaryKernelIndex][i][minmax];
 			solver->app->setArgs(kernel, buffer, 1, 0);
 			solver->getBoundaryRanges(i, offset, global, local);

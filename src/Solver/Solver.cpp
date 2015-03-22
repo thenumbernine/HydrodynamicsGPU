@@ -391,6 +391,7 @@ void Solver::boundary() {
 		for (int j = 0; j < numStates(); ++j) {
 			for (int minmax = 0; minmax < 2; ++minmax) {
 				int boundaryKernelIndex = equation->stateGetBoundaryKernelForBoundaryMethod(i, j, minmax);
+				if (boundaryKernelIndex < 0 || boundaryKernelIndex >= boundaryKernels.size()) continue;
 				cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i][minmax];
 				app->setArgs(kernel, stateBuffer, numStates(), j);
 				commands.enqueueNDRangeKernel(kernel, offset, global, local);
