@@ -49,7 +49,7 @@ public:	//protected:
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel convertToTexKernel;
 
-	std::vector<std::vector<cl::Kernel>> boundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim];
+	std::vector<std::vector<std::vector<cl::Kernel>>> boundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim][min/max];
 
 	//construct this after the program has been compiled
 	std::shared_ptr<HydroGPU::Integrator::Integrator> integrator;

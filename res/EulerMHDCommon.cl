@@ -7,7 +7,8 @@ __kernel void convertToTex(
 	__read_only image1d_t gradientTex,
 	int displayMethod,
 	float displayScale,
-	const __global real* gravityPotentialBuffer
+	const __global real* gravityPotentialBuffer,
+	const __global char* solidBuffer
 #ifdef MHD
 	, const __global real* magneticFieldDivergenceBuffer
 #endif
@@ -103,6 +104,7 @@ __kernel void convertToTex(
 	value *= displayScale;
 
 	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
+	if (solidBuffer[index]) color *= 0.f;
 #endif
 	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
 }

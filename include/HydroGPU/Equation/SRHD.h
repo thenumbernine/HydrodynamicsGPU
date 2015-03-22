@@ -15,7 +15,7 @@ struct SRHD : public SelfGravitationBehavior<Equation> {
 	typedef SelfGravitationBehavior<Equation> Super;
 	SRHD(HydroGPU::Solver::Solver* solver);
 	virtual void getProgramSources(std::vector<std::string>& sources);
-	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state);
+	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);
 	virtual int numReadStateChannels();
 };
 

@@ -99,8 +99,8 @@ void ADM3D::getProgramSources(std::vector<std::string>& sources) {
 	sources.push_back("#include \"ADM3DCommon.cl\"\n");
 }
 
-int ADM3D::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
-	switch (solver->app->boundaryMethods(dim)) {
+int ADM3D::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {
+	switch (solver->app->boundaryMethods(dim, minmax)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
@@ -111,7 +111,7 @@ int ADM3D::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
 		return BOUNDARY_KERNEL_FREEFLOW;
 		break;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }
 
 }

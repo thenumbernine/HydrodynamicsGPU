@@ -26,6 +26,7 @@ void SelfGravitation::initKernels() {
 	calcGravityDerivKernel.setArg(2, potentialBuffer);
 		
 	solver->convertToTexKernel.setArg(5, potentialBuffer);
+	solver->convertToTexKernel.setArg(6, solidBuffer);
 }
 
 std::vector<std::string> SelfGravitation::getProgramSources() {
@@ -118,11 +119,13 @@ void SelfGravitation::potentialBoundary() {
 	cl::NDRange offset, global, local;
 	std::shared_ptr<HydroGPU::Equation::SelfGravitationInterface> gravEqn = std::dynamic_pointer_cast<HydroGPU::Equation::SelfGravitationInterface>(solver->equation);
 	for (int i = 0; i < solver->app->dim; ++i) {
-		int boundaryKernelIndex = gravEqn->gravityGetBoundaryKernelForBoundaryMethod(i);
-		cl::Kernel& kernel = solver->boundaryKernels[boundaryKernelIndex][i];
-		solver->app->setArgs(kernel, potentialBuffer, 1, 0);
-		solver->getBoundaryRanges(i, offset, global, local);
-		commands.enqueueNDRangeKernel(kernel, offset, global, local);
+		for (int minmax = 0; minmax < 2; ++minmax) {
+			int boundaryKernelIndex = gravEqn->gravityGetBoundaryKernelForBoundaryMethod(i, minmax);
+			cl::Kernel& kernel = solver->boundaryKernels[boundaryKernelIndex][i][minmax];
+			solver->app->setArgs(kernel, potentialBuffer, 1, 0);
+			solver->getBoundaryRanges(i, offset, global, local);
+			commands.enqueueNDRangeKernel(kernel, offset, global, local);
+		}
 	}
 }
 

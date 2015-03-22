@@ -206,16 +206,22 @@ void Solver::initKernels() {
 	int volume = getVolume();
 
 	boundaryKernels.resize(NUM_BOUNDARY_KERNELS);
-	for (std::vector<cl::Kernel>& v : boundaryKernels) {
+	for (std::vector<std::vector<cl::Kernel>>& v : boundaryKernels) {
 		v.resize(app->dim);
+		for (std::vector<cl::Kernel>& u : v) {
+			u.resize(2);
+		}
 	}
 
 	std::vector<std::string> dimNames = {"X", "Y", "Z"};
+	std::vector<std::string> minmaxNames = {"Min", "Max"};
 	for (int boundaryIndex = 0; boundaryIndex < NUM_BOUNDARY_KERNELS; ++boundaryIndex) {
-		for (int side = 0; side < app->dim; ++side) {
-			std::string name = "stateBoundary" + boundaryKernelNames[boundaryIndex] + dimNames[side];
-			boundaryKernels[boundaryIndex][side] = cl::Kernel(program, name.c_str());
-			app->setArgs(boundaryKernels[boundaryIndex][side], stateBuffer);
+		for (int dimIndex = 0; dimIndex < app->dim; ++dimIndex) {
+			for (int minmaxIndex = 0; minmaxIndex < 2; ++minmaxIndex) {
+				std::string name = "stateBoundary" + boundaryKernelNames[boundaryIndex] + dimNames[dimIndex] + minmaxNames[minmaxIndex];
+				boundaryKernels[boundaryIndex][dimIndex][minmaxIndex] = cl::Kernel(program, name.c_str());
+				app->setArgs(boundaryKernels[boundaryIndex][dimIndex][minmaxIndex], stateBuffer);
+			}
 		}
 	}
 	
@@ -383,10 +389,12 @@ void Solver::boundary() {
 	for (int i = 0; i < app->dim; ++i) {
 		getBoundaryRanges(i, offset, global, local);
 		for (int j = 0; j < numStates(); ++j) {
-			int boundaryKernelIndex = equation->stateGetBoundaryKernelForBoundaryMethod(i, j);
-			cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i];
-			app->setArgs(kernel, stateBuffer, numStates(), j);
-			commands.enqueueNDRangeKernel(kernel, offset, global, local);
+			for (int minmax = 0; minmax < 2; ++minmax) {
+				int boundaryKernelIndex = equation->stateGetBoundaryKernelForBoundaryMethod(i, j, minmax);
+				cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i][minmax];
+				app->setArgs(kernel, stateBuffer, numStates(), j);
+				commands.enqueueNDRangeKernel(kernel, offset, global, local);
+			}
 		}
 	}
 }

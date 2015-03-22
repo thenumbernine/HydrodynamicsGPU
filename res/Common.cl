@@ -44,7 +44,7 @@ __kernel void calcCFLMinReduce(
 //periodic
 //ghost cells copy the opposite side
 
-__kernel void stateBoundaryPeriodicX(
+__kernel void stateBoundaryPeriodicXMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
@@ -52,11 +52,19 @@ __kernel void stateBoundaryPeriodicX(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(0, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 4, i.x, i.y)];
 	buffer[offset + spacing * INDEX(1, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 3, i.x, i.y)];
+}
+
+__kernel void stateBoundaryPeriodicXMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(SIZE_X - 2, i.x, i.y)] = buffer[offset + spacing * INDEX(2, i.x, i.y)];
 	buffer[offset + spacing * INDEX(SIZE_X - 1, i.x, i.y)] = buffer[offset + spacing * INDEX(3, i.x, i.y)];
 }
 
-__kernel void stateBoundaryPeriodicY(
+__kernel void stateBoundaryPeriodicYMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
@@ -64,11 +72,18 @@ __kernel void stateBoundaryPeriodicY(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, 0, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 4, i.y)];
 	buffer[offset + spacing * INDEX(i.x, 1, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 3, i.y)];
+}
+__kernel void stateBoundaryPeriodicYMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 2, i.y)] = buffer[offset + spacing * INDEX(i.x, 2, i.y)];
 	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 1, i.y)] = buffer[offset + spacing * INDEX(i.x, 3, i.y)];
 }
 
-__kernel void stateBoundaryPeriodicZ(
+__kernel void stateBoundaryPeriodicZMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
@@ -76,6 +91,13 @@ __kernel void stateBoundaryPeriodicZ(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, i.y, 0)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 4)];
 	buffer[offset + spacing * INDEX(i.x, i.y, 1)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 3)];
+}
+__kernel void stateBoundaryPeriodicZMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 2)] = buffer[offset + spacing * INDEX(i.x, i.y, 2)];
 	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 1)] = buffer[offset + spacing * INDEX(i.x, i.y, 3)];
 }
@@ -83,7 +105,7 @@ __kernel void stateBoundaryPeriodicZ(
 //mirror
 //ghost cells mirror the next adjacent cells
 
-__kernel void stateBoundaryMirrorX(
+__kernel void stateBoundaryMirrorXMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
@@ -91,11 +113,18 @@ __kernel void stateBoundaryMirrorX(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(0, i.x, i.y)] = buffer[offset + spacing * INDEX(3, i.x, i.y)];
 	buffer[offset + spacing * INDEX(1, i.x, i.y)] = buffer[offset + spacing * INDEX(2, i.x, i.y)];
+}
+__kernel void stateBoundaryMirrorXMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(SIZE_X - 1, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 4, i.x, i.y)];
 	buffer[offset + spacing * INDEX(SIZE_X - 2, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 3, i.x, i.y)];
 }
 
-__kernel void stateBoundaryMirrorY(
+__kernel void stateBoundaryMirrorYMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
@@ -103,11 +132,18 @@ __kernel void stateBoundaryMirrorY(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, 0, i.y)] = buffer[offset + spacing * INDEX(i.x, 3, i.y)];
 	buffer[offset + spacing * INDEX(i.x, 1, i.y)] = buffer[offset + spacing * INDEX(i.x, 2, i.y)];
+}
+__kernel void stateBoundaryMirrorYMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 1, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 4, i.y)];
 	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 2, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 3, i.y)];
 }
 
-__kernel void stateBoundaryMirrorZ(
+__kernel void stateBoundaryMirrorZMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
@@ -115,6 +151,13 @@ __kernel void stateBoundaryMirrorZ(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, i.y, 0)] = buffer[offset + spacing * INDEX(i.x, i.y, 3)];
 	buffer[offset + spacing * INDEX(i.x, i.y, 1)] = buffer[offset + spacing * INDEX(i.x, i.y, 2)];
+}
+__kernel void stateBoundaryMirrorZMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 1)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 4)];
 	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 2)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 3)];
 }
@@ -122,7 +165,7 @@ __kernel void stateBoundaryMirrorZ(
 //reflect
 //ghost cells are negatives of the mirror of the next adjacent cells
 
-__kernel void stateBoundaryReflectX(
+__kernel void stateBoundaryReflectXMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
@@ -130,11 +173,18 @@ __kernel void stateBoundaryReflectX(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(0, i.x, i.y)] = -buffer[offset + spacing * INDEX(3, i.x, i.y)];
 	buffer[offset + spacing * INDEX(1, i.x, i.y)] = -buffer[offset + spacing * INDEX(2, i.x, i.y)];
+}
+__kernel void stateBoundaryReflectXMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(SIZE_X - 1, i.x, i.y)] = -buffer[offset + spacing * INDEX(SIZE_X - 4, i.x, i.y)];
 	buffer[offset + spacing * INDEX(SIZE_X - 2, i.x, i.y)] = -buffer[offset + spacing * INDEX(SIZE_X - 3, i.x, i.y)];
 }
 
-__kernel void stateBoundaryReflectY(
+__kernel void stateBoundaryReflectYMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
@@ -142,11 +192,18 @@ __kernel void stateBoundaryReflectY(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, 0, i.y)] = -buffer[offset + spacing * INDEX(i.x, 3, i.y)];
 	buffer[offset + spacing * INDEX(i.x, 1, i.y)] = -buffer[offset + spacing * INDEX(i.x, 2, i.y)];
+}
+__kernel void stateBoundaryReflectYMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 1, i.y)] = -buffer[offset + spacing * INDEX(i.x, SIZE_Y - 4, i.y)];
 	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 2, i.y)] = -buffer[offset + spacing * INDEX(i.x, SIZE_Y - 3, i.y)];
 }
 
-__kernel void stateBoundaryReflectZ(
+__kernel void stateBoundaryReflectZMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
@@ -154,6 +211,13 @@ __kernel void stateBoundaryReflectZ(
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, i.y, 0)] = -buffer[offset + spacing * INDEX(i.x, i.y, 3)];
 	buffer[offset + spacing * INDEX(i.x, i.y, 1)] = -buffer[offset + spacing * INDEX(i.x, i.y, 2)];
+}
+__kernel void stateBoundaryReflectZMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 1)] = -buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 4)];
 	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 2)] = -buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 3)];
 }
@@ -161,33 +225,54 @@ __kernel void stateBoundaryReflectZ(
 //freeflow
 //ghost cells copy the next adjacent cell
 
-__kernel void stateBoundaryFreeFlowX(
+__kernel void stateBoundaryFreeFlowXMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(0, i.x, i.y)] = buffer[offset + spacing * INDEX(1, i.x, i.y)] = buffer[offset + spacing * INDEX(2, i.x, i.y)];
+}
+__kernel void stateBoundaryFreeFlowXMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(SIZE_X - 1, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 2, i.x, i.y)] = buffer[offset + spacing * INDEX(SIZE_X - 3, i.x, i.y)];
 }
 
-__kernel void stateBoundaryFreeFlowY(
+__kernel void stateBoundaryFreeFlowYMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, 0, i.y)] = buffer[offset + spacing * INDEX(i.x, 1, i.y)] = buffer[offset + spacing * INDEX(i.x, 2, i.y)];
+}
+__kernel void stateBoundaryFreeFlowYMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, SIZE_Y - 1, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 2, i.y)] = buffer[offset + spacing * INDEX(i.x, SIZE_Y - 3, i.y)];
 }
 
-__kernel void stateBoundaryFreeFlowZ(
+__kernel void stateBoundaryFreeFlowZMin(
 	__global real* buffer,
 	int spacing,
 	int offset)
 {
 	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, i.y, 0)] = buffer[offset + spacing * INDEX(i.x, i.y, 1)] = buffer[offset + spacing * INDEX(i.x, i.y, 2)];
+}
+__kernel void stateBoundaryFreeFlowZMax(
+	__global real* buffer,
+	int spacing,
+	int offset)
+{
+	int2 i = (int2)(get_global_id(0), get_global_id(1));
 	buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 1)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 2)] = buffer[offset + spacing * INDEX(i.x, i.y, SIZE_Z - 3)];
 }
 

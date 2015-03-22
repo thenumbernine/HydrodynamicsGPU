@@ -7,10 +7,10 @@ local configurations = require 'configurations'	--holds catalog of configuration
 	-- solver variables
 
 
-solverName = 'EulerBurgers'
+--solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
---solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
+solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe'		-- not yet
 --solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
@@ -59,7 +59,7 @@ fixedDT = .125
 cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false
@@ -123,9 +123,10 @@ function calcSolid(x,y,z)
 	end
 end
 --]]=]
-solidFilename = 'test-solid.png'
+--solidFilename = 'test-solid.png'
 
-configurations['Sod']()
+--configurations['Sod']()
+configurations['Square Cavity']()
 --configurations['self-gravitation test 1']()
 --]]
 
@@ -138,14 +139,14 @@ configurations['Brio-Wu']()
 --[[ Maxwell 
 solverName = 'MaxwellRoe'
 displayMethod = 'ELECTRIC'
-boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 configurations['Maxwell-1']()
 --]]
 
 --[[ ADM (1D)
 solverName = 'ADM1DRoe'
 configurations['ADM-1D']()
-boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 displayMethod = 'ALPHA'
 size = {1024}
 displayScale = 128
@@ -154,7 +155,7 @@ displayScale = 128
 --[[ ADM (3D)
 solverName = 'ADM3DRoe'
 configurations['ADM-3D']()
-boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 displayMethod = 'ALPHA'
 size = {1024} displayScale = 128
 --size = {64, 64} displayScale = 1

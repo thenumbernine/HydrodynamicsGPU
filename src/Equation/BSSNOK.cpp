@@ -91,8 +91,8 @@ void BSSNOK::getProgramSources(std::vector<std::string>& sources) {
 	sources.push_back(Common::File::read("BSSNOKCommon.cl"));
 }
 
-int BSSNOK::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
-	switch (solver->app->boundaryMethods(dim)) {
+int BSSNOK::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {
+	switch (solver->app->boundaryMethods(dim, minmax)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
@@ -103,7 +103,7 @@ int BSSNOK::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
 		return BOUNDARY_KERNEL_FREEFLOW;
 		break;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }
 
 }

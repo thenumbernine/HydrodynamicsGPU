@@ -17,19 +17,19 @@ enum {
 };
 
 struct SelfGravitationInterface {
-	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim) = 0;
+	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim, int minmax) = 0;
 };
 
 template<typename Parent>
 struct SelfGravitationBehavior : public Parent, public SelfGravitationInterface {
 	typedef Parent Super;
 	using Super::Super;
-	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim);
+	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim, int minmax);
 };
 
 template<typename Parent>
-int SelfGravitationBehavior<Parent>::gravityGetBoundaryKernelForBoundaryMethod(int dim) {
-	switch (Super::solver->app->boundaryMethods(dim)) {
+int SelfGravitationBehavior<Parent>::gravityGetBoundaryKernelForBoundaryMethod(int dim, int minmax) {
+	switch (Super::solver->app->boundaryMethods(dim, minmax)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
@@ -40,7 +40,7 @@ int SelfGravitationBehavior<Parent>::gravityGetBoundaryKernelForBoundaryMethod(i
 		return BOUNDARY_KERNEL_FREEFLOW;
 		break;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << Super::solver->app->boundaryMethods(dim) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << Super::solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }
 
 }

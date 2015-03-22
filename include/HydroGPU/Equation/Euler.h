@@ -15,7 +15,7 @@ struct Euler : public SelfGravitationBehavior<Equation> {
 	typedef SelfGravitationBehavior<Equation> Super;
 	Euler(HydroGPU::Solver::Solver* solver);
 	virtual void getProgramSources(std::vector<std::string>& sources);
-	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state);
+	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);
 	virtual void readStateCell(real* state, const real* source);
 	virtual int numReadStateChannels();
 };

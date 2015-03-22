@@ -5,7 +5,7 @@
 #include "LuaCxx/State.h"
 #include "LuaCxx/GlobalTable.h"
 #include "LuaCxx/Ref.h"
-#include "Tensor/Vector.h"
+#include "Tensor/Tensor.h"
 
 namespace HydroGPU {
 
@@ -33,7 +33,7 @@ struct HydroGPUApp : public ::CLApp::CLApp {
 	real cfl;
 	int displayMethod;	//TODO the enumeration of these values is dependent on the solver equation 
 	float displayScale;
-	Tensor::Vector<int,3> boundaryMethods;
+	Tensor::Tensor<int, Tensor::Lower<3>, Tensor::Lower<2>> boundaryMethods;
 	bool useGravity;
 	int gaussSeidelMaxIter;	//max iterations for Gauss-Seidel max iterations
 	LuaCxx::State lua;

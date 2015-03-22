@@ -52,8 +52,8 @@ void SRHD::getProgramSources(std::vector<std::string>& sources) {
 	sources.push_back(Common::File::read("SRHDCommon.cl"));
 }
 
-int SRHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
-	switch (solver->app->boundaryMethods(dim)) {
+int SRHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {
+	switch (solver->app->boundaryMethods(dim, minmax)) {
 	case BOUNDARY_METHOD_PERIODIC:
 		return BOUNDARY_KERNEL_PERIODIC;
 		break;
@@ -64,7 +64,7 @@ int SRHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int state) {
 		return BOUNDARY_KERNEL_FREEFLOW;
 		break;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }
 
 int SRHD::numReadStateChannels() {

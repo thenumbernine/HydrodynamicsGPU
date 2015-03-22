@@ -22,7 +22,7 @@ Plot1D2D::Plot1D2D(HydroGPU::Solver::Solver* solver)
 	Tensor::Vector<int,3> glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
 	//specific to Euler
 	for (int i = 0; i < solver->app->dim; ++i) {
-		switch (solver->app->boundaryMethods(i)) {
+		switch (solver->app->boundaryMethods(i, 0)) {	//can't wrap one side and not the other, so just use the min 
 		case 0://BOUNDARY_PERIODIC:
 			glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_REPEAT);
 			break;

@@ -43,13 +43,13 @@ return {
 	end,
 
 	['Sod'] = function()
-		--boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
+		--boundaryMethods = {{min='MIRROR', max='MIRROR'}, {min='MIRROR', max='MIRROR'}, {min='MIRROR', max='MIRROR'}}
 		initState = function(x,y,z)
 			local inside = x <= 0 and y <= 0 and z <= 0	
 			return buildStateEuler{
+				x=x, y=y, z=z,
 				density = inside and 1 or .1,
 				specificEnergyInternal = 1,
-				solid = calcSolid and calcSolid(x,y,z),
 			}
 		end
 	end,
@@ -61,7 +61,7 @@ return {
 
 	['Configuration 1'] = function()
 		cfl = .475
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1, pressure=1, velocityX=0, velocityY=0},
@@ -74,7 +74,7 @@ return {
 	
 	['Configuration 2'] = function()
 		cfl = .475
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1, pressure=1, velocityX=0, velocityY=0},
@@ -90,7 +90,7 @@ return {
 	--   only when using the arbitrary-normal method.  when rotating into the x-axis it works fine
 	['Configuration 3'] = function()
 		cfl = .475
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1.5, pressure=1.5, velocityX=0, velocityY=0},
@@ -103,7 +103,7 @@ return {
 
 	['Configuration 4'] = function()
 		cfl = .475
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1.1, pressure=1.1, velocityX=0, velocityY=0},
@@ -116,7 +116,7 @@ return {
 
 	['Configuration 5'] = function()
 		cfl = .475
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1, pressure=1, velocityX=-.75, velocityY=-.5},
@@ -129,7 +129,7 @@ return {
 
 	['Configuration 6'] = function()
 		cfl = .475
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 		initState = function(x,y,z)
 			return buildStateEulerQuadrant(x,y,z,{
 				q1 = {density=1, pressure=1, velocityX=.75, velocityY=-.5},
@@ -212,7 +212,7 @@ return {
 
 	-- Colella-Woodward interacting blast wave problem
 	['Colella-Woodward'] = function()
-		boundaryMethods = {'MIRROR', 'MIRROR', 'MIRROR'}
+		boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 		initState = function(x,y,z)
 			local pressure
 			if x < -.4 then
@@ -234,7 +234,7 @@ return {
 	--EulerHLL works fine
 	--EulerRoe at high resolutions after a long time shows some waves and then blows up
 	['Kelvin-Hemholtz'] = function()
-		boundaryMethods = {'PERIODIC', 'PERIODIC', 'PERIODIC'}
+		boundaryMethods = {{min='PERIODIC', max='PERIODIC'}, {min='PERIODIC', max='PERIODIC'}, {min='PERIODIC', max='PERIODIC'}}
 		initState = function(x,y,z)
 			local dim = #size
 			local inside = y > -.25 and y < .25
@@ -259,8 +259,8 @@ return {
 		xmax[1] = 4
 		xmin[2] = 0
 		xmax[2] = 1
-		boundaryMethods[1] = 'FREEFLOW'
-		boundaryMethods[2] = 'MIRROR'
+		boundaryMethods[1] = {min='FREEFLOW', max='FREEFLOW'}
+		boundaryMethods[2] = {min='MIRROR', max='MIRROR'}
 		local x0 = 1/6
 		initState = function(x,y,z)
 			local lhs = x < x0 + y * (1/3)^(1/2)
@@ -273,11 +273,28 @@ return {
 		end
 	end,
 
+	-- http://www.cfd-online.com/Wiki/2-D_laminar/turbulent_driven_square_cavity_flow
+	['Square Cavity'] = function()
+		boundaryMethods = {
+			{min='MIRROR', max='MIRROR'},
+			{min='MIRROR', max='FREEFLOW'},
+			{min='MIRROR', max='MIRROR'},
+		}
+		initState = function(x,y,z)
+			return buildStateEuler{
+				x=x, y=y, z=z,
+				density = 1,
+				velocityX = y > .45 and 1 or 0,
+				pressure = 1,
+			}
+		end
+	end,
+
 	-- gravity potential test - equilibrium - Rayleigh-Taylor
 
 	['self-gravitation test 1'] = function()
 		useGravity = true
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 		initState = function(x,y,z)
 			return buildSelfGravitationState(x,y,z,{
 				sources={
@@ -289,7 +306,7 @@ return {
 
 	['self-gravitation test 1 spinning'] = function()
 		useGravity = true
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 		initState = function(x,y,z)
 			return buildSelfGravitationState(x,y,z,{
 				sources={
@@ -311,7 +328,7 @@ return {
 
 	['self-gravitation test 2'] = function()
 		useGravity = true
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 		initState = function(x,y,z)
 			local rho,mx,my,mz,eTotal,bx,by,bz = buildSelfGravitationState(x,y,z,{
 				sources={
@@ -345,7 +362,7 @@ return {
 
 	['self-gravitation test 4'] = function()
 		useGravity = true
-		boundaryMethods = {'FREEFLOW', 'FREEFLOW', 'FREEFLOW'}
+		boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 		initState = function(x,y,z)
 			return buildSelfGravitationState(x,y,z,{
 				sources={

@@ -85,10 +85,14 @@ void HydroGPUApp::init() {
 		if (!lua.ref()["xmax"].isNil()) lua.ref()["xmax"][i+1] >> xmax.s[i];
 	}
 	
-	std::vector<std::string> boundaryMethodNames(3);
+	std::vector<std::vector<std::string>> boundaryMethodNames(3);
 	for (int i = 0; i < 3; ++i) {
+		boundaryMethodNames[i].resize(2);
 		if (!lua.ref()["boundaryMethods"].isNil()) {
-			lua.ref()["boundaryMethods"][i+1] >> boundaryMethodNames[i];
+			if (lua.ref()["boundaryMethods"][i+1].isTable()) {
+				lua.ref()["boundaryMethods"][i+1]["min"] >> boundaryMethodNames[i][0];
+				lua.ref()["boundaryMethods"][i+1]["max"] >> boundaryMethodNames[i][1];
+			}
 		}
 	}
 	
@@ -210,14 +214,16 @@ void HydroGPUApp::init() {
 	}
 
 	for (int i = 0; i < 3; ++i) {
-		if (boundaryMethodNames[i].empty()) continue;
-		boundaryMethods(i) = std::find(
-			solver->equation->boundaryMethods.begin(), 
-			solver->equation->boundaryMethods.end(), 
-			boundaryMethodNames[i]) 
-			- solver->equation->boundaryMethods.begin();
-		if (boundaryMethods(i) == solver->equation->boundaryMethods.size()) {
-			throw Common::Exception() << "couldn't interpret boundary method " << boundaryMethodNames[i];
+		for (int minmax = 0; minmax < 2; ++minmax) {
+			if (boundaryMethodNames[i][minmax].empty()) continue;
+			boundaryMethods(i,minmax) = std::find(
+				solver->equation->boundaryMethods.begin(), 
+				solver->equation->boundaryMethods.end(), 
+				boundaryMethodNames[i][minmax]) 
+				- solver->equation->boundaryMethods.begin();
+			if (boundaryMethods(i,minmax) == solver->equation->boundaryMethods.size()) {
+				throw Common::Exception() << "couldn't interpret boundary method " << boundaryMethodNames[i][minmax];
+			}
 		}
 	}
 
@@ -343,16 +349,6 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				displayMethod = (displayMethod + 1) % solver->equation->displayMethods.size();
 			}
 			std::cout << "display " << solver->equation->displayMethods[displayMethod] << std::endl;
-		} else if (event.key.keysym.sym == SDLK_b) {
-			if (shiftDown) {
-				boundaryMethods(0) = (boundaryMethods(0) + solver->equation->boundaryMethods.size() - 1) % solver->equation->boundaryMethods.size();
-			} else {
-				boundaryMethods(0) = (boundaryMethods(0) + 1) % solver->equation->boundaryMethods.size();
-			}
-			for (int i = 1; i < 3; ++i) {
-				boundaryMethods(i) = boundaryMethods(0);
-			}
-			std::cout << "boundary " << solver->equation->boundaryMethods[boundaryMethods(0)] << std::endl;
 		} else if (event.key.keysym.sym == SDLK_u) {
 			if (doUpdate) {
 				std::cout << "stopping..." << std::endl;

@@ -14,7 +14,7 @@ struct ADM2DSpherical : public Equation {
 	typedef Equation Super;
 	ADM2DSpherical(HydroGPU::Solver::Solver* solver);
 	virtual void getProgramSources(std::vector<std::string>& sources);
-	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state);
+	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);
 };
 
 }

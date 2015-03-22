@@ -18,6 +18,7 @@ end
 --[=[
 table-driven so may be slower, but much more readable 
 args:
+	x,y,z, 
 	density (required)
 	velocityX, velocityY (optional) velocity
 	noise (optional) noise to add to velocity
@@ -47,7 +48,14 @@ function buildStateEuler(args)
 	-- it is added to total energy after self-gravity optionally calculates it (if enabled)
 	local energyTotal = density * (specificEnergyKinetic + specificEnergyInternal) + magneticFieldEnergy
 	local solid = args.solid or 0	-- 0 or 1
-	
+
+	if calcSolid then 
+		local x = assert(args.x)
+		local y = assert(args.y)
+		local z = assert(args.z)
+		solid = calcSolid(x,y,z) 
+	end
+
 	return 
 		density,
 		-- momentum
