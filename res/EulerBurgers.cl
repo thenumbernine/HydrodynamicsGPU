@@ -98,16 +98,136 @@ __kernel void calcInterfaceVelocity(
 	}
 }
 
+void calcFluxSide(
+	__global real* fluxStateCoeffBuffer,
+	const __global real* stateBuffer,
+	const __global real* interfaceVelocityBuffer,
+	const __global char* solidBuffer,	
+	const __global real* dtBuffer,
+	int side);
+
+void calcFluxSide(
+	__global real* fluxStateCoeffBuffer,
+	const __global real* stateBuffer,
+	const __global real* interfaceVelocityBuffer,
+	const __global char* solidBuffer,	
+	const __global real* dtBuffer,
+	int side)
+{
+	real dt = dtBuffer[0];
+	real4 dt_dx = dt / dx;
+
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	int index = INDEXV(i);
+	int indexR = index;
+
+	int indexL = index - stepsize[side];
+	int indexL2 = indexL - stepsize[side];
+	int indexR2 = index + stepsize[side];
+
+	char solidL2 = solidBuffer[indexL2];
+	char solidL = solidBuffer[indexL];
+	char solidR = solidBuffer[indexR];
+	char solidR2 = solidBuffer[indexR2];
+
+	real interfaceVelocity = interfaceVelocityBuffer[side + DIM * index];
+
+	__global real* fluxStateCoeffsL = fluxStateCoeffBuffer + NUM_STATES * (0 + 2 * (side + DIM * index));
+	__global real* fluxStateCoeffsR = fluxStateCoeffBuffer + NUM_STATES * (1 + 2 * (side + DIM * index));
+
+	for (int j = 0; j < NUM_STATES; ++j) {
+		real stateR2 = stateBuffer[j + NUM_STATES * indexR2];
+		real sourceStateR = stateBuffer[j + NUM_STATES * indexR];
+		real sourceStateL = stateBuffer[j + NUM_STATES * indexL];
+		real stateL2 = stateBuffer[j + NUM_STATES * indexL2];
+		
+		/*
+		slope limiters and arbitrary boundaries...
+		we have to look two over in any direction
+		if there's a wall two over, what do we do?
+		*/
+
+		/*
+		this is the matrix that transforms the coefficients of the original left and right states into the post-solid-boundary left and right states
+		[stateL]   [sourceStateCoeffLL sourceStateCoeffLR] [sourceStateL]
+		[stateR] = [sourceStateCoeffRL sourceStateCoeffRR] [sourceStateR]
+		*/
+		real sourceStateCoeffLL = 1.f;
+		real sourceStateCoeffLR = 0.f;
+		real sourceStateCoeffRL = 0.f;
+		real sourceStateCoeffRR = 1.f;
+
+		if (solidL && solidR) {	//shouldn't be anything anyways ...
+		} else if (solidL) {
+			if (j == STATE_MOMENTUM_X+side) {
+				//stateL = stateR;
+				sourceStateCoeffLL = 0.f;
+				sourceStateCoeffLR = 1.f;
+			} else {
+				//stateL = -stateR;
+				sourceStateCoeffLL = 0.f;
+				sourceStateCoeffLR = -1.f;
+			}
+		} else if (solidR) {
+			if (j == STATE_MOMENTUM_X+side) {
+				//stateR = stateL;
+				sourceStateCoeffRL = 1.f;
+				sourceStateCoeffRR = 0.f;
+			} else {
+				//stateR = -stateL;
+				sourceStateCoeffRL = -1.f;
+				sourceStateCoeffRR = 0.f;
+			}
+		}
+
+		real stateL = sourceStateCoeffLL * sourceStateL + sourceStateCoeffLR * sourceStateR;
+		real stateR = sourceStateCoeffRL * sourceStateL + sourceStateCoeffRR * sourceStateR;
+		
+		if (solidL2) {
+			stateL2 = stateL;
+			if (j == STATE_MOMENTUM_X+side) stateL2 = -stateL2;
+		}
+		if (solidR2) {
+			stateR2 = stateR;
+			if (j == STATE_MOMENTUM_X+side) stateR2 = -stateR2;
+		}
+		real deltaStateL = stateL - stateL2;
+		real deltaState = stateR - stateL;
+		real deltaStateR = stateR2 - stateR;
+
+		//3D case crashes?
+		//real flux = mix(stateR, stateL, theta) * interfaceVelocity;
+
+		//this line crashes when compiling on my Intel HD4000 only for the 3D case
+		//real stateSlopeRatio = mix(deltaStateR, deltaStateL, theta) / deltaState;
+		//...but writing it out explicitly works fine
+		real theta;
+		real stateSlopeRatio;
+		if (interfaceVelocity >= 0.f) {
+			theta = 1.f;
+			stateSlopeRatio = deltaStateL / deltaState;
+		} else {
+			theta = -1.f;
+			stateSlopeRatio = deltaStateR / deltaState;
+		}
+		//2nd order stuff:
+		real phi = slopeLimiter(stateSlopeRatio);
+		real deltaStateCoeff = phi * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side]));// / (float)DIM;
+		
+		real coeffL = .5f * interfaceVelocity * (1.f + theta) - deltaStateCoeff;
+		real coeffR = .5f * interfaceVelocity * (1.f - theta) + deltaStateCoeff;
+		fluxStateCoeffsL[j] = coeffL * sourceStateCoeffLL + coeffR * sourceStateCoeffRL;
+		fluxStateCoeffsR[j] = coeffL * sourceStateCoeffLR + coeffR * sourceStateCoeffRR;
+	}
+}
+
 __kernel void calcFlux(
-	__global real* fluxBuffer,
+	__global real* fluxStateCoeffBuffer,
 	const __global real* stateBuffer,
 	const __global real* interfaceVelocityBuffer,
 	const __global char* solidBuffer,	
 	const __global real* dtBuffer)
-{
-	real dt = dtBuffer[0];
-	real4 dt_dx = dt / dx;
-	
+{	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
@@ -119,83 +239,82 @@ __kernel void calcFlux(
 	) {
 		return;
 	}
+
+	for (int side = 0; side < DIM; ++side) {
+		calcFluxSide(fluxStateCoeffBuffer, stateBuffer, interfaceVelocityBuffer, solidBuffer, dtBuffer, side);
+	}
+}
+
+__kernel void calcDerivCoeffsFromFluxCoeffs(
+	__global real* derivStateCoeffBuffer,
+	const __global real* fluxStateCoeffBuffer,
+	const __global char* solidBuffer);
+
+__kernel void calcDerivCoeffsFromFluxCoeffs(
+	__global real* derivStateCoeffBuffer,
+	const __global real* fluxStateCoeffBuffer,
+	const __global char* solidBuffer)
+{
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
+#endif
+#endif
+	) {
+		return;
+	}
 	int index = INDEXV(i);
-	int indexR = index;
-
-	for (int side = 0; side < DIM; ++side) {	
-		int indexL = index - stepsize[side];
-		int indexL2 = indexL - stepsize[side];
-		int indexR2 = index + stepsize[side];
-
-		char solidL2 = solidBuffer[indexL2];
-		char solidL = solidBuffer[indexL];
-		char solidR = solidBuffer[indexR];
-		char solidR2 = solidBuffer[indexR2];
-
-		real interfaceVelocity = interfaceVelocityBuffer[side + DIM * index];
-		//real theta = step(0.f, interfaceVelocity);
 	
+	//add/subtract coefficients into appropriate cells
+	//deriv of the i'th cell uses +1 of the left flux and -1 of the right flux
+	//neighbors of state[index] (ie stateR):
+	// to prev[side]: add fluxStateCoeffsL
+	// to center: add fluxStateCoeffsR
+	//neighbors of state[indexPrev] (ie stateL):
+	// to center: sub fluxStateCoeffsL
+	// to next[side]: sub fluxStateCoeffsR
+#define NUM_NEIGHBORS (1 + 2 * DIM)
+	__global real* derivStateCoeffs = derivStateCoeffBuffer + NUM_STATES * NUM_NEIGHBORS * index;
+	
+	__global real* derivStateCoeffsCenter = derivStateCoeffs + NUM_STATES * (2 * DIM);
+	for (int j = 0; j < NUM_STATES; ++j) {
+		derivStateCoeffsCenter[j] = 0.f;
+	}
+
+	if (solidBuffer[index]) return;
+	
+	for (int side = 0; side < DIM; ++side) {
+		//neighbor index: 0 = center, 1,2 = x-left, x-right, etc
+		__global real* derivStateCoeffsPrev = derivStateCoeffs + NUM_STATES * (0 + 2 * side);
+		__global real* derivStateCoeffsNext = derivStateCoeffs + NUM_STATES * (1 + 2 * side);
+		
+		int indexPrev = index;
+		int indexNext = index + stepsize[side];
+	
+		//indexPrev is really indexL ... but it itself has a L and R set of coefficients ... too many subgrid subdivisions ...
+		const __global real* fluxStateCoeffsPrevL = fluxStateCoeffBuffer + NUM_STATES * (0 + 2 * (side + DIM * indexPrev));
+		const __global real* fluxStateCoeffsPrevR = fluxStateCoeffBuffer + NUM_STATES * (1 + 2 * (side + DIM * indexPrev));
+		const __global real* fluxStateCoeffsNextL = fluxStateCoeffBuffer + NUM_STATES * (0 + 2 * (side + DIM * indexNext));
+		const __global real* fluxStateCoeffsNextR = fluxStateCoeffBuffer + NUM_STATES * (1 + 2 * (side + DIM * indexNext));
+		
+		//TODO don't incorporate edge cells or solid cells.  at the moment the calcFlux doesn't iterate over them anyways
 		for (int j = 0; j < NUM_STATES; ++j) {
-			real stateR2 = stateBuffer[j + NUM_STATES * indexR2];
-			real stateR = stateBuffer[j + NUM_STATES * indexR];
-			real stateL = stateBuffer[j + NUM_STATES * indexL];
-			real stateL2 = stateBuffer[j + NUM_STATES * indexL2];
-			
-			/*
-			slope limiters and arbitrary boundaries...
-			we have to look two over in any direction
-			if there's a wall two over, what do we do?
-			*/
-			if (solidL2) {
-				stateL2 = stateL;
-				if (j == STATE_MOMENTUM_X+side) stateL2 = -stateL2;
-			}
-			if (solidR2) {
-				stateR2 = stateR;
-				if (j == STATE_MOMENTUM_X+side) stateR2 = -stateR2;
-			}
-			if (solidL) {
-				stateL = -stateR;
-				if (j == STATE_MOMENTUM_X+side) stateL = -stateL;
-			}
-			if (solidR) {
-				stateR = -stateL;
-				if (j == STATE_MOMENTUM_X+side) stateR = -stateR;
-			}
-
-			real deltaStateL = stateL - stateL2;
-			real deltaState = stateR - stateL;
-			real deltaStateR = stateR2 - stateR;
-			
-			//3D case crashes?
-			//real flux = mix(stateR, stateL, theta) * interfaceVelocity;
-
-			//this line crashes when compiling on my Intel HD4000 only for the 3D case
-			//real stateSlopeRatio = mix(deltaStateR, deltaStateL, theta) / deltaState;
-			//...but writing it out explicitly works fine
-			real stateSlopeRatio;
-			real flux;
-			if (interfaceVelocity >= 0.f) {
-				stateSlopeRatio = deltaStateL / deltaState;
-				flux = stateL * interfaceVelocity;
-			} else {
-				stateSlopeRatio = deltaStateR / deltaState;
-				flux = stateR * interfaceVelocity;
-			}
-
-			//2nd order
-			real phi = slopeLimiter(stateSlopeRatio);
-			real delta = phi * deltaState;
-			flux += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])) / (float)DIM;
-			
-			fluxBuffer[j + NUM_STATES * (side + DIM * index)] = flux;
+			derivStateCoeffsPrev[j] = fluxStateCoeffsPrevL[j] / dx[side];
+			derivStateCoeffsCenter[j] += (fluxStateCoeffsPrevR[j] - fluxStateCoeffsNextL[j]) / dx[side];
+			derivStateCoeffsNext[j] = -fluxStateCoeffsNextR[j] / dx[side];
 		}
 	}
 }
 
+
+//TODO this is now "calculate the explicit integration derivative based on the state matrix coefficients"
 __kernel void calcFluxDeriv(
 	__global real* derivBuffer,	//dstate/dt
-	const __global real* fluxBuffer,
+	const __global real* stateBuffer,
+	const __global real* derivStateCoeffBuffer,
 	const __global char* solidBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -213,15 +332,23 @@ __kernel void calcFluxDeriv(
 
 	if (solidBuffer[index]) return;
 	
+	const __global real* state = stateBuffer + NUM_STATES * index;
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
+#define NUM_NEIGHBORS (1 + 2 * DIM)
+	const __global real* derivStateCoeffs = derivStateCoeffBuffer + NUM_STATES * NUM_NEIGHBORS * index;
+	for (int j = 0; j < NUM_STATES; ++j) {
+		deriv[j] += state[j] * derivStateCoeffs[j + NUM_STATES * 2 * DIM];
+	}
+
 	for (int side = 0; side < DIM; ++side) {
+		int indexPrev = index - stepsize[side];
 		int indexNext = index + stepsize[side];
+		const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
+		const __global real* stateR = stateBuffer + NUM_STATES * indexNext;
 		for (int j = 0; j < NUM_STATES; ++j) {
-			real fluxL = fluxBuffer[j + NUM_STATES * (side + DIM * index)];
-			real fluxR = fluxBuffer[j + NUM_STATES * (side + DIM * indexNext)];
-			real deltaFlux = fluxR - fluxL;
-			deriv[j] -= deltaFlux / dx[side];
+			deriv[j] += stateL[j] * derivStateCoeffs[j + NUM_STATES * (0 + 2 * side)];
+			deriv[j] += stateR[j] * derivStateCoeffs[j + NUM_STATES * (1 + 2 * side)];
 		}
 	}
 }

@@ -13,12 +13,14 @@ struct EulerBurgers : public SelfGravitationBehavior<Solver> {
 
 protected:
 	cl::Buffer interfaceVelocityBuffer;
-	cl::Buffer fluxBuffer;
+	cl::Buffer fluxStateCoeffBuffer;
+	cl::Buffer derivStateCoeffBuffer;
 	cl::Buffer pressureBuffer;
 
 	cl::Kernel calcCFLKernel;
 	cl::Kernel calcInterfaceVelocityKernel;
 	cl::Kernel calcFluxKernel;
+	cl::Kernel calcDerivCoeffsFromFluxCoeffsKernel;
 	cl::Kernel calcFluxDerivKernel;
 	cl::Kernel computePressureKernel;
 	cl::Kernel diffuseMomentumKernel;

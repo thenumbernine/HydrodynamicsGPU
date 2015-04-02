@@ -296,14 +296,16 @@ return {
 			{min='FREEFLOW', max='FREEFLOW'},
 			{min='FREEFLOW', max='FREEFLOW'},
 		}
+		local cylinderRadius = .25
+		local cylinderRadiusSq = cylinderRadius * cylinderRadius 
 		initState = function(x,y,z)
 			local r2 = x*x + y*y + z*z
 			return buildStateEuler{
 				x=x, y=y, z=z,
 				density = 1,
-				velocityX = .7,
+				velocityX = .2,
 				pressure = 1,
-				solid = r2 < .15*.15 and 1 or 0
+				solid = r2 < cylinderRadiusSq and 1 or 0
 			}
 		end
 	end,

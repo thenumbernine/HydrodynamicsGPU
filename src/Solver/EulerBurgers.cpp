@@ -39,13 +39,18 @@ void EulerBurgers::initBuffers() {
 	
 	int volume = getVolume();
 
-	interfaceVelocityBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume * app->dim);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app->dim);
-	pressureBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * volume);
+	interfaceVelocityBuffer = clAlloc(sizeof(real) * volume * app->dim);
+
+	//real fluxStateCoeffBuffer[index:size][side:dim][l/r:2][coeff:numStates]
+	fluxStateCoeffBuffer = clAlloc(sizeof(real) * numStates() * 2 * app->dim * volume);
+
+	//coefficients of the left and right neighboring state buffer to multiply and produce the interface flux
+	//real derivStateCoeffBuffer[index:size][neighbor:2*dim+1][coeff:numStates]
+	derivStateCoeffBuffer = clAlloc(sizeof(real) * numStates() * (1 + 2 * app->dim) * volume);
+	pressureBuffer = clAlloc(sizeof(real) * volume);
 
 	//zero interface and flux
 	commands.enqueueFillBuffer(interfaceVelocityBuffer, 0.f, 0, sizeof(real) * volume * app->dim);
-	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app->dim);
 }
 
 void EulerBurgers::initKernels() {
@@ -58,13 +63,17 @@ void EulerBurgers::initKernels() {
 	app->setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer, selfgrav->solidBuffer);
 
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, selfgrav->solidBuffer, dtBuffer);
+	app->setArgs(calcFluxKernel, fluxStateCoeffBuffer, stateBuffer, interfaceVelocityBuffer, selfgrav->solidBuffer, dtBuffer);
+	
+	calcDerivCoeffsFromFluxCoeffsKernel = cl::Kernel(program, "calcDerivCoeffsFromFluxCoeffs");
+	app->setArgs(calcDerivCoeffsFromFluxCoeffsKernel, derivStateCoeffBuffer, fluxStateCoeffBuffer, selfgrav->solidBuffer);
 
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	//arg0 will be provided by the integrator
-	calcFluxDerivKernel.setArg(1, fluxBuffer);
-	calcFluxDerivKernel.setArg(2, selfgrav->solidBuffer);
-	
+	calcFluxDerivKernel.setArg(1, stateBuffer);
+	calcFluxDerivKernel.setArg(2, derivStateCoeffBuffer);
+	calcFluxDerivKernel.setArg(3, selfgrav->solidBuffer);
+
 	computePressureKernel = cl::Kernel(program, "computePressure");
 	app->setArgs(computePressureKernel, pressureBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer);
 
@@ -94,9 +103,11 @@ void EulerBurgers::calcTimestep() {
 }
 
 void EulerBurgers::step() {
+	int volume = getVolume();
 	integrator->integrate([&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize, nullptr, &calcInterfaceVelocityEvent.clEvent);
 		commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
+		commands.enqueueNDRangeKernel(calcDerivCoeffsFromFluxCoeffsKernel, offsetNd, globalSize, localSize);
 		calcFluxDerivKernel.setArg(0, derivBuffer);
 		commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
 	});

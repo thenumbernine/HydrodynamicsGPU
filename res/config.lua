@@ -7,10 +7,10 @@ local configurations = require 'configurations'	--holds catalog of configuration
 	-- solver variables
 
 
---solverName = 'EulerBurgers'
+solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
-solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
+--solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe'		-- not yet
 --solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
@@ -100,7 +100,7 @@ displayScale = .25
 
 -- override solids:
 
---[=[ cylinder
+-- [=[ cylinder
 function calcSolid(x,y,z)
 	local cx = .35 * xmin[1] + .65 * xmax[1]
 	local cy = .35 * xmin[2] + .65 * xmax[2]
@@ -125,8 +125,8 @@ end
 --]]=]
 --solidFilename = 'test-solid.png'
 
---configurations['Sod']()
-configurations['Flow Around Cylinder']()
+configurations['Sod']()
+--configurations['Flow Around Cylinder']()
 --configurations['self-gravitation test 1']()
 --]]
 
