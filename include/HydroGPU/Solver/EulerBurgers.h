@@ -21,7 +21,7 @@ protected:
 	cl::Kernel calcInterfaceVelocityKernel;
 	cl::Kernel calcFluxKernel;
 	cl::Kernel calcDerivCoeffsFromFluxCoeffsKernel;
-	cl::Kernel calcFluxDerivKernel;
+	cl::Kernel calcDerivFromStateCoeffsKernel;
 	cl::Kernel computePressureKernel;
 	cl::Kernel diffuseMomentumKernel;
 	cl::Kernel diffuseWorkKernel;

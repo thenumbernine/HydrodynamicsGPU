@@ -11,8 +11,8 @@ SelfGravitation::SelfGravitation(Solver* solver_) : solver(solver_) {}
 
 void SelfGravitation::initBuffers() {
 	int volume = solver->getVolume();
-	potentialBuffer = solver->clAlloc(sizeof(real) * volume);
-	solidBuffer = solver->clAlloc(sizeof(char) * volume);
+	potentialBuffer = solver->clAlloc(sizeof(real) * volume, "SelfGravitation::potentialBuffer");
+	solidBuffer = solver->clAlloc(sizeof(char) * volume, "SelfGravitation::solidBuffer");
 }
 
 void SelfGravitation::initKernels() {

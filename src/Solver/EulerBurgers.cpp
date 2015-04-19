@@ -39,15 +39,17 @@ void EulerBurgers::initBuffers() {
 	
 	int volume = getVolume();
 
-	interfaceVelocityBuffer = clAlloc(sizeof(real) * volume * app->dim);
+	interfaceVelocityBuffer = clAlloc(sizeof(real) * volume * app->dim, "EulerBurgers::interfaceVelocityBuffer");
 
+	//This is just used to add/subtract to create the derivStateCoeffBuffer one function call later.
+	//I could get rid of this, but it would mean doubling up the number of calculations in the calcDerivCoeffsFromFluxCoeffs kernel.
 	//real fluxStateCoeffBuffer[index:size][side:dim][l/r:2][coeff:numStates]
-	fluxStateCoeffBuffer = clAlloc(sizeof(real) * numStates() * 2 * app->dim * volume);
+	fluxStateCoeffBuffer = clAlloc(sizeof(real) * numStates() * 2 * app->dim * volume, "EulerBurgers::fluxStateCoeffBuffer");
 
 	//coefficients of the left and right neighboring state buffer to multiply and produce the interface flux
 	//real derivStateCoeffBuffer[index:size][neighbor:2*dim+1][coeff:numStates]
-	derivStateCoeffBuffer = clAlloc(sizeof(real) * numStates() * (1 + 2 * app->dim) * volume);
-	pressureBuffer = clAlloc(sizeof(real) * volume);
+	derivStateCoeffBuffer = clAlloc(sizeof(real) * numStates() * (1 + 2 * app->dim) * volume, "EulerBurgers::derivStateCoeffBuffer");
+	pressureBuffer = clAlloc(sizeof(real) * volume, "EulerBurgers::pressureBuffer");
 
 	//zero interface and flux
 	commands.enqueueFillBuffer(interfaceVelocityBuffer, 0.f, 0, sizeof(real) * volume * app->dim);
@@ -68,16 +70,17 @@ void EulerBurgers::initKernels() {
 	calcDerivCoeffsFromFluxCoeffsKernel = cl::Kernel(program, "calcDerivCoeffsFromFluxCoeffs");
 	app->setArgs(calcDerivCoeffsFromFluxCoeffsKernel, derivStateCoeffBuffer, fluxStateCoeffBuffer, selfgrav->solidBuffer);
 
-	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
+	calcDerivFromStateCoeffsKernel = cl::Kernel(program, "calcDerivFromStateCoeffs");
 	//arg0 will be provided by the integrator
-	calcFluxDerivKernel.setArg(1, stateBuffer);
-	calcFluxDerivKernel.setArg(2, derivStateCoeffBuffer);
-	calcFluxDerivKernel.setArg(3, selfgrav->solidBuffer);
+	calcDerivFromStateCoeffsKernel.setArg(1, stateBuffer);
+	calcDerivFromStateCoeffsKernel.setArg(2, derivStateCoeffBuffer);
+	calcDerivFromStateCoeffsKernel.setArg(3, selfgrav->solidBuffer);
 
 	computePressureKernel = cl::Kernel(program, "computePressure");
 	app->setArgs(computePressureKernel, pressureBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer);
 
 	diffuseMomentumKernel = cl::Kernel(program, "diffuseMomentum");
+	//app->setArgs(diffuseMomentumKernel, derivStateCoeffBuffer, pressureBuffer, selfgrav->solidBuffer);
 	diffuseMomentumKernel.setArg(1, pressureBuffer);
 	diffuseMomentumKernel.setArg(2, selfgrav->solidBuffer);
 	
@@ -103,13 +106,13 @@ void EulerBurgers::calcTimestep() {
 }
 
 void EulerBurgers::step() {
-	int volume = getVolume();
 	integrator->integrate([&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize, nullptr, &calcInterfaceVelocityEvent.clEvent);
 		commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
 		commands.enqueueNDRangeKernel(calcDerivCoeffsFromFluxCoeffsKernel, offsetNd, globalSize, localSize);
-		calcFluxDerivKernel.setArg(0, derivBuffer);
-		commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
+		
+		calcDerivFromStateCoeffsKernel.setArg(0, derivBuffer);
+		commands.enqueueNDRangeKernel(calcDerivFromStateCoeffsKernel, offsetNd, globalSize, localSize);
 	});
 	boundary();
 
@@ -118,8 +121,13 @@ void EulerBurgers::step() {
 	//the Hydrodynamics ii paper says it's important to diffuse momentum before work
 	integrator->integrate([&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize, nullptr, &computePressureEvent.clEvent);
+		
 		diffuseMomentumKernel.setArg(0, derivBuffer);
-		commands.enqueueNDRangeKernel(diffuseMomentumKernel, offsetNd, globalSize, localSize, nullptr, &diffuseMomentumEvent.clEvent);
+		commands.enqueueNDRangeKernel(diffuseMomentumKernel, offsetNd, globalSize, localSize, nullptr, &diffuseWorkEvent.clEvent);
+		
+		//commands.enqueueNDRangeKernel(diffuseMomentumKernel, offsetNd, globalSize, localSize, nullptr, &diffuseMomentumEvent.clEvent);	
+		//calcDerivFromStateCoeffsKernel.setArg(0, derivBuffer);
+		//commands.enqueueNDRangeKernel(calcDerivFromStateCoeffsKernel, offsetNd, globalSize, localSize);
 	});
 	boundary();
 

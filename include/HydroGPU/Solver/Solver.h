@@ -83,7 +83,7 @@ public:
 	int numStates();	//shorthand
 	int getVolume();
 	
-	cl::Buffer clAlloc(size_t size);
+	cl::Buffer clAlloc(size_t size, const std::string& name = std::string());
 protected:
 	virtual void findMinTimestep();
 public:

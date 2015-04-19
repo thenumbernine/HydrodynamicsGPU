@@ -5,6 +5,7 @@ constant int4 stepsize = (int4)(STEP_X, STEP_Y, STEP_Z, STEP_W);
 constant real4 dx = (real4)(DX, DY, DZ, 1.f);
 
 //http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
+//calculate min of all elements on buffer[0..length-1]
 __kernel void calcCFLMinReduce(
 	const __global real* buffer,
 	__local real* scratch,
@@ -13,6 +14,7 @@ __kernel void calcCFLMinReduce(
 {
 	int global_index = get_global_id(0);
 	real accumulator = INFINITY;
+	
 	// Loop sequentially over chunks of input vector
 	while (global_index < length) {
 		real element = buffer[global_index];
@@ -279,33 +281,28 @@ __kernel void stateBoundaryFreeFlowZMax(
 
 	//integration methods
 
-
+//ForwardEuler, RungeKutta4
+// result[i] = a[i] + b[i] * c
 __kernel void multAdd(
-	__global real* stateBuffer,
-	const __global real* derivBuffer,
-	const __global real* dtBuffer,
-	real scalar)
+	__global real* result,
+	const __global real* a,
+	const __global real* b,
+	real c)
 {
-	real dt = dtBuffer[0] * scalar;
-	
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 2 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 2 
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
-#endif
-	) {
-		return;
-	}
-	int index = INDEXV(i);
+	size_t i = get_global_id(0);
+	if (i >= get_global_size(0)) return;
+	result[i] = a[i] + b[i] * c;
+}
 
-	__global real* state = stateBuffer + NUM_STATES * index;
-	const __global real* deriv = derivBuffer + NUM_STATES * index;
-	
-	for (int j = 0; j < NUM_STATES; ++j) {
-		state[j] += deriv[j] * dt;
-	}
+//BackwardEulerConjugateGradient
+//result[i] = a[i] - b[i]
+__kernel void subtract(
+	__global real* result,
+	const __global real* a,
+	const __global real* b)
+{
+	size_t i = get_global_id(0);
+	if (i >= get_global_size(0)) return;	
+	result[i] = a[i] - b[i];
 }
 

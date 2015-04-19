@@ -32,10 +32,10 @@ void Roe::initBuffers() {
 
 	int volume = getVolume();
 
-	eigenvaluesBuffer = clAlloc(sizeof(real) * getEigenSpaceDim() * volume * app->dim);
-	eigenfieldsBuffer = clAlloc(sizeof(real) * getEigenTransformStructSize() * volume * app->dim);
-	deltaQTildeBuffer = clAlloc(sizeof(real) * getEigenSpaceDim() * volume * app->dim);
-	fluxBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim);
+	eigenvaluesBuffer = clAlloc(sizeof(real) * getEigenSpaceDim() * volume * app->dim, "Roe::eigenvaluesBuffer");
+	eigenfieldsBuffer = clAlloc(sizeof(real) * getEigenTransformStructSize() * volume * app->dim, "Roe::eigenfieldsBuffer");
+	deltaQTildeBuffer = clAlloc(sizeof(real) * getEigenSpaceDim() * volume * app->dim, "Roe::deltaQTildeBuffer");
+	fluxBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim, "Roe::fluxBuffer");
 
 	//zero flux
 	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app->dim);

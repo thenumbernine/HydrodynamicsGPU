@@ -54,6 +54,13 @@ void ADM1D::getProgramSources(std::vector<std::string>& sources) {
 	solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	sources[0] += "#define ADM_BONA_MASSO_F (" + adm_BonaMasso_f + ")\n";
 	sources.push_back("#include \"ADM1DCommon.cl\"\n");
+	
+	//tell the Roe solver to calculate left & right separately
+	// this is slower for dense small matrices (like the Euler equations)
+	// but for the ADM, which hold no eigenfield struct data, and compute the eigentransform solely from state data
+	// because they are sparse huge matrices, 
+	//it saves both speed and memory.
+	sources.push_back("#define ROE_EIGENFIELD_TRANSFORM_SEPARATE 1\n");
 }
 
 int ADM1D::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {

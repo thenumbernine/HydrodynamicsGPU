@@ -290,6 +290,24 @@ return {
 		end
 	end,
 
+	['Shock Bubble Interaction'] = function()
+		boundaryMethods = {
+			{min='PERIODIC', max='FREEFLOW'},
+			{min='PERIODIC', max='PERIODIC'},
+			{min='PERIODIC', max='PERIODIC'},
+		}
+		local bubbleX = 0 
+		local bubbleY = 0 
+		local bubbleRadius = 1/4
+		initState = function(x,y,z)
+			return buildStateEuler{
+				x=x, y=y, z=z,
+				density = x*x + y*y + z*z < bubbleRadius*bubbleRadius and .01 or 1,
+				pressure = x < -.4 and 2 or .1,
+			}
+		end
+	end,
+
 	['Flow Around Cylinder'] = function()
 		boundaryMethods = {
 			{min='NONE', max='FREEFLOW'},

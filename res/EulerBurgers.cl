@@ -267,6 +267,8 @@ __kernel void calcDerivCoeffsFromFluxCoeffs(
 		return;
 	}
 	int index = INDEXV(i);
+
+	if (solidBuffer[index]) return;
 	
 	//add/subtract coefficients into appropriate cells
 	//deriv of the i'th cell uses +1 of the left flux and -1 of the right flux
@@ -283,8 +285,6 @@ __kernel void calcDerivCoeffsFromFluxCoeffs(
 	for (int j = 0; j < NUM_STATES; ++j) {
 		derivStateCoeffsCenter[j] = 0.f;
 	}
-
-	if (solidBuffer[index]) return;
 	
 	for (int side = 0; side < DIM; ++side) {
 		//neighbor index: 0 = center, 1,2 = x-left, x-right, etc
@@ -309,49 +309,6 @@ __kernel void calcDerivCoeffsFromFluxCoeffs(
 	}
 }
 
-
-//TODO this is now "calculate the explicit integration derivative based on the state matrix coefficients"
-__kernel void calcFluxDeriv(
-	__global real* derivBuffer,	//dstate/dt
-	const __global real* stateBuffer,
-	const __global real* derivStateCoeffBuffer,
-	const __global char* solidBuffer)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 2 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 2 
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
-#endif
-	) {
-		return;
-	}
-	int index = INDEXV(i);
-
-	if (solidBuffer[index]) return;
-	
-	const __global real* state = stateBuffer + NUM_STATES * index;
-	__global real* deriv = derivBuffer + NUM_STATES * index;
-
-#define NUM_NEIGHBORS (1 + 2 * DIM)
-	const __global real* derivStateCoeffs = derivStateCoeffBuffer + NUM_STATES * NUM_NEIGHBORS * index;
-	for (int j = 0; j < NUM_STATES; ++j) {
-		deriv[j] += state[j] * derivStateCoeffs[j + NUM_STATES * 2 * DIM];
-	}
-
-	for (int side = 0; side < DIM; ++side) {
-		int indexPrev = index - stepsize[side];
-		int indexNext = index + stepsize[side];
-		const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
-		const __global real* stateR = stateBuffer + NUM_STATES * indexNext;
-		for (int j = 0; j < NUM_STATES; ++j) {
-			deriv[j] += stateL[j] * derivStateCoeffs[j + NUM_STATES * (0 + 2 * side)];
-			deriv[j] += stateR[j] * derivStateCoeffs[j + NUM_STATES * (1 + 2 * side)];
-		}
-	}
-}
 
 __kernel void computePressure(
 	__global real* pressureBuffer,
@@ -398,6 +355,25 @@ __kernel void computePressure(
 		deltaVelocitySq += deltaVelocity * deltaVelocity; 
 	}
 	pressure += deltaVelocitySq * density;
+	
+	/*
+	pressure = (gamma - 1) * density * specificEnergyInternal ... plus artificial viscosity ...
+	pressure = (gamma - 1) * density * (specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential)
+	pressure = (gamma - 1) * (density * specificEnergyTotal - density * specificEnergyKinetic - density * specificEnergyPotential)
+	pressure = (gamma - 1) * (energyTotal - .5 * (momentum * momentum) - density * specificEnergyPotential)
+	pressure = [-(gamma - 1) * specificEnergyPotential] * density
+				+ [-(gamma - 1) * .5 * momentum] * momentum
+				+ [(gamma - 1)] * energyTotal
+	...and the artificial viscosity component:
+	
+	viscosity = deltaVelocity * deltaVelocity
+	viscosity = ZETA * .5 * (velocityR - velocityL)^2
+	viscosity = [ZETA * .5 * deltaVelocity * density / densityR] * momentumR
+				+ [-ZETA * .5 * deltaVelocity * density / densityL] * momentumL
+	
+	...or linearize it by density, nice and easy ...
+	viscosity = [deltaVelocitySq] * density
+	*/
 	pressureBuffer[index] = pressure;
 }
 
@@ -437,6 +413,24 @@ __kernel void diffuseMomentum(
 
 		real deltaPressure = .5f * (pressureR - pressureL);
 		deriv[side + STATE_MOMENTUM_X] -= deltaPressure / dx[side];
+
+		/*
+		deriv[STATE_MOMENTUM_X+side] = -deltaPressure / dx[side]
+									= (pressureL - pressureR) / dx[side]
+		...pressureL and pressureR themselves use neighbor information when it comes to artificial viscosity, when linearizing it based on velocity...	
+		so if we want to do that, we'll need a larger stencil for derivative state coefficients (2-wide rather than 1-wide) 
+		deriv[STATE_MOMENTUM_X+side] = 
+				//left cell:
+				  [-(gamma - 1) * specificEnergyPotentialL / dx[side]] * densityL
+				+ [-(gamma - 1) * .5 * momentum / dx[side]] * momentumL
+				+ [(gamma - 1) / dx[side]] * energyTotalL
+				//right cell:
+				+ [(gamma - 1) * specificEnergyPotentialR / dx[side]] * densityR
+				+ [(gamma - 1) * .5 * momentum / dx[side]] * momentumR
+				+ [-(gamma - 1) / dx[side]] * energyTotalR
+				//center cell:
+				+ [ZETA * .5 * sum_j (velocityR[j] - velocityL[j])^2] * density
+		*/
 	}
 }
 
@@ -486,4 +480,48 @@ __kernel void diffuseWork(
 		deriv[STATE_ENERGY_TOTAL] -= deltaWork / dx[side];
 	}
 }
+
+//TODO this should go in Common.cl once I convert all the solvers over to support deriv coeffs / be implicit-compatible
+__kernel void calcDerivFromStateCoeffs(
+	__global real* derivBuffer,	//dstate/dt
+	const __global real* stateBuffer,
+	const __global real* derivStateCoeffBuffer,
+	const __global char* solidBuffer)
+{
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
+#endif
+#endif
+	) {
+		return;
+	}
+	int index = INDEXV(i);
+
+	if (solidBuffer[index]) return;
+	
+	const __global real* state = stateBuffer + NUM_STATES * index;
+	__global real* deriv = derivBuffer + NUM_STATES * index;
+
+#define NUM_NEIGHBORS (1 + 2 * DIM)
+	const __global real* derivStateCoeffs = derivStateCoeffBuffer + NUM_STATES * NUM_NEIGHBORS * index;
+	for (int j = 0; j < NUM_STATES; ++j) {
+		deriv[j] += state[j] * derivStateCoeffs[j + NUM_STATES * 2 * DIM];
+	}
+
+	for (int side = 0; side < DIM; ++side) {
+		int indexPrev = index - stepsize[side];
+		int indexNext = index + stepsize[side];
+		const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
+		const __global real* stateR = stateBuffer + NUM_STATES * indexNext;
+		for (int j = 0; j < NUM_STATES; ++j) {
+			deriv[j] += stateL[j] * derivStateCoeffs[j + NUM_STATES * (0 + 2 * side)];
+			deriv[j] += stateR[j] * derivStateCoeffs[j + NUM_STATES * (1 + 2 * side)];
+		}
+	}
+}
+
 

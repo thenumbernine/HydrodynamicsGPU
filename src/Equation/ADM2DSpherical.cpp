@@ -58,6 +58,13 @@ void ADM2DSpherical::getProgramSources(std::vector<std::string>& sources) {
 	sources[0] += "#define ADM_BONA_MASSO_DF_DALPHA " + adm_BonaMasso_df_dalpha + "\n";
 	
 	sources.push_back(Common::File::read("ADM2DSphericalCommon.cl"));
+
+	//tell the Roe solver to calculate left & right separately
+	// this is slower for dense small matrices (like the Euler equations)
+	// but for the ADM, which hold no eigenfield struct data, and compute the eigentransform solely from state data
+	// because they are sparse huge matrices, 
+	//it saves both speed and memory.
+	sources.push_back("#define ROE_EIGENFIELD_TRANSFORM_SEPARATE 1\n");
 }
 
 int ADM2DSpherical::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {

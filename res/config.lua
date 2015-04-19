@@ -7,10 +7,10 @@ local configurations = require 'configurations'	--holds catalog of configuration
 	-- solver variables
 
 
-solverName = 'EulerBurgers'
+--solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
---solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
+solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe'		-- not yet
 --solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
@@ -50,7 +50,7 @@ integratorName = 'RungeKutta4'
 
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
-maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+--maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -88,7 +88,7 @@ size = {32, 32, 32}
 vectorFieldResolution = 16
 --]]
 -- [[ 2D
-size = {128, 128}
+size = {256, 256}
 --]]
 --[[ 1D
 size = {1024}
@@ -100,7 +100,7 @@ displayScale = .25
 
 -- override solids:
 
--- [=[ cylinder
+--[=[ cylinder
 function calcSolid(x,y,z)
 	local cx = .35 * xmin[1] + .65 * xmax[1]
 	local cy = .35 * xmin[2] + .65 * xmax[2]
@@ -116,7 +116,8 @@ end
 --[=[ arbitrary
 -- hmm ... loading images from Lua ...
 -- 1) provide a filename, but that means interjecting it into the resetState() converter code, which is a long way to carry it ... maybe not ...
--- 2) Lua image loading libraries.  the current one depends on FFI.  the LuaCxx binding based ones are venturing into dll hell ...
+-- 2) Lua image loading libraries.  the current one depends on FFI.  the LuaCxx binding based ones are having link location problems ...
+-- 3) Lua image loading libraries in pure LuaJIT.  This forces us to only build this against LuaJIT though ...
 function calcSolid(x,y,z)
 	if x > -.275 and x < -.225 and y > -.4 and y < .4 then
 		return 1
@@ -125,7 +126,7 @@ end
 --]]=]
 --solidFilename = 'test-solid.png'
 
-configurations['Sod']()
+configurations['Shock Bubble Interaction']()
 --configurations['Flow Around Cylinder']()
 --configurations['self-gravitation test 1']()
 --]]

@@ -7,7 +7,7 @@ __kernel void calcCFL(
 	real cfl
 #ifdef SOLID
 	, const __global char* solidBuffer
-#endif
+#endif	//SOLID
 )
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -31,7 +31,7 @@ __kernel void calcCFL(
 
 #ifdef SOLID
 		if (solidBuffer[indexL] || solidBuffer[indexR]) continue;
-#endif
+#endif	//SOLID
 
 		const __global real* eigenvaluesL = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexL);
 		const __global real* eigenvaluesR = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexR);
@@ -54,7 +54,7 @@ void calcDeltaQTildeSide(
 	int side
 #ifdef SOLID
 	, const __global char* solidBuffer
-#endif	
+#endif	//SOLID
 	);
 
 void calcDeltaQTildeSide(
@@ -64,7 +64,7 @@ void calcDeltaQTildeSide(
 	int side
 #ifdef SOLID
 	, const __global char* solidBuffer
-#endif
+#endif	//SOLID
 )
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -95,8 +95,9 @@ void calcDeltaQTildeSide(
 		}
 		stateR[side+STATE_MOMENTUM_X] = -stateR[side+STATE_MOMENTUM_X];
 	}
-#endif
+#endif	//SOLID
 
+#ifdef ROE_EIGENFIELD_TRANSFORM_SEPARATE
 	//calculating this twice because eigenfieldTransform could use the state variables to construct the field information on the fly
 
 	real stateLTilde[EIGEN_SPACE_DIM];
@@ -108,6 +109,17 @@ void calcDeltaQTildeSide(
 	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
 		deltaQTilde[i] = stateRTilde[i] - stateLTilde[i];
 	}
+#else	//ROE_EIGENFIELD_TRANSFORM_SEPARATE
+	real deltaState[NUM_STATES];
+	real deltaQTilde_[EIGEN_SPACE_DIM];
+	for (int i = 0; i < NUM_STATES; ++i) {
+		deltaState[i] = stateR[i] - stateL[i];
+	}
+	eigenfieldTransform(deltaQTilde_, eigenfields, deltaState, side);
+	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
+		deltaQTilde[i] = deltaQTilde_[i];
+	}
+#endif	//ROE_EIGENFIELD_TRANSFORM_SEPARATE
 }
 
 __kernel void calcDeltaQTilde(
@@ -116,7 +128,7 @@ __kernel void calcDeltaQTilde(
 	const __global real* stateBuffer
 #ifdef SOLID
 	, const __global char* solidBuffer
-#endif
+#endif	//SOLID
 )
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -131,20 +143,20 @@ __kernel void calcDeltaQTilde(
 	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 0
 #ifdef SOLID
 		, solidBuffer
-#endif
+#endif	//SOLID
 	);
 #if DIM > 1
 	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 1
 #ifdef SOLID
 		, solidBuffer
-#endif
+#endif	//SOLID
 	);
 #endif
 #if DIM > 2
 	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 2
 #ifdef SOLID
 		, solidBuffer
-#endif
+#endif	//SOLID
 	);
 #endif
 }
@@ -159,7 +171,7 @@ void calcFluxSide(
 	int side
 #ifdef SOLID
 	, const __global char* solidBuffer
-#endif
+#endif	//SOLID
 	);
 
 void calcFluxSide(
@@ -172,7 +184,7 @@ void calcFluxSide(
 	int side
 #ifdef SOLID
 	, const __global char* solidBuffer
-#endif
+#endif	//SOLID
 )
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -219,18 +231,26 @@ void calcFluxSide(
 	}
 	char solidL2 = solidBuffer[indexL2];
 	char solidR2 = solidBuffer[indexR2];
-#endif
-	
+#endif	//SOLID
+
+	real fluxTilde[EIGEN_SPACE_DIM];
+#ifdef ROE_EIGENFIELD_TRANSFORM_SEPARATE
 	real stateLTilde[EIGEN_SPACE_DIM];
 	eigenfieldTransform(stateLTilde, eigenfields, stateL, side);
 
 	real stateRTilde[EIGEN_SPACE_DIM];
 	eigenfieldTransform(stateRTilde, eigenfields, stateR, side);
 
-	real fluxTilde[EIGEN_SPACE_DIM];
 	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
 		fluxTilde[i] = .5f * (stateRTilde[i] + stateLTilde[i]);
 	}
+#else	//ROE_EIGENFIELD_TRANSFORM_SEPARATE
+	real stateAvg[NUM_STATES];
+	for (int i = 0; i < NUM_STATES; ++i) {
+		stateAvg[i] = .5f * (stateR[i] + stateL[i]);
+	}
+	eigenfieldTransform(fluxTilde, eigenfields, stateAvg, side);
+#endif	//ROE_EIGENFIELD_TRANSFORM_SEPARATE
 
 	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
 		real eigenvalue = eigenvalues[i];
@@ -243,13 +263,13 @@ void calcFluxSide(
 			theta = 1.f;
 #ifdef SOLID
 			if (solidL2) rTilde = 1.f;
-#endif
+#endif	//SOLID
 		} else {
 			rTilde = deltaQTildeR[i] / deltaQTilde[i];
 			theta = -1.f;
 #ifdef SOLID
 			if (solidR2) rTilde = 1.f;
-#endif
+#endif	//SOLID
 		}
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
@@ -272,7 +292,7 @@ __kernel void calcFlux(
 	const __global real* dtBuffer
 #ifdef SOLID
 	, const __global char* solidBuffer
-#endif
+#endif	//SOLID
 )
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -289,20 +309,20 @@ __kernel void calcFlux(
 	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DX, 0
 #ifdef SOLID
 	, solidBuffer
-#endif
+#endif	//SOLID
 	); 
 #if DIM > 1
 	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DY, 1
 #ifdef SOLID
 	, solidBuffer
-#endif
+#endif	//SOLID
 	); 
 #endif
 #if DIM > 2
 	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DZ, 2
 #ifdef SOLID
 	, solidBuffer
-#endif
+#endif	//SOLID
 	); 
 #endif
 }
@@ -312,7 +332,7 @@ __kernel void calcFluxDeriv(
 	const __global real* fluxBuffer
 #ifdef SOLID
 	, const __global char* solidBuffer
-#endif
+#endif	//SOLID
 	)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -330,7 +350,7 @@ __kernel void calcFluxDeriv(
 
 #ifdef SOLID
 	if (solidBuffer[index]) return;
-#endif
+#endif	//SOLID
 
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 

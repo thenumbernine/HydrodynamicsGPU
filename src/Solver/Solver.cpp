@@ -13,9 +13,9 @@
 namespace HydroGPU {
 namespace Solver {
 
-cl::Buffer Solver::clAlloc(size_t size) {
+cl::Buffer Solver::clAlloc(size_t size, const std::string& name) {
 	totalAlloc += size;
-	std::cout << "allocating gpu mem size " << size << " running total " << totalAlloc << std::endl; 
+	std::cout << "allocating gpu mem " << name << " size " << size << " running total " << totalAlloc << std::endl; 
 	return cl::Buffer(app->context, CL_MEM_READ_WRITE, size);
 }
 
@@ -162,11 +162,11 @@ void Solver::initBuffers() {
 	int volume = getVolume();
 
 	//not necessary for fixed timestep.  TODO don't allocate in that case.
-	cflBuffer = clAlloc(sizeof(real) * volume);
-	cflSwapBuffer = clAlloc(sizeof(real) * volume / localSize[0]);
+	cflBuffer = clAlloc(sizeof(real) * volume, "Solver::cflBuffer");
+	cflSwapBuffer = clAlloc(sizeof(real) * volume / localSize[0], "Solver::cflSwapBuffer");
 	
-	dtBuffer = clAlloc(sizeof(real16));
-	stateBuffer = clAlloc(sizeof(real) * numStates() * volume);
+	dtBuffer = clAlloc(sizeof(real16), "Solver::dtBuffer");
+	stateBuffer = clAlloc(sizeof(real) * numStates() * volume, "Solver::stateBuffer");
 	
 	//get the edges, so reduction doesn't
 	{
@@ -439,14 +439,14 @@ void Solver::update() {
 
 	step();
 
-/*
+/* failing with Roe solver on calcDeltaQTildeEvent ...
 	for (EventProfileEntry *entry : entries) {
+std::cout << "event " << entry->name << std::endl;
 		cl_ulong start = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_START>();
 		cl_ulong end = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>();
 		entry->stat.accum((double)(end - start) * 1e-9);
 	}
 */
-
 }
 
 void Solver::display() {
