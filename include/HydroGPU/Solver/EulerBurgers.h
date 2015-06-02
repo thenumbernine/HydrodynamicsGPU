@@ -43,6 +43,12 @@ protected:
 	virtual std::vector<std::string> getProgramSources();
 	virtual void calcTimestep();
 	virtual void step();
+
+	virtual cl::Buffer createDStateDtMatrix();
+	virtual void applyDStateDtMatrix(cl::Buffer result, cl::Buffer x);
+
+//temporary during transition...
+	std::shared_ptr<HydroGPU::Integrator::Integrator> pressureIntegrator;
 };
 
 }

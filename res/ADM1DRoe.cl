@@ -66,7 +66,7 @@ __kernel void calcEigenBasis(
 void eigenfieldTransform(
 	real* results,
 	const __global real* eigenfield,
-	const __global real* input,
+	const real* input,
 	int side)
 {
 	//cell
@@ -138,3 +138,4 @@ __kernel void addSource(
 	deriv[STATE_ALPHA] -= tmp1 * alpha * f * KTilde / g;
 	deriv[STATE_G] -= 2.f * tmp1 * KTilde;
 }
+

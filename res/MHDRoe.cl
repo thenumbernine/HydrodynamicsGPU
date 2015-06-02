@@ -720,34 +720,14 @@ __kernel void calcMHDFlux(
 	const __global real* eigenfieldsBuffer,
 	const __global real* deltaQTildeBuffer,
 	const __global real* dtBuffer,
+	int side,
 	const __global char* fluxFlagBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 1 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 1
-#endif
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 1
-#endif
-	) return;
-	
-	float dt = dtBuffer[0];
-	
 	int index = INDEXV(i);
-	if (!fluxFlagBuffer[0 + DIM * index]) {
-		calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DX, 0);
-	}
-#if DIM > 1
-	if (!fluxFlagBuffer[1 + DIM * index]) {
-		calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DY, 1);
-	}
-#endif
-#if DIM > 2
-	if (!fluxFlagBuffer[2 + DIM * index]) {
-		calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DZ, 2);
-	}
-#endif
+	if (fluxFlagBuffer[side + DIM * index]) return;
+	
+	calcFlux(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dtBuffer, side);
 }
 
 

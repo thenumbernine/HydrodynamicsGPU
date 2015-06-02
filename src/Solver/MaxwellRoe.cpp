@@ -5,8 +5,8 @@
 namespace HydroGPU {
 namespace Solver {
 
-void MaxwellRoe::init() {
-	Super::init();
+void MaxwellRoe::initKernels() {
+	Super::initKernels();
 	addSourceKernel = cl::Kernel(program, "addSource");
 	addSourceKernel.setArg(1, stateBuffer);
 }
@@ -34,10 +34,14 @@ std::vector<std::string> MaxwellRoe::getEigenProgramSources() {
 	return {};
 }
 
-void MaxwellRoe::calcDeriv(cl::Buffer derivBuffer) {
-	Super::calcDeriv(derivBuffer);
-	addSourceKernel.setArg(0, derivBuffer);
-	commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize);
+void MaxwellRoe::step() {
+	Super::step();
+	
+	//see ADM1DRoe::step() for my thoughts on source and separabe integration
+	integrator->integrate([&](cl::Buffer derivBuffer) {
+		addSourceKernel.setArg(0, derivBuffer);
+		commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize);
+	});
 }
 
 }

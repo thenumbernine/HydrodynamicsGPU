@@ -155,21 +155,21 @@ __kernel void calcCFL(
 		cflBuffer[index] = INFINITY;
 		return;
 	}
-
+	
 	real result = INFINITY;
 	for (int side = 0; side < DIM; ++side) {
 		int indexNext = index + stepsize[side];
 		
 		const __global real* eigenvaluesL = eigenvaluesBuffer + NUM_STATES * (side + DIM * index);
 		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexNext);
-
+		
 		real minLambda = min(0.f, eigenvaluesR[0]);
 		real maxLambda = max(0.f, eigenvaluesL[DIM+1]);
-
+		
 		real dum = dx[side] / (maxLambda - minLambda);
 		result = min(result, dum);
 	}
-		
+	
 	cflBuffer[index] = cfl * result;
 }
 

@@ -306,3 +306,41 @@ __kernel void subtract(
 	result[i] = a[i] - b[i];
 }
 
+//BackwardEulerConjugateGradient
+//http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
+//result[0] = a[i] * b[i]
+__kernel void dotBuffer(
+	__global real* result,
+	const __global real* a,
+	const __global real* b,
+	__local real* scratch,
+	__const int length)
+{
+	int i = get_global_id(0);
+	
+	// Loop sequentially over chunks of input vector
+	real accumulator = 0.f;
+	while (i < length) {
+		real a_i = a[i];
+		real b_i = b[i];
+		accumulator = a_i * b_i;
+		i += get_global_size(0);
+	}
+
+	// Perform parallel reduction
+	int local_index = get_local_id(0);
+	scratch[local_index] = accumulator;
+	barrier(CLK_LOCAL_MEM_FENCE);
+	for(int offset = get_local_size(0) / 2; offset > 0; offset = offset / 2) {
+		if (local_index < offset) {
+			real other = scratch[local_index + offset];
+			real mine = scratch[local_index];
+			scratch[local_index] = mine + other;
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+	}
+	if (local_index == 0) {
+		result[get_group_id(0)] = scratch[0];
+	}
+}
+

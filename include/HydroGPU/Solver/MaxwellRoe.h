@@ -10,20 +10,17 @@ Roe solver for Maxwell equations
 */
 struct MaxwellRoe : public Roe {
 	typedef Roe Super;
+	using Super::Super;
 
 protected:	
 	cl::Kernel addSourceKernel;
 
-public:
-	using Super::Super;
-	virtual void init();
-
-protected:
+	virtual void initKernels();
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 	virtual int getEigenTransformStructSize();
 	virtual std::vector<std::string> getEigenProgramSources();
-	virtual void calcDeriv(cl::Buffer derivBuffer);
+	virtual void step();
 };
 
 }

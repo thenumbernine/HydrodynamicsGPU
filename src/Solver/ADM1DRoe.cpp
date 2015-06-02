@@ -34,10 +34,16 @@ std::vector<std::string> ADM1DRoe::getEigenProgramSources() {
 	};
 }
 
-void ADM1DRoe::calcDeriv(cl::Buffer derivBuffer) {
-	Super::calcDeriv(derivBuffer);
-	addSourceKernel.setArg(0, derivBuffer);
-	commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize);
+void ADM1DRoe::step() {
+	Super::step();
+
+	//before I was adding sources into deriv computed by Roe flux
+	// now I'm separating the Roe flux deriv per-side (so it is truly separable)
+	// but in order to not scale the source by the dim, I have to integrate this separately (or divide by dim maybe?)
+	integrator->integrate([&](cl::Buffer derivBuffer) {
+		addSourceKernel.setArg(0, derivBuffer);
+		commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize);
+	});
 }
 
 }

@@ -94,20 +94,35 @@ void Roe::calcTimestep() {
 }
 
 void Roe::step() {
-	integrator->integrate([&](cl::Buffer derivBuffer) {
-		calcDeriv(derivBuffer);
-	});
+	for (int side = 0; side < app->dim; ++side) {
+		//every time we integrate along one axis, it can potentially change the eigenbasis of the next axis
+		//the "initStep" call already calced the eigenbasis once for the timestep, so we don't need to do this for side==0
+		// however for every subsequent side, we should update the eigenbasis
+		//NOTICE: if our dt is calculated based on side==0 then it might not necessarily be accurate for subsequent sides ...
+		if (side > 0) {
+			initStep();	//calcEigenBasisKernel and ... for MHDRoe ... clear flux flags
+		}
+
+		integrator->integrate([&](cl::Buffer derivBuffer) {
+			calcDeriv(derivBuffer, side);
+		});
+	}
 }
 
-void Roe::calcFlux() {
-	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
-}
-
-void Roe::calcDeriv(cl::Buffer derivBuffer) {
+void Roe::calcDeriv(cl::Buffer derivBuffer, int side) {
+	calcDeltaQTildeKernel.setArg(3, side);
 	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, nullptr, &calcDeltaQTildeEvent.clEvent);
-	calcFlux();
+	
+	calcFlux(side);
+	
 	calcFluxDerivKernel.setArg(0, derivBuffer);
+	calcFluxDerivKernel.setArg(2, side);
 	commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
+}
+
+void Roe::calcFlux(int side) {
+	calcFluxKernel.setArg(6, side);
+	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
 }
 
 }

@@ -47,6 +47,7 @@ slopeLimiterName = 'Superbee'
 
 --integratorName = 'ForwardEuler'
 integratorName = 'RungeKutta4'
+--integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
@@ -56,10 +57,14 @@ xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
 useFixedDT = false
 fixedDT = .125
-cfl = .5
+cfl = .25
 displayMethod = 'DENSITY'
 displayScale = 2
-boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
+boundaryMethods = {
+	{min='MIRROR', max='MIRROR'},
+	{min='MIRROR', max='MIRROR'},
+	{min='MIRROR', max='MIRROR'},
+}
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false
@@ -67,7 +72,7 @@ gravitationalConstant = 1	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful unit
 gaussSeidelMaxIter = 20
 
 showVectorField = false
-vectorFieldResolution = 32
+vectorFieldResolution = 64
 vectorFieldScale = .125
 
 -- Euler equations' constants:
@@ -87,16 +92,16 @@ conductivity = 1
 size = {32, 32, 32}
 vectorFieldResolution = 16
 --]]
--- [[ 2D
-size = {256, 256}
+--[[ 2D
+size = {1024, 1024}
 --]]
---[[ 1D
-size = {1024}
+-- [[ 1D
+size = {256}
 displayScale = .25
 --]]
 
 
--- [[ Euler
+--[[ Euler
 
 -- override solids:
 
@@ -123,9 +128,10 @@ function calcSolid(x,y,z)
 		return 1
 	end
 end
---]]=]
+--]=]
 --solidFilename = 'test-solid.png'
 
+--configurations['Sod']()
 configurations['Shock Bubble Interaction']()
 --configurations['Flow Around Cylinder']()
 --configurations['self-gravitation test 1']()
@@ -153,12 +159,12 @@ size = {1024}
 displayScale = 128
 --]]
 
---[[ ADM (3D)
+-- [[ ADM (3D)
 solverName = 'ADM3DRoe'
 configurations['ADM-3D']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 displayMethod = 'ALPHA'
-size = {1024} displayScale = 128
---size = {64, 64} displayScale = 1
+--size = {1024} displayScale = 128
+size = {64, 64} displayScale = 1
 --]]
 

@@ -293,17 +293,20 @@ return {
 	['Shock Bubble Interaction'] = function()
 		boundaryMethods = {
 			{min='PERIODIC', max='FREEFLOW'},
-			{min='PERIODIC', max='PERIODIC'},
-			{min='PERIODIC', max='PERIODIC'},
+			{min='FREEFLOW', max='FREEFLOW'},
+			{min='FREEFLOW', max='FREEFLOW'},
 		}
-		local bubbleX = 0 
+		local bubbleX = 0
 		local bubbleY = 0 
-		local bubbleRadius = 1/4
+		local bubbleZ = 0 
+		local bubbleRadius = .2
+		local pressureWaveX = -.225
 		initState = function(x,y,z)
+			local bubbleRSq = (x-bubbleX)^2 + (y-bubbleY)^2 + (z-bubbleZ)^2
 			return buildStateEuler{
 				x=x, y=y, z=z,
-				density = x*x + y*y + z*z < bubbleRadius*bubbleRadius and .01 or 1,
-				pressure = x < -.4 and 2 or .1,
+				density = bubbleRSq < bubbleRadius*bubbleRadius and .1 or 1,
+				pressure = (x < pressureWaveX) and 1.9 or .1,
 			}
 		end
 	end,
@@ -465,7 +468,7 @@ return {
 		local z = symmath.var'z'
 		local xs = table{x,y,z}
 		local function delta(i,j) return i == j and 1 or 0 end
-		local h = 5 * symmath.exp(-(x - xc)^2 / sigma^2)
+		local h = 5 * symmath.exp(-((x - xc)^2 + (y - yc)^2) / sigma^2)
 		local dh = xs:map(function(xi) return h:diff(xi):simplify() end)
 		local d2h = dh:map(function(dhi) return xs:map(function(xj) return dhi:diff(xj):simplify() end) end)
 		local g = xs:map(function(xi,i) return xs:map(function(xj,j) return (delta(xi,xj) - dh[i] * dh[j]):simplify() end) end)

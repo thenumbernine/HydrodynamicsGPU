@@ -1,6 +1,7 @@
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/Integrator/ForwardEuler.h"
 #include "HydroGPU/Integrator/RungeKutta4.h"
+#include "HydroGPU/Integrator/BackwardEulerConjugateGradient.h"
 #include "HydroGPU/Plot/VectorField.h"
 #include "HydroGPU/Plot/Plot1D.h"
 #include "HydroGPU/Plot/Plot2D.h"
@@ -152,6 +153,8 @@ OR I could just have the debug printfs also output their thread ID and filter al
 		integrator = std::make_shared<HydroGPU::Integrator::ForwardEuler>(this);
 	} else if (integratorName == "RungeKutta4") {
 		integrator = std::make_shared<HydroGPU::Integrator::RungeKutta4>(this);
+	} else if (integratorName == "BackwardEulerConjugateGradient") {
+		integrator = std::make_shared<HydroGPU::Integrator::BackwardEulerConjugateGradient>(this);
 	} else {
 		throw Common::Exception() << "failed to find integrator named " << integratorName;
 	}
@@ -447,6 +450,15 @@ std::cout << "event " << entry->name << std::endl;
 		entry->stat.accum((double)(end - start) * 1e-9);
 	}
 */
+}
+
+cl::Buffer Solver::createDStateDtMatrix() {
+	throw Common::Exception() << "not implemented";
+	return cl::Buffer();
+}
+
+void Solver::applyDStateDtMatrix(cl::Buffer result, cl::Buffer x) {
+	throw Common::Exception() << "not implemented";
 }
 
 void Solver::display() {

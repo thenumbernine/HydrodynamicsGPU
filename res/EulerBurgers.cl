@@ -62,7 +62,8 @@ __kernel void calcCFL(
 __kernel void calcInterfaceVelocity(
 	__global real* interfaceVelocityBuffer,
 	const __global real* stateBuffer,
-	const __global char* solidBuffer)
+	const __global char* solidBuffer,
+	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -77,36 +78,26 @@ __kernel void calcInterfaceVelocity(
 	}
 	int index = INDEXV(i);
 	int indexR = index;
-	for (int side = 0; side < DIM; ++side) {
-		int indexL = index - stepsize[side];
+	int indexL = index - stepsize[side];
 		
-		real densityL = stateBuffer[STATE_DENSITY + NUM_STATES * indexL];
-		real velocityL = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexL] / densityL;
-		
-		real densityR = stateBuffer[STATE_DENSITY + NUM_STATES * indexR];
-		real velocityR = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexR] / densityR;
+	real densityL = stateBuffer[STATE_DENSITY + NUM_STATES * indexL];
+	real velocityL = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexL] / densityL;
+	
+	real densityR = stateBuffer[STATE_DENSITY + NUM_STATES * indexR];
+	real velocityR = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexR] / densityR;
 
-		char solidL = solidBuffer[indexL];
-		char solidR = solidBuffer[indexR];
-		if (solidL && !solidR) {
-			velocityL = -velocityR;
-		} else if (solidR && !solidL) {
-			velocityR = -velocityL;
-		}
-		
-		interfaceVelocityBuffer[side + DIM * index] = .5f * (velocityL + velocityR);
+	char solidL = solidBuffer[indexL];
+	char solidR = solidBuffer[indexR];
+	if (solidL && !solidR) {
+		velocityL = -velocityR;
+	} else if (solidR && !solidL) {
+		velocityR = -velocityL;
 	}
+	
+	interfaceVelocityBuffer[side + DIM * index] = .5f * (velocityL + velocityR);
 }
 
-void calcFluxSide(
-	__global real* fluxStateCoeffBuffer,
-	const __global real* stateBuffer,
-	const __global real* interfaceVelocityBuffer,
-	const __global char* solidBuffer,	
-	const __global real* dtBuffer,
-	int side);
-
-void calcFluxSide(
+__kernel void calcFlux(
 	__global real* fluxStateCoeffBuffer,
 	const __global real* stateBuffer,
 	const __global real* interfaceVelocityBuffer,
@@ -114,10 +105,21 @@ void calcFluxSide(
 	const __global real* dtBuffer,
 	int side)
 {
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 1 
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 1
+#endif
+#endif
+	) {
+		return;
+	}
+
 	real dt = dtBuffer[0];
 	real4 dt_dx = dt / dx;
 
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	int indexR = index;
 
@@ -212,7 +214,9 @@ void calcFluxSide(
 		}
 		//2nd order stuff:
 		real phi = slopeLimiter(stateSlopeRatio);
-		real deltaStateCoeff = phi * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side]));// / (float)DIM;
+		real deltaStateCoeff = phi * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side]));
+		
+		//deltaStateCoeff /= (real)DIM;	//this wasn't in the Hydrodynamics II papers, but it seems to help.  there is some error with splitting higher dimensions.
 		
 		real coeffL = .5f * interfaceVelocity * (1.f + theta) - deltaStateCoeff;
 		real coeffR = .5f * interfaceVelocity * (1.f - theta) + deltaStateCoeff;
@@ -221,39 +225,11 @@ void calcFluxSide(
 	}
 }
 
-__kernel void calcFlux(
-	__global real* fluxStateCoeffBuffer,
-	const __global real* stateBuffer,
-	const __global real* interfaceVelocityBuffer,
-	const __global char* solidBuffer,	
-	const __global real* dtBuffer)
-{	
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 1 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 1 
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 1
-#endif
-#endif
-	) {
-		return;
-	}
-
-	for (int side = 0; side < DIM; ++side) {
-		calcFluxSide(fluxStateCoeffBuffer, stateBuffer, interfaceVelocityBuffer, solidBuffer, dtBuffer, side);
-	}
-}
-
 __kernel void calcDerivCoeffsFromFluxCoeffs(
 	__global real* derivStateCoeffBuffer,
 	const __global real* fluxStateCoeffBuffer,
-	const __global char* solidBuffer);
-
-__kernel void calcDerivCoeffsFromFluxCoeffs(
-	__global real* derivStateCoeffBuffer,
-	const __global real* fluxStateCoeffBuffer,
-	const __global char* solidBuffer)
+	const __global char* solidBuffer,
+	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
@@ -286,7 +262,8 @@ __kernel void calcDerivCoeffsFromFluxCoeffs(
 		derivStateCoeffsCenter[j] = 0.f;
 	}
 	
-	for (int side = 0; side < DIM; ++side) {
+	//for (int side = 0; side < DIM; ++side) 
+	{
 		//neighbor index: 0 = center, 1,2 = x-left, x-right, etc
 		__global real* derivStateCoeffsPrev = derivStateCoeffs + NUM_STATES * (0 + 2 * side);
 		__global real* derivStateCoeffsNext = derivStateCoeffs + NUM_STATES * (1 + 2 * side);
@@ -481,12 +458,15 @@ __kernel void diffuseWork(
 	}
 }
 
-//TODO this should go in Common.cl once I convert all the solvers over to support deriv coeffs / be implicit-compatible
+//this multiplies the derivative matrix -- sparse, but stored as a dense structure -- by the state buffer, unraveled as a vector
+//dState/dt = A*State
+//TODO should this go in Common.cl once I convert all the solvers over to support deriv coeffs / be implicit-compatible
 __kernel void calcDerivFromStateCoeffs(
-	__global real* derivBuffer,	//dstate/dt
-	const __global real* stateBuffer,
-	const __global real* derivStateCoeffBuffer,
-	const __global char* solidBuffer)
+	__global real* derivBuffer,	//resulting dState/dt
+	const __global real* stateBuffer,	//State
+	const __global real* derivStateCoeffBuffer,	//dense structure of sparse matrix
+	const __global char* solidBuffer,
+	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
@@ -512,7 +492,8 @@ __kernel void calcDerivFromStateCoeffs(
 		deriv[j] += state[j] * derivStateCoeffs[j + NUM_STATES * 2 * DIM];
 	}
 
-	for (int side = 0; side < DIM; ++side) {
+	//for (int side = 0; side < DIM; ++side)
+	{
 		int indexPrev = index - stepsize[side];
 		int indexNext = index + stepsize[side];
 		const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
@@ -523,5 +504,4 @@ __kernel void calcDerivFromStateCoeffs(
 		}
 	}
 }
-
 

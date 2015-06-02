@@ -47,17 +47,7 @@ __kernel void calcCFL(
 	cflBuffer[index] = cfl * result;
 }
 
-void calcDeltaQTildeSide(
-	__global real* deltaQTildeBuffer,
-	const __global real* eigenfieldsBuffer,
-	const __global real* stateBuffer,
-	int side
-#ifdef SOLID
-	, const __global char* solidBuffer
-#endif	//SOLID
-	);
-
-void calcDeltaQTildeSide(
+__kernel void calcDeltaQTilde(
 	__global real* deltaQTildeBuffer,
 	const __global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
@@ -68,6 +58,15 @@ void calcDeltaQTildeSide(
 )
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 1
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 1
+#endif
+	) return;
+	
 	int index = INDEXV(i);
 	int indexPrev = index - stepsize[side];
 	int interfaceIndex = side + DIM * index;
@@ -122,10 +121,14 @@ void calcDeltaQTildeSide(
 #endif	//ROE_EIGENFIELD_TRANSFORM_SEPARATE
 }
 
-__kernel void calcDeltaQTilde(
-	__global real* deltaQTildeBuffer,
+__kernel void calcFlux(
+	__global real* fluxBuffer,
+	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
 	const __global real* eigenfieldsBuffer,
-	const __global real* stateBuffer
+	const __global real* deltaQTildeBuffer,
+	const __global real* dtBuffer,
+	int side
 #ifdef SOLID
 	, const __global char* solidBuffer
 #endif	//SOLID
@@ -140,59 +143,14 @@ __kernel void calcDeltaQTilde(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 0
-#ifdef SOLID
-		, solidBuffer
-#endif	//SOLID
-	);
-#if DIM > 1
-	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 1
-#ifdef SOLID
-		, solidBuffer
-#endif	//SOLID
-	);
-#endif
-#if DIM > 2
-	calcDeltaQTildeSide(deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer, 2
-#ifdef SOLID
-		, solidBuffer
-#endif	//SOLID
-	);
-#endif
-}
+	
+	real dt = dtBuffer[0];
+	real dt_dx = dt / dx[side];
 
-void calcFluxSide(
-	__global real* fluxBuffer,
-	const __global real* stateBuffer,
-	const __global real* eigenvaluesBuffer,
-	const __global real* eigenfieldsBuffer,
-	const __global real* deltaQTildeBuffer,
-	real dt_dx,
-	int side
-#ifdef SOLID
-	, const __global char* solidBuffer
-#endif	//SOLID
-	);
-
-void calcFluxSide(
-	__global real* fluxBuffer,
-	const __global real* stateBuffer,
-	const __global real* eigenvaluesBuffer,
-	const __global real* eigenfieldsBuffer,
-	const __global real* deltaQTildeBuffer,
-	real dt_dx,
-	int side
-#ifdef SOLID
-	, const __global char* solidBuffer
-#endif	//SOLID
-)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	int indexR = index;	
 	
 	int indexL = index - stepsize[side];
-	int indexL2 = indexL - stepsize[side];
 	int indexR2 = indexR + stepsize[side];
 
 	int interfaceLIndex = side + DIM * indexL;
@@ -216,6 +174,7 @@ void calcFluxSide(
 		stateR[i] = stateBuffer[i + NUM_STATES * indexR];
 	}
 #ifdef SOLID
+	int indexL2 = indexL - stepsize[side];
 	char solidL = solidBuffer[indexL];
 	char solidR = solidBuffer[indexR];
 	if (solidL && !solidR) {
@@ -274,62 +233,21 @@ void calcFluxSide(
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
 
+		//TODO some research on >1D flux limiters
+		//this makes things stable, but I still haven't figured out why
+//		phi /= DIM;
+
 		real deltaFluxTilde = eigenvalue * deltaQTilde[i];
-		fluxTilde[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta)
-			// / (float)DIM	//?
-		);
+		fluxTilde[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta));
 	}
 
 	eigenfieldInverseTransform(flux, eigenfields, fluxTilde, side);
 }
 
-__kernel void calcFlux(
-	__global real* fluxBuffer,
-	const __global real* stateBuffer,
-	const __global real* eigenvaluesBuffer,
-	const __global real* eigenfieldsBuffer,
-	const __global real* deltaQTildeBuffer,
-	const __global real* dtBuffer
-#ifdef SOLID
-	, const __global char* solidBuffer
-#endif	//SOLID
-)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 1 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 1
-#endif
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 1
-#endif
-	) return;
-	
-	float dt = dtBuffer[0];
-	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DX, 0
-#ifdef SOLID
-	, solidBuffer
-#endif	//SOLID
-	); 
-#if DIM > 1
-	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DY, 1
-#ifdef SOLID
-	, solidBuffer
-#endif	//SOLID
-	); 
-#endif
-#if DIM > 2
-	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DZ, 2
-#ifdef SOLID
-	, solidBuffer
-#endif	//SOLID
-	); 
-#endif
-}
-
 __kernel void calcFluxDeriv(
 	__global real* derivBuffer,
-	const __global real* fluxBuffer
+	const __global real* fluxBuffer,
+	int side
 #ifdef SOLID
 	, const __global char* solidBuffer
 #endif	//SOLID
@@ -354,14 +272,12 @@ __kernel void calcFluxDeriv(
 
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
-	for (int side = 0; side < DIM; ++side) {
-		int indexNext = index + stepsize[side];
-		const __global real* fluxL = fluxBuffer + NUM_STATES * (side + DIM * index); 
-		const __global real* fluxR = fluxBuffer + NUM_STATES * (side + DIM * indexNext); 
-		for (int j = 0; j < NUM_STATES; ++j) {
-			real deltaFlux = fluxR[j] - fluxL[j];
-			deriv[j] -= deltaFlux / dx[side];
-		}
+	int indexNext = index + stepsize[side];
+	const __global real* fluxL = fluxBuffer + NUM_STATES * (side + DIM * index); 
+	const __global real* fluxR = fluxBuffer + NUM_STATES * (side + DIM * indexNext); 
+	for (int j = 0; j < NUM_STATES; ++j) {
+		real deltaFlux = fluxR[j] - fluxL[j];
+		deriv[j] -= deltaFlux / dx[side];
 	}
 }
 

@@ -5,15 +5,15 @@
 namespace HydroGPU {
 namespace Solver {
 
-void EulerRoe::init() {
-	Super::init();
+void EulerRoe::initKernels() {
+	Super::initKernels();
 	
 	//all Euler and MHD systems also have a separate potential buffer...
 	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer);
 	calcCFLKernel.setArg(3, selfgrav->solidBuffer);
-	calcDeltaQTildeKernel.setArg(3, selfgrav->solidBuffer);
-	calcFluxKernel.setArg(6, selfgrav->solidBuffer);
-	calcFluxDerivKernel.setArg(2, selfgrav->solidBuffer);
+	calcDeltaQTildeKernel.setArg(4, selfgrav->solidBuffer);
+	calcFluxKernel.setArg(7, selfgrav->solidBuffer);
+	calcFluxDerivKernel.setArg(3, selfgrav->solidBuffer);
 }
 
 void EulerRoe::createEquation() {

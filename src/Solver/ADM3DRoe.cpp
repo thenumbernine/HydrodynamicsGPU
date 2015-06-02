@@ -9,8 +9,8 @@ void ADM3DRoe::createEquation() {
 	equation = std::make_shared<HydroGPU::Equation::ADM3D>(this);
 }
 
-void ADM3DRoe::init() {
-	Super::init();
+void ADM3DRoe::initKernels() {
+	Super::initKernels();
 	
 	addSourceKernel = cl::Kernel(program, "addSource");
 	addSourceKernel.setArg(1, stateBuffer);
@@ -30,10 +30,14 @@ int ADM3DRoe::getEigenTransformStructSize() {
 	return numStates() + 6 + 1 + 1;	//states, gInv, g, f
 }
 
-void ADM3DRoe::calcDeriv(cl::Buffer derivBuffer) {
-	Super::calcDeriv(derivBuffer);
-	addSourceKernel.setArg(0, derivBuffer);
-	commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize);
+void ADM3DRoe::step() {
+	Super::step();
+
+	//see ADM1DRoe::step() for my thoughts on source and separabe integration
+	integrator->integrate([&](cl::Buffer derivBuffer) {
+		addSourceKernel.setArg(0, derivBuffer);
+		commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize);
+	});
 }
 
 }

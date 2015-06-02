@@ -9,21 +9,18 @@ namespace Solver {
 Roe solver for ADM3D equations
 */
 struct ADM3DRoe : public Roe {
-protected:
 	typedef Roe Super;
-	
+	using Super::Super;
+
+protected:
 	cl::Kernel addSourceKernel;
 
-public:
-	using Super::Super;
-	virtual void init();
-
-protected:
+	virtual void initKernels();
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 	virtual std::vector<std::string> getEigenProgramSources();
 	virtual int getEigenTransformStructSize();
-	virtual void calcDeriv(cl::Buffer derivBuffer);
+	virtual void step();
 };
 
 }

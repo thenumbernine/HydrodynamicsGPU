@@ -21,7 +21,7 @@ void MHDRoe::initKernels() {
 	//just like ordinary calcMHDFluxKernel -- and calls the ordinary
 	// -- but with an extra step to bail out of the associated fluxFlag is already set 
 	calcMHDFluxKernel = cl::Kernel(program, "calcMHDFlux");
-	app->setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dtBuffer, fluxFlagBuffer);
+	app->setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dtBuffer, 0, fluxFlagBuffer);
 }
 	
 void MHDRoe::createEquation() {
@@ -48,7 +48,8 @@ void MHDRoe::initStep() {
 //override parent call
 //call this instead
 //it'll call through the CL code if it's needed
-void MHDRoe::calcFlux() {
+void MHDRoe::calcFlux(int side) {
+	calcMHDFluxKernel.setArg(6, side);
 	commands.enqueueNDRangeKernel(calcMHDFluxKernel, offsetNd, globalSize, localSize);
 }
 
