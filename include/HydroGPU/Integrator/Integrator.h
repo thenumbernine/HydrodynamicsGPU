@@ -1,5 +1,6 @@
 #pragma once
 
+#include "HydroGPU/Shared/Common.h"	//cl shared header
 #include <OpenCL/cl.hpp>
 #include <functional>
 
@@ -12,7 +13,7 @@ namespace Integrator {
 struct Integrator {
 	HydroGPU::Solver::Solver* solver;
 	Integrator(HydroGPU::Solver::Solver* solver);
-	virtual void integrate(std::function<void(cl::Buffer)> callback) = 0;
+	virtual void integrate(real dt, std::function<void(cl::Buffer)> callback) = 0;
 
 	//temporary while restructuring...
 	virtual bool isImplicit() const { return false; }

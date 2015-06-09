@@ -17,7 +17,7 @@ ForwardEuler::ForwardEuler(HydroGPU::Solver::Solver* solver)
 	multAddKernel.setArg(2, derivBuffer);
 }
 
-void ForwardEuler::integrate(std::function<void(cl::Buffer)> callback) {
+void ForwardEuler::integrate(real dt, std::function<void(cl::Buffer)> callback) {
 	int length = solver->getVolume() * solver->numStates();
 	
 	//TODO store globalSize1d in Solver?
@@ -26,10 +26,6 @@ void ForwardEuler::integrate(std::function<void(cl::Buffer)> callback) {
 	solver->commands.enqueueFillBuffer(derivBuffer, 0.f, 0, sizeof(real) * length);
 
 	callback(derivBuffer);
-
-	//TODO do this in solver immediately after calcDT?
-	real dt;
-	solver->commands.enqueueReadBuffer(solver->dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
 
 	multAddKernel.setArg(3, dt);
 	solver->commands.enqueueNDRangeKernel(multAddKernel, solver->offset1d, globalSize1d, solver->localSize1d);

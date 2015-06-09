@@ -44,7 +44,6 @@ public:	//protected:
 	cl::Buffer stateBuffer;	//initialized by the child class, but used in arguments in the parent class
 	cl::Buffer cflBuffer;
 	cl::Buffer cflSwapBuffer;
-	cl::Buffer dtBuffer;
 	
 	cl::Kernel calcCFLMinReduceKernel;
 	cl::Kernel convertToTexKernel;
@@ -65,6 +64,9 @@ public:	//protected:
 
 	size_t totalAlloc;
 	
+	cl::Buffer dtBuffer;
+	real dt;
+
 public:
 	std::shared_ptr<HydroGPU::Equation::Equation> equation;
 	

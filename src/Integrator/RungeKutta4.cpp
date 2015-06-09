@@ -22,14 +22,10 @@ RungeKutta4::RungeKutta4(HydroGPU::Solver::Solver* solver)
 	multAddKernel.setArg(1, solver->stateBuffer);
 }
 
-void RungeKutta4::integrate(std::function<void(cl::Buffer)> callback) {
+void RungeKutta4::integrate(real dt, std::function<void(cl::Buffer)> callback) {
 	size_t length = solver->numStates() * solver->getVolume();
 	size_t bufferSize = sizeof(real) * length;
 	cl::NDRange globalSize1d(length);
-
-	//TODO do this in solver immediately after calcDT?
-	real dt;
-	solver->commands.enqueueReadBuffer(solver->dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
 
 	//store backup
 	solver->commands.enqueueCopyBuffer(solver->stateBuffer, restoreBuffer, 0, 0, bufferSize);
@@ -50,6 +46,7 @@ void RungeKutta4::integrate(std::function<void(cl::Buffer)> callback) {
 	
 	//integrate by dt/2 along deriv2
 	multAddKernel.setArg(2, deriv2Buffer);
+	multAddKernel.setArg(3, .5f * dt);
 	solver->commands.enqueueNDRangeKernel(multAddKernel, solver->offset1d, globalSize1d, solver->localSize1d);
 	
 	solver->commands.enqueueFillBuffer(deriv3Buffer, 0.f, 0, bufferSize);

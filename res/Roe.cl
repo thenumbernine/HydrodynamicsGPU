@@ -127,7 +127,7 @@ __kernel void calcFlux(
 	const __global real* eigenvaluesBuffer,
 	const __global real* eigenfieldsBuffer,
 	const __global real* deltaQTildeBuffer,
-	const __global real* dtBuffer,
+	real dt,
 	int side
 #ifdef SOLID
 	, const __global char* solidBuffer
@@ -144,7 +144,6 @@ __kernel void calcFlux(
 #endif
 	) return;
 	
-	real dt = dtBuffer[0];
 	real dt_dx = dt / dx[side];
 
 	int index = INDEXV(i);

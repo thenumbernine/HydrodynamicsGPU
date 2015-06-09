@@ -719,7 +719,7 @@ __kernel void calcMHDFlux(
 	const __global real* eigenvaluesBuffer,
 	const __global real* eigenfieldsBuffer,
 	const __global real* deltaQTildeBuffer,
-	const __global real* dtBuffer,
+	real dt,
 	int side,
 	const __global char* fluxFlagBuffer)
 {
@@ -727,7 +727,6 @@ __kernel void calcMHDFlux(
 	int index = INDEXV(i);
 	if (fluxFlagBuffer[side + DIM * index]) return;
 	
-	calcFlux(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dtBuffer, side);
+	calcFlux(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt, side);
 }
-
 

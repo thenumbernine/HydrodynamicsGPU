@@ -20,7 +20,7 @@ void HLL::init() {
 	app->setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, dtBuffer);
+	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer);
 
 	calcCFLKernel = cl::Kernel(program, "calcCFL");
 	app->setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app->cfl);
@@ -45,7 +45,8 @@ void HLL::calcTimestep() {
 }
 
 void HLL::step() {
-	integrator->integrate([&](cl::Buffer derivBuffer) {
+	calcFluxKernel.setArg(4, dt);
+	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize);
 		calcFluxDerivKernel.setArg(0, derivBuffer);
 		commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);

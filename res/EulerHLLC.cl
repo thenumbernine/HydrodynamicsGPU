@@ -422,7 +422,7 @@ __kernel void calcFlux(
 	const __global real* stateBuffer,
 	const __global real* eigenvaluesBuffer,
 	const __global real* potentialBuffer,
-	const __global real* dtBuffer)
+	real dt)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1
@@ -433,8 +433,6 @@ __kernel void calcFlux(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) return;
-	
-	real dt = dtBuffer[0];
 	
 	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dt/DX, 0);
 #if DIM > 1

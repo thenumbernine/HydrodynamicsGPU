@@ -99,7 +99,7 @@ void SelfGravitation::applyPotential() {
 	cl::NDRange localSize = solver->localSize;
 	cl::NDRange offsetNd = solver->offsetNd;
 	
-	solver->integrator->integrate([&](cl::Buffer derivBuffer) {
+	solver->integrator->integrate(solver->dt, [&](cl::Buffer derivBuffer) {
 		if (solver->app->useGravity) {
 			for (int i = 0; i < solver->app->gaussSeidelMaxIter; ++i) {
 				potentialBoundary();

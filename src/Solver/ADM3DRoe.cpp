@@ -34,7 +34,7 @@ void ADM3DRoe::step() {
 	Super::step();
 
 	//see ADM1DRoe::step() for my thoughts on source and separabe integration
-	integrator->integrate([&](cl::Buffer derivBuffer) {
+	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		addSourceKernel.setArg(0, derivBuffer);
 		commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize);
 	});

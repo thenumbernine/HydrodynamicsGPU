@@ -33,10 +33,10 @@ void MHDBurgers::init() {
 	app->setArgs(calcInterfaceMagneticFieldKernel, interfaceMagneticFieldBuffer, stateBuffer);
 
 	calcVelocityFluxKernel = cl::Kernel(program, "calcVelocityFlux");
-	app->setArgs(calcVelocityFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, dtBuffer);
+	app->setArgs(calcVelocityFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer);
 
 	calcMagneticFieldFluxKernel = cl::Kernel(program, "calcMagneticFieldFlux");
-	app->setArgs(calcMagneticFieldFluxKernel, fluxBuffer, stateBuffer, interfaceMagneticFieldBuffer, dtBuffer);
+	app->setArgs(calcMagneticFieldFluxKernel, fluxBuffer, stateBuffer, interfaceMagneticFieldBuffer);
 
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	//arg0 will be provided by the integrator
@@ -80,7 +80,8 @@ void MHDBurgers::step() {
 }
 
 void MHDBurgers::advectVelocity() {
-	integrator->integrate([&](cl::Buffer derivBuffer) {
+	calcVelocityFluxKernel.setArg(3, dt);
+	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize);
 		commands.enqueueNDRangeKernel(calcVelocityFluxKernel, offsetNd, globalSize, localSize);
 		calcFluxDerivKernel.setArg(0, derivBuffer);
@@ -90,7 +91,8 @@ void MHDBurgers::advectVelocity() {
 }
 
 void MHDBurgers::advectMagneticField() {
-	integrator->integrate([&](cl::Buffer derivBuffer) {
+	calcMagneticFieldFluxKernel.setArg(3, dt);
+	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(calcInterfaceMagneticFieldKernel, offsetNd, globalSize, localSize);
 		commands.enqueueNDRangeKernel(calcMagneticFieldFluxKernel, offsetNd, globalSize, localSize);
 		calcFluxDerivKernel.setArg(0, derivBuffer);
@@ -101,7 +103,7 @@ void MHDBurgers::advectMagneticField() {
 
 void MHDBurgers::diffusePressure() {
 	//the Hydrodynamics ii paper says it's important to diffuse momentum before work
-	integrator->integrate([&](cl::Buffer derivBuffer) {
+	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize);
 		diffuseMomentumKernel.setArg(0, derivBuffer);
 		commands.enqueueNDRangeKernel(diffuseMomentumKernel, offsetNd, globalSize, localSize);
@@ -110,7 +112,7 @@ void MHDBurgers::diffusePressure() {
 }
 
 void MHDBurgers::diffuseWork() {
-	integrator->integrate([&](cl::Buffer derivBuffer) {
+	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		//commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize);
 		diffuseWorkKernel.setArg(0, derivBuffer);
 		commands.enqueueNDRangeKernel(diffuseWorkKernel, offsetNd, globalSize, localSize);

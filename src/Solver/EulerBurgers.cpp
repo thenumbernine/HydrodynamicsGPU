@@ -88,8 +88,8 @@ void EulerBurgers::initKernels() {
 	app->setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer, selfgrav->solidBuffer);
 
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app->setArgs(calcFluxKernel, fluxStateCoeffBuffer, stateBuffer, interfaceVelocityBuffer, selfgrav->solidBuffer, dtBuffer);
-	
+	app->setArgs(calcFluxKernel, fluxStateCoeffBuffer, stateBuffer, interfaceVelocityBuffer, selfgrav->solidBuffer);
+
 	calcDerivCoeffsFromFluxCoeffsKernel = cl::Kernel(program, "calcDerivCoeffsFromFluxCoeffs");
 
 	calcDerivFromStateCoeffsKernel = cl::Kernel(program, "calcDerivFromStateCoeffs");
@@ -126,12 +126,13 @@ void EulerBurgers::calcTimestep() {
 void EulerBurgers::step() {
 	
 	for (int side = 0; side < app->dim; ++side) {
-		integrator->integrate([&](cl::Buffer derivBuffer) {
+		integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 			//both integrators do this ...
 			
 			calcInterfaceVelocityKernel.setArg(3, side);
 			commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize, nullptr, &calcInterfaceVelocityEvent.clEvent);
 		
+			calcFluxKernel.setArg(4, dt);
 			calcFluxKernel.setArg(5, side);
 			commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
 			
@@ -165,7 +166,7 @@ void EulerBurgers::step() {
 	selfgrav->applyPotential();
 	
 	//the Hydrodynamics ii paper says it's important to diffuse momentum before work
-	pressureIntegrator->integrate([&](cl::Buffer derivBuffer) {
+	pressureIntegrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize, nullptr, &computePressureEvent.clEvent);
 		
 		diffuseMomentumKernel.setArg(0, derivBuffer);
@@ -177,7 +178,7 @@ void EulerBurgers::step() {
 	});
 	boundary();
 
-	pressureIntegrator->integrate([&](cl::Buffer derivBuffer) {
+	pressureIntegrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		//commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize, nullptr, &computePressureEvent.clEvent);
 		diffuseWorkKernel.setArg(0, derivBuffer);
 		commands.enqueueNDRangeKernel(diffuseWorkKernel, offsetNd, globalSize, localSize, nullptr, &diffuseWorkEvent.clEvent);

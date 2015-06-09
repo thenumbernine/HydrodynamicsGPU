@@ -40,7 +40,7 @@ void ADM1DRoe::step() {
 	//before I was adding sources into deriv computed by Roe flux
 	// now I'm separating the Roe flux deriv per-side (so it is truly separable)
 	// but in order to not scale the source by the dim, I have to integrate this separately (or divide by dim maybe?)
-	integrator->integrate([&](cl::Buffer derivBuffer) {
+	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		addSourceKernel.setArg(0, derivBuffer);
 		commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize);
 	});

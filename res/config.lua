@@ -45,8 +45,8 @@ slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
---integratorName = 'ForwardEuler'
-integratorName = 'RungeKutta4'
+integratorName = 'ForwardEuler'
+--integratorName = 'RungeKutta4'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 
@@ -92,16 +92,16 @@ conductivity = 1
 size = {32, 32, 32}
 vectorFieldResolution = 16
 --]]
---[[ 2D
-size = {1024, 1024}
+-- [[ 2D
+size = {256, 256}
 --]]
--- [[ 1D
+--[[ 1D
 size = {256}
 displayScale = .25
 --]]
 
 
---[[ Euler
+-- [[ Euler
 
 -- override solids:
 
@@ -131,8 +131,8 @@ end
 --]=]
 --solidFilename = 'test-solid.png'
 
---configurations['Sod']()
-configurations['Shock Bubble Interaction']()
+configurations['Sod']()
+--configurations['Shock Bubble Interaction']()
 --configurations['Flow Around Cylinder']()
 --configurations['self-gravitation test 1']()
 --]]
@@ -159,7 +159,7 @@ size = {1024}
 displayScale = 128
 --]]
 
--- [[ ADM (3D)
+--[[ ADM (3D)
 solverName = 'ADM3DRoe'
 configurations['ADM-3D']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}

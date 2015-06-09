@@ -177,7 +177,8 @@ void Solver::initBuffers() {
 		for (real &r : cflVec) { r = std::numeric_limits<real>::max(); }
 		commands.enqueueWriteBuffer(cflBuffer, CL_TRUE, 0, sizeof(real) * volume, &cflVec[0]);
 	}
-	
+
+	dt = app->fixedDT;
 	commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app->fixedDT);
 
 	vectorField = std::make_shared<HydroGPU::Plot::VectorField>(this);
@@ -418,6 +419,7 @@ void Solver::findMinTimestep() {
 		std::swap(dst, src);
 		reduceSize = nextSize;
 	}
+	commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
 }
 
 void Solver::initStep() {
@@ -425,8 +427,6 @@ void Solver::initStep() {
 
 void Solver::update() {
 	if (app->showTimestep) {
-		real dt;
-		commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
 		std::cout << "dt " << dt << std::endl;
 	}
 

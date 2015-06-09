@@ -62,8 +62,8 @@ void Roe::initKernels() {
 	app->setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dtBuffer);
-	
+	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer);
+
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	calcFluxDerivKernel.setArg(1, fluxBuffer);
 }	
@@ -94,18 +94,27 @@ void Roe::calcTimestep() {
 }
 
 void Roe::step() {
-	for (int side = 0; side < app->dim; ++side) {
+	calcFluxKernel.setArg(5, dt);
+	for (int sideIndex = 0; sideIndex < 2 * app->dim - 1; ++sideIndex) {
+		
 		//every time we integrate along one axis, it can potentially change the eigenbasis of the next axis
 		//the "initStep" call already calced the eigenbasis once for the timestep, so we don't need to do this for side==0
 		// however for every subsequent side, we should update the eigenbasis
 		//NOTICE: if our dt is calculated based on side==0 then it might not necessarily be accurate for subsequent sides ...
-		if (side > 0) {
+		//also NOTICE: no need to calculate *all* sides each initStep
+		if (sideIndex > 0) {
 			initStep();	//calcEigenBasisKernel and ... for MHDRoe ... clear flux flags
 		}
 
-		integrator->integrate([&](cl::Buffer derivBuffer) {
-			calcDeriv(derivBuffer, side);
-		});
+		int side = sideIndex;
+		if (side >= app->dim) side = 2 * app->dim - 2 - side;
+
+		integrator->integrate(
+			side == app->dim-1 ? dt : (.5f * dt),
+			[&](cl::Buffer derivBuffer) {
+				calcDeriv(derivBuffer, side);
+			}
+		);
 	}
 }
 
@@ -121,6 +130,7 @@ void Roe::calcDeriv(cl::Buffer derivBuffer, int side) {
 }
 
 void Roe::calcFlux(int side) {
+	calcFluxKernel.setArg(5, dt);
 	calcFluxKernel.setArg(6, side);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);
 }

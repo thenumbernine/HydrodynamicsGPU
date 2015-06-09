@@ -9,7 +9,7 @@ namespace Integrator {
 struct BackwardEulerConjugateGradient : public Integrator {
 	typedef Integrator Super;
 	BackwardEulerConjugateGradient(HydroGPU::Solver::Solver* solver);
-	virtual void integrate(std::function<void(cl::Buffer)> callback);
+	virtual void integrate(real dt, std::function<void(cl::Buffer)> callback);
 	
 	//temporary while restructuring
 	virtual bool isImplicit() const { return true; }

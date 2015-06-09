@@ -8,7 +8,7 @@ namespace Integrator {
 struct RungeKutta4 : public Integrator {
 	typedef Integrator Super;
 	RungeKutta4(HydroGPU::Solver::Solver* solver);
-	virtual void integrate(std::function<void(cl::Buffer)> callback);
+	virtual void integrate(real dt, std::function<void(cl::Buffer)> callback);
 protected:
 	cl::Buffer restoreBuffer;
 	cl::Buffer deriv1Buffer;

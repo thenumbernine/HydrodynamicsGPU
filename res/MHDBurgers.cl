@@ -89,9 +89,8 @@ __kernel void calcVelocityFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* interfaceVelocityBuffer,
-	const __global real* dtBuffer)
+	real dt)
 {
-	real dt = dtBuffer[0];
 	real4 dt_dx = dt / dx;
 	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -208,9 +207,8 @@ __kernel void calcMagneticFieldFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* interfaceMagneticFieldBuffer,
-	const __global real* dtBuffer)
+	real dt)
 {
-	real dt = dtBuffer[0];
 	real4 dt_dx = dt / dx;
 	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);

@@ -84,15 +84,11 @@ void BackwardEulerConjugateGradient::applyLinear(cl::Buffer result, cl::Buffer x
 	//result = x - dt * D * x = (I - dt * D) * x
 }
 
-void BackwardEulerConjugateGradient::integrate(std::function<void(cl::Buffer)> callback) {
+void BackwardEulerConjugateGradient::integrate(real dt, std::function<void(cl::Buffer)> callback) {
 	size_t length = solver->getVolume() * solver->numStates();
 	size_t bufferSize = sizeof(real) * length;
 	const int maxIter = 20;
 	const real epsilon = 1e-3;
-
-	//TODO put this in Solver
-	real dt;
-	solver->commands.enqueueReadBuffer(solver->dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
 
 	//implicit doesn't fill a partial derivative buffer
 	//instead it operates on the coeff buffer

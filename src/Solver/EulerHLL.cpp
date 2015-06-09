@@ -10,7 +10,7 @@ void EulerHLL::init() {
 
 	//all Euler and MHD systems also have a separate potential buffer...
 	app->setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer, selfgrav->potentialBuffer);
-	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, selfgrav->potentialBuffer, dtBuffer);
+	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, selfgrav->potentialBuffer);
 }
 
 void EulerHLL::createEquation() {

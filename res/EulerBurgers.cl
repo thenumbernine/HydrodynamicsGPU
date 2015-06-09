@@ -102,7 +102,7 @@ __kernel void calcFlux(
 	const __global real* stateBuffer,
 	const __global real* interfaceVelocityBuffer,
 	const __global char* solidBuffer,	
-	const __global real* dtBuffer,
+	real dt,
 	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -117,7 +117,6 @@ __kernel void calcFlux(
 		return;
 	}
 
-	real dt = dtBuffer[0];
 	real4 dt_dx = dt / dx;
 
 	int index = INDEXV(i);
