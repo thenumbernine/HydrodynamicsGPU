@@ -165,21 +165,19 @@ void Solver::initBuffers() {
 	int volume = getVolume();
 
 	//not necessary for fixed timestep.  TODO don't allocate in that case.
-	cflBuffer = clAlloc(sizeof(real) * volume, "Solver::cflBuffer");
-	cflSwapBuffer = clAlloc(sizeof(real) * volume / localSize[0], "Solver::cflSwapBuffer");
+	dtBuffer = clAlloc(sizeof(real) * volume, "Solver::dtBuffer");
+	dtSwapBuffer = clAlloc(sizeof(real) * volume / localSize[0], "Solver::dtSwapBuffer");
 	
-	dtBuffer = clAlloc(sizeof(real16), "Solver::dtBuffer");
 	stateBuffer = clAlloc(sizeof(real) * numStates() * volume, "Solver::stateBuffer");
 	
 	//get the edges, so reduction doesn't
 	{
-		std::vector<real> cflVec(volume);
-		for (real &r : cflVec) { r = std::numeric_limits<real>::max(); }
-		commands.enqueueWriteBuffer(cflBuffer, CL_TRUE, 0, sizeof(real) * volume, &cflVec[0]);
+		std::vector<real> dtVec(volume);
+		for (real &r : dtVec) { r = std::numeric_limits<real>::max(); }
+		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real) * volume, &dtVec[0]);
 	}
 
 	dt = app->fixedDT;
-	commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &app->fixedDT);
 
 	vectorField = std::make_shared<HydroGPU::Plot::VectorField>(this);
 	
@@ -229,8 +227,8 @@ void Solver::initKernels() {
 		}
 	}
 	
-	calcCFLMinReduceKernel = cl::Kernel(program, "calcCFLMinReduce");
-	app->setArgs(calcCFLMinReduceKernel, cflBuffer, cl::Local(localSize[0] * sizeof(real)), volume, cflSwapBuffer);
+	findMinTimestepReduceKernel = cl::Kernel(program, "findMinTimestepReduce");
+	app->setArgs(findMinTimestepReduceKernel, dtBuffer, cl::Local(localSize[0] * sizeof(real)), volume, dtSwapBuffer);
 	
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
 	app->setArgs(convertToTexKernel, stateBuffer, fluidTexMem, app->gradientTexMem);
@@ -406,20 +404,21 @@ void Solver::boundary() {
 
 void Solver::findMinTimestep() {
 	int reduceSize = getVolume();
-	cl::Buffer dst = cflSwapBuffer;
-	cl::Buffer src = cflBuffer;
+	cl::Buffer dst = dtSwapBuffer;
+	cl::Buffer src = dtBuffer;
 	while (reduceSize > 1) {
 		int nextSize = (reduceSize >> 4) + !!(reduceSize & ((1 << 4) - 1));
 		cl::NDRange reduceGlobalSize(std::max<int>(reduceSize, localSize[0]));
-		calcCFLMinReduceKernel.setArg(0, src);
-		calcCFLMinReduceKernel.setArg(2, reduceSize);
-		calcCFLMinReduceKernel.setArg(3, nextSize == 1 ? dtBuffer : dst);
-		commands.enqueueNDRangeKernel(calcCFLMinReduceKernel, offset1d, reduceGlobalSize, localSize1d);
+		findMinTimestepReduceKernel.setArg(0, src);
+		findMinTimestepReduceKernel.setArg(2, reduceSize);
+		findMinTimestepReduceKernel.setArg(3, dst);
+		commands.enqueueNDRangeKernel(findMinTimestepReduceKernel, offset1d, reduceGlobalSize, localSize1d);
 		if (app->useGPU) commands.finish();
 		std::swap(dst, src);
 		reduceSize = nextSize;
 	}
-	commands.enqueueReadBuffer(dtBuffer, CL_TRUE, 0, sizeof(real), &dt);
+	commands.enqueueReadBuffer(src, CL_TRUE, 0, sizeof(real), &dt);
+	dt *= app->cfl;
 }
 
 void Solver::initStep() {

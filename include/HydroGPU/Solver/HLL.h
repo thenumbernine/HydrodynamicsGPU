@@ -17,7 +17,7 @@ struct HLL : public Solver {
 	
 	cl::Kernel calcEigenvaluesKernel;
 	cl::Kernel calcFluxKernel;
-	cl::Kernel calcCFLKernel;
+	cl::Kernel findMinTimestepKernel;
 	cl::Kernel calcFluxDerivKernel;
 	
 	using Super::Super;

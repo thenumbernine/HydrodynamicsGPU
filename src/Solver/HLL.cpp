@@ -22,8 +22,8 @@ void HLL::init() {
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
 	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer);
 
-	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app->setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app->cfl);
+	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
+	app->setArgs(findMinTimestepKernel, dtBuffer, eigenvaluesBuffer);
 	
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	calcFluxDerivKernel.setArg(1, fluxBuffer);
@@ -40,7 +40,7 @@ void HLL::initStep() {
 }
 
 void HLL::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize);
+	commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize);
 	findMinTimestep();	
 }
 

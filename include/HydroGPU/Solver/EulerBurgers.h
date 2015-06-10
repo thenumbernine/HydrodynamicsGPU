@@ -17,7 +17,7 @@ protected:
 	cl::Buffer derivStateCoeffBuffer;
 	cl::Buffer pressureBuffer;
 
-	cl::Kernel calcCFLKernel;
+	cl::Kernel findMinTimestepKernel;
 	cl::Kernel calcInterfaceVelocityKernel;
 	cl::Kernel calcFluxKernel;
 	cl::Kernel calcDerivCoeffsFromFluxCoeffsKernel;
@@ -26,7 +26,7 @@ protected:
 	cl::Kernel diffuseMomentumKernel;
 	cl::Kernel diffuseWorkKernel;
 	
-	EventProfileEntry calcCFLEvent;
+	EventProfileEntry findMinTimestepEvent;
 	EventProfileEntry calcInterfaceVelocityEvent;
 	EventProfileEntry calcFluxEvent;
 	EventProfileEntry computePressureEvent;

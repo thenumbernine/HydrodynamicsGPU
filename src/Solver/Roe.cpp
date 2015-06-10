@@ -7,8 +7,8 @@ namespace Solver {
 Roe::Roe(
 	HydroGPUApp* app_)
 : Super(app_)
-, calcEigenBasisEvent("calcEigenBasis")
-, calcCFLEvent("calcCFL")
+, calcEigenBasisSideEvent("calcEigenBasisSide")
+, findMinTimestepEvent("findMinTimestep")
 , calcDeltaQTildeEvent("calcDeltaQTilde")
 , calcFluxEvent("calcFlux")
 {
@@ -19,9 +19,9 @@ void Roe::init() {
 	
 	cl::Context context = app->context;
 
-	entries.push_back(&calcEigenBasisEvent);
+	entries.push_back(&calcEigenBasisSideEvent);
 	if (!app->useFixedDT) {
-		entries.push_back(&calcCFLEvent);
+		entries.push_back(&findMinTimestepEvent);
 	}
 	entries.push_back(&calcDeltaQTildeEvent);
 	entries.push_back(&calcFluxEvent);
@@ -52,11 +52,11 @@ int Roe::getEigenSpaceDim() {
 void Roe::initKernels() {
 	Super::initKernels();
 	
-	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
-	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer);
+	calcEigenBasisSideKernel = cl::Kernel(program, "calcEigenBasisSide");
+	app->setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer);
 
-	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app->setArgs(calcCFLKernel, cflBuffer, eigenvaluesBuffer, app->cfl);
+	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
+	app->setArgs(findMinTimestepKernel, dtBuffer, eigenvaluesBuffer);
 	
 	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
 	app->setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer);
@@ -83,13 +83,26 @@ std::vector<std::string> Roe::getEigenProgramSources() {
 		"#include \"RoeEigenfieldLinear.cl\"\n"
 	};
 }
+	
+void Roe::initFluxSide(int side) {
+	calcEigenBasisSideKernel.setArg(5, side);
+	commands.enqueueNDRangeKernel(calcEigenBasisSideKernel, offsetNd, globalSize, localSize, nullptr, &calcEigenBasisSideEvent.clEvent);
+}
 
 void Roe::initStep() {
-	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize, nullptr, &calcEigenBasisEvent.clEvent);
+	for (int side = 0; side < app->dim; ++side) {
+		initFluxSide(side);
+	}
 }
 
 void Roe::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, nullptr, &calcCFLEvent.clEvent);
+	//TODO for each side: 
+	//	calc side's interface primitives
+	//	calc eigenvalues for side based on primitives
+	//	calc dt for eigenvalues
+	//use min of all side's dt's
+	
+	commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize, nullptr, &findMinTimestepEvent.clEvent);
 	findMinTimestep();
 }
 
@@ -97,18 +110,19 @@ void Roe::step() {
 	calcFluxKernel.setArg(5, dt);
 	for (int sideIndex = 0; sideIndex < 2 * app->dim - 1; ++sideIndex) {
 		
-		//every time we integrate along one axis, it can potentially change the eigenbasis of the next axis
-		//the "initStep" call already calced the eigenbasis once for the timestep, so we don't need to do this for side==0
-		// however for every subsequent side, we should update the eigenbasis
-		//NOTICE: if our dt is calculated based on side==0 then it might not necessarily be accurate for subsequent sides ...
-		//also NOTICE: no need to calculate *all* sides each initStep
-		if (sideIndex > 0) {
-			initStep();	//calcEigenBasisKernel and ... for MHDRoe ... clear flux flags
-		}
-
 		int side = sideIndex;
 		if (side >= app->dim) side = 2 * app->dim - 2 - side;
-
+	
+		//TODO except first iteration:
+		//	calc interface primitives
+		//	calc eigenvalues (not needed for first sideIndex) and eigenvectors
+		//(unless the interface primtive buffer only stores one side, then they'll need to be recalculated,
+		//	...unless the calcTimestep() function cycles through all sides from last to first)
+		
+		if (sideIndex > 0) {
+			initFluxSide(side);
+		}
+			
 		integrator->integrate(
 			side == app->dim-1 ? dt : (.5f * dt),
 			[&](cl::Buffer derivBuffer) {

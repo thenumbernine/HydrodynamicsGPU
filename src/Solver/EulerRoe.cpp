@@ -9,8 +9,8 @@ void EulerRoe::initKernels() {
 	Super::initKernels();
 	
 	//all Euler and MHD systems also have a separate potential buffer...
-	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer);
-	calcCFLKernel.setArg(3, selfgrav->solidBuffer);
+	app->setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer);
+	findMinTimestepKernel.setArg(2, selfgrav->solidBuffer);
 	calcDeltaQTildeKernel.setArg(4, selfgrav->solidBuffer);
 	calcFluxKernel.setArg(7, selfgrav->solidBuffer);
 	calcFluxDerivKernel.setArg(3, selfgrav->solidBuffer);

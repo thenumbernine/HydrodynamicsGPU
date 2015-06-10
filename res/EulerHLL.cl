@@ -137,10 +137,9 @@ __kernel void calcEigenvalues(
 
 //do we want to use interface wavespeeds to calculate cfl?
 // esp when the flux values are computed from cell wavespeeds
-__kernel void calcCFL(
-	__global real* cflBuffer,
-	const __global real* eigenvaluesBuffer,
-	real cfl)
+__kernel void findMinTimestep(
+	__global real* dtBuffer,
+	const __global real* eigenvaluesBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
@@ -152,7 +151,7 @@ __kernel void calcCFL(
 		|| i.z < 2 || i.z >= SIZE_Z - 1
 #endif
 	) {
-		cflBuffer[index] = INFINITY;
+		dtBuffer[index] = INFINITY;
 		return;
 	}
 	
@@ -170,7 +169,7 @@ __kernel void calcCFL(
 		result = min(result, dum);
 	}
 	
-	cflBuffer[index] = cfl * result;
+	dtBuffer[index] = result;
 }
 
 void calcFluxSide(

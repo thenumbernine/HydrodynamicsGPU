@@ -1,10 +1,9 @@
 #include "HydroGPU/Shared/Common.h"
 #include "HydroGPU/Roe.h"
 
-__kernel void calcCFL(
-	__global real* cflBuffer,
-	const __global real* eigenvaluesBuffer,
-	real cfl
+__kernel void findMinTimestep(
+	__global real* dtBuffer,
+	const __global real* eigenvaluesBuffer
 #ifdef SOLID
 	, const __global char* solidBuffer
 #endif	//SOLID
@@ -20,7 +19,7 @@ __kernel void calcCFL(
 		|| i.z < 2 || i.z >= SIZE_Z - 2
 #endif
 	) {
-		cflBuffer[index] = INFINITY;
+		dtBuffer[index] = INFINITY;
 		return;
 	}
 	int indexL = index;
@@ -44,7 +43,7 @@ __kernel void calcCFL(
 		result = min(result, dum);
 	}
 	
-	cflBuffer[index] = cfl * result;
+	dtBuffer[index] = result;
 }
 
 __kernel void calcDeltaQTilde(

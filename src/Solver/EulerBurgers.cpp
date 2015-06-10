@@ -11,7 +11,7 @@ namespace Solver {
 EulerBurgers::EulerBurgers(
 	HydroGPUApp* app_)
 : Super(app_)
-, calcCFLEvent("calcCFL")
+, findMinTimestepEvent("findMinTimestep")
 , calcInterfaceVelocityEvent("calcInterfaceVelocity")
 , calcFluxEvent("calcFlux")
 , computePressureEvent("computePressure")
@@ -26,7 +26,7 @@ void EulerBurgers::init() {
 	cl::Context context = app->context;
 	
 	if (!app->useFixedDT) {
-		entries.push_back(&calcCFLEvent);
+		entries.push_back(&findMinTimestepEvent);
 	}
 	entries.push_back(&calcInterfaceVelocityEvent);
 	entries.push_back(&calcFluxEvent);
@@ -81,8 +81,8 @@ void EulerBurgers::applyDStateDtMatrix(cl::Buffer result, cl::Buffer x) {
 void EulerBurgers::initKernels() {
 	Super::initKernels();
 	
-	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app->setArgs(calcCFLKernel, cflBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer, app->cfl);
+	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
+	app->setArgs(findMinTimestepKernel, dtBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer);
 	
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
 	app->setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer, selfgrav->solidBuffer);
@@ -119,8 +119,8 @@ std::vector<std::string> EulerBurgers::getProgramSources() {
 }
 
 void EulerBurgers::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize, nullptr, &calcCFLEvent.clEvent);
-	findMinTimestep();	
+	commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize, nullptr, &findMinTimestepEvent.clEvent);
+	findMinTimestep();
 }
 
 void EulerBurgers::step() {

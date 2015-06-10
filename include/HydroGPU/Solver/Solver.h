@@ -42,10 +42,10 @@ public:	//protected:
 	cl::CommandQueue commands;
 
 	cl::Buffer stateBuffer;	//initialized by the child class, but used in arguments in the parent class
-	cl::Buffer cflBuffer;
-	cl::Buffer cflSwapBuffer;
+	cl::Buffer dtBuffer;
+	cl::Buffer dtSwapBuffer;
 	
-	cl::Kernel calcCFLMinReduceKernel;
+	cl::Kernel findMinTimestepReduceKernel;
 	cl::Kernel convertToTexKernel;
 
 	std::vector<std::vector<std::vector<cl::Kernel>>> boundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim][min/max];
@@ -64,7 +64,6 @@ public:	//protected:
 
 	size_t totalAlloc;
 	
-	cl::Buffer dtBuffer;
 	real dt;
 
 public:

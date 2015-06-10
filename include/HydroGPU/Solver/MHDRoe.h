@@ -28,6 +28,7 @@ protected:
 	virtual void initStep();
 	virtual void calcFlux(int side);
 	virtual void step();
+	virtual void initFluxSide(int side);
 };
 
 }

@@ -5,15 +5,7 @@ paritcularly the spectral decomposition
 
 #include "HydroGPU/Shared/Common.h"
 
-void calcEigenBasisSide(
-	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
-	const __global real* primitiveBuffer,
-	const __global real* stateBuffer,
-	const __global real* potentialBuffer,
-	int side);
-
-void calcEigenBasisSide(
+__kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenfieldsBuffer,
 	const __global real* primitiveBuffer,
@@ -22,6 +14,14 @@ void calcEigenBasisSide(
 	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 1
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 1
+#endif
+	) return;
 
 	int index = INDEXV(i);
 	int indexPrev = index - stepsize[side];
@@ -282,30 +282,4 @@ void calcEigenBasisSide(
 #endif
 
 }
-
-__kernel void calcEigenBasis(
-	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
-	const __global real* primitiveBuffer,
-	const __global real* stateBuffer,
-	const __global real* potentialBuffer)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 1 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 1
-#endif
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 1
-#endif
-	) return;
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, primitiveBuffer, stateBuffer, potentialBuffer, 0);
-#if DIM > 1
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, primitiveBuffer, stateBuffer, potentialBuffer, 1);
-#endif
-#if DIM > 2
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, primitiveBuffer, stateBuffer, potentialBuffer, 2);
-#endif
-}
-
 

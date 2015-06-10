@@ -131,8 +131,8 @@ end
 --]=]
 --solidFilename = 'test-solid.png'
 
-configurations['Sod']()
---configurations['Shock Bubble Interaction']()
+--configurations['Sod']()
+configurations['Shock Bubble Interaction']()
 --configurations['Flow Around Cylinder']()
 --configurations['self-gravitation test 1']()
 --]]

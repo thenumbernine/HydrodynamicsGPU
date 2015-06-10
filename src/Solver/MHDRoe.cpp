@@ -16,7 +16,7 @@ void MHDRoe::initKernels() {
 	Super::initKernels();
 
 	//all Euler and MHD systems also have a separate potential buffer...
-	app->setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, selfgrav->potentialBuffer, fluxBuffer, fluxFlagBuffer);
+	app->setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, selfgrav->potentialBuffer, fluxBuffer, 0, fluxFlagBuffer);
 
 	//just like ordinary calcMHDFluxKernel -- and calls the ordinary
 	// -- but with an extra step to bail out of the associated fluxFlag is already set 
@@ -34,13 +34,18 @@ std::vector<std::string> MHDRoe::getProgramSources() {
 	return sources;
 }
 
-void MHDRoe::initStep() {
+void MHDRoe::initFluxSide(int side) {
 	//MHD-Roe is special in that it can write fluxes during the calc eigen basis kernel
 	//(in the case of negative fluxes)
 	// so for that, I'm going to fill the flux kernel to some flag beforehand.
 	// zero is a safe flag, right?  no ... not for steady states ...
 	commands.enqueueFillBuffer(fluxFlagBuffer, 0, 0, getVolume() * app->dim);
-	
+
+	Super::initFluxSide(side);
+}
+
+void MHDRoe::initStep() {
+
 	//and fill buffer
 	Super::initStep();
 }

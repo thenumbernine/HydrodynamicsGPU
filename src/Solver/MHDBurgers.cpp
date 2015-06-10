@@ -23,8 +23,8 @@ void MHDBurgers::init() {
 	commands.enqueueFillBuffer(interfaceMagneticFieldBuffer, 0.f, 0, sizeof(real) * volume * app->dim);
 	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app->dim);
 
-	calcCFLKernel = cl::Kernel(program, "calcCFL");
-	app->setArgs(calcCFLKernel, cflBuffer, stateBuffer, selfgrav->potentialBuffer, app->cfl);
+	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
+	app->setArgs(findMinTimestepKernel, dtBuffer, stateBuffer, selfgrav->potentialBuffer);
 	
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
 	app->setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer);
@@ -64,7 +64,7 @@ std::vector<std::string> MHDBurgers::getProgramSources() {
 }
 
 void MHDBurgers::calcTimestep() {
-	commands.enqueueNDRangeKernel(calcCFLKernel, offsetNd, globalSize, localSize);
+	commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize);
 	findMinTimestep();	
 }
 

@@ -8,7 +8,7 @@ namespace Solver {
 
 /*
 General Roe solver
-Missing calcEigenBasis
+subclasses need to implement calcEigenBasisSide
 */
 struct Roe : public Solver {
 	typedef Solver Super;
@@ -18,14 +18,14 @@ struct Roe : public Solver {
 	cl::Buffer deltaQTildeBuffer;
 	cl::Buffer fluxBuffer;
 	
-	cl::Kernel calcEigenBasisKernel;
-	cl::Kernel calcCFLKernel;
+	cl::Kernel calcEigenBasisSideKernel;
+	cl::Kernel findMinTimestepKernel;
 	cl::Kernel calcDeltaQTildeKernel;
 	cl::Kernel calcFluxKernel;
 	cl::Kernel calcFluxDerivKernel;
 	
-	EventProfileEntry calcEigenBasisEvent;
-	EventProfileEntry calcCFLEvent;
+	EventProfileEntry calcEigenBasisSideEvent;
+	EventProfileEntry findMinTimestepEvent;
 	EventProfileEntry calcDeltaQTildeEvent;
 	EventProfileEntry calcFluxEvent;
 	
@@ -39,6 +39,7 @@ protected:
 	virtual int getEigenSpaceDim();
 	virtual int getEigenTransformStructSize();	//total size of forward and inverse
 	virtual void initStep();
+	virtual void initFluxSide(int side);
 	virtual void calcTimestep();
 	virtual void step();
 	virtual void calcDeriv(cl::Buffer derivBuffer, int side);

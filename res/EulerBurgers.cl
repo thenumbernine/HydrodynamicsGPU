@@ -14,12 +14,11 @@ the 1st and 3rd terms are integrated via the pressure integration
 */
 
 //based on max inter-cell wavespeed
-__kernel void calcCFL(
-	__global real* cflBuffer,
+__kernel void findMinTimestep(
+	__global real* dtBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
-	const __global char* solidBuffer,
-	real cfl)
+	const __global char* solidBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
@@ -31,12 +30,12 @@ __kernel void calcCFL(
 #endif
 #endif
 	) {
-		cflBuffer[index] = INFINITY;
+		dtBuffer[index] = INFINITY;
 		return;
 	}
 
 	if (solidBuffer[index]) {
-		cflBuffer[index] = INFINITY;
+		dtBuffer[index] = INFINITY;
 		return;
 	}
 
@@ -56,7 +55,7 @@ __kernel void calcCFL(
 		real dum = dx[side] / (speedOfSound + fabs(velocity[side]));
 		result = min(result, dum);
 	}
-	cflBuffer[index] = cfl * result;
+	dtBuffer[index] = result;
 }
 
 __kernel void calcInterfaceVelocity(
