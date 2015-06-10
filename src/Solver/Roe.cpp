@@ -95,7 +95,7 @@ void Roe::initStep() {
 	}
 }
 
-void Roe::calcTimestep() {
+real Roe::calcTimestep() {
 	//TODO for each side: 
 	//	calc side's interface primitives
 	//	calc eigenvalues for side based on primitives
@@ -103,10 +103,10 @@ void Roe::calcTimestep() {
 	//use min of all side's dt's
 	
 	commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize, nullptr, &findMinTimestepEvent.clEvent);
-	findMinTimestep();
+	return findMinTimestep();
 }
 
-void Roe::step() {
+void Roe::step(real dt) {
 	calcFluxKernel.setArg(5, dt);
 	for (int sideIndex = 0; sideIndex < 2 * app->dim - 1; ++sideIndex) {
 		
@@ -126,24 +126,24 @@ void Roe::step() {
 		integrator->integrate(
 			side == app->dim-1 ? dt : (.5f * dt),
 			[&](cl::Buffer derivBuffer) {
-				calcDeriv(derivBuffer, side);
+				calcDeriv(dt, derivBuffer, side);
 			}
 		);
 	}
 }
 
-void Roe::calcDeriv(cl::Buffer derivBuffer, int side) {
+void Roe::calcDeriv(real dt, cl::Buffer derivBuffer, int side) {
 	calcDeltaQTildeKernel.setArg(3, side);
 	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, nullptr, &calcDeltaQTildeEvent.clEvent);
 	
-	calcFlux(side);
+	calcFlux(dt, side);
 	
 	calcFluxDerivKernel.setArg(0, derivBuffer);
 	calcFluxDerivKernel.setArg(2, side);
 	commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
 }
 
-void Roe::calcFlux(int side) {
+void Roe::calcFlux(real dt, int side) {
 	calcFluxKernel.setArg(5, dt);
 	calcFluxKernel.setArg(6, side);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize, nullptr, &calcFluxEvent.clEvent);

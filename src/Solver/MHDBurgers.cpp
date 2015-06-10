@@ -63,23 +63,23 @@ std::vector<std::string> MHDBurgers::getProgramSources() {
 	return sources;
 }
 
-void MHDBurgers::calcTimestep() {
+real MHDBurgers::calcTimestep() {
 	commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize);
-	findMinTimestep();	
+	return findMinTimestep();	
 }
 
-void MHDBurgers::step() {
-	advectVelocity();	
+void MHDBurgers::step(real dt) {
+	advectVelocity(dt);
 	divfree->update();
-	advectMagneticField();
+	advectMagneticField(dt);
 	divfree->update();
-	selfgrav->applyPotential();
-	diffusePressure();
-	diffuseWork();
+	selfgrav->applyPotential(dt);
+	diffusePressure(dt);
+	diffuseWork(dt);
 	divfree->update();
 }
 
-void MHDBurgers::advectVelocity() {
+void MHDBurgers::advectVelocity(real dt) {
 	calcVelocityFluxKernel.setArg(3, dt);
 	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize);
@@ -90,7 +90,7 @@ void MHDBurgers::advectVelocity() {
 	boundary();
 }
 
-void MHDBurgers::advectMagneticField() {
+void MHDBurgers::advectMagneticField(real dt) {
 	calcMagneticFieldFluxKernel.setArg(3, dt);
 	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(calcInterfaceMagneticFieldKernel, offsetNd, globalSize, localSize);
@@ -101,7 +101,7 @@ void MHDBurgers::advectMagneticField() {
 	boundary();
 }
 
-void MHDBurgers::diffusePressure() {
+void MHDBurgers::diffusePressure(real dt) {
 	//the Hydrodynamics ii paper says it's important to diffuse momentum before work
 	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize);
@@ -111,7 +111,7 @@ void MHDBurgers::diffusePressure() {
 	boundary();
 }
 
-void MHDBurgers::diffuseWork() {
+void MHDBurgers::diffuseWork(real dt) {
 	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		//commands.enqueueNDRangeKernel(computePressureKernel, offsetNd, globalSize, localSize);
 		diffuseWorkKernel.setArg(0, derivBuffer);

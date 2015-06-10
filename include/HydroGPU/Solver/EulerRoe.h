@@ -16,7 +16,7 @@ protected:
 	virtual void initKernels();
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
-	virtual void step();
+	virtual void step(real dt);
 };
 
 }

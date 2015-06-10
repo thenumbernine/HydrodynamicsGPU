@@ -30,8 +30,8 @@ int ADM3DRoe::getEigenTransformStructSize() {
 	return numStates() + 6 + 1 + 1;	//states, gInv, g, f
 }
 
-void ADM3DRoe::step() {
-	Super::step();
+void ADM3DRoe::step(real dt) {
+	Super::step(dt);
 
 	//see ADM1DRoe::step() for my thoughts on source and separabe integration
 	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {

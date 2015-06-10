@@ -21,9 +21,9 @@ std::string EulerHLL::getFluxSource() {
 	return "#include \"EulerHLL.cl\"\n";
 }
 
-void EulerHLL::step() {
-	Super::step();
-	selfgrav->applyPotential();
+void EulerHLL::step(real dt) {
+	Super::step(dt);
+	selfgrav->applyPotential(dt);
 }
 
 }

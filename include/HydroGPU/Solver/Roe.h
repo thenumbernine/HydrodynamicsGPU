@@ -40,10 +40,10 @@ protected:
 	virtual int getEigenTransformStructSize();	//total size of forward and inverse
 	virtual void initStep();
 	virtual void initFluxSide(int side);
-	virtual void calcTimestep();
-	virtual void step();
-	virtual void calcDeriv(cl::Buffer derivBuffer, int side);
-	virtual void calcFlux(int side);
+	virtual real calcTimestep();
+	virtual void step(real dt);
+	virtual void calcDeriv(real dt, cl::Buffer derivBuffer, int side);
+	virtual void calcFlux(real dt, int side);
 };
 
 }

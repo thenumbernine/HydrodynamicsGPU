@@ -21,9 +21,9 @@ std::string MHDHLLC::getFluxSource() {
 	return "#include \"MHDHLLC.cl\"\n";
 }
 
-void MHDHLLC::step() {
-	Super::step();
-	selfgrav->applyPotential();
+void MHDHLLC::step(real dt) {
+	Super::step(dt);
+	selfgrav->applyPotential(dt);
 	divfree->update();
 }
 

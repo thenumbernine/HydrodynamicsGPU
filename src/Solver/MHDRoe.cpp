@@ -53,15 +53,15 @@ void MHDRoe::initStep() {
 //override parent call
 //call this instead
 //it'll call through the CL code if it's needed
-void MHDRoe::calcFlux(int side) {
+void MHDRoe::calcFlux(real dt, int side) {
 	calcMHDFluxKernel.setArg(5, dt);
 	calcMHDFluxKernel.setArg(6, side);
 	commands.enqueueNDRangeKernel(calcMHDFluxKernel, offsetNd, globalSize, localSize);
 }
 
-void MHDRoe::step() {
-	Super::step();
-	selfgrav->applyPotential();
+void MHDRoe::step(real dt) {
+	Super::step(dt);
+	selfgrav->applyPotential(dt);
 	divfree->update();
 }
 

@@ -118,13 +118,12 @@ std::vector<std::string> EulerBurgers::getProgramSources() {
 	return sources;
 }
 
-void EulerBurgers::calcTimestep() {
+real EulerBurgers::calcTimestep() {
 	commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize, nullptr, &findMinTimestepEvent.clEvent);
-	findMinTimestep();
+	return findMinTimestep();
 }
 
-void EulerBurgers::step() {
-	
+void EulerBurgers::step(real dt) {
 	for (int side = 0; side < app->dim; ++side) {
 		integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 			//both integrators do this ...
@@ -163,7 +162,7 @@ void EulerBurgers::step() {
 	}
 	boundary();
 
-	selfgrav->applyPotential();
+	selfgrav->applyPotential(dt);
 	
 	//the Hydrodynamics ii paper says it's important to diffuse momentum before work
 	pressureIntegrator->integrate(dt, [&](cl::Buffer derivBuffer) {

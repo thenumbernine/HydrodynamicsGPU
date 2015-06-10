@@ -27,9 +27,9 @@ std::vector<std::string> EulerRoe::getProgramSources() {
 	return sources;
 }
 
-void EulerRoe::step() {
-	Super::step();
-	selfgrav->applyPotential();
+void EulerRoe::step(real dt) {
+	Super::step(dt);
+	selfgrav->applyPotential(dt);
 }
 
 }

@@ -15,7 +15,7 @@ public:
 protected:
 	virtual void createEquation();
 	virtual std::string getFluxSource();
-	virtual void step();
+	virtual void step(real dt);
 };
 
 }

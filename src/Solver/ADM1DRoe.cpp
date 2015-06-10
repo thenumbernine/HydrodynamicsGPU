@@ -34,8 +34,8 @@ std::vector<std::string> ADM1DRoe::getEigenProgramSources() {
 	};
 }
 
-void ADM1DRoe::step() {
-	Super::step();
+void ADM1DRoe::step(real dt) {
+	Super::step(dt);
 
 	//before I was adding sources into deriv computed by Roe flux
 	// now I'm separating the Roe flux deriv per-side (so it is truly separable)

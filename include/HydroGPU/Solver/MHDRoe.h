@@ -26,8 +26,8 @@ protected:
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 	virtual void initStep();
-	virtual void calcFlux(int side);
-	virtual void step();
+	virtual void calcFlux(real dt, int side);
+	virtual void step(real dt);
 	virtual void initFluxSide(int side);
 };
 

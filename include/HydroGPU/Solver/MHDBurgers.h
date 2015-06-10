@@ -38,12 +38,12 @@ protected:
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 	
-	virtual void calcTimestep();
-	virtual void step();
-	virtual void advectVelocity();
-	virtual void advectMagneticField();
-	virtual void diffusePressure();
-	virtual void diffuseWork();
+	virtual real calcTimestep();
+	virtual void step(real dt);
+	virtual void advectVelocity(real dt);
+	virtual void advectMagneticField(real dt);
+	virtual void diffusePressure(real dt);
+	virtual void diffuseWork(real dt);
 };
 
 }

@@ -27,8 +27,8 @@ protected:
 	virtual std::vector<std::string> getProgramSources();
 	virtual std::string getFluxSource() = 0;
 	virtual void initStep();
-	virtual void calcTimestep();
-	virtual void step();
+	virtual real calcTimestep();
+	virtual void step(real dt);
 };
 
 }

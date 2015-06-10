@@ -34,8 +34,8 @@ std::vector<std::string> MaxwellRoe::getEigenProgramSources() {
 	return {};
 }
 
-void MaxwellRoe::step() {
-	Super::step();
+void MaxwellRoe::step(real dt) {
+	Super::step(dt);
 	
 	//see ADM1DRoe::step() for my thoughts on source and separabe integration
 	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {

@@ -20,7 +20,7 @@ protected:
 	virtual std::vector<std::string> getProgramSources();
 	virtual int getEigenTransformStructSize();
 	virtual std::vector<std::string> getEigenProgramSources();
-	virtual void step();
+	virtual void step(real dt);
 };
 
 }

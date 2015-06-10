@@ -41,8 +41,8 @@ protected:
 	virtual void initBuffers();
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
-	virtual void calcTimestep();
-	virtual void step();
+	virtual real calcTimestep();
+	virtual void step(real dt);
 
 	virtual cl::Buffer createDStateDtMatrix();
 	virtual void applyDStateDtMatrix(cl::Buffer result, cl::Buffer x);

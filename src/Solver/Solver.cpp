@@ -177,8 +177,6 @@ void Solver::initBuffers() {
 		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real) * volume, &dtVec[0]);
 	}
 
-	dt = app->fixedDT;
-
 	vectorField = std::make_shared<HydroGPU::Plot::VectorField>(this);
 	
 	switch(app->dim) {
@@ -402,7 +400,7 @@ void Solver::boundary() {
 	}
 }
 
-void Solver::findMinTimestep() {
+real Solver::findMinTimestep() {
 	int reduceSize = getVolume();
 	cl::Buffer dst = dtSwapBuffer;
 	cl::Buffer src = dtBuffer;
@@ -417,29 +415,28 @@ void Solver::findMinTimestep() {
 		std::swap(dst, src);
 		reduceSize = nextSize;
 	}
+	real dt = real();
 	commands.enqueueReadBuffer(src, CL_TRUE, 0, sizeof(real), &dt);
-	dt *= app->cfl;
+	return dt * app->cfl;
 }
 
 void Solver::initStep() {
 }
 
 void Solver::update() {
-	if (app->showTimestep) {
-		std::cout << "dt " << dt << std::endl;
-	}
-
 	//commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize, nullptr, &addSourceEvent.clEvent);
 
 	boundary();
 	
 	initStep();
-	
-	if (!app->useFixedDT) {
-		calcTimestep();
+
+	real dt = app->useFixedDT ? app->fixedDT : calcTimestep();
+
+	if (app->showTimestep) {
+		std::cout << "dt " << dt << std::endl;
 	}
 
-	step();
+	step(dt);
 
 /* failing with Roe solver on calcDeltaQTildeEvent ...
 	for (EventProfileEntry *entry : entries) {

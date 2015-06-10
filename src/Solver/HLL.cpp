@@ -39,12 +39,12 @@ void HLL::initStep() {
 	commands.enqueueNDRangeKernel(calcEigenvaluesKernel, offsetNd, globalSize, localSize);
 }
 
-void HLL::calcTimestep() {
+real HLL::calcTimestep() {
 	commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize);
-	findMinTimestep();	
+	return findMinTimestep();	
 }
 
-void HLL::step() {
+void HLL::step(real dt) {
 	calcFluxKernel.setArg(4, dt);
 	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize);

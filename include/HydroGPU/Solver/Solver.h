@@ -63,8 +63,6 @@ public:	//protected:
 	cl::NDRange offsetNd;
 
 	size_t totalAlloc;
-	
-	real dt;
 
 public:
 	std::shared_ptr<HydroGPU::Equation::Equation> equation;
@@ -86,15 +84,15 @@ public:
 	
 	cl::Buffer clAlloc(size_t size, const std::string& name = std::string());
 protected:
-	virtual void findMinTimestep();
+	virtual real findMinTimestep();
 public:
 	virtual void getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &global, cl::NDRange &local);
 	virtual void boundary();
 protected:
 
-	virtual void calcTimestep() = 0;
 	virtual void initStep();
-	virtual void step() = 0;
+	virtual real calcTimestep() = 0;
+	virtual void step(real dt) = 0;
 public:
 	virtual void update();
 

@@ -93,13 +93,13 @@ void SelfGravitation::resetState(
 	commands.finish();
 }
 
-void SelfGravitation::applyPotential() {
+void SelfGravitation::applyPotential(real dt) {
 	cl::CommandQueue commands = solver->commands;
 	cl::NDRange globalSize = solver->globalSize;
 	cl::NDRange localSize = solver->localSize;
 	cl::NDRange offsetNd = solver->offsetNd;
 	
-	solver->integrator->integrate(solver->dt, [&](cl::Buffer derivBuffer) {
+	solver->integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		if (solver->app->useGravity) {
 			for (int i = 0; i < solver->app->gaussSeidelMaxIter; ++i) {
 				potentialBoundary();
