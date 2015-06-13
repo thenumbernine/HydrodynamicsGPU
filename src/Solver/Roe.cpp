@@ -56,7 +56,15 @@ void Roe::initKernels() {
 	app->setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer);
 
 	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
-	app->setArgs(findMinTimestepKernel, dtBuffer, eigenvaluesBuffer);
+	app->setArgs(findMinTimestepKernel, dtBuffer, 
+//Hydrodynamics ii
+#if 1
+		eigenvaluesBuffer);
+#endif
+//Toro 16.38
+#if 0
+		stateBuffer);
+#endif	
 	
 	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
 	app->setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer);
@@ -89,19 +97,17 @@ void Roe::initFluxSide(int side) {
 	commands.enqueueNDRangeKernel(calcEigenBasisSideKernel, offsetNd, globalSize, localSize, nullptr, &calcEigenBasisSideEvent.clEvent);
 }
 
-void Roe::initStep() {
-	for (int side = 0; side < app->dim; ++side) {
-		initFluxSide(side);
-	}
-}
-
 real Roe::calcTimestep() {
 	//TODO for each side: 
 	//	calc side's interface primitives
 	//	calc eigenvalues for side based on primitives
 	//	calc dt for eigenvalues
 	//use min of all side's dt's
-	
+
+	for (int side = 0; side < app->dim; ++side) {
+		initFluxSide(side);
+	}
+
 	commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize, nullptr, &findMinTimestepEvent.clEvent);
 	return findMinTimestep();
 }
@@ -122,17 +128,18 @@ void Roe::step(real dt) {
 		if (sideIndex > 0) {
 			initFluxSide(side);
 		}
-			
+		
+		real sideDT = side == app->dim-1 ? dt : (.5f * dt);
 		integrator->integrate(
-			side == app->dim-1 ? dt : (.5f * dt),
+			sideDT,
 			[&](cl::Buffer derivBuffer) {
-				calcDeriv(dt, derivBuffer, side);
+				calcDeriv(derivBuffer, sideDT, side);
 			}
 		);
 	}
 }
 
-void Roe::calcDeriv(real dt, cl::Buffer derivBuffer, int side) {
+void Roe::calcDeriv(cl::Buffer derivBuffer, real dt, int side) {
 	calcDeltaQTildeKernel.setArg(3, side);
 	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize, nullptr, &calcDeltaQTildeEvent.clEvent);
 	

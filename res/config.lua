@@ -57,7 +57,7 @@ xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
 useFixedDT = false
 fixedDT = .125
-cfl = .25
+cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
 boundaryMethods = {
@@ -93,7 +93,7 @@ size = {32, 32, 32}
 vectorFieldResolution = 16
 --]]
 -- [[ 2D
-size = {256, 256}
+size = {512, 512}
 --]]
 --[[ 1D
 size = {256}
