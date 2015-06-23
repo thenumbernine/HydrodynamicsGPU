@@ -1,7 +1,6 @@
 #pragma once
 
 #include "HydroGPU/Solver/Solver.h"
-#include "HydroGPU/Solver/SolverKernelFunc.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
