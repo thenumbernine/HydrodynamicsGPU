@@ -96,7 +96,7 @@ vectorFieldResolution = 16
 size = {512, 512}
 --]]
 --[[ 1D
-size = {256}
+size = {1024}
 displayScale = .25
 --]]
 
@@ -132,8 +132,11 @@ end
 --solidFilename = 'test-solid.png'
 
 --configurations['Sod']()
-configurations['Shock Bubble Interaction']()
+configurations['Square Cavity']()
+--configurations['Shock Bubble Interaction']()
 --configurations['Flow Around Cylinder']()
+--configurations['Forward Facing Step']()
+--configurations['Double Mach Reflection']()
 --configurations['self-gravitation test 1']()
 --]]
 
@@ -164,7 +167,9 @@ solverName = 'ADM3DRoe'
 configurations['ADM-3D']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 displayMethod = 'ALPHA'
---size = {1024} displayScale = 128
-size = {64, 64} displayScale = 1
+fixedDT = .125
+useFixedDT = true
+size = {256} displayScale = 128
+--size = {64, 64} displayScale = 1
 --]]
 

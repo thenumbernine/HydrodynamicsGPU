@@ -331,6 +331,71 @@ return {
 		end
 	end,
 
+	-- solid flag is not reflecting atm ... hmm ...
+	-- http://amroc.sourceforge.net/examples/euler/2d/html/ffstep_n.htm
+	['Forward Facing Step'] = function()
+		boundaryMethods = {
+			{min='FREEFLOW', max='FREEFLOW'},
+			{min='MIRROR', max='MIRROR'},
+			{min='MIRROR', max='MIRROR'},
+		}
+		--[[
+		cfl = .95
+		xmin = {0,0,0}
+		xmax = {3,1,1}
+		--]]
+		xmid = {}
+		for i=1,3 do xmid[i] = .5 * (xmin[i] + xmax[i]) end
+		initState = function(x,y,z)
+			local inside = x > xmid[1] and y < xmid[2]
+			return buildStateEuler{
+				x=x, y=y, z=z,
+				density = 1.4,
+				
+				-- 'inside' shouldn't matter, because 'solid' should things
+				-- ...but if these values are bad even for solid cells, the sim explodes
+				velocityX = 3,
+				pressure = 1,
+				
+				solid = inside and 1 or 0
+			}
+		end
+	end,
+
+	--http://www.astro.virginia.edu/VITA/ATHENA/dmr.html
+	['Double Mach Reflection'] = function()
+		-- I am not correctly modeling the top boundary
+		boundaryMethods = {
+			{min='FREEFLOW', max='FREEFLOW'},
+			{min='MIRROR', max='FREEFLOW'},
+			{min='MIRROR', max='MIRROR'},
+		}
+		xmin = {0,0,0}
+		xmax = {4,1,1}
+		size[1] = size[1] * 2
+		size[2] = size[2] / 2
+		gamma = 1.4
+		local sqrt1_3 = math.sqrt(1/3)
+		initState = function(x,y,z)
+			local inside = x < y * sqrt1_3
+			if inside then
+				return buildStateEuler{
+					x=x, y=y, z=z,
+					density = 8,
+					pressure = 116.5,
+					velocityX = 8.25 * math.cos(math.rad(30)),
+					velocityY = -8.25 * math.sin(math.rad(30)),
+				}
+			else
+				return buildStateEuler{
+					x=x, y=y, z=z,
+					density = 1.4,
+					pressure = 1,
+				}
+			end
+		end
+	end,
+
 	-- gravity potential test - equilibrium - Rayleigh-Taylor
 
 	['self-gravitation test 1'] = function()

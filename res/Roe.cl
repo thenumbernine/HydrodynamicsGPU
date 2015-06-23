@@ -5,12 +5,13 @@ __kernel void findMinTimestep(
 	__global real* dtBuffer,
 //Hydrodynamics ii
 #if 1
-	const __global real* eigenvaluesBuffer
+	const __global real* eigenvaluesBuffer,
 #endif
 //Toro 16.38
 #if 0
-	const __global real* stateBuffer
+	const __global real* stateBuffer,
 #endif
+	int side
 #ifdef SOLID
 	, const __global char* solidBuffer
 #endif	//SOLID
@@ -30,8 +31,6 @@ __kernel void findMinTimestep(
 		return;
 	}
 
-	real result = INFINITY;
-
 //Toro 16.38
 #if 0
 	const __global real* state = stateBuffer + index;
@@ -48,38 +47,37 @@ __kernel void findMinTimestep(
 #endif
 
 	int indexL = index;
-	for (int side = 0; side < DIM; ++side) {
-		int indexR = index + stepsize[side];
+	int indexR = index + stepsize[side];
 
 #ifdef SOLID
 //Hydrodynamics ii
 #if 1
-		if (solidBuffer[indexL] || solidBuffer[indexR]) continue;
+	if (solidBuffer[indexL] || solidBuffer[indexR]) {
+		dtBuffer[index] = INFINITY; 
+		return;
+	}
 #endif
 //Toro 16.38
 #if 0
-		if (solidBuffer[index]) return;
+	if (solidBuffer[index]) return;
 #endif
 #endif	//SOLID
 
 //Hydrodynamics ii
 #if 1
-		const __global real* eigenvaluesL = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexL);
-		const __global real* eigenvaluesR = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexR);
-		
-		//NOTICE assumes eigenvalues are sorted from min to max
-		real maxLambda = max(0.f, eigenvaluesL[EIGEN_SPACE_DIM-1]);
-		real minLambda = min(0.f, eigenvaluesR[0]);
-		real dum = dx[side] / (fabs(maxLambda - minLambda) + 1e-9f);
+	const __global real* eigenvaluesL = eigenvaluesBuffer + EIGEN_SPACE_DIM * indexL;
+	const __global real* eigenvaluesR = eigenvaluesBuffer + EIGEN_SPACE_DIM * indexR;
+	
+	//NOTICE assumes eigenvalues are sorted from min to max
+	real maxLambda = max(0.f, eigenvaluesL[EIGEN_SPACE_DIM-1]);
+	real minLambda = min(0.f, eigenvaluesR[0]);
+	real dum = dx[side] / (fabs(maxLambda - minLambda) + 1e-9f);
 #endif
 //Toro 16.38
 #if 0
-		real dum = dx[side] / (max(fabs(velocity[side] - speedOfSound), fabs(velocity[side] + speedOfSound)) + 1e-9f);
+	real dum = dx[side] / (max(fabs(velocity[side] - speedOfSound), fabs(velocity[side] + speedOfSound)) + 1e-9f);
 #endif
-		result = min(result, dum);
-	}
-	
-	dtBuffer[index] = result;
+	dtBuffer[index] = dum;
 }
 
 __kernel void calcDeltaQTilde(
@@ -104,7 +102,7 @@ __kernel void calcDeltaQTilde(
 	
 	int index = INDEXV(i);
 	int indexPrev = index - stepsize[side];
-	int interfaceIndex = side + DIM * index;
+	int interfaceIndex = index;
 			
 	const __global real* eigenfields = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* deltaQTilde = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceIndex;
@@ -187,9 +185,9 @@ __kernel void calcFlux(
 	int indexL = index - stepsize[side];
 	int indexR2 = indexR + stepsize[side];
 
-	int interfaceLIndex = side + DIM * indexL;
-	int interfaceIndex = side + DIM * indexR;
-	int interfaceRIndex = side + DIM * indexR2;
+	int interfaceLIndex = indexL;
+	int interfaceIndex = indexR;
+	int interfaceRIndex = indexR2;
 	
 	const __global real* deltaQTildeL = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceLIndex;
 	const __global real* deltaQTilde = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceIndex;
@@ -267,10 +265,6 @@ __kernel void calcFlux(
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
 
-		//TODO some research on >1D flux limiters
-		//this makes things stable, but I still haven't figured out why
-//		phi /= DIM;
-
 		real deltaFluxTilde = eigenvalue * deltaQTilde[i];
 		fluxTilde[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta));
 	}
@@ -307,8 +301,8 @@ __kernel void calcFluxDeriv(
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
 	int indexNext = index + stepsize[side];
-	const __global real* fluxL = fluxBuffer + NUM_STATES * (side + DIM * index); 
-	const __global real* fluxR = fluxBuffer + NUM_STATES * (side + DIM * indexNext); 
+	const __global real* fluxL = fluxBuffer + NUM_STATES * index;
+	const __global real* fluxR = fluxBuffer + NUM_STATES * indexNext;
 	for (int j = 0; j < NUM_STATES; ++j) {
 		real deltaFlux = fluxR[j] - fluxL[j];
 		deriv[j] -= deltaFlux / dx[side];

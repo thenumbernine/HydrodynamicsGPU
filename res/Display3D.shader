@@ -32,7 +32,7 @@ void main() {
 	result.a *= 1. - alpha;
 	
 	vec3 step = vertexStart - eye;
-	step = normalize(step) * 2. / float(maxiter);
+	step = normalize(step) / float(maxiter);
 	step /= scale;
 	for (int i = 2; i <= maxiter; i++) {
 		p += step;

@@ -14,6 +14,7 @@ struct ADM3DRoe : public Roe {
 
 protected:
 	cl::Kernel addSourceKernel;
+	cl::Kernel constrainKernel;
 
 	virtual void initKernels();
 	virtual void createEquation();

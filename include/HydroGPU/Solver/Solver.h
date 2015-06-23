@@ -19,8 +19,6 @@ struct VectorField;
 }
 namespace Solver {
 
-struct Solver;
-
 struct Solver {
 	friend struct HydroGPU::Integrator::Integrator;
 
@@ -36,7 +34,7 @@ struct Solver {
 
 	//public for Equation...
 	HydroGPUApp *app;
-	
+
 public:	//protected:
 	cl::Program program;
 	cl::CommandQueue commands;

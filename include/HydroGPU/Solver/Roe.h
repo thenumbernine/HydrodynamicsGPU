@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Solver/SolverKernelFunc.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
@@ -24,13 +25,7 @@ struct Roe : public Solver {
 	cl::Kernel calcFluxKernel;
 	cl::Kernel calcFluxDerivKernel;
 	
-	EventProfileEntry calcEigenBasisSideEvent;
-	EventProfileEntry findMinTimestepEvent;
-	EventProfileEntry calcDeltaQTildeEvent;
-	EventProfileEntry calcFluxEvent;
-	
 	Roe(HydroGPUApp* app);
-	virtual void init();
 protected:
 	virtual void initBuffers();
 	virtual void initKernels();

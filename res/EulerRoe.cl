@@ -9,9 +9,9 @@ __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
+	int side,
 	const __global real* potentialBuffer,
-	const __global char* solidBuffer,
-	int side)
+	const __global char* solidBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -25,13 +25,12 @@ __kernel void calcEigenBasisSide(
 
 	int index = INDEXV(i);
 	int indexPrev = index - stepsize[side];
-	int interfaceIndex = side + DIM * index;
 
 	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	
-	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * index;
+	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * index;
 	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 
 	char solidL = solidBuffer[indexPrev];

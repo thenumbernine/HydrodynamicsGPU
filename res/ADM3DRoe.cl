@@ -209,7 +209,7 @@ __kernel void calcEigenBasisSide(
 
 	int indexPrev = index - stepsize[side];
 
-	int interfaceIndex = side + DIM * index;
+	int interfaceIndex = index;
 	
 	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
@@ -285,29 +285,6 @@ __kernel void calcEigenBasisSide(
 	eigenvalues[34] = lambdaLight;
 	eigenvalues[35] = lambdaLight;
 	eigenvalues[36] = lambdaGauge;
-}
-
-__kernel void calcEigenBasis(
-	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
-	const __global real* stateBuffer)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 1 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 1
-#endif
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 1
-#endif
-	) return;
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 0);
-#if DIM > 1
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 1);
-#endif
-#if DIM > 2
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 2);
-#endif
 }
 
 void eigenfieldTransform(
@@ -475,5 +452,58 @@ __kernel void addSource(
 	deriv[6] += -2.f * alpha * K_zz;
 	// TODO dq_dts[i][28..33] == partial_t K_ij += alpha * S_ij
 	// partial_t V_k = alpha * P_k
+}
+
+__kernel void constrain(
+	__global real* stateBuffer)
+{
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 2 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
+#endif
+	) {
+		return;
+	}
+	int index = INDEXV(i);
+	
+	__global real* state = stateBuffer + NUM_STATES * index;
+
+	//real alpha = state[0];
+	real g_xx = state[1], g_xy = state[2], g_xz = state[3], g_yy = state[4], g_yz = state[5], g_zz = state[6];
+	//real A_x = state[7], A_y = state[8], A_z = state[9];
+	real /*D_xxx = state[10],*/ D_xxy = state[11], D_xxz = state[12], D_xyy = state[13], D_xyz = state[14], D_xzz = state[15];
+	real D_yxx = state[16], D_yxy = state[17], D_yxz = state[18], /*D_yyy = state[19],*/ D_yyz = state[20], D_yzz = state[21];
+	real D_zxx = state[22], D_zxy = state[23], D_zxz = state[24], D_zyy = state[25], D_zyz = state[26]/*, D_zzz = state[27]*/;
+	//real K_xx = state[28], K_xy = state[29], K_xz = state[30], K_yy = state[31], K_yz = state[32], K_zz = state[33];
+	//real V_x = state[34], V_y = state[35], V_z = state[36];
+	real g = det3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz);
+	real8 gInv = inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz, g);
+	real gUxx = gInv[0], gUxy = gInv[1], gUxz = gInv[2], gUyy = gInv[3], gUyz = gInv[4], gUzz = gInv[5];
+
+	state[34] = 
+		(D_xxy - D_yxx) * gUxy
+		+ (D_xxz - D_zxx) * gUxz
+		+ (D_xyy - D_yxy) * gUyy
+		+ (D_xyz - D_yxz) * gUyz
+		+ (D_xyz - D_zxy) * gUyz
+		+ (D_xzz - D_zxz) * gUzz;
+	state[35] = 
+		(D_yxx - D_xxy) * gUxx
+		+ (D_yxy - D_xyy) * gUxy
+		+ (D_yxz - D_xyz) * gUxz
+		+ (D_yxz - D_zxy) * gUxz
+		+ (D_yyz - D_zyy) * gUyz
+		+ (D_yzz - D_zyz) * gUzz;
+	state[36] = 
+		(D_zxx - D_xxz) * gUxx
+		+ (D_zxy - D_xyz) * gUxy
+		+ (D_zxy - D_yxz) * gUxy
+		+ (D_zxz - D_xzz) * gUxz
+		+ (D_zyy - D_yyz) * gUyy
+		+ (D_zyz - D_yzz) * gUyz;
 }
 

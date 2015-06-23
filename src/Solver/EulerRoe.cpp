@@ -9,8 +9,9 @@ void EulerRoe::initKernels() {
 	Super::initKernels();
 	
 	//all Euler and MHD systems also have a separate potential buffer...
-	app->setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer);
-	findMinTimestepKernel.setArg(2, selfgrav->solidBuffer);
+	calcEigenBasisSideKernel.setArg(4, selfgrav->potentialBuffer);
+	calcEigenBasisSideKernel.setArg(5, selfgrav->solidBuffer);
+	findMinTimestepKernel.setArg(3, selfgrav->solidBuffer);
 	calcDeltaQTildeKernel.setArg(4, selfgrav->solidBuffer);
 	calcFluxKernel.setArg(7, selfgrav->solidBuffer);
 	calcFluxDerivKernel.setArg(3, selfgrav->solidBuffer);
@@ -26,7 +27,7 @@ std::vector<std::string> EulerRoe::getProgramSources() {
 	sources.push_back("#include \"EulerRoe.cl\"\n");
 	return sources;
 }
-
+	
 void EulerRoe::step(real dt) {
 	Super::step(dt);
 	selfgrav->applyPotential(dt);

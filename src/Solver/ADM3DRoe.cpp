@@ -14,6 +14,9 @@ void ADM3DRoe::initKernels() {
 	
 	addSourceKernel = cl::Kernel(program, "addSource");
 	addSourceKernel.setArg(1, stateBuffer);
+
+	constrainKernel = cl::Kernel(program, "constrain");
+	constrainKernel.setArg(0, stateBuffer);
 }
 
 std::vector<std::string> ADM3DRoe::getProgramSources() {
@@ -31,16 +34,19 @@ int ADM3DRoe::getEigenTransformStructSize() {
 }
 
 void ADM3DRoe::step(real dt) {
+	//advect
 	Super::step(dt);
 
 	//see ADM1DRoe::step() for my thoughts on source and separabe integration
+	//in fact, now that this is separated, it doesn't seem to be as stable ...
 	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		addSourceKernel.setArg(0, derivBuffer);
 		commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize);
 	});
+
+	commands.enqueueNDRangeKernel(constrainKernel, offsetNd, globalSize, localSize);
 }
 
 }
 }
-
 

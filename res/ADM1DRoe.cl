@@ -7,10 +7,11 @@ This currently only supports 1D
 
 #include "HydroGPU/Roe.h"
 
-__kernel void calcEigenBasis(
+__kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenfieldsBuffer,
-	const __global real* stateBuffer)
+	const __global real* stateBuffer,
+	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -27,40 +28,38 @@ __kernel void calcEigenBasis(
 #error only supports 1D 
 #endif
 	
-	for (int side = 0; side < DIM; ++side) {
-		int indexPrev = index - stepsize[side];
+	int indexPrev = index - stepsize[side];
 
-		int interfaceIndex = side + DIM * index;
-		
-		const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
-		const __global real* stateR = stateBuffer + NUM_STATES * index;
-		
-		__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-		__global real* eigenfields = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	int interfaceIndex = index;
+	
+	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
+	const __global real* stateR = stateBuffer + NUM_STATES * index;
+	
+	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
+	__global real* eigenfields = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 
-		//q0 = d/dx ln alpha
-		//q1 = d/dx ln g = d/dx ln g_xx
+	//q0 = d/dx ln alpha
+	//q1 = d/dx ln g = d/dx ln g_xx
 
-		//I'm assigning the fwd and reverse eigenfield info the same
-		// I guess only the linear systems technically need both
-		// I should make that a special case of the base Roe solver
-		// and merge eigenvectorsBuffer and eigenvectorsInverse buffer into one eigenfieldsBuffer
-		real alpha = .5f * (stateL[STATE_ALPHA] + stateR[STATE_ALPHA]);
-		real f = ADM_BONA_MASSO_F;
-		real g = .5f * (stateL[STATE_G] + stateR[STATE_G]);
-		
-		//the only variable used for the eigenfield functions
-		eigenfields[EIGENFIELD_F] = f;
+	//I'm assigning the fwd and reverse eigenfield info the same
+	// I guess only the linear systems technically need both
+	// I should make that a special case of the base Roe solver
+	// and merge eigenvectorsBuffer and eigenvectorsInverse buffer into one eigenfieldsBuffer
+	real alpha = .5f * (stateL[STATE_ALPHA] + stateR[STATE_ALPHA]);
+	real f = ADM_BONA_MASSO_F;
+	real g = .5f * (stateL[STATE_G] + stateR[STATE_G]);
+	
+	//the only variable used for the eigenfield functions
+	eigenfields[EIGENFIELD_F] = f;
 
-		//eigenvalues
+	//eigenvalues
 
-		real eigenvalue = alpha * sqrt(f/g); 
-		eigenvalues[0] = -eigenvalue;
-		eigenvalues[1] = 0.f;
-		eigenvalues[2] = 0.f;
-		eigenvalues[3] = 0.f;
-		eigenvalues[4] = eigenvalue;
-	}
+	real eigenvalue = alpha * sqrt(f/g); 
+	eigenvalues[0] = -eigenvalue;
+	eigenvalues[1] = 0.f;
+	eigenvalues[2] = 0.f;
+	eigenvalues[3] = 0.f;
+	eigenvalues[4] = eigenvalue;
 }
 
 void eigenfieldTransform(
@@ -128,6 +127,7 @@ __kernel void addSource(
 	
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 	const __global real* state = stateBuffer + NUM_STATES * index;
+	
 	real alpha = state[STATE_ALPHA];
 	real g = state[STATE_G];
 	//real A = state[STATE_A];

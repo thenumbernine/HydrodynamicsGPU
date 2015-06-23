@@ -25,13 +25,6 @@ protected:
 	cl::Kernel computePressureKernel;
 	cl::Kernel diffuseMomentumKernel;
 	cl::Kernel diffuseWorkKernel;
-	
-	EventProfileEntry findMinTimestepEvent;
-	EventProfileEntry calcInterfaceVelocityEvent;
-	EventProfileEntry calcFluxEvent;
-	EventProfileEntry computePressureEvent;
-	EventProfileEntry diffuseMomentumEvent;
-	EventProfileEntry diffuseWorkEvent;
 
 public:
 	EulerBurgers(HydroGPUApp* app);

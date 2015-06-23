@@ -360,20 +360,20 @@ void Solver::getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &g
 	case 2:
 		offset = offset1d;
 		local = localSize1d;
-		global = cl::NDRange(app->size.s[dimIndex]);
+		global = cl::NDRange(app->size.s[!dimIndex]);
 		break;
 	case 3:
 		offset = cl::NDRange(0, 0);
 		local = cl::NDRange(localSize[0], localSize[1]);
 		switch (dimIndex) {
 		case 0:
-			global = cl::NDRange(app->size.s[0], app->size.s[1]);
+			global = cl::NDRange(app->size.s[1], app->size.s[2]);
 			break;
 		case 1:
 			global = cl::NDRange(app->size.s[0], app->size.s[2]);
 			break;
 		case 2:
-			global = cl::NDRange(app->size.s[1], app->size.s[2]);
+			global = cl::NDRange(app->size.s[0], app->size.s[1]);
 			break;
 		default:
 			throw Common::Exception() << "can't handle dim " << dimIndex;

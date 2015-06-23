@@ -13,7 +13,7 @@ constant float sqrt_1_2 = 0.7071067811865475727373109293694142252206802368164f;
 void eigenfieldTransform(
 	real* results,
 	const __global real* eigenfield,	//not used
-	const __global real* input,
+	const real* input,
 	int side)
 {
 	real4 electric = ELECTRIC_FIELD(input);
@@ -125,7 +125,7 @@ __kernel void calcEigenBasisSide(
 	) return;
 	int index = INDEXV(i);
 
-	int interfaceIndex = side + DIM * index;
+	int interfaceIndex = index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 
@@ -138,29 +138,6 @@ __kernel void calcEigenBasisSide(
 	eigenvalues[3] = 0.f;
 	eigenvalues[4] = eigenvalue;
 	eigenvalues[5] = eigenvalue;
-}
-
-__kernel void calcEigenBasis(
-	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
-	const __global real* stateBuffer)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 1 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 1
-#endif
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 1
-#endif
-	) return;
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 0);
-#if DIM > 1
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 1);
-#endif
-#if DIM > 2
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, 2);
-#endif
 }
 
 __kernel void addSource(

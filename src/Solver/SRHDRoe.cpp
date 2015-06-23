@@ -11,17 +11,13 @@ void SRHDRoe::init() {
 	int volume = getVolume();
 	primitiveBuffer = clAlloc(sizeof(real) * numStates() * volume);
 
+	calcEigenBasisSideKernel.setArg(4, primitiveBuffer);
+	//calcEigenBasisSideKernel.setArg(5, selfgrav->potentialBuffer);
+
 	initVariablesKernel = cl::Kernel(program, "initVariables");
 	app->setArgs(initVariablesKernel, stateBuffer, primitiveBuffer);
 	
 	convertToTexKernel.setArg(0, primitiveBuffer);
-	
-	calcEigenBasisSideKernel.setArg(0, eigenvaluesBuffer);
-	calcEigenBasisSideKernel.setArg(1, eigenfieldsBuffer);
-	calcEigenBasisSideKernel.setArg(3, primitiveBuffer);
-	calcEigenBasisSideKernel.setArg(4, stateBuffer);
-	//TODO get SRHD equation working with selfgrav by renaming STATE_REST_MASS_DENSITY to STATE_DENSITY
-	//calcEigenBasisSideKernel.setArg(5, selfgrav->potentialBuffer);
 }
 	
 void SRHDRoe::createEquation() {

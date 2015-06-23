@@ -8,10 +8,10 @@ paritcularly the spectral decomposition
 __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenfieldsBuffer,
-	const __global real* primitiveBuffer,
 	const __global real* stateBuffer,
-	const __global real* potentialBuffer,
-	int side)
+	int side,
+	const __global real* primitiveBuffer,
+	const __global real* potentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
