@@ -357,6 +357,10 @@ int Solver::getVolume() {
 void Solver::getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &global, cl::NDRange &local) {
 	switch (app->dim) {
 	case 1:
+		offset = offset1d;
+		local = localSize1d;
+		global = cl::NDRange(app->size.s[dimIndex]);
+		break;
 	case 2:
 		offset = offset1d;
 		local = localSize1d;

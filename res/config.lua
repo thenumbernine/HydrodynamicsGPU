@@ -45,8 +45,8 @@ slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
-integratorName = 'ForwardEuler'
---integratorName = 'RungeKutta4'
+--integratorName = 'ForwardEuler'
+integratorName = 'RungeKutta4'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 
@@ -61,9 +61,9 @@ cfl = .5
 displayMethod = 'DENSITY'
 displayScale = 2
 boundaryMethods = {
-	{min='MIRROR', max='MIRROR'},
-	{min='MIRROR', max='MIRROR'},
-	{min='MIRROR', max='MIRROR'},
+	{min='PERIODIC', max='PERIODIC'},
+	{min='PERIODIC', max='PERIODIC'},
+	{min='PERIODIC', max='PERIODIC'},
 }
 
 -- gravity is specific to the Euler fluid equation solver
@@ -93,7 +93,7 @@ size = {32, 32, 32}
 vectorFieldResolution = 16
 --]]
 -- [[ 2D
-size = {512, 512}
+size = {256, 256}
 --]]
 --[[ 1D
 size = {1024}
@@ -132,8 +132,8 @@ end
 --solidFilename = 'test-solid.png'
 
 --configurations['Sod']()
-configurations['Square Cavity']()
---configurations['Shock Bubble Interaction']()
+--configurations['Square Cavity']()
+configurations['Shock Bubble Interaction']()
 --configurations['Flow Around Cylinder']()
 --configurations['Forward Facing Step']()
 --configurations['Double Mach Reflection']()

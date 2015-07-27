@@ -292,21 +292,25 @@ return {
 
 	['Shock Bubble Interaction'] = function()
 		boundaryMethods = {
-			{min='PERIODIC', max='FREEFLOW'},
+			{min='PERIODIC', max='PERIODIC'},
 			{min='FREEFLOW', max='FREEFLOW'},
 			{min='FREEFLOW', max='FREEFLOW'},
 		}
 		local bubbleX = 0
-		local bubbleY = 0 
-		local bubbleZ = 0 
+		local bubbleY = 0
+		local bubbleZ = 0
 		local bubbleRadius = .2
-		local pressureWaveX = -.225
+		local waveX = -.45
+		xmin = {-1,-.5,-.5}
+		xmax = {1,.5,.5}
+		size[1] = size[1] * 2
 		initState = function(x,y,z)
 			local bubbleRSq = (x-bubbleX)^2 + (y-bubbleY)^2 + (z-bubbleZ)^2
 			return buildStateEuler{
 				x=x, y=y, z=z,
-				density = bubbleRSq < bubbleRadius*bubbleRadius and .1 or 1,
-				pressure = (x < pressureWaveX) and 1.9 or .1,
+				density = (x < waveX) and 1 or (bubbleRSq < bubbleRadius*bubbleRadius and .1 or 1),
+				pressure = (x < waveX) and 1 or .1,
+				velocityX = (x < waveX) and .1 or 0,
 			}
 		end
 	end,
