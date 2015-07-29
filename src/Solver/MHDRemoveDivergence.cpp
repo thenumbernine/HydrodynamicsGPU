@@ -9,7 +9,7 @@ namespace Solver {
 MHDRemoveDivergence::MHDRemoveDivergence(Solver* solver_) : solver(solver_) {}
 
 void MHDRemoveDivergence::init() {
-	cl::Context context = solver->app->context;
+	cl::Context context = solver->app->clCommon->context;
 	cl::Program program = solver->program;
 	
 	int volume = solver->getVolume();
@@ -19,13 +19,13 @@ void MHDRemoveDivergence::init() {
 	magneticFieldPotential2Buffer = solver->clAlloc(sizeof(real) * volume);
 
 	calcMagneticFieldDivergenceKernel = cl::Kernel(program, "calcMagneticFieldDivergence");
-	solver->app->setArgs(calcMagneticFieldDivergenceKernel, magneticFieldDivergenceBuffer, solver->stateBuffer);
+	CLCommon::setArgs(calcMagneticFieldDivergenceKernel, magneticFieldDivergenceBuffer, solver->stateBuffer);
 
 	magneticPotentialPoissonRelaxKernel = cl::Kernel(program, "magneticPotentialPoissonRelax");
-	solver->app->setArgs(magneticPotentialPoissonRelaxKernel, magneticFieldPotential2Buffer, magneticFieldPotentialBuffer, magneticFieldDivergenceBuffer);
+	CLCommon::setArgs(magneticPotentialPoissonRelaxKernel, magneticFieldPotential2Buffer, magneticFieldPotentialBuffer, magneticFieldDivergenceBuffer);
 	
 	magneticFieldRemoveDivergenceKernel = cl::Kernel(program, "magneticFieldRemoveDivergence");
-	solver->app->setArgs(magneticFieldRemoveDivergenceKernel, solver->stateBuffer, magneticFieldPotentialBuffer);
+	CLCommon::setArgs(magneticFieldRemoveDivergenceKernel, solver->stateBuffer, magneticFieldPotentialBuffer);
 
 	solver->convertToTexKernel.setArg(6, magneticFieldDivergenceBuffer);
 }
@@ -69,7 +69,7 @@ void MHDRemoveDivergence::boundary(cl::Buffer buffer) {
 			int boundaryKernelIndex = gravEqn->gravityGetBoundaryKernelForBoundaryMethod(i, minmax);
 			if (boundaryKernelIndex < 0 || boundaryKernelIndex >= solver->boundaryKernels.size()) continue;
 			cl::Kernel& kernel = solver->boundaryKernels[boundaryKernelIndex][i][minmax];
-			solver->app->setArgs(kernel, buffer, 1, 0);
+			CLCommon::setArgs(kernel, buffer, 1, 0);
 			solver->getBoundaryRanges(i, offset, global, local);
 			solver->commands.enqueueNDRangeKernel(kernel, offset, global, local);
 		}

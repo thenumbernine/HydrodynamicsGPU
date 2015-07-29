@@ -79,7 +79,7 @@ void BackwardEulerConjugateGradient::applyLinear(cl::Buffer result, cl::Buffer x
 	solver->applyDStateDtMatrix(result, x);
 	//result = D * x
 
-	solver->app->setArgs(multAddKernel, result, x, result, -dt);
+	CLCommon::setArgs(multAddKernel, result, x, result, -dt);
 	solver->commands.enqueueNDRangeKernel(multAddKernel, solver->offset1d, cl::NDRange(length), solver->localSize1d);
 	//result = x - dt * D * x = (I - dt * D) * x
 }
@@ -101,7 +101,7 @@ void BackwardEulerConjugateGradient::integrate(real dt, std::function<void(cl::B
 		cl::Buffer& tmp = pBuffer;
 		applyLinear(tmp, solver->stateBuffer, dt);
 	
-		solver->app->setArgs(subtractKernel, rBuffer, solver->stateBuffer, tmp);
+		CLCommon::setArgs(subtractKernel, rBuffer, solver->stateBuffer, tmp);
 		solver->commands.enqueueNDRangeKernel(subtractKernel, solver->offset1d, cl::NDRange(length), solver->localSize1d);
 	}
 	
@@ -114,11 +114,11 @@ void BackwardEulerConjugateGradient::integrate(real dt, std::function<void(cl::B
 		real alpha = rLenSq / dot(pBuffer, ApBuffer, length);
 		
 		//solver->stateBuffer = solver->stateBuffer + alpha * p
-		solver->app->setArgs(multAddKernel, solver->stateBuffer, solver->stateBuffer, pBuffer, alpha);
+		CLCommon::setArgs(multAddKernel, solver->stateBuffer, solver->stateBuffer, pBuffer, alpha);
 		solver->commands.enqueueNDRangeKernel(multAddKernel, solver->offset1d, cl::NDRange(length), solver->localSize1d);
 	
 		//r = r - alpha * Ap
-		solver->app->setArgs(multAddKernel, rBuffer, rBuffer, ApBuffer, -alpha);
+		CLCommon::setArgs(multAddKernel, rBuffer, rBuffer, ApBuffer, -alpha);
 		solver->commands.enqueueNDRangeKernel(multAddKernel, solver->offset1d, cl::NDRange(length), solver->localSize1d);
 		
 		real nextrLenSq = dot(rBuffer, rBuffer, length);
@@ -126,7 +126,7 @@ void BackwardEulerConjugateGradient::integrate(real dt, std::function<void(cl::B
 		real beta = nextrLenSq / rLenSq;
 		
 		//p = r - beta * p
-		solver->app->setArgs(multAddKernel, pBuffer, rBuffer, pBuffer, beta);
+		CLCommon::setArgs(multAddKernel, pBuffer, rBuffer, pBuffer, beta);
 		solver->commands.enqueueNDRangeKernel(multAddKernel, solver->offset1d, cl::NDRange(length), solver->localSize1d);
 		
 		rLenSq = nextrLenSq;

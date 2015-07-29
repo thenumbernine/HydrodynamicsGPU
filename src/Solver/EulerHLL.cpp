@@ -9,8 +9,8 @@ void EulerHLL::init() {
 	Super::init();
 
 	//all Euler and MHD systems also have a separate potential buffer...
-	app->setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer, selfgrav->potentialBuffer);
-	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, selfgrav->potentialBuffer);
+	CLCommon::setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer, selfgrav->potentialBuffer);
+	CLCommon::setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, selfgrav->potentialBuffer);
 }
 
 void EulerHLL::createEquation() {

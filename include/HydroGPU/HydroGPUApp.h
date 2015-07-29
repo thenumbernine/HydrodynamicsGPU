@@ -1,7 +1,8 @@
 #pragma once
 
 #include "HydroGPU/Solver/Solver.h"
-#include "CLApp/CLApp.h"
+#include "GLApp/GLApp.h"
+#include "CLCommon/CLCommon.h"
 #include "LuaCxx/State.h"
 #include "LuaCxx/GlobalTable.h"
 #include "LuaCxx/Ref.h"
@@ -9,8 +10,10 @@
 
 namespace HydroGPU {
 
-struct HydroGPUApp : public ::CLApp::CLApp {
-	typedef ::CLApp::CLApp Super;
+struct HydroGPUApp : public ::GLApp::GLApp {
+	typedef ::GLApp::GLApp Super;
+
+	std::shared_ptr<CLCommon::CLCommon> clCommon;
 
 	GLuint gradientTex;
 	

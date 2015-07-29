@@ -8,7 +8,7 @@ namespace Solver {
 void MHDBurgers::init() {
 	Super::init();
 
-	cl::Context context = app->context;
+	cl::Context context = app->clCommon->context;
 
 	//memory
 
@@ -24,26 +24,26 @@ void MHDBurgers::init() {
 	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app->dim);
 
 	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
-	app->setArgs(findMinTimestepKernel, dtBuffer, stateBuffer, selfgrav->potentialBuffer);
+	CLCommon::setArgs(findMinTimestepKernel, dtBuffer, stateBuffer, selfgrav->potentialBuffer);
 	
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
-	app->setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer);
+	CLCommon::setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer);
 	
 	calcInterfaceMagneticFieldKernel = cl::Kernel(program, "calcInterfaceMagneticField");
-	app->setArgs(calcInterfaceMagneticFieldKernel, interfaceMagneticFieldBuffer, stateBuffer);
+	CLCommon::setArgs(calcInterfaceMagneticFieldKernel, interfaceMagneticFieldBuffer, stateBuffer);
 
 	calcVelocityFluxKernel = cl::Kernel(program, "calcVelocityFlux");
-	app->setArgs(calcVelocityFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer);
+	CLCommon::setArgs(calcVelocityFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer);
 
 	calcMagneticFieldFluxKernel = cl::Kernel(program, "calcMagneticFieldFlux");
-	app->setArgs(calcMagneticFieldFluxKernel, fluxBuffer, stateBuffer, interfaceMagneticFieldBuffer);
+	CLCommon::setArgs(calcMagneticFieldFluxKernel, fluxBuffer, stateBuffer, interfaceMagneticFieldBuffer);
 
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	//arg0 will be provided by the integrator
 	calcFluxDerivKernel.setArg(1, fluxBuffer);
 	
 	computePressureKernel = cl::Kernel(program, "computePressure");
-	app->setArgs(computePressureKernel, pressureBuffer, stateBuffer, selfgrav->potentialBuffer);
+	CLCommon::setArgs(computePressureKernel, pressureBuffer, stateBuffer, selfgrav->potentialBuffer);
 
 	diffuseMomentumKernel = cl::Kernel(program, "diffuseMomentum");
 	diffuseMomentumKernel.setArg(1, pressureBuffer);

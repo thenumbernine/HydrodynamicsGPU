@@ -26,10 +26,10 @@ VectorField::VectorField(HydroGPU::Solver::Solver* solver_)
 	solver->totalAlloc += sizeof(real) * vectorFieldVertexCount;
 	glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
 	//create CL interop
-	vectorFieldVertexBuffer = cl::BufferGL(solver->app->context, CL_MEM_READ_WRITE, vectorFieldGLBuffer);
+	vectorFieldVertexBuffer = cl::BufferGL(solver->app->clCommon->context, CL_MEM_READ_WRITE, vectorFieldGLBuffer);
 	//create transfer kernel
 	updateVectorFieldKernel = cl::Kernel(solver->program, "updateVectorField");
-	solver->app->setArgs(updateVectorFieldKernel, vectorFieldVertexBuffer, solver->stateBuffer, /*solver->selfgrav->potentialBuffer TODO FIXME*/solver->stateBuffer, solver->app->vectorFieldScale);
+	CLCommon::setArgs(updateVectorFieldKernel, vectorFieldVertexBuffer, solver->stateBuffer, /*solver->selfgrav->potentialBuffer TODO FIXME*/solver->stateBuffer, solver->app->vectorFieldScale);
 }
 
 VectorField::~VectorField() {
@@ -53,8 +53,8 @@ void VectorField::display() {
 		break;
 	}
 	updateVectorFieldKernel.setArg(3, solver->app->vectorFieldScale);
-	solver->app->commands.enqueueNDRangeKernel(updateVectorFieldKernel, solver->offsetNd, global, solver->localSize);
-	solver->app->commands.finish();
+	solver->app->clCommon->commands.enqueueNDRangeKernel(updateVectorFieldKernel, solver->offsetNd, global, solver->localSize);
+	solver->app->clCommon->commands.finish();
 
 	glDisable(GL_DEPTH_TEST);
 

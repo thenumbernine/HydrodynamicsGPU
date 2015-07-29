@@ -19,7 +19,7 @@ void SelfGravitation::initKernels() {
 	cl::Program program = solver->program;
 	
 	gravityPotentialPoissonRelaxKernel = cl::Kernel(program, "gravityPotentialPoissonRelax");
-	solver->app->setArgs(gravityPotentialPoissonRelaxKernel, potentialBuffer, solver->stateBuffer);
+	CLCommon::setArgs(gravityPotentialPoissonRelaxKernel, potentialBuffer, solver->stateBuffer);
 	
 	calcGravityDerivKernel = cl::Kernel(program, "calcGravityDeriv");
 	calcGravityDerivKernel.setArg(1, solver->stateBuffer);
@@ -123,7 +123,7 @@ void SelfGravitation::potentialBoundary() {
 			int boundaryKernelIndex = gravEqn->gravityGetBoundaryKernelForBoundaryMethod(i, minmax);
 			if (boundaryKernelIndex < 0 || boundaryKernelIndex >= solver->boundaryKernels.size()) continue;
 			cl::Kernel& kernel = solver->boundaryKernels[boundaryKernelIndex][i][minmax];
-			solver->app->setArgs(kernel, potentialBuffer, 1, 0);
+			CLCommon::setArgs(kernel, potentialBuffer, 1, 0);
 			solver->getBoundaryRanges(i, offset, global, local);
 			commands.enqueueNDRangeKernel(kernel, offset, global, local);
 		}

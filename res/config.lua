@@ -165,8 +165,8 @@ displayMethod = 'ALPHA'
 
 -- [[ ADM (3D)
 solverName = 'ADM3DRoe'
-size = {1024} --displayScale = 128
---size = {256, 256} displayScale = 1
+--size = {1024} --displayScale = 128
+size = {256, 256} displayScale = 1
 configurations['ADM-3D']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 displayMethod = 'ALPHA'

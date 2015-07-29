@@ -36,10 +36,10 @@ void Roe::initKernels() {
 	Super::initKernels();
 
 	calcEigenBasisSideKernel = cl::Kernel(program, "calcEigenBasisSide");
-	app->setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer);
+	CLCommon::setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer);
 	
 	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
-	app->setArgs(findMinTimestepKernel,
+	CLCommon::setArgs(findMinTimestepKernel,
 			dtBuffer,
 //Hydrodynamics ii
 #if 1
@@ -51,10 +51,10 @@ void Roe::initKernels() {
 #endif	
 
 	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
-	app->setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer);
+	CLCommon::setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer); 
+	CLCommon::setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer); 
 	
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	calcFluxDerivKernel.setArg(1, fluxBuffer);

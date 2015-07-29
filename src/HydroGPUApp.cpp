@@ -77,7 +77,8 @@ void HydroGPUApp::init() {
 		std::cout << "loading config string " << configString << std::endl;
 		lua.loadString(configString);
 	}
-	
+
+	bool useGPU = true;
 	lua.ref()["useGPU"] >> useGPU;
 	for (int i = 0; i < 3; ++i) {
 		if (!lua.ref()["size"].isNil()) lua.ref()["size"][i+1] >> size.s[i];
@@ -132,6 +133,7 @@ void HydroGPUApp::init() {
 	std::cout << "dx " << dx << std::endl;
 
 	Super::init();
+	clCommon = std::make_shared<CLCommon::CLCommon>(useGPU);
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -171,7 +173,7 @@ void HydroGPUApp::init() {
 		glBindTexture(GL_TEXTURE_1D, 0);
 	}
 
-	gradientTexMem = cl::ImageGL(context, CL_MEM_READ_ONLY, GL_TEXTURE_1D, 0, gradientTex);
+	gradientTexMem = cl::ImageGL(clCommon->context, CL_MEM_READ_ONLY, GL_TEXTURE_1D, 0, gradientTex);
 
 	//construct the solver
 	std::cout << "solverName " << solverName << std::endl;
@@ -241,6 +243,7 @@ void HydroGPUApp::init() {
 
 void HydroGPUApp::shutdown() {
 	glDeleteTextures(1, &gradientTex);
+	clCommon.reset();
 }
 
 void HydroGPUApp::resize(int width, int height) {

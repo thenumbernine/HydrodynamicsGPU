@@ -7,7 +7,7 @@ namespace Solver {
 void HLL::init() {
 	Super::init();
 
-	cl::Context context = app->context;
+	cl::Context context = app->clCommon->context;
 
 	//memory
 
@@ -17,13 +17,13 @@ void HLL::init() {
 	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app->dim);
 	
 	calcEigenvaluesKernel = cl::Kernel(program, "calcEigenvalues");
-	app->setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer);
+	CLCommon::setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	app->setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer);
+	CLCommon::setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer);
 
 	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
-	app->setArgs(findMinTimestepKernel, dtBuffer, eigenvaluesBuffer);
+	CLCommon::setArgs(findMinTimestepKernel, dtBuffer, eigenvaluesBuffer);
 	
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	calcFluxDerivKernel.setArg(1, fluxBuffer);

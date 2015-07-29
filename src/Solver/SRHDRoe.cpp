@@ -15,7 +15,7 @@ void SRHDRoe::init() {
 	//calcEigenBasisSideKernel.setArg(5, selfgrav->potentialBuffer);
 
 	initVariablesKernel = cl::Kernel(program, "initVariables");
-	app->setArgs(initVariablesKernel, stateBuffer, primitiveBuffer);
+	CLCommon::setArgs(initVariablesKernel, stateBuffer, primitiveBuffer);
 	
 	convertToTexKernel.setArg(0, primitiveBuffer);
 }

@@ -17,12 +17,12 @@ namespace Solver {
 cl::Buffer Solver::clAlloc(size_t size, const std::string& name) {
 	totalAlloc += size;
 	std::cout << "allocating gpu mem " << name << " size " << size << " running total " << totalAlloc << std::endl; 
-	return cl::Buffer(app->context, CL_MEM_READ_WRITE, size);
+	return cl::Buffer(app->clCommon->context, CL_MEM_READ_WRITE, size);
 }
 
 Solver::Solver(HydroGPUApp* app_)
 : app(app_)
-, commands(app->commands)
+, commands(app->clCommon->commands)
 , totalAlloc(0)
 , frame(0)
 {
@@ -34,7 +34,7 @@ void Solver::init() {
 	//TODO non-virtual init() and make it call out construction code in a particular order
 	createEquation();
 
-	cl::Device device = app->device;
+	cl::Device device = app->clCommon->device;
 	
 	// NDRanges
 
@@ -67,7 +67,7 @@ OR I could just have the debug printfs also output their thread ID and filter al
 	case 1:
 		globalSize = cl::NDRange(app->size.s[0]);
 		{	
-			int n = app->useGPU ? 16 : 1;
+			int n = app->clCommon->useGPU ? 16 : 1;
 #ifdef DEBUG_OVERRIDE
 			n = 1;
 #endif
@@ -80,7 +80,7 @@ OR I could just have the debug printfs also output their thread ID and filter al
 	case 2:
 		globalSize = cl::NDRange(app->size.s[0], app->size.s[1]);
 		{
-			int n = app->useGPU ? 16 : 1;
+			int n = app->clCommon->useGPU ? 16 : 1;
 #ifdef DEBUG_OVERRIDE
 			n = 1;
 #endif
@@ -93,7 +93,7 @@ OR I could just have the debug printfs also output their thread ID and filter al
 	case 3:
 		globalSize = cl::NDRange(app->size.s[0], app->size.s[1], app->size.s[2]);
 		{
-			int n = app->useGPU ? 8 : 1;
+			int n = app->clCommon->useGPU ? 8 : 1;
 #ifdef DEBUG_OVERRIDE
 			n = 1;
 #endif
@@ -115,7 +115,7 @@ OR I could just have the debug printfs also output their thread ID and filter al
 		for (const std::string &s : sourceStrs) {
 			sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));
 		}
-		program = cl::Program(app->context, sources);
+		program = cl::Program(app->clCommon->context, sources);
 	}
 
 	try {
@@ -130,7 +130,7 @@ OR I could just have the debug printfs also output their thread ID and filter al
 	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
 
 	//for curiousity's sake
-	if (app->useGPU) {
+	if (app->clCommon->useGPU) {
 		cl_int err;
 		
 		size_t size = 0;
@@ -192,7 +192,7 @@ void Solver::initBuffers() {
 		break;
 	}
 	
-	fluidTexMem = cl::ImageGL(app->context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, plot->fluidTex);
+	fluidTexMem = cl::ImageGL(app->clCommon->context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, plot->fluidTex);
 }
 
 static std::string boundaryKernelNames[NUM_BOUNDARY_KERNELS] = {
@@ -221,16 +221,16 @@ void Solver::initKernels() {
 			for (int minmaxIndex = 0; minmaxIndex < 2; ++minmaxIndex) {
 				std::string name = "stateBoundary" + boundaryKernelNames[boundaryIndex] + dimNames[dimIndex] + minmaxNames[minmaxIndex];
 				boundaryKernels[boundaryIndex][dimIndex][minmaxIndex] = cl::Kernel(program, name.c_str());
-				app->setArgs(boundaryKernels[boundaryIndex][dimIndex][minmaxIndex], stateBuffer);
+				CLCommon::setArgs(boundaryKernels[boundaryIndex][dimIndex][minmaxIndex], stateBuffer);
 			}
 		}
 	}
 	
 	findMinTimestepReduceKernel = cl::Kernel(program, "findMinTimestepReduce");
-	app->setArgs(findMinTimestepReduceKernel, dtBuffer, cl::Local(localSize[0] * sizeof(real)), volume, dtSwapBuffer);
+	CLCommon::setArgs(findMinTimestepReduceKernel, dtBuffer, cl::Local(localSize[0] * sizeof(real)), volume, dtSwapBuffer);
 	
 	convertToTexKernel = cl::Kernel(program, "convertToTex");
-	app->setArgs(convertToTexKernel, stateBuffer, fluidTexMem, app->gradientTexMem);
+	CLCommon::setArgs(convertToTexKernel, stateBuffer, fluidTexMem, app->gradientTexMem);
 }
 
 std::vector<std::string> Solver::getProgramSources() {
@@ -398,7 +398,7 @@ void Solver::boundary() {
 				int boundaryKernelIndex = equation->stateGetBoundaryKernelForBoundaryMethod(i, j, minmax);
 				if (boundaryKernelIndex < 0 || boundaryKernelIndex >= boundaryKernels.size()) continue;
 				cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i][minmax];
-				app->setArgs(kernel, stateBuffer, numStates(), j);
+				CLCommon::setArgs(kernel, stateBuffer, numStates(), j);
 				commands.enqueueNDRangeKernel(kernel, offset, global, local);
 			}
 		}
@@ -416,7 +416,7 @@ real Solver::findMinTimestep() {
 		findMinTimestepReduceKernel.setArg(2, reduceSize);
 		findMinTimestepReduceKernel.setArg(3, dst);
 		commands.enqueueNDRangeKernel(findMinTimestepReduceKernel, offset1d, reduceGlobalSize, localSize1d);
-		if (app->useGPU) commands.finish();
+		if (app->clCommon->useGPU) commands.finish();
 		std::swap(dst, src);
 		reduceSize = nextSize;
 	}
@@ -489,7 +489,7 @@ void Solver::display() {
 	commands.enqueueAcquireGLObjects(&acquireGLMems);
 
 	//TODO if we're not using GPU then we need to transfer the contents via a CPU buffer ... or not at all?
-	if (app->useGPU) {
+	if (app->clCommon->useGPU) {
 		convertToTexKernel.setArg(3, app->displayMethod);
 		convertToTexKernel.setArg(4, app->displayScale);
 		commands.enqueueNDRangeKernel(convertToTexKernel, offsetNd, globalSize, localSize);
