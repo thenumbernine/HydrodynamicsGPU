@@ -34,6 +34,17 @@ int ADM3DRoe::getEigenTransformStructSize() {
 }
 
 void ADM3DRoe::step(real dt) {
+#if 0
+//debug output
+std::vector<real> stateVec(numStates() * getVolume());
+commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * numStates() * getVolume(), stateVec.data());
+for (int i = 0; i < getVolume(); ++i) {
+	for (int j = 0; j < numStates(); ++j) {
+		printf("\t%f", stateVec[j + numStates() * i]);
+	}
+}
+#endif
+
 	//advect
 	Super::step(dt);
 

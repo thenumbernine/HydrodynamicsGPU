@@ -292,7 +292,7 @@ return {
 
 	['Shock Bubble Interaction'] = function()
 		boundaryMethods = {
-			{min='PERIODIC', max='PERIODIC'},
+			{min='FREEFLOW', max='FREEFLOW'},
 			{min='FREEFLOW', max='FREEFLOW'},
 			{min='FREEFLOW', max='FREEFLOW'},
 		}
@@ -310,7 +310,7 @@ return {
 				x=x, y=y, z=z,
 				density = (x < waveX) and 1 or (bubbleRSq < bubbleRadius*bubbleRadius and .1 or 1),
 				pressure = (x < waveX) and 1 or .1,
-				velocityX = (x < waveX) and .1 or 0,
+				velocityX = (x < waveX) and 0 or -.5,
 			}
 		end
 	end,
@@ -495,6 +495,7 @@ return {
 		local xmid = (xmax[1] + xmin[1]) * .5
 		local sigma = 10
 		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'
+		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
 		initState = function(x,y,z)
 			local h = 5 * math.exp(-((x - xmid) / sigma)^2)
 			local dx_h = -2 * (x - xmid) / sigma^2 * h
@@ -509,91 +510,160 @@ return {
 	end,
 
 	['ADM-3D'] = function()
+		local mat33
+		mat33 = {
+			det = function(xx, xy, xz, yy, yz, zz)
+				return xx * yy * zz
+					+ xy * yz * xz
+					+ xz * xy * yz
+					- xz * yy * xz
+					- yz * yz * xx
+					- zz * xy * xy
+			end,
+			inv = function(xx, xy, xz, yy, yz, zz, d)
+				if not d then d = mat33.det(xx, xy, xz, yy, yz, zz) end
+				return 
+					(yy * zz - yz * yz) / d,	-- xx
+					(xz * yz - xy * zz) / d,	-- xy
+					(xy * yz - xz * yy) / d,	-- xz
+					(xx * zz - xz * xz) / d,	-- yy
+					(xz * xy - xx * yz) / d,	-- yz
+					(xx * yy - xy * xy) / d		-- zz
+			end,
+		}
+		
 		print('deriving and compiling...')
-		local function det3x3sym(msym)
-			local xx, xy, xz, yy, yz, zz = unpack(msym)
-			return xx * yy * zz + xy * yz * xz + xz * xy * yz - xz * yy * xz - yz * yz * xx - zz * xy * xy
-		end
-		local function inv3x3sym(msym, det)
-			local xx, xy, xz, yy, yz, zz = unpack(msym)
-			if not det then det = det3x3sym(msym) end
-			return  (yy * zz - yz * yz) / det, (xz * yz - xy * zz) / det, (xy * yz - xz * yy) / det, (xx * zz - xz * xz) / det, (xz * xy - xx * yz) / det, (xx * yy - xy * xy) / det
-		end	
-		local function sym3x3unpack(m) 
-			return {m[1][1], m[1][2], m[1][3], m[2][2], m[2][3], m[3][3]} 
-		end
-		local function sym3x3pack(xx,xy,xz,yy,yz,zz) 
-			return {{xx,xy,xz},{xy,yy,yz},{xz,yz,zz}} 
-		end
 		local symmath = require 'symmath'	-- this is failing ...
-		xmin = {0, 0, 0}
-		xmax = {300, 300, 300}
+		local symvars = table{'xx', 'xy', 'xz', 'yy', 'yz', 'zz'}
+		local symindex = symvars:map(function(var,i) return i,var end)
+		--xmin = {0, 0, 0}
+		--xmax = {300, 300, 300}
 		local xc = (xmax[1] + xmin[1]) * .5
 		local yc = (xmax[2] + xmin[2]) * .5
 		local zc = (xmax[3] + xmin[3]) * .5
-		local sigma = 10
+		--local H = 5
+		--local sigma = 10
+		-- [[ unit domain
+		local H = 1/60/60
+		local sigma = 1/30
+		--]]
 		local x = symmath.var'x'
 		local y = symmath.var'y'
 		local z = symmath.var'z'
-		local xs = table{x,y,z}
+		local vars = table{x,y,z}
 		local function delta(i,j) return i == j and 1 or 0 end
-		local h = 5 * symmath.exp(-((x - xc)^2 + (y - yc)^2) / sigma^2)
-		local dh = xs:map(function(xi) return h:diff(xi):simplify() end)
-		local d2h = dh:map(function(dhi) return xs:map(function(xj) return dhi:diff(xj):simplify() end) end)
-		local g = xs:map(function(xi,i) return xs:map(function(xj,j) return (delta(xi,xj) - dh[i] * dh[j]):simplify() end) end)
-		local det_g = det3x3sym(sym3x3unpack(g)):simplify()
-		local gU = sym3x3pack(inv3x3sym(sym3x3unpack(g), det_g))
-		local K = xs:map(function(xi,i) return xs:map(function(xj,j) return (-d2h[i][j] / det_g^.5):simplify() end) end)
-		local D = xs:map(function(xk,k) return xs:map(function(xi,i) return xs:map(function(xj,j) return (g[i][j]:diff(xk)/2):simplify() end) end) end)
-		local alpha = symmath.Constant(1)
-		local A = xs:map(function(xi) return (alpha:diff(xi) / alpha):simplify() end)
-		local V = xs:map(function(xi,i)
-			local s = 0
-			for j=1,3 do
-				for k=1,3 do
-					s = s + (D[i][j][k] - D[k][j][i]) * gU[j][k]
-				end
-			end
-			return s:simplify()
+		local exprs = table()
+		exprs.alpha = symmath.Constant(1)
+		local h
+		if #size == 1 then
+			h = H * symmath.exp(-(x - xc)^2 / sigma^2)
+			exprs.g = table{
+				1 - h:diff(x)^2,
+				symmath.Constant(0),
+				symmath.Constant(0),
+				symmath.Constant(1),
+				symmath.Constant(0),
+				symmath.Constant(1),
+			}
+			exprs.K = table{
+				-h:diff(x,x) / exprs.g[symindex.xx]^.5,
+				symmath.Constant(0),
+				symmath.Constant(0),
+				symmath.Constant(0),
+				symmath.Constant(0),
+				symmath.Constant(0),
+			}
+		elseif #size == 2 then
+			h = H * symmath.exp(-((x - xc)^2 + (y - yc)^2) / sigma^2)
+			exprs.g = table{
+				1 - h:diff(x)^2,
+				-h:diff(x) * h:diff(y),		-- x derivs adds interference, which causes asymmetry, and eventually divergence.  maybe its the influence of D that causes this?
+				symmath.Constant(0),
+				1 - h:diff(y)^2,
+				symmath.Constant(0),
+				symmath.Constant(1),
+			}
+			local div_h = h:diff(x)^2 + h:diff(y)^2
+			local K_denom = (1 - div_h)^.5
+			exprs.K = table{
+				-h:diff(x,x) / K_denom,
+				-h:diff(x,y) / K_denom,
+				symmath.Constant(0),
+				-h:diff(y,y) / K_denom,		-- 2nd derivs are nonzero and are causing problems
+				symmath.Constant(0),
+				symmath.Constant(0),
+			}
+		else
+			error'TODO 3D initial condition equations for ADM-3D'
+		end
+		local kappa = 1
+		local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = mat33.inv(unpack(exprs.g))
+		exprs.gU = table{gUxx, gUxy, gUxz, gUyy, gUyz, gUzz}
+		exprs.D = vars:map(function(x_k)
+			return exprs.g:map(function(g_ij)
+				return (g_ij:diff(x_k)/2):simplify()
+			end)
 		end)
-		local exprs = table{
-			alpha = alpha,
-			A = A,
-			g = sym3x3unpack(g),
-			gU = sym3x3unpack(gU),
-			D = xs:map(function(xi,i) return sym3x3unpack(D[i]) end),
-			K = sym3x3unpack(K),
-			V = V,
-		}
+		--]]
+	
+		exprs.A = vars:map(function(var)
+			return (exprs.alpha:diff(var) / exprs.alpha):simplify()
+		end)
+
 		local function buildCalc(expr, name)
 			assert(type(expr) == 'table')
 			if expr.isa and expr:isa(symmath.Expression) then 
-				return expr:simplify():compile(xs), name
+				return expr:simplify():compile(vars), name
 			end
 			return table.map(expr, buildCalc), name
 		end
 		local calc = exprs:map(buildCalc)
-		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO OpenCL exporter with lua symmath
+		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
+		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
 		print('...done deriving and compiling.')
 		initState = function(x,y,z)
 			local alpha = calc.alpha(x,y,z)
-			local A_x = calc.A:map(function(A_k) return A_k(x,y,z) end):unpack()
-			local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = calc.g:map(function(g_ij) return g_ij(x,y,z) end):unpack()
-			local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = calc.gU:map(function(gUij) return gUij(x,y,z) end):unpack()
-			local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = calc.D[1]:map(function(D_xjk) return D_xjk(x,y,z) end):unpack()
-			local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = calc.D[2]:map(function(D_yjk) return D_yjk(x,y,z) end):unpack()
-			local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = calc.D[3]:map(function(D_zjk) return D_zjk(x,y,z) end):unpack()
-			local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = calc.K:map(function(K_ij) return K_ij(x,y,z) end):unpack()
-			local V_x, V_y, V_z = calc.V:map(function(V_k) return V_k(x,y,z) end):unpack()
-			return 
+			local A = calc.A:map(function(A_i) return A_i(x,y,z) end)
+			local g = calc.g:map(function(g_ij) return g_ij(x,y,z) end)
+			local D = calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
+			local gU = calc.gU:map(function(gUij) return gUij(x,y,z) end)
+			local function sym3x3(m,i,j)
+				local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = unpack(m)
+				return ({
+					{m_xx, m_xy, m_xz},
+					{m_xy, m_yy, m_yz},
+					{m_xz, m_yz, m_zz},
+				})[i][j]
+			end
+			local V = range(3):map(function(i)
+				local s = 0
+				for j=1,3 do
+					for k=1,3 do
+						local D_ijk = sym3x3(D[i],j,k)
+						local D_kji = sym3x3(D[k],j,i)
+						local gUjk = sym3x3(gU,j,k)
+						local dg = (D_ijk - D_kji) * gUjk
+						s = s + dg
+					end
+				end
+				return s
+			end)
+			local K = {}
+			for i=1,6 do
+				K[i] = calc.K[i](x,y,z)
+			end
+	
+			local values = {
 				alpha,
-				g_xx, g_xy, g_xz, g_yy, g_yz, g_zz,
-				A_x, A_y, A_z,
-				D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz,
-				D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz,
-				D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz,
-				K_xx, K_xy, K_xz, K_yy, K_yz, K_zz,
-				V_x, V_y, V_z
+				g[1], g[2], g[3], g[4], g[5], g[6],
+				A[1], A[2], A[3],
+				D[1][1], D[1][2], D[1][3], D[1][4], D[1][5], D[1][6],
+				D[2][1], D[2][2], D[2][3], D[2][4], D[2][5], D[2][6],
+				D[3][1], D[3][2], D[3][3], D[3][4], D[3][5], D[3][6],
+				K[1], K[2], K[3], K[4], K[5], K[6],
+				V[1], V[2], V[3]
+			}
+			return unpack(values)
 		end
 	end,
 

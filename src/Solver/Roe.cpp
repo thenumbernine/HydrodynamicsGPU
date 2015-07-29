@@ -95,18 +95,14 @@ real Roe::calcTimestep() {
 }
 
 void Roe::step(real dt) {
-	for (int sideIndex = 0; sideIndex < 2 * app->dim - 1; ++sideIndex) {
-
-		int side = sideIndex;
-		if (side >= app->dim) side = 2 * app->dim - 2 - side;
-		
+	int sideStart, sideEnd, sideStep;
+	getSideRange(sideStart, sideEnd, sideStep);
+	for (int side = sideStart; side != sideEnd; side += sideStep) {
 		initFluxSide(side);
-		
-		real sideDT = side == app->dim-1 ? dt : (.5f * dt);
 		integrator->integrate(
-			sideDT,
+			dt,
 			[&](cl::Buffer derivBuffer) {
-				calcDeriv(derivBuffer, sideDT, side);
+				calcDeriv(derivBuffer, dt, side);
 			}
 		);
 	}

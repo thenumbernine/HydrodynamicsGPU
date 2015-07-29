@@ -24,6 +24,7 @@ Solver::Solver(HydroGPUApp* app_)
 : app(app_)
 , commands(app->commands)
 , totalAlloc(0)
+, frame(0)
 {
 }
 
@@ -427,6 +428,25 @@ real Solver::findMinTimestep() {
 void Solver::initStep() {
 }
 
+//helper function for iterating through all dimensions
+//switches between forward and backward depending on the frame
+void Solver::getSideRange(int& sideStart, int& sideEnd, int& sideStep) { 
+	switch (frame&1) {
+	case 0:
+		sideStart = 0;
+		sideEnd = app->dim;
+		sideStep = 1;
+		break;
+	case 1:
+		sideStart = app->dim-1;
+		sideEnd = -1;
+		sideStep = -1;
+		break;
+	default:
+		throw Common::Exception() << "unknown sideStep " << sideStep;
+	}
+}
+
 void Solver::update() {
 	//commands.enqueueNDRangeKernel(addSourceKernel, offsetNd, globalSize, localSize, nullptr, &addSourceEvent.clEvent);
 
@@ -442,7 +462,8 @@ void Solver::update() {
 
 	step(dt);
 
-/* failing with Roe solver on calcDeltaQTildeEvent ...
+	++frame;
+/* 
 	for (EventProfileEntry *entry : entries) {
 std::cout << "event " << entry->name << std::endl;
 		cl_ulong start = entry->clEvent.getProfilingInfo<CL_PROFILING_COMMAND_START>();

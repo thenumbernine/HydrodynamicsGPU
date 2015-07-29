@@ -11,6 +11,7 @@ General Roe solver
 subclasses need to implement calcEigenBasisSide
 */
 struct Roe : public Solver {
+protected:
 	typedef Solver Super;
 
 	cl::Buffer eigenvaluesBuffer;
@@ -23,7 +24,8 @@ struct Roe : public Solver {
 	cl::Kernel calcDeltaQTildeKernel;
 	cl::Kernel calcFluxKernel;
 	cl::Kernel calcFluxDerivKernel;
-	
+
+public:
 	Roe(HydroGPUApp* app);
 protected:
 	virtual void initBuffers();

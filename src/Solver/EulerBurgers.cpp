@@ -109,7 +109,9 @@ real EulerBurgers::calcTimestep() {
 }
 
 void EulerBurgers::step(real dt) {
-	for (int side = 0; side < app->dim; ++side) {
+	int sideStart, sideEnd, sideStep;
+	getSideRange(sideStart, sideEnd, sideStep);
+	for (int side = sideStart; side != sideEnd; side += sideStep) {
 		integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 			//both integrators do this ...
 			

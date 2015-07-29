@@ -10,7 +10,7 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
-solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
+--solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe'		-- not yet
 --solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
@@ -45,13 +45,13 @@ slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
---integratorName = 'ForwardEuler'
-integratorName = 'RungeKutta4'
+integratorName = 'ForwardEuler'
+--integratorName = 'RungeKutta4'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
---maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -93,7 +93,7 @@ size = {32, 32, 32}
 vectorFieldResolution = 16
 --]]
 -- [[ 2D
-size = {256, 256}
+size = {512, 512}
 --]]
 --[[ 1D
 size = {1024}
@@ -101,7 +101,7 @@ displayScale = .25
 --]]
 
 
--- [[ Euler
+--[[ Euler
 
 -- override solids:
 
@@ -133,7 +133,8 @@ end
 
 --configurations['Sod']()
 --configurations['Square Cavity']()
-configurations['Shock Bubble Interaction']()
+configurations['Kelvin-Hemholtz']()
+--configurations['Shock Bubble Interaction']()
 --configurations['Flow Around Cylinder']()
 --configurations['Forward Facing Step']()
 --configurations['Double Mach Reflection']()
@@ -155,21 +156,21 @@ configurations['Maxwell-1']()
 
 --[[ ADM (1D)
 solverName = 'ADM1DRoe'
+size = {64}
+displayScale = 128
 configurations['ADM-1D']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 displayMethod = 'ALPHA'
-size = {1024}
-displayScale = 128
 --]]
 
---[[ ADM (3D)
+-- [[ ADM (3D)
 solverName = 'ADM3DRoe'
+size = {1024} --displayScale = 128
+--size = {256, 256} displayScale = 1
 configurations['ADM-3D']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 displayMethod = 'ALPHA'
-fixedDT = .125
-useFixedDT = true
-size = {256} displayScale = 128
---size = {64, 64} displayScale = 1
+--fixedDT = .125
+--useFixedDT = true
 --]]
 

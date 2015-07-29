@@ -62,6 +62,8 @@ public:	//protected:
 
 	size_t totalAlloc;
 
+	int frame;
+
 public:
 	std::shared_ptr<HydroGPU::Equation::Equation> equation;
 	
@@ -91,6 +93,7 @@ protected:
 	virtual void initStep();
 	virtual real calcTimestep() = 0;
 	virtual void step(real dt) = 0;
+	void getSideRange(int& sideStart, int& sideEnd, int& sideStep);
 public:
 	virtual void update();
 
