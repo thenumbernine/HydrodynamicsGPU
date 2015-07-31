@@ -19,7 +19,7 @@ enum {
 Maxwell::Maxwell(HydroGPU::Solver::Solver* solver_) 
 : Super(solver_)
 {
-	displayMethods = std::vector<std::string>{
+	displayVariables = std::vector<std::string>{
 		"ELECTRIC",
 		"ELECTRIC_X",
 		"ELECTRIC_Y",

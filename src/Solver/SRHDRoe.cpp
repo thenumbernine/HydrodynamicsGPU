@@ -1,6 +1,7 @@
 #include "HydroGPU/Solver/SRHDRoe.h"
 #include "HydroGPU/Equation/SRHD.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "HydroGPU/Plot/Plot.h"
 
 namespace HydroGPU {
 namespace Solver {
@@ -16,8 +17,10 @@ void SRHDRoe::init() {
 
 	initVariablesKernel = cl::Kernel(program, "initVariables");
 	CLCommon::setArgs(initVariablesKernel, stateBuffer, primitiveBuffer);
-	
-	convertToTexKernel.setArg(0, primitiveBuffer);
+}
+
+void SRHDRoe::setupConvertToTexKernelArgs() {
+	app->plot->convertToTexKernel.setArg(2, primitiveBuffer);
 }
 	
 void SRHDRoe::createEquation() {

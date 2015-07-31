@@ -2,25 +2,26 @@
 
 //specific to Euler equations
 __kernel void convertToTex(
-	const __global real* stateBuffer,
-	__write_only image3d_t fluidTex,
-	__read_only image1d_t gradientTex,
+	__write_only image3d_t destTex,
 	int displayMethod,
-	float displayScale)
+	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
-	real alpha = state[STATE_ALPHA];
-	real g = state[STATE_G];
-	real D = state[STATE_D];
-	real KTilde = state[STATE_K_TILDE];
-	real K = KTilde / sqrt(g);
+	real value = .5f;
+	switch (displayMethod) {
+	case DISPLAY_ALPHA: value = state[STATE_ALPHA]; break;
+	case DISPLAY_G: value = state[STATE_G]; break;
+	case DISPLAY_A: value = state[STATE_A]; break;
+	case DISPLAY_D: value = state[STATE_D]; break;
+	case DISPLAY_K_TILDE: value = state[STATE_K_TILDE]; break;
+	case DISPLAY_K: value = state[STATE_K_TILDE] / sqrt(state[STATE_G]); break;
+	}
 
-	float4 color = (float4)(alpha, g, D, K) * displayScale;
-	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
+	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0.f, 0.f, 0.f));
 }
 
 constant float2 offset[6] = {

@@ -2,11 +2,9 @@
 
 //specific to Euler equations
 __kernel void convertToTex(
-	const __global real* stateBuffer,
-	__write_only image3d_t fluidTex,
-	__read_only image1d_t gradientTex,
+	__write_only image3d_t destTex,
 	int displayMethod,
-	float displayScale)
+	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
@@ -46,7 +44,7 @@ __kernel void convertToTex(
 	real K = state[STATE_K];
 
 #if DIM == 1
-	float4 color = (float4)(alpha, phi, K, 1.f) * displayScale;
+	float4 color = (float4)(alpha, phi, K, 1.f);
 #else
 	real value;
 	switch (displayMethod) {
@@ -63,10 +61,8 @@ __kernel void convertToTex(
 		value = .5f;
 		break;
 	}
-	value *= displayScale;
 
-	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
 #endif
-	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
+	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0.f, 0.f, 0.f));
 }
 

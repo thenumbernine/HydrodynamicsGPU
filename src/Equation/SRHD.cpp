@@ -11,7 +11,7 @@ namespace Equation {
 SRHD::SRHD(HydroGPU::Solver::Solver* solver_)
 : Super(solver_)
 {
-	displayMethods = std::vector<std::string>{
+	displayVariables = std::vector<std::string>{
 		"DENSITY",
 		"VELOCITY",
 		"PRESSURE",

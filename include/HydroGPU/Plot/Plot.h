@@ -1,6 +1,8 @@
 #pragma once
 
 #include <OpenGL/gl.h>
+#include <OpenCL/cl.hpp>
+#include <memory>
 #include <string>
 
 namespace HydroGPU {
@@ -10,19 +12,23 @@ struct Solver;
 namespace Plot {
 
 struct Plot {
-protected:
-	HydroGPU::Solver::Solver* solver;
+public:	//protected:
+	std::shared_ptr<HydroGPU::Solver::Solver> solver;
+	
+	GLuint tex;
+	cl::ImageGL texCLMem;		//data is written to this buffer before rendering
+	cl::Kernel convertToTexKernel;
+
 public:
-	Plot(HydroGPU::Solver::Solver* solver);
+	Plot(std::shared_ptr<HydroGPU::Solver::Solver> solver_);
 	virtual ~Plot();
 
-	virtual void display() = 0;
-	virtual void resize() = 0;
-	virtual void mousePan(int dx, int dy) = 0;
-	virtual void mouseZoom(int dz) = 0;
+	virtual void init();
+	virtual void display();
 	virtual void screenshot(const std::string& filename) = 0;
-	
-	GLuint fluidTex;
+
+protected:
+	virtual void convertVariableToTex(int displayVariable);
 };
 
 }

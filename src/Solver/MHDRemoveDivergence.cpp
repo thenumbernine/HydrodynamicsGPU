@@ -1,6 +1,7 @@
 #include "HydroGPU/Equation/SelfGravitationBehavior.h"
 #include "HydroGPU/Solver/MHDRemoveDivergence.h"
 #include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/HydroGPUApp.h"
 
 namespace HydroGPU {
@@ -26,10 +27,12 @@ void MHDRemoveDivergence::init() {
 	
 	magneticFieldRemoveDivergenceKernel = cl::Kernel(program, "magneticFieldRemoveDivergence");
 	CLCommon::setArgs(magneticFieldRemoveDivergenceKernel, solver->stateBuffer, magneticFieldPotentialBuffer);
-
-	solver->convertToTexKernel.setArg(6, magneticFieldDivergenceBuffer);
 }
-	
+
+void MHDRemoveDivergence::setupConvertToTexKernelArgs() {
+	solver->app->plot->convertToTexKernel.setArg(5, magneticFieldDivergenceBuffer);
+}
+
 std::vector<std::string> MHDRemoveDivergence::getProgramSources() {
 	return {"#include \"MHDRemoveDivergence.cl\"\n"};
 }

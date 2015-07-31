@@ -2,11 +2,9 @@
 
 //specific to Euler equations
 __kernel void convertToTex(
-	const __global real* stateBuffer,
-	__write_only image3d_t fluidTex,
-	__read_only image1d_t gradientTex,
+	__write_only image3d_t destTex,
 	int displayMethod,
-	float displayScale,
+	const __global real* stateBuffer,
 	const __global real* gravityPotentialBuffer,
 	const __global char* solidBuffer
 #ifdef MHD
@@ -40,14 +38,8 @@ __kernel void convertToTex(
 	real magneticFieldMagn = length(magneticField);
 
 #else	//!MHD
-#if DIM == 1	//can harmlessly be there for dim>1, but never referenced unless dim = 1
-	real magneticFieldMagn = 0.f;
-#endif
 #endif
 
-#if DIM == 1
-	float4 color = (float4)(density, state[STATE_MOMENTUM_X] / density, specificEnergyInternal, magneticFieldMagn) * displayScale;
-#else
 	real value;
 	switch (displayMethod) {
 	case DISPLAY_DENSITY:	//density
@@ -101,12 +93,8 @@ __kernel void convertToTex(
 		value = .5f;
 		break;
 	}
-	value *= displayScale;
 
-	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
-	if (solidBuffer[index]) color *= 0.f;
-#endif
-	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
+	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0.f, 0.f, 0.f));
 }
 
 constant float2 offset[6] = {

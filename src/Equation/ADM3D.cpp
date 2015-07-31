@@ -29,7 +29,7 @@ static std::vector<std::string> sym33suffixes {
 ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 : Super(solver_)
 {
-	displayMethods = std::vector<std::string>{
+	displayVariables = std::vector<std::string>{
 		"ALPHA",
 		"VOLUME",
 		"K"

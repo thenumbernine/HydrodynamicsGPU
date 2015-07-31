@@ -11,6 +11,12 @@
 #include "HydroGPU/Solver/ADM1DRoe.h"
 #include "HydroGPU/Solver/ADM3DRoe.h"
 #include "HydroGPU/Solver/BSSNOKRoe.h"
+#include "HydroGPU/Plot/VectorField.h"
+#include "HydroGPU/Plot/Plot1D.h"
+#include "HydroGPU/Plot/Plot2D.h"
+#include "HydroGPU/Plot/Plot3D.h"
+#include "HydroGPU/Plot/CameraOrtho.h"
+#include "HydroGPU/Plot/CameraFrustum.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -37,8 +43,8 @@ HydroGPUApp::HydroGPUApp()
 , useFixedDT(false)
 , fixedDT(.001f)
 , cfl(.5f)
-, displayMethod(0)
-, displayScale(2.f)
+, heatMapVariable(0)
+, heatMapColorScale(2.f)
 , useGravity(false)
 , gaussSeidelMaxIter(20)
 , showVectorField(true)
@@ -103,12 +109,12 @@ void HydroGPUApp::init() {
 	lua.ref()["useFixedDT"] >> useFixedDT;
 	lua.ref()["fixedDT"] >> fixedDT;
 	lua.ref()["cfl"] >> cfl;
-	lua.ref()["displayScale"] >> displayScale;
+	lua.ref()["heatMapColorScale"] >> heatMapColorScale;
 	lua.ref()["useGravity"] >> useGravity;
 	lua.ref()["gaussSeidelMaxIter"] >> gaussSeidelMaxIter;
 
-	std::string displayMethodName;
-	lua.ref()["displayMethod"] >> displayMethodName;
+	std::string heatMapVariableName;
+	lua.ref()["heatMapVariable"] >> heatMapVariableName;
 
 	lua.ref()["showVectorField"] >> showVectorField;
 	lua.ref()["vectorFieldScale"] >> vectorFieldScale;
@@ -204,16 +210,51 @@ void HydroGPUApp::init() {
 	} else {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}
+
 	solver->init();	//..now that the vtable is in place
+
+	//needs solver->program to be created
+	vectorField = std::make_shared<HydroGPU::Plot::VectorField>(solver);
+
+	if (lua.ref()["camera"].isNil()) {
+		throw Common::Exception() << "unknown camera";
+	}
+	
+	{
+		std::string mode;
+		lua.ref()["camera"]["mode"] >> mode;
+		if (mode == "ortho") {
+			camera = std::make_shared<HydroGPU::Plot::CameraOrtho>(this);
+		} else if (mode == "frustum") {
+			camera = std::make_shared<HydroGPU::Plot::CameraFrustum>(this);
+		} else {
+			throw Common::Exception() << "unknown camera mode";
+		}
+	}
+	
+	//needs solver->program to be created
+	switch(dim) {
+	case 1:
+		plot = std::make_shared<HydroGPU::Plot::Plot1D>(solver);
+		break;
+	case 2:
+		plot = std::make_shared<HydroGPU::Plot::Plot2D>(solver);
+		break;
+	case 3:
+		plot = std::make_shared<HydroGPU::Plot::Plot3D>(solver);
+		break;
+	}
+	plot->init();
+	
 	solver->resetState();
 
-	displayMethod = std::find(
-		solver->equation->displayMethods.begin(), 
-		solver->equation->displayMethods.end(),
-		displayMethodName) 
-		- solver->equation->displayMethods.begin();
-	if (displayMethod == solver->equation->displayMethods.size()) {
-		throw Common::Exception() << "couldn't interpret display method " << displayMethodName;
+	heatMapVariable = std::find(
+		solver->equation->displayVariables.begin(), 
+		solver->equation->displayVariables.end(),
+		heatMapVariableName) 
+		- solver->equation->displayVariables.begin();
+	if (heatMapVariable == solver->equation->displayVariables.size()) {
+		throw Common::Exception() << "couldn't interpret display method " << heatMapVariableName;
 	}
 
 	for (int i = 0; i < 3; ++i) {
@@ -250,7 +291,7 @@ void HydroGPUApp::resize(int width, int height) {
 	Super::resize(width, height);	//viewport
 	screenSize = Tensor::Vector<int,2>(width, height);
 	aspectRatio = (float)screenSize(0) / (float)screenSize(1);
-	solver->resize();
+	camera->setupProjection();
 }
 
 void HydroGPUApp::update() {
@@ -265,7 +306,7 @@ PROFILE_BEGIN_FRAME()
 	
 	bool guiDown = leftGuiDown || rightGuiDown;
 	if (rightButtonDown || (leftButtonDown && guiDown)) {
-		solver->addDrop();
+		//TODO - direct edit of the field ... solver->addDrop();
 	}
 	
 	if (doUpdate) {
@@ -273,7 +314,8 @@ PROFILE_BEGIN_FRAME()
 		if (doUpdate == 2) doUpdate = 0;
 	}
 
-	solver->display();
+	plot->display();	
+	vectorField->display();
 PROFILE_END_FRAME();
 }
 
@@ -289,17 +331,14 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 			if (leftButtonDown && !guiDown) {
 				if (shiftDown) {
 					if (dy) {
-						solver->mouseZoom(dy);
+						camera->mouseZoom(dy);
 					} 
 				} else {
 					if (dx || dy) {
-						solver->mousePan(dx, dy);
+						camera->mousePan(dx, dy);
 					}
 				}
 			}
-			int x = event.motion.x;
-			int y = event.motion.y;
-			solver->mouseMove(x, y, dx, dy);
 		}
 		break;
 	case SDL_MOUSEBUTTONDOWN:
@@ -346,18 +385,18 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 			}
 		} else if (event.key.keysym.sym == SDLK_f) {
 			if (shiftDown) {
-				displayScale *= .5;
+				heatMapColorScale *= .5;
 			} else {
-				displayScale *= 2.;
+				heatMapColorScale *= 2.;
 			}
-			std::cout << "displayScale " << displayScale << std::endl;
+			std::cout << "heatMapColorScale " << heatMapColorScale << std::endl;
 		} else if (event.key.keysym.sym == SDLK_d) {
 			if (shiftDown) {
-				displayMethod = (displayMethod + solver->equation->displayMethods.size() - 1) % solver->equation->displayMethods.size();
+				heatMapVariable = (heatMapVariable + solver->equation->displayVariables.size() - 1) % solver->equation->displayVariables.size();
 			} else {
-				displayMethod = (displayMethod + 1) % solver->equation->displayMethods.size();
+				heatMapVariable = (heatMapVariable + 1) % solver->equation->displayVariables.size();
 			}
-			std::cout << "display " << solver->equation->displayMethods[displayMethod] << std::endl;
+			std::cout << "display " << solver->equation->displayVariables[heatMapVariable] << std::endl;
 		} else if (event.key.keysym.sym == SDLK_u) {
 			if (doUpdate) {
 				std::cout << "stopping..." << std::endl;

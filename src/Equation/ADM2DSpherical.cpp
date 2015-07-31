@@ -20,7 +20,7 @@ ADM2DSpherical::ADM2DSpherical(HydroGPU::Solver::Solver* solver_)
 : Super(solver_)
 {
 	//TODO fixme
-	displayMethods = std::vector<std::string>{
+	displayVariables = std::vector<std::string>{
 		"ALPHA",
 		"G",
 		"A",

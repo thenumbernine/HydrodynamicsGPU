@@ -19,7 +19,7 @@ enum {
 BSSNOK::BSSNOK(HydroGPU::Solver::Solver* solver_)
 : Super(solver_)
 {
-	displayMethods = std::vector<std::string>{
+	displayVariables = std::vector<std::string>{
 		"ALPHA",
 		"PHI",
 		"K",

@@ -5,7 +5,7 @@
 namespace HydroGPU {
 namespace Plot {
 
-VectorField::VectorField(HydroGPU::Solver::Solver* solver_)
+VectorField::VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_)
 : solver(solver_)
 , vectorFieldGLBuffer(0)
 , vectorFieldResolution(0)

@@ -1,8 +1,8 @@
 #include "HydroGPU/Plot/Plot3D.h"
+#include "HydroGPU/Plot/CameraFrustum.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
-#include "Image/FITS_IO.h"
 #include "Common/File.h"
 #include <OpenGL/gl.h>
 
@@ -29,9 +29,8 @@ static int quads[] = {
 namespace HydroGPU {
 namespace Plot {
 
-Plot3D::Plot3D(HydroGPU::Solver::Solver* solver)
+Plot3D::Plot3D(std::shared_ptr<HydroGPU::Solver::Solver> solver)
 : Super(solver)
-, viewDist(1.f)
 {
 	int volume = solver->getVolume();
 	
@@ -48,8 +47,8 @@ Plot3D::Plot3D(HydroGPU::Solver::Solver* solver)
 		.done();
 
 	//get a texture going for visualizing the output
-	glGenTextures(1, &fluidTex);
-	glBindTexture(GL_TEXTURE_3D, fluidTex);
+	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_3D, tex);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	Tensor::Vector<int,3> glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
@@ -74,11 +73,9 @@ Plot3D::Plot3D(HydroGPU::Solver::Solver* solver)
 }
 
 void Plot3D::display() {
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	glTranslatef(0,0,-viewDist);
-	Tensor::Quat<float> angleAxis = viewAngle.toAngleAxis();
-	glRotatef(angleAxis(3) * 180. / M_PI, angleAxis(0), angleAxis(1), angleAxis(2));
+	Super::display();
+	
+	solver->app->camera->setupModelview();
 
 	glColor3f(1,1,1);
 	for (int pass = 0; pass < 2; ++pass) {
@@ -91,7 +88,7 @@ void Plot3D::display() {
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			glEnable(GL_BLEND);
 			displayShader->use();
-			glBindTexture(GL_TEXTURE_3D, fluidTex);
+			glBindTexture(GL_TEXTURE_3D, tex);
 		}
 		glBegin(GL_QUADS);
 		for (int i = 0; i < 24; ++i) {
@@ -118,27 +115,6 @@ void Plot3D::display() {
 	}
 }
 
-void Plot3D::resize() {
-	const float zNear = .01;
-	const float zFar = 10;
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glFrustum(-solver->app->aspectRatio * zNear, solver->app->aspectRatio * zNear, -zNear, zNear, zNear, zFar);
-}
-
-void Plot3D::mousePan(int dx, int dy) {
-	float magn = sqrt(dx * dx + dy * dy);
-	float fdx = (float)dx / magn;
-	float fdy = (float)dy / magn;
-	Tensor::Quat<float> rotation = Tensor::Quat<float>(fdy, fdx, 0, magn * M_PI / 180.).fromAngleAxis();
-	viewAngle = rotation * viewAngle;
-	viewAngle /= Tensor::Quat<float>::length(viewAngle);
-}
-
-void Plot3D::mouseZoom(int dz) {
-	viewDist *= (float)exp((float)dz * -.03f);
-}
-
 void Plot3D::screenshot(const std::string& filename) {
 	std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(
 		Tensor::Vector<int,2>(solver->app->size.s[0], solver->app->size.s[1]),
@@ -146,7 +122,7 @@ void Plot3D::screenshot(const std::string& filename) {
 	
 	size_t volume = solver->getVolume();
 	std::vector<char> buffer(volume);
-	glBindTexture(GL_TEXTURE_3D, fluidTex);
+	glBindTexture(GL_TEXTURE_3D, tex);
 	glGetTexImage(GL_TEXTURE_3D, 0, GL_RGB, GL_UNSIGNED_BYTE, &buffer[0]);
 	glBindTexture(GL_TEXTURE_3D, 0);
 	std::vector<char>::iterator iter = buffer.begin();

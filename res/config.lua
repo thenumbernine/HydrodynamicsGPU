@@ -58,8 +58,10 @@ xmax = {.5, .5, .5}
 useFixedDT = false
 fixedDT = .125
 cfl = .5
-displayMethod = 'DENSITY'
-displayScale = 2
+
+heatMapVariable = 'DENSITY'
+heatMapColorScale = 2
+
 boundaryMethods = {
 	{min='PERIODIC', max='PERIODIC'},
 	{min='PERIODIC', max='PERIODIC'},
@@ -92,16 +94,18 @@ conductivity = 1
 size = {32, 32, 32}
 vectorFieldResolution = 16
 --]]
--- [[ 2D
-size = {512, 512}
+--[[ 2D
+size = {256, 256}
 --]]
---[[ 1D
+-- [[ 1D
 size = {1024}
-displayScale = .25
+heatMapColorScale = .25
 --]]
 
+camera = {}
 
---[[ Euler
+
+-- [[ Euler
 
 -- override solids:
 
@@ -131,13 +135,14 @@ end
 --]=]
 --solidFilename = 'test-solid.png'
 
---configurations['Sod']()
+configurations['Sod']()
 --configurations['Square Cavity']()
-configurations['Kelvin-Hemholtz']()
+--configurations['Kelvin-Hemholtz']()
 --configurations['Shock Bubble Interaction']()
 --configurations['Flow Around Cylinder']()
 --configurations['Forward Facing Step']()
 --configurations['Double Mach Reflection']()
+--configurations['Spiral Implosion']()
 --configurations['self-gravitation test 1']()
 --]]
 
@@ -149,28 +154,45 @@ configurations['Brio-Wu']()
 
 --[[ Maxwell 
 solverName = 'MaxwellRoe'
-displayMethod = 'ELECTRIC'
+heatMapVariable = 'ELECTRIC'
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 configurations['Maxwell-1']()
 --]]
 
 --[[ ADM (1D)
 solverName = 'ADM1DRoe'
-size = {64}
-displayScale = 128
+size = {1024}
+heatMapColorScale = 128
 configurations['ADM-1D']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
-displayMethod = 'ALPHA'
+heatMapVariable = 'ALPHA'
+camera.zoom = 1/300
+camera.pos = {150,150}
 --]]
 
 -- [[ ADM (3D)
 solverName = 'ADM3DRoe'
---size = {1024} --displayScale = 128
-size = {256, 256} displayScale = 1
+size = {1024} heatMapColorScale = 128
+--size = {256, 256} heatMapColorScale = 1
 configurations['ADM-3D']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
-displayMethod = 'ALPHA'
+heatMapVariable = 'ALPHA'
 --fixedDT = .125
 --useFixedDT = true
+camera.zoom = 1/300
+camera.pos = {150,150}
 --]]
+
+
+-- camera setup:
+
+if #size == 1 then			-- 1D better be ortho
+	camera.mode = 'ortho'
+elseif #size == 2 then		-- 2D can handle either ortho or frustum
+	camera.mode = 'ortho'
+	--camera.mode = 'frustum'
+else						-- 3D better be frustum
+	camera.mode = 'frustum'
+end
+
 

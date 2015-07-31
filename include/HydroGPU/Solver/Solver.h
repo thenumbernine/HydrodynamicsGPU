@@ -13,10 +13,6 @@
 
 namespace HydroGPU {
 struct HydroGPUApp;
-namespace Plot {
-struct Plot;
-struct VectorField;
-}
 namespace Solver {
 
 struct Solver {
@@ -30,7 +26,6 @@ struct Solver {
 	};
 	
 	std::vector<EventProfileEntry*> entries;
-	cl::ImageGL fluidTexMem;		//data is written to this buffer before rendering
 
 	//public for Equation...
 	HydroGPUApp *app;
@@ -44,14 +39,11 @@ public:	//protected:
 	cl::Buffer dtSwapBuffer;
 	
 	cl::Kernel findMinTimestepReduceKernel;
-	cl::Kernel convertToTexKernel;
 
 	std::vector<std::vector<std::vector<cl::Kernel>>> boundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim][min/max];
 
 	//construct this after the program has been compiled
 	std::shared_ptr<HydroGPU::Integrator::Integrator> integrator;
-	std::shared_ptr<HydroGPU::Plot::VectorField> vectorField;
-	std::shared_ptr<HydroGPU::Plot::Plot> plot;
 
 	//useful to have around
 	cl::NDRange globalSize;
@@ -73,6 +65,8 @@ public:
 	virtual void init();	//...because I'm using virtual function calls in here
 protected:
 	virtual void createEquation() {}
+public:
+	virtual void setupConvertToTexKernelArgs() {}
 public:	//protected:
 	virtual std::vector<std::string> getProgramSources();
 protected:
@@ -109,13 +103,6 @@ public:
 	//multiplies the incoming vector by the sparse matrix of the coefficients of the matrix
 	// that, when multiplied by the state vector, forms d/dt(state)
 	virtual void applyDStateDtMatrix(cl::Buffer result, cl::Buffer x);
-	
-	virtual void display();
-	virtual void resize();
-
-	virtual void mouseMove(int x, int y, int dx, int dy);
-	virtual void mousePan(int dx, int dy);
-	virtual void mouseZoom(int dz);
 
 protected:
 	//called upon resetState
@@ -152,7 +139,6 @@ protected:
 public:
 	virtual void resetState();
 	
-	virtual void addDrop();
 	virtual void screenshot();
 
 protected:

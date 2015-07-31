@@ -9,6 +9,12 @@
 #include "Tensor/Tensor.h"
 
 namespace HydroGPU {
+namespace Plot {
+struct Camera;
+struct Plot;
+struct VectorField;
+struct Graph;
+}
 
 struct HydroGPUApp : public ::GLApp::GLApp {
 	typedef ::GLApp::GLApp Super;
@@ -34,8 +40,8 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	bool useFixedDT;
 	real fixedDT;
 	real cfl;
-	int displayMethod;	//TODO the enumeration of these values is dependent on the solver equation 
-	float displayScale;
+	int heatMapVariable;	//TODO the enumeration of these values is dependent on the solver equation 
+	float heatMapColorScale;
 	Tensor::Tensor<int, Tensor::Lower<3>, Tensor::Lower<2>> boundaryMethods;
 	bool useGravity;
 	int gaussSeidelMaxIter;	//max iterations for Gauss-Seidel max iterations
@@ -56,6 +62,12 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	float aspectRatio;
 
 	bool showTimestep;
+	
+	//construct this after the program has been compiled
+	std::shared_ptr<HydroGPU::Plot::VectorField> vectorField;
+	std::shared_ptr<HydroGPU::Plot::Plot> plot;
+	std::shared_ptr<HydroGPU::Plot::Graph> graph;
+	std::shared_ptr<HydroGPU::Plot::Camera> camera;
 
 	HydroGPUApp();
 

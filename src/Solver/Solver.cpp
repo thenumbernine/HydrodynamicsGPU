@@ -3,9 +3,7 @@
 #include "HydroGPU/Integrator/RungeKutta4.h"
 #include "HydroGPU/Integrator/BackwardEulerConjugateGradient.h"
 #include "HydroGPU/Plot/VectorField.h"
-#include "HydroGPU/Plot/Plot1D.h"
-#include "HydroGPU/Plot/Plot2D.h"
-#include "HydroGPU/Plot/Plot3D.h"
+#include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
@@ -177,22 +175,6 @@ void Solver::initBuffers() {
 		for (real &r : dtVec) { r = std::numeric_limits<real>::max(); }
 		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real) * volume, &dtVec[0]);
 	}
-
-	vectorField = std::make_shared<HydroGPU::Plot::VectorField>(this);
-	
-	switch(app->dim) {
-	case 1:
-		plot = std::make_shared<HydroGPU::Plot::Plot1D>(this);
-		break;
-	case 2:
-		plot = std::make_shared<HydroGPU::Plot::Plot2D>(this);
-		break;
-	case 3:
-		plot = std::make_shared<HydroGPU::Plot::Plot3D>(this);
-		break;
-	}
-	
-	fluidTexMem = cl::ImageGL(app->clCommon->context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, plot->fluidTex);
 }
 
 static std::string boundaryKernelNames[NUM_BOUNDARY_KERNELS] = {
@@ -227,10 +209,7 @@ void Solver::initKernels() {
 	}
 	
 	findMinTimestepReduceKernel = cl::Kernel(program, "findMinTimestepReduce");
-	CLCommon::setArgs(findMinTimestepReduceKernel, dtBuffer, cl::Local(localSize[0] * sizeof(real)), volume, dtSwapBuffer);
-	
-	convertToTexKernel = cl::Kernel(program, "convertToTex");
-	CLCommon::setArgs(convertToTexKernel, stateBuffer, fluidTexMem, app->gradientTexMem);
+	CLCommon::setArgs(findMinTimestepReduceKernel, dtBuffer, cl::Local(localSize[0] * sizeof(real)), volume, dtSwapBuffer);	
 }
 
 std::vector<std::string> Solver::getProgramSources() {
@@ -482,52 +461,11 @@ void Solver::applyDStateDtMatrix(cl::Buffer result, cl::Buffer x) {
 	throw Common::Exception() << "not implemented";
 }
 
-void Solver::display() {
-	glFinish();
-	
-	std::vector<cl::Memory> acquireGLMems = {fluidTexMem};
-	commands.enqueueAcquireGLObjects(&acquireGLMems);
-
-	//TODO if we're not using GPU then we need to transfer the contents via a CPU buffer ... or not at all?
-	if (app->clCommon->useGPU) {
-		convertToTexKernel.setArg(3, app->displayMethod);
-		convertToTexKernel.setArg(4, app->displayScale);
-		commands.enqueueNDRangeKernel(convertToTexKernel, offsetNd, globalSize, localSize);
-	}
-
-	commands.enqueueReleaseGLObjects(&acquireGLMems);
-	commands.finish();
-
-	plot->display();	
-	vectorField->display();
-	
-	{int err = glGetError();
-	if (err) std::cout << "GL error " << err << " at " << __FILE__ << ":" << __LINE__ << std::endl;}
-}
-
-void Solver::resize() {
-	plot->resize();
-}
-
-void Solver::mouseMove(int x, int y, int dx, int dy) {
-}
-
-void Solver::mousePan(int dx, int dy) {
-	plot->mousePan(dx, dy);
-}
-
-void Solver::mouseZoom(int dz) {
-	plot->mouseZoom(dz);
-}
-
-void Solver::addDrop() {
-}
-
 void Solver::screenshot() {
 	for (int i = 0; i < 1000; ++i) {
 		std::string filename = std::string("screenshot") + std::to_string(i) + "layer0.png";
 		if (!Common::File::exists(filename)) {
-			plot->screenshot(filename);
+			app->plot->screenshot(filename);
 			return;
 		}
 	}

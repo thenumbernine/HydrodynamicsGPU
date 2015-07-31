@@ -35,6 +35,7 @@ protected:
 	virtual std::vector<std::string> getProgramSources();
 
 	virtual void init();			//called last 
+	virtual void setupConvertToTexKernelArgs();
 
 	/*
 	super writes the newtonian state variables

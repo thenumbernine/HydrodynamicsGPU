@@ -1,6 +1,7 @@
 #include "HydroGPU/Equation/SelfGravitationBehavior.h"
 #include "HydroGPU/Solver/SelfGravitation.h"
 #include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
 
@@ -24,9 +25,11 @@ void SelfGravitation::initKernels() {
 	calcGravityDerivKernel = cl::Kernel(program, "calcGravityDeriv");
 	calcGravityDerivKernel.setArg(1, solver->stateBuffer);
 	calcGravityDerivKernel.setArg(2, potentialBuffer);
-		
-	solver->convertToTexKernel.setArg(5, potentialBuffer);
-	solver->convertToTexKernel.setArg(6, solidBuffer);
+}
+
+void SelfGravitation::setupConvertToTexKernelArgs() {
+	solver->app->plot->convertToTexKernel.setArg(3, potentialBuffer);
+	solver->app->plot->convertToTexKernel.setArg(4, solidBuffer);
 }
 
 std::vector<std::string> SelfGravitation::getProgramSources() {

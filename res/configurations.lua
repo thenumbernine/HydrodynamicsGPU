@@ -273,6 +273,40 @@ return {
 		end
 	end,
 
+	--http://www.astro.virginia.edu/VITA/ATHENA/dmr.html
+	['Double Mach Reflection'] = function()
+		-- I am not correctly modeling the top boundary
+		boundaryMethods = {
+			{min='FREEFLOW', max='FREEFLOW'},
+			{min='MIRROR', max='FREEFLOW'},
+			{min='MIRROR', max='MIRROR'},
+		}
+		xmin = {0,0,0}
+		xmax = {4,1,1}
+		size[1] = size[1] * 2
+		size[2] = size[2] / 2
+		gamma = 1.4
+		local sqrt1_3 = math.sqrt(1/3)
+		initState = function(x,y,z)
+			local inside = x < y * sqrt1_3
+			if inside then
+				return buildStateEuler{
+					x=x, y=y, z=z,
+					density = 8,
+					pressure = 116.5,
+					velocityX = 8.25 * math.cos(math.rad(30)),
+					velocityY = -8.25 * math.sin(math.rad(30)),
+				}
+			else
+				return buildStateEuler{
+					x=x, y=y, z=z,
+					density = 1.4,
+					pressure = 1,
+				}
+			end
+		end
+	end,
+	
 	-- http://www.cfd-online.com/Wiki/2-D_laminar/turbulent_driven_square_cavity_flow
 	['Square Cavity'] = function()
 		boundaryMethods = {
@@ -366,37 +400,23 @@ return {
 		end
 	end,
 
-	--http://www.astro.virginia.edu/VITA/ATHENA/dmr.html
-	['Double Mach Reflection'] = function()
-		-- I am not correctly modeling the top boundary
+	['Spiral Implosion'] = function()
 		boundaryMethods = {
-			{min='FREEFLOW', max='FREEFLOW'},
-			{min='MIRROR', max='FREEFLOW'},
+			{min='MIRROR', max='MIRROR'},
+			{min='MIRROR', max='MIRROR'},
 			{min='MIRROR', max='MIRROR'},
 		}
-		xmin = {0,0,0}
-		xmax = {4,1,1}
-		size[1] = size[1] * 2
-		size[2] = size[2] / 2
-		gamma = 1.4
-		local sqrt1_3 = math.sqrt(1/3)
 		initState = function(x,y,z)
-			local inside = x < y * sqrt1_3
-			if inside then
-				return buildStateEuler{
-					x=x, y=y, z=z,
-					density = 8,
-					pressure = 116.5,
-					velocityX = 8.25 * math.cos(math.rad(30)),
-					velocityY = -8.25 * math.sin(math.rad(30)),
-				}
-			else
-				return buildStateEuler{
-					x=x, y=y, z=z,
-					density = 1.4,
-					pressure = 1,
-				}
-			end
+			local r = math.sqrt(x*x + y*y + z*z)
+			local s = r > .25 and -1 or 1
+			useGravity = true
+			return buildStateEuler{
+				x=x,y=y,z=z,
+				density = 1.1 - math.exp(-x*x-y*y),
+				velocityX = -y * s,
+				velocityY = x * s,
+				specificEnergyInternal = 1,
+			}
 		end
 	end,
 
@@ -536,17 +556,19 @@ return {
 		local symmath = require 'symmath'	-- this is failing ...
 		local symvars = table{'xx', 'xy', 'xz', 'yy', 'yz', 'zz'}
 		local symindex = symvars:map(function(var,i) return i,var end)
-		--xmin = {0, 0, 0}
-		--xmax = {300, 300, 300}
-		local xc = (xmax[1] + xmin[1]) * .5
-		local yc = (xmax[2] + xmin[2]) * .5
-		local zc = (xmax[3] + xmin[3]) * .5
-		--local H = 5
-		--local sigma = 10
-		-- [[ unit domain
+		-- [[ problem's original domain
+		local H = 5
+		local sigma = 10
+		xmin = {0, 0, 0}
+		xmax = {300, 300, 300}
+		--]]
+		--[[ keeping the unit domain (because I'm too lazy to reposition the camera)
 		local H = 1/60/60
 		local sigma = 1/30
 		--]]
+		local xc = (xmax[1] + xmin[1]) * .5
+		local yc = (xmax[2] + xmin[2]) * .5
+		local zc = (xmax[3] + xmin[3]) * .5
 		local x = symmath.var'x'
 		local y = symmath.var'y'
 		local z = symmath.var'z'

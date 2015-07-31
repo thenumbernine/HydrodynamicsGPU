@@ -20,6 +20,11 @@ public:
 		Super::init();
 	}
 
+	virtual void setupConvertToTexKernelArgs() {
+		Super::setupConvertToTexKernelArgs();
+		selfgrav->setupConvertToTexKernelArgs();
+	}
+
 protected:
 	virtual void initBuffers() {
 		Super::initBuffers();

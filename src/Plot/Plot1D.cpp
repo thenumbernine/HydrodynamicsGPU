@@ -1,13 +1,15 @@
 #include "HydroGPU/Plot/Plot1D.h"
+#include "HydroGPU/Plot/CameraOrtho.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
+#include "Common/Macros.h"
 #include <OpenGL/gl.h>
 
 namespace HydroGPU {
 namespace Plot {
 	
-Plot1D::Plot1D(HydroGPU::Solver::Solver* solver) 
+Plot1D::Plot1D(std::shared_ptr<HydroGPU::Solver::Solver> solver) 
 : Super(solver)
 {
 	std::string shaderCode = Common::File::read("Display1D.shader");
@@ -24,9 +26,7 @@ Plot1D::Plot1D(HydroGPU::Solver::Solver* solver)
 }
 
 void Plot1D::display() {
-	glLoadIdentity();
-	glTranslatef(-viewPos(0), -viewPos(1), 0);
-	glScalef(viewZoom, viewZoom, viewZoom);
+	solver->app->camera->setupModelview();
 
 	static float colors[][3] = {
 		{1,0,0},
@@ -38,28 +38,34 @@ void Plot1D::display() {
 	//determine grid for width
 	//render lines
 
-	glBindTexture(GL_TEXTURE_2D, fluidTex);
-	displayShader->use();
-	for (int channel = 0; channel < 4; ++channel) {
-		glColor3fv(colors[channel]);
-		displayShader->setUniform<int>("channel", channel);
+	for (int variableIndex = 0; variableIndex < solver->equation->displayVariables.size(); ++variableIndex) {
+
+		convertVariableToTex(variableIndex);
+
+		displayShader->use();
+		glBindTexture(GL_TEXTURE_2D, tex);
+		glColor3fv(colors[variableIndex % numberof(colors)]);
+		displayShader->setUniform<float>("scale", solver->app->heatMapColorScale);
 		glBegin(GL_LINE_STRIP);
 		for (int i = 2; i < solver->app->size.s[0]-2; ++i) {
 			real x = ((real)(i) + .5f) / (real)solver->app->size.s[0];
 			glVertex2f(x, 0.f);
 		}
 		glEnd();
+		displayShader->done();
+		glBindTexture(GL_TEXTURE_2D, 0);	
 	}
-	displayShader->done();
-	glBindTexture(GL_TEXTURE_2D, 0);	
 
 	{
 		Tensor::Vector<double,2> viewxmax(solver->app->aspectRatio * .5, .5);
 		Tensor::Vector<double,2> viewxmin = -viewxmax;
-		viewxmin += viewPos;
-		viewxmax += viewPos;
-		viewxmin /= viewZoom;
-		viewxmax /= viewZoom;
+		std::shared_ptr<CameraOrtho> cameraOrtho = std::dynamic_pointer_cast<CameraOrtho>(solver->app->camera);
+		if (cameraOrtho) {
+			viewxmin /= cameraOrtho->zoom;
+			viewxmax /= cameraOrtho->zoom;
+			viewxmin += cameraOrtho->pos;
+			viewxmax += cameraOrtho->pos;
+		}
 		double spacing = std::max( viewxmax(0) - viewxmin(0), viewxmax(1) - viewxmin(1) );
 		spacing = pow(10.,floor(log10(spacing))) * .1;
 		for (int i = 0; i < 2; ++i) {

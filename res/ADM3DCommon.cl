@@ -23,24 +23,15 @@ real8 inv3x3sym(real xx, real xy, real xz, real yy, real yz, real zz, real det) 
 
 //specific to Euler equations
 __kernel void convertToTex(
-	const __global real* stateBuffer,
-	__write_only image3d_t fluidTex,
-	__read_only image1d_t gradientTex,
+	__write_only image3d_t destTex,
 	int displayMethod,
-	float displayScale)
+	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
-#if DIM == 1	//pack everything into one variable
-	real alpha = state[0];
-	real g_xx = state[1];
-	real D_xxx = state[10];
-	real K_xx = state[28];
-	float4 color = (float4)(alpha, g_xx, D_xxx, K_xx) * displayScale;
-#else			//pick a single gradient and map it to a palette
 	real alpha = state[0];
 	real g_xx = state[1], g_xy = state[2], g_xz = state[3], g_yy = state[4], g_yz = state[5], g_zz = state[6];
 	//real A_x = state[7], A_y = state[8], A_z = state[9];
@@ -65,10 +56,8 @@ __kernel void convertToTex(
 		value = tr_K;
 		break;
 	}
-	value *= displayScale;
-	float4 color = read_imagef(gradientTex, CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR, value);
-#endif
-	write_imagef(fluidTex, (int4)(i.x, i.y, i.z, 0), color);
+	
+	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0.f, 0.f, 0.f));
 }
 
 constant float2 offset[6] = {

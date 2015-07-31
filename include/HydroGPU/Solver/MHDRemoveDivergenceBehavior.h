@@ -20,6 +20,11 @@ public:
 		divfree->init();
 	}
 
+	virtual void setupConvertToTexKernelArgs() {
+		Super::setupConvertToTexKernelArgs();
+		divfree->setupConvertToTexKernelArgs();
+	}
+
 protected:
 	virtual std::vector<std::string> getProgramSources() {
 		std::vector<std::string> sources = Super::getProgramSources();

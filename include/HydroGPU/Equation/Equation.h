@@ -14,7 +14,7 @@ struct Equation {
 protected:
 	HydroGPU::Solver::Solver* solver;
 public:
-	std::vector<std::string> displayMethods;
+	std::vector<std::string> displayVariables;
 	std::vector<std::string> boundaryMethods;
 	std::vector<std::string> states;
 

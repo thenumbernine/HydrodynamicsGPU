@@ -4,11 +4,11 @@ varying vec3 color;
 
 uniform float xmin, xmax;
 uniform sampler2D tex;
-uniform int channel;
+uniform float scale;
 
 void main() {
 	vec3 vertex = gl_Vertex.xyz;
-	vertex.y = texture2D(tex, vertex.xy)[channel];
+	vertex.y = texture2D(tex, vertex.xy).r * scale;
 	vertex.x = vertex.x * (xmax - xmin) + xmin;
 	color = gl_Color.rgb;
 	gl_Position = gl_ModelViewProjectionMatrix * vec4(vertex, 1.);

@@ -19,12 +19,13 @@ enum {
 ADM1D::ADM1D(HydroGPU::Solver::Solver* solver_) 
 : Super(solver_)
 {
-	displayMethods = std::vector<std::string>{
+	displayVariables = std::vector<std::string>{
 		"ALPHA",
 		"G",
 		"A",
 		"D",
-		"K_TILDE"
+		"K_TILDE",
+		"K"
 	};
 
 	//matches above
