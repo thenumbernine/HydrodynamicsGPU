@@ -8,11 +8,18 @@ namespace Plot {
 CameraFrustum::CameraFrustum(HydroGPU::HydroGPUApp* app_)
 : Super(app_)
 , dist(1.f)
-{}
+{
+	if (!app->lua.ref()["camera"]["pos"].isNil()) {
+		app->lua.ref()["camera"]["pos"][1] >> pos(0);
+		app->lua.ref()["camera"]["pos"][2] >> pos(1);
+		app->lua.ref()["camera"]["pos"][3] >> pos(2);
+	}
+	app->lua.ref()["camera"]["dist"] >> dist;
+}
 
 void CameraFrustum::setupProjection() {
-	const float zNear = .01;
-	const float zFar = 10;
+	float zFar = 2.f * dist;
+	float zNear = dist / 1000.f;
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glFrustum(-app->aspectRatio * zNear, app->aspectRatio * zNear, -zNear, zNear, zNear, zFar);
@@ -24,6 +31,7 @@ void CameraFrustum::setupModelview() {
 	glTranslatef(0,0,-dist);
 	Tensor::Quat<float> angleAxis = angle.toAngleAxis();
 	glRotatef(angleAxis(3) * 180. / M_PI, angleAxis(0), angleAxis(1), angleAxis(2));
+	glTranslatef(-pos(0), -pos(1), -pos(2));
 }
 
 void CameraFrustum::mousePan(int dx, int dy) {

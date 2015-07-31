@@ -8,8 +8,8 @@
 namespace HydroGPU {
 namespace Plot {
 	
-Plot2D::Plot2D(std::shared_ptr<HydroGPU::Solver::Solver> solver)
-: Super(solver)
+Plot2D::Plot2D(HydroGPU::HydroGPUApp* app_)
+: Super(app_)
 {
 	std::string shaderCode = Common::File::read("HeatMap.shader");
 	std::vector<Shader::Shader> shaders = {
@@ -24,23 +24,21 @@ Plot2D::Plot2D(std::shared_ptr<HydroGPU::Solver::Solver> solver)
 }
 
 void Plot2D::display() {
-	Super::display();
-
-	solver->app->camera->setupModelview();
+	convertVariableToTex(app->heatMapVariable);
 
 	heatShader->use();
-	heatShader->setUniform<float>("scale", solver->app->heatMapColorScale);
+	heatShader->setUniform<float>("scale", app->heatMapColorScale);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_1D, solver->app->gradientTex);
+	glBindTexture(GL_TEXTURE_1D, app->gradientTex);
 	glBegin(GL_QUADS);
 	const float xofs = 0.f;
 	const float yofs = 0.f;
-	glTexCoord2f(0+xofs,0+yofs); glVertex2f(solver->app->xmin.s[0], solver->app->xmin.s[1]);
-	glTexCoord2f(1+xofs,0+yofs); glVertex2f(solver->app->xmax.s[0], solver->app->xmin.s[1]);
-	glTexCoord2f(1+xofs,1+yofs); glVertex2f(solver->app->xmax.s[0], solver->app->xmax.s[1]);
-	glTexCoord2f(0+xofs,1+yofs); glVertex2f(solver->app->xmin.s[0], solver->app->xmax.s[1]);
+	glTexCoord2f(0+xofs,0+yofs); glVertex2f(app->xmin.s[0], app->xmin.s[1]);
+	glTexCoord2f(1+xofs,0+yofs); glVertex2f(app->xmax.s[0], app->xmin.s[1]);
+	glTexCoord2f(1+xofs,1+yofs); glVertex2f(app->xmax.s[0], app->xmax.s[1]);
+	glTexCoord2f(0+xofs,1+yofs); glVertex2f(app->xmin.s[0], app->xmax.s[1]);
 	glEnd();
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_1D, 0);

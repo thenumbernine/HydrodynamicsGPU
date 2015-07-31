@@ -6,28 +6,26 @@
 #include <string>
 
 namespace HydroGPU {
-namespace Solver {
-struct Solver;
-}
+struct HydroGPUApp;
 namespace Plot {
 
 struct Plot {
 public:	//protected:
-	std::shared_ptr<HydroGPU::Solver::Solver> solver;
+	HydroGPU::HydroGPUApp* app;
 	
 	GLuint tex;
 	cl::ImageGL texCLMem;		//data is written to this buffer before rendering
 	cl::Kernel convertToTexKernel;
 
 public:
-	Plot(std::shared_ptr<HydroGPU::Solver::Solver> solver_);
+	Plot(HydroGPU::HydroGPUApp* app_);
 	virtual ~Plot();
 
 	virtual void init();
-	virtual void display();
+	virtual void display() = 0;
 	virtual void screenshot(const std::string& filename) = 0;
 
-protected:
+public://protected:
 	virtual void convertVariableToTex(int displayVariable);
 };
 

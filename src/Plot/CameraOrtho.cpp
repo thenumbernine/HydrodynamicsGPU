@@ -19,14 +19,16 @@ CameraOrtho::CameraOrtho(HydroGPU::HydroGPUApp* app_)
 void CameraOrtho::setupProjection() {
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glOrtho(-app->aspectRatio *.5, app->aspectRatio * .5, -.5, .5, -1., 1.);
+	glOrtho(
+		pos(0) - app->aspectRatio * .5 / zoom, 
+		pos(0) + app->aspectRatio * .5 / zoom,
+		pos(1) - .5 / zoom,
+		pos(1) + .5 / zoom, -1., 1.);
 }
 
 void CameraOrtho::setupModelview() {
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	glScalef(zoom, zoom, zoom);
-	glTranslatef(-pos(0), -pos(1), 0);
 }
 
 void CameraOrtho::mousePan(int dx, int dy) {

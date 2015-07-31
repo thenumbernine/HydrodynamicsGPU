@@ -5,8 +5,8 @@
 namespace HydroGPU {
 namespace Plot {
 
-Plot::Plot(std::shared_ptr<HydroGPU::Solver::Solver> solver_)
-: solver(solver_)
+Plot::Plot(HydroGPU::HydroGPUApp* app_)
+: app(app_)
 , tex(GLuint())
 {
 }
@@ -14,33 +14,29 @@ Plot::Plot(std::shared_ptr<HydroGPU::Solver::Solver> solver_)
 //call this after plot's subclass ctor, when the tex is allocated
 void Plot::init() {
 	//init buffers
-	texCLMem = cl::ImageGL(solver->app->clCommon->context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, tex);
+	texCLMem = cl::ImageGL(app->clCommon->context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, tex);
 
 	//init kernels
-	convertToTexKernel = cl::Kernel(solver->program, "convertToTex");
+	convertToTexKernel = cl::Kernel(app->solver->program, "convertToTex");
 	convertToTexKernel.setArg(0, texCLMem);
-	convertToTexKernel.setArg(2, solver->stateBuffer);
-	solver->setupConvertToTexKernelArgs();
+	convertToTexKernel.setArg(2, app->solver->stateBuffer);
+	app->solver->setupConvertToTexKernelArgs();
 }
 
 Plot::~Plot() {
 	glDeleteTextures(1, &tex);
 }
 
-void Plot::display() {
-	convertVariableToTex(solver->app->heatMapVariable);
-}
-
 void Plot::convertVariableToTex(int displayVariable) {
 	glFinish();
-	cl::CommandQueue commands = solver->commands;
+	cl::CommandQueue commands = app->solver->commands;
 
 	std::vector<cl::Memory> acquireGLMems = {texCLMem};
 	commands.enqueueAcquireGLObjects(&acquireGLMems);
 
-	if (solver->app->clCommon->useGPU) {
+	if (app->clCommon->useGPU) {
 		convertToTexKernel.setArg(1, displayVariable);
-		commands.enqueueNDRangeKernel(convertToTexKernel, solver->offsetNd, solver->globalSize, solver->localSize);
+		commands.enqueueNDRangeKernel(convertToTexKernel, app->solver->offsetNd, app->solver->globalSize, app->solver->localSize);
 	} else {
 		//TODO if we're not using GPU then we need to transfer the contents via a CPU buffer ... or not at all?
 		throw Common::Exception() << "TODO";

@@ -29,10 +29,10 @@ static int quads[] = {
 namespace HydroGPU {
 namespace Plot {
 
-Plot3D::Plot3D(std::shared_ptr<HydroGPU::Solver::Solver> solver)
-: Super(solver)
+Plot3D::Plot3D(HydroGPU::HydroGPUApp* app_)
+: Super(app_)
 {
-	int volume = solver->getVolume();
+	int volume = app->solver->getVolume();
 	
 	std::string shaderCode = Common::File::read("Display3D.shader");
 	std::vector<Shader::Shader> shaders = {
@@ -42,8 +42,8 @@ Plot3D::Plot3D(std::shared_ptr<HydroGPU::Solver::Solver> solver)
 	displayShader = std::make_shared<Shader::Program>(shaders);
 	displayShader->link()
 		.setUniform<int>("tex", 0)
-		.setUniform<int>("maxiter", std::max(solver->app->size.s[0], std::max(solver->app->size.s[1], solver->app->size.s[2])))
-		.setUniform<float>("scale", solver->app->xmax.s[0] - solver->app->xmin.s[0], solver->app->xmax.s[1] - solver->app->xmin.s[1], solver->app->xmax.s[2] - solver->app->xmin.s[2])
+		.setUniform<int>("maxiter", std::max(app->size.s[0], std::max(app->size.s[1], app->size.s[2])))
+		.setUniform<float>("scale", app->xmax.s[0] - app->xmin.s[0], app->xmax.s[1] - app->xmin.s[1], app->xmax.s[2] - app->xmin.s[2])
 		.done();
 
 	//get a texture going for visualizing the output
@@ -53,8 +53,8 @@ Plot3D::Plot3D(std::shared_ptr<HydroGPU::Solver::Solver> solver)
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	Tensor::Vector<int,3> glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
 	//specific to Euler
-	for (int i = 0; i < solver->app->dim; ++i) {
-		switch (solver->app->boundaryMethods(i,0)) {	//use min side to determine texture wrap along this dimension
+	for (int i = 0; i < app->dim; ++i) {
+		switch (app->boundaryMethods(i,0)) {	//use min side to determine texture wrap along this dimension
 		case 0://BOUNDARY_PERIODIC:
 			glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_REPEAT);
 			break;
@@ -64,18 +64,16 @@ Plot3D::Plot3D(std::shared_ptr<HydroGPU::Solver::Solver> solver)
 			break;
 		}
 	}
-	glTexImage3D(GL_TEXTURE_3D, 0, 4, solver->app->size.s[0], solver->app->size.s[1], solver->app->size.s[2], 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	solver->totalAlloc += sizeof(char) * 4 * volume;
-	std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << solver->totalAlloc << std::endl;
+	glTexImage3D(GL_TEXTURE_3D, 0, 4, app->size.s[0], app->size.s[1], app->size.s[2], 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	app->solver->totalAlloc += sizeof(char) * 4 * volume;
+	std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << app->solver->totalAlloc << std::endl;
 	glBindTexture(GL_TEXTURE_3D, 0);
 	int err = glGetError();
 	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
 }
 
 void Plot3D::display() {
-	Super::display();
-	
-	solver->app->camera->setupModelview();
+	convertVariableToTex(app->heatMapVariable);
 
 	glColor3f(1,1,1);
 	for (int pass = 0; pass < 2; ++pass) {
@@ -96,9 +94,9 @@ void Plot3D::display() {
 			float y = vertexes[quads[i] * 3 + 1];
 			float z = vertexes[quads[i] * 3 + 2];
 			glTexCoord3f(x, y, z);
-			x = x * (solver->app->xmax.s[0] - solver->app->xmin.s[0]) + solver->app->xmin.s[0];
-			y = y * (solver->app->xmax.s[1] - solver->app->xmin.s[1]) + solver->app->xmin.s[1];
-			z = z * (solver->app->xmax.s[2] - solver->app->xmin.s[2]) + solver->app->xmin.s[2];
+			x = x * (app->xmax.s[0] - app->xmin.s[0]) + app->xmin.s[0];
+			y = y * (app->xmax.s[1] - app->xmin.s[1]) + app->xmin.s[1];
+			z = z * (app->xmax.s[2] - app->xmin.s[2]) + app->xmin.s[2];
 			glVertex3f(x, y, z);
 		}
 		glEnd();
@@ -117,17 +115,17 @@ void Plot3D::display() {
 
 void Plot3D::screenshot(const std::string& filename) {
 	std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(
-		Tensor::Vector<int,2>(solver->app->size.s[0], solver->app->size.s[1]),
+		Tensor::Vector<int,2>(app->size.s[0], app->size.s[1]),
 		nullptr, 3);
 	
-	size_t volume = solver->getVolume();
+	size_t volume = app->solver->getVolume();
 	std::vector<char> buffer(volume);
 	glBindTexture(GL_TEXTURE_3D, tex);
 	glGetTexImage(GL_TEXTURE_3D, 0, GL_RGB, GL_UNSIGNED_BYTE, &buffer[0]);
 	glBindTexture(GL_TEXTURE_3D, 0);
 	std::vector<char>::iterator iter = buffer.begin();
-	size_t sliceSize = solver->app->size.s[0] * solver->app->size.s[1];
-	for (int z = 0; z < solver->app->size.s[2]; ++z) {
+	size_t sliceSize = app->size.s[0] * app->size.s[1];
+	for (int z = 0; z < app->size.s[2]; ++z) {
 		std::copy(iter, iter + sliceSize, image->getData());
 		iter += sliceSize;
 		std::string layerFilename = filename + "-layer" + std::to_string(z) + ".png";

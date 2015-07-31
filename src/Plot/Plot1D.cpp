@@ -9,8 +9,8 @@
 namespace HydroGPU {
 namespace Plot {
 	
-Plot1D::Plot1D(std::shared_ptr<HydroGPU::Solver::Solver> solver) 
-: Super(solver)
+Plot1D::Plot1D(HydroGPU::HydroGPUApp* app_) 
+: Super(app_)
 {
 	std::string shaderCode = Common::File::read("Display1D.shader");
 	std::vector<Shader::Shader> shaders = {
@@ -20,13 +20,12 @@ Plot1D::Plot1D(std::shared_ptr<HydroGPU::Solver::Solver> solver)
 	displayShader = std::make_shared<Shader::Program>(shaders);
 	displayShader->link();
 	displayShader->setUniform<int>("tex", 0);
-	displayShader->setUniform<float>("xmin", solver->app->xmin.s[0]);
-	displayShader->setUniform<float>("xmax", solver->app->xmax.s[0]);
+	displayShader->setUniform<float>("xmin", app->xmin.s[0]);
+	displayShader->setUniform<float>("xmax", app->xmax.s[0]);
 	displayShader->done();	
 }
 
 void Plot1D::display() {
-	solver->app->camera->setupModelview();
 
 	static float colors[][3] = {
 		{1,0,0},
@@ -38,17 +37,19 @@ void Plot1D::display() {
 	//determine grid for width
 	//render lines
 
-	for (int variableIndex = 0; variableIndex < solver->equation->displayVariables.size(); ++variableIndex) {
+	for (int variableIndex = 0; variableIndex < app->solver->equation->displayVariables.size(); ++variableIndex) {
 
 		convertVariableToTex(variableIndex);
 
 		displayShader->use();
 		glBindTexture(GL_TEXTURE_2D, tex);
 		glColor3fv(colors[variableIndex % numberof(colors)]);
-		displayShader->setUniform<float>("scale", solver->app->heatMapColorScale);
+		displayShader->setUniform<float>("scale", app->heatMapColorScale);
 		glBegin(GL_LINE_STRIP);
-		for (int i = 2; i < solver->app->size.s[0]-2; ++i) {
-			real x = ((real)(i) + .5f) / (real)solver->app->size.s[0];
+		for (int i = 2; i < app->size.s[0]-2; ++i) {
+			real x = ((real)(i) + .5f) / (real)app->size.s[0];
+			//incoming vertexes must be within [0,1] for texture loop
+			//then they are rescaled to the graph bounds
 			glVertex2f(x, 0.f);
 		}
 		glEnd();
@@ -57,9 +58,9 @@ void Plot1D::display() {
 	}
 
 	{
-		Tensor::Vector<double,2> viewxmax(solver->app->aspectRatio * .5, .5);
+		Tensor::Vector<double,2> viewxmax(app->aspectRatio * .5, .5);
 		Tensor::Vector<double,2> viewxmin = -viewxmax;
-		std::shared_ptr<CameraOrtho> cameraOrtho = std::dynamic_pointer_cast<CameraOrtho>(solver->app->camera);
+		std::shared_ptr<CameraOrtho> cameraOrtho = std::dynamic_pointer_cast<CameraOrtho>(app->camera);
 		if (cameraOrtho) {
 			viewxmin /= cameraOrtho->zoom;
 			viewxmax /= cameraOrtho->zoom;

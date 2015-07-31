@@ -5,9 +5,7 @@
 #include <memory>
 
 namespace HydroGPU {
-namespace Solver {
-struct Solver;
-}
+struct HydroGPUApp;
 namespace Plot {
 
 struct Plot3D : public Plot {
@@ -15,7 +13,7 @@ struct Plot3D : public Plot {
 	
 	std::shared_ptr<Shader::Program> displayShader;
 
-	Plot3D(std::shared_ptr<HydroGPU::Solver::Solver> solver);
+	Plot3D(HydroGPU::HydroGPUApp* app_);
 	
 	virtual void display();
 	virtual void screenshot(const std::string& filename);	

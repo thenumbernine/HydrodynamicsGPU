@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HydroGPU/Plot/Camera.h"
+#include "Tensor/Vector.h"
 #include "Tensor/Quat.h"
 #include <memory>
 
@@ -12,6 +13,7 @@ struct CameraFrustum : public Camera {
 	typedef Camera Super;
 
 protected:	
+	Tensor::Vector<float,3> pos;
 	Tensor::Quat<float> angle;
 	float dist;
 

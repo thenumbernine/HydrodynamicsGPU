@@ -3,14 +3,16 @@ varying vec3 color;
 #ifdef VERTEX_SHADER
 
 uniform sampler2D tex;
-uniform float xmin;
-uniform float xmax;
+uniform int axis;
+uniform vec2 xmin;
+uniform vec2 xmax;
 uniform float scale;
 
 void main() {
 	vec3 vertex = gl_Vertex.xyz;
-	vertex.y = texture2D(tex, vertex.xy).r * scale;
-	vertex.x = vertex.x * (xmax - xmin) + xmin;
+	vertex[axis] = texture2D(tex, vertex.xy).r * scale;
+	vertex.x = vertex.x * (xmax.x - xmin.x) + xmin.x;
+	vertex.y = vertex.y * (xmax.y - xmin.y) + xmin.y;
 	color = gl_Color.rgb;
 	gl_Position = gl_ModelViewProjectionMatrix * vec4(vertex, 1.);
 }
@@ -24,4 +26,5 @@ void main() {
 }
 
 #endif	//FRAGMENT_SHADER
+
 

@@ -4,15 +4,13 @@
 #include <memory>
 
 namespace HydroGPU {
-namespace Solver {
-struct Solver;
-}
+struct HydroGPUApp;
 namespace Plot {
 
 struct Plot1D2D : public Plot {
 	typedef Plot Super;
 	
-	Plot1D2D(std::shared_ptr<HydroGPU::Solver::Solver> solver);
+	Plot1D2D(HydroGPU::HydroGPUApp* app_);
 	
 	virtual void screenshot(const std::string& filename);
 };

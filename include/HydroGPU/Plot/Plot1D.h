@@ -4,15 +4,13 @@
 #include "Shader/Program.h"
 
 namespace HydroGPU {
-namespace Solver {
-struct Solver;
-}
+struct HydroGPUApp;
 namespace Plot {
 
 struct Plot1D : public Plot1D2D {
 	typedef Plot1D2D Super;
 
-	Plot1D(std::shared_ptr<HydroGPU::Solver::Solver> solver);
+	Plot1D(HydroGPU::HydroGPUApp* app_);
 
 	virtual void display();
 

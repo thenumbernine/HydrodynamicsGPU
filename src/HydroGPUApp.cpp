@@ -17,6 +17,7 @@
 #include "HydroGPU/Plot/Plot3D.h"
 #include "HydroGPU/Plot/CameraOrtho.h"
 #include "HydroGPU/Plot/CameraFrustum.h"
+#include "HydroGPU/Plot/Graph.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -235,16 +236,23 @@ void HydroGPUApp::init() {
 	//needs solver->program to be created
 	switch(dim) {
 	case 1:
-		plot = std::make_shared<HydroGPU::Plot::Plot1D>(solver);
+		plot = std::make_shared<HydroGPU::Plot::Plot1D>(this);
 		break;
 	case 2:
-		plot = std::make_shared<HydroGPU::Plot::Plot2D>(solver);
+		plot = std::make_shared<HydroGPU::Plot::Plot2D>(this);
 		break;
 	case 3:
-		plot = std::make_shared<HydroGPU::Plot::Plot3D>(solver);
+		plot = std::make_shared<HydroGPU::Plot::Plot3D>(this);
 		break;
 	}
 	plot->init();
+
+	{
+		bool useGraph = false;
+		if ((lua.ref()["useGraph"] >> useGraph).good() && useGraph) {
+			graph = std::make_shared<HydroGPU::Plot::Graph>(this);
+		}
+	}
 	
 	solver->resetState();
 
@@ -291,7 +299,6 @@ void HydroGPUApp::resize(int width, int height) {
 	Super::resize(width, height);	//viewport
 	screenSize = Tensor::Vector<int,2>(width, height);
 	aspectRatio = (float)screenSize(0) / (float)screenSize(1);
-	camera->setupProjection();
 }
 
 void HydroGPUApp::update() {
@@ -314,8 +321,11 @@ PROFILE_BEGIN_FRAME()
 		if (doUpdate == 2) doUpdate = 0;
 	}
 
+	camera->setupProjection();
+	solver->app->camera->setupModelview();
 	plot->display();	
 	vectorField->display();
+	if (graph) graph->display();
 PROFILE_END_FRAME();
 }
 

@@ -1,19 +1,19 @@
 #pragma once
 
+#include "Shader/Program.h"
 #include <OpenGL/gl.h>
+#include <memory>
 
 namespace HydroGPU {
-namespace Solver {
-struct Solver;
-}
+struct HydroGPUApp;
 namespace Plot {
 
 struct Graph {
-	HydroGPU::Solver::Solver* solver;	
-	GLuint tex;
+	HydroGPU::HydroGPUApp* app;	
+	float graphScale;
+	std::shared_ptr<Shader::Program> graphShader;
 
-	Graph(HydroGPU::Solver::Solver* solver_);
-	virtual ~Graph();
+	Graph(HydroGPU::HydroGPUApp* app_);
 
 	virtual void display();
 };

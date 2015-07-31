@@ -63,9 +63,9 @@ heatMapVariable = 'DENSITY'
 heatMapColorScale = 2
 
 boundaryMethods = {
-	{min='PERIODIC', max='PERIODIC'},
-	{min='PERIODIC', max='PERIODIC'},
-	{min='PERIODIC', max='PERIODIC'},
+	{min='FREEFLOW', max='FREEFLOW'},
+	{min='FREEFLOW', max='FREEFLOW'},
+	{min='FREEFLOW', max='FREEFLOW'},
 }
 
 -- gravity is specific to the Euler fluid equation solver
@@ -94,10 +94,10 @@ conductivity = 1
 size = {32, 32, 32}
 vectorFieldResolution = 16
 --]]
---[[ 2D
+-- [[ 2D
 size = {256, 256}
 --]]
--- [[ 1D
+--[[ 1D
 size = {1024}
 heatMapColorScale = .25
 --]]
@@ -105,7 +105,7 @@ heatMapColorScale = .25
 camera = {}
 
 
--- [[ Euler
+--[[ Euler
 
 -- override solids:
 
@@ -172,8 +172,8 @@ camera.pos = {150,150}
 
 -- [[ ADM (3D)
 solverName = 'ADM3DRoe'
-size = {1024} heatMapColorScale = 128
---size = {256, 256} heatMapColorScale = 1
+--size = {1024} heatMapColorScale = 128
+size = {256, 256} heatMapColorScale = 1
 configurations['ADM-3D']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
@@ -181,6 +181,9 @@ heatMapVariable = 'ALPHA'
 --useFixedDT = true
 camera.zoom = 1/300
 camera.pos = {150,150}
+camera.dist = 450
+useGraph = false	--true
+graphScale = 300
 --]]
 
 
@@ -194,5 +197,4 @@ elseif #size == 2 then		-- 2D can handle either ortho or frustum
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end
-
 
