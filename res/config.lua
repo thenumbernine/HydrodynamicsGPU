@@ -179,11 +179,13 @@ boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEF
 heatMapVariable = 'ALPHA'
 --fixedDT = .125
 --useFixedDT = true
+useGraph = false	--true
+--[=[ problem domain 
 camera.zoom = 1/300
 camera.pos = {150,150}
 camera.dist = 450
-useGraph = false	--true
 graphScale = 300
+--]=]
 --]]
 
 

@@ -556,13 +556,13 @@ return {
 		local symmath = require 'symmath'	-- this is failing ...
 		local symvars = table{'xx', 'xy', 'xz', 'yy', 'yz', 'zz'}
 		local symindex = symvars:map(function(var,i) return i,var end)
-		-- [[ problem's original domain
+		--[[ problem's original domain
 		local H = 5
 		local sigma = 10
 		xmin = {0, 0, 0}
 		xmax = {300, 300, 300}
 		--]]
-		--[[ keeping the unit domain (because I'm too lazy to reposition the camera)
+		-- [[ keeping the unit domain (because I'm too lazy to reposition the camera)
 		local H = 1/60/60
 		local sigma = 1/30
 		--]]
