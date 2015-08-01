@@ -126,3 +126,113 @@ function buildSelfGravitationState(x,y,z,args)
 	}
 end
 
+--[[
+args:
+	args = {x,y,z} spatial basis variables
+	alpha = lapse expression
+	(beta isn't used yet)
+	g = 3-metric
+	K = extrinsic curvature
+
+	g & K are stored as {xx,xy,xz,yy,yz,zz}
+--]]
+function initNumRel(args)
+	local table = require 'ext.table'	
+	local symmath = require 'symmath'
+	
+	local vars = assert(args.vars)
+	
+	local exprs = table{
+		alpha = assert(args.alpha),
+		g = {unpack(args.g)},
+		K = {unpack(args.K)}
+	}
+	assert(#exprs.g == 6)
+	assert(#exprs.K == 6)
+	
+	local function buildCalc(expr, name)
+		assert(type(expr) == 'table')
+		if expr.isa and expr:isa(symmath.Expression) then 
+			return expr:simplify():compile(vars), name
+		end
+		return table.map(expr, buildCalc), name
+	end
+	
+	-- ADM
+	if solverName == 'ADM1DRoe' then
+		exprs.g = exprs.g[1]	-- only need g_xx
+		exprs.A = (exprs.alpha:diff(vars[1]) / exprs.alpha):simplify()	-- only need a_x
+		exprs.D = (exprs.g:diff(vars[1])/2):simplify()	-- only need D_xxx
+		exprs.K = exprs.K[1]	-- only need K_xx
+		local calc = exprs:map(buildCalc)
+		initState = function(x,y,z)
+			local alpha = calc.alpha(x,y,z)
+			local g = calc.g(x,y,z)
+			local A = calc.A(x,y,z)
+			local D = calc.D(x,y,z)
+			local K = calc.K(x,y,z)
+			return alpha, g, A, D, K
+		end
+	elseif solverName == 'ADM3DRoe' then
+		local mat33 = require 'mat33'	
+		local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = mat33.inv(unpack(exprs.g))
+		exprs.gU = table{gUxx, gUxy, gUxz, gUyy, gUyz, gUzz}
+		
+		exprs.D = table.map(vars, function(x_k)
+			return table.map(exprs.g, function(g_ij)
+				return (g_ij:diff(x_k)/2):simplify()
+			end)
+		end)
+		
+		exprs.A = table.map(vars, function(var)
+			return (exprs.alpha:diff(var) / exprs.alpha):simplify()
+		end)
+		
+		local calc = exprs:map(buildCalc)
+		
+		initState = function(x,y,z)
+		
+			local alpha = calc.alpha(x,y,z)
+			local A = calc.A:map(function(A_i) return A_i(x,y,z) end)
+			local g = calc.g:map(function(g_ij) return g_ij(x,y,z) end)
+			local D = calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
+			local gU = calc.gU:map(function(gUij) return gUij(x,y,z) end)
+			local function sym3x3(m,i,j)
+				local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = unpack(m)
+				return ({
+					{m_xx, m_xy, m_xz},
+					{m_xy, m_yy, m_yz},
+					{m_xz, m_yz, m_zz},
+				})[i][j]
+			end
+			local V = range(3):map(function(i)
+				local s = 0
+				for j=1,3 do
+					for k=1,3 do
+						local D_ijk = sym3x3(D[i],j,k)
+						local D_kji = sym3x3(D[k],j,i)
+						local gUjk = sym3x3(gU,j,k)
+						local dg = (D_ijk - D_kji) * gUjk
+						s = s + dg
+					end
+				end
+				return s
+			end)
+			local K = {}
+			for i=1,6 do
+				K[i] = calc.K[i](x,y,z)
+			end
+
+			return
+				alpha,
+				g[1], g[2], g[3], g[4], g[5], g[6],
+				A[1], A[2], A[3],
+				D[1][1], D[1][2], D[1][3], D[1][4], D[1][5], D[1][6],
+				D[2][1], D[2][2], D[2][3], D[2][4], D[2][5], D[2][6],
+				D[3][1], D[3][2], D[3][3], D[3][4], D[3][5], D[3][6],
+				K[1], K[2], K[3], K[4], K[5], K[6],
+				V[1], V[2], V[3]
+		end
+	end
+end
+

@@ -29,11 +29,23 @@ static std::vector<std::string> sym33suffixes {
 ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 : Super(solver_)
 {
+	std::function<void(std::vector<std::string>&, const std::string&, const std::vector<std::string>&)> addSuffixes = [&](
+		std::vector<std::string>& strs,
+		const std::string& prefix,
+		const std::vector<std::string>& suffixes)
+	{
+		for (const std::string& field : suffixes) {
+			strs.push_back(prefix + field);
+		}
+	};
+
+
 	displayVariables = std::vector<std::string>{
 		"ALPHA",
 		"VOLUME",
 		"K"
 	};
+	addSuffixes(displayVariables, "K_", sym33suffixes);
 
 	//matches above
 	boundaryMethods = std::vector<std::string>{
@@ -42,25 +54,16 @@ ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 		"FREEFLOW"
 	};
 
-	std::function<void(const std::string&, const std::vector<std::string>&)> addStatesWithSuffix = [&](
-		const std::string& variable,
-		const std::vector<std::string>& suffixes)
-	{
-		for (const std::string& field : suffixes) {
-			states.push_back(variable + field);
-		}
-	};
-
 	//you can factor these out someday ...
 	states.push_back("ALPHA");
-	addStatesWithSuffix("GAMMA_", sym33suffixes);
+	addSuffixes(states, "GAMMA_", sym33suffixes);
 	//these form the hyperbolic system ...
-	addStatesWithSuffix("A_", spaceSuffixes);	//A_i = partial_i alpha
-	addStatesWithSuffix("D_X", sym33suffixes);	//D_kij = 1/2 partial_k gamma_ij
-	addStatesWithSuffix("D_Y", sym33suffixes);
-	addStatesWithSuffix("D_Z", sym33suffixes);
-	addStatesWithSuffix("K_", sym33suffixes);	//extrinsic curvature
-	addStatesWithSuffix("V_", spaceSuffixes);	//V_k = D_km^m - D^m_mk
+	addSuffixes(states, "A_", spaceSuffixes);	//A_i = partial_i alpha
+	addSuffixes(states, "D_X", sym33suffixes);	//D_kij = 1/2 partial_k gamma_ij
+	addSuffixes(states, "D_Y", sym33suffixes);
+	addSuffixes(states, "D_Z", sym33suffixes);
+	addSuffixes(states, "K_", sym33suffixes);	//extrinsic curvature
+	addSuffixes(states, "V_", spaceSuffixes);	//V_k = D_km^m - D^m_mk
 }
 
 void ADM3D::getProgramSources(std::vector<std::string>& sources) {

@@ -52,9 +52,13 @@ __kernel void convertToTex(
 	case DISPLAY_VOLUME:
 		value = alpha * g; 
 		break;
-	case DISPLAY_K:
-		value = tr_K;
-		break;
+	case DISPLAY_K: value = tr_K; break;
+	case DISPLAY_K_XX: value = K_xx; break;
+	case DISPLAY_K_XY: value = K_xy; break;
+	case DISPLAY_K_XZ: value = K_xz; break;
+	case DISPLAY_K_YY: value = K_yy; break;
+	case DISPLAY_K_YZ: value = K_yz; break;
+	case DISPLAY_K_ZZ: value = K_zz; break;
 	}
 	
 	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0.f, 0.f, 0.f));

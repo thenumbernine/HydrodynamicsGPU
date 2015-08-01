@@ -19,9 +19,9 @@ local configurations = require 'configurations'	--holds catalog of configuration
 --solverName = 'ADM1DRoe'			-- Bona-Masso based on "The Appearance of Coordinate Shocks in Hyperbolic Formalisms of General Relativity" by Alcubierre, 1997 
 --solverName = 'ADM2DSpherical'	-- not yet
 --solverName = 'ADM3DRoe'		-- same as ADM1DRoe but for 3D 
---solverName = 'BSSNOKRoe'		-- not yet
+--solverName = 'BSSNOKRoe'		-- not yet.  TODO copy from the gravitation wave sim project, but that BSSNOK+Roe solver isn't as accurate as it should be
 -- TODO ImplicitIncompressibleNavierStokes	<- from my GPU fluid sim Lua+GLSL project
--- TODO ImplicitBSSNOK
+--solverName = 'BSSNOKFiniteDifference'	-- doing the bare minimum to consider this a solver.  I could use this to make a coefficient matrix (application function) and, from there, make the implicit solver.
 
 --slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'LaxWendroff'
@@ -163,7 +163,7 @@ configurations['Maxwell-1']()
 solverName = 'ADM1DRoe'
 size = {1024}
 heatMapColorScale = 128
-configurations['ADM-1D']()
+configurations['NR Gauge Shock Waves']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
 camera.zoom = 1/300
@@ -172,20 +172,14 @@ camera.pos = {150,150}
 
 -- [[ ADM (3D)
 solverName = 'ADM3DRoe'
---size = {1024} heatMapColorScale = 128
-size = {256, 256} heatMapColorScale = 1
-configurations['ADM-3D']()
+size = {1024} heatMapColorScale = 128
+--size = {256, 256} heatMapColorScale = 1
+configurations['NR Gauge Shock Waves']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
 --fixedDT = .125
 --useFixedDT = true
-useGraph = false	--true
---[=[ problem domain 
-camera.zoom = 1/300
-camera.pos = {150,150}
-camera.dist = 450
-graphScale = 300
---]=]
+useGraph = true
 --]]
 
 
@@ -194,8 +188,8 @@ graphScale = 300
 if #size == 1 then			-- 1D better be ortho
 	camera.mode = 'ortho'
 elseif #size == 2 then		-- 2D can handle either ortho or frustum
-	camera.mode = 'ortho'
-	--camera.mode = 'frustum'
+	--camera.mode = 'ortho'
+	camera.mode = 'frustum'
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end
