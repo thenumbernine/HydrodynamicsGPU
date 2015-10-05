@@ -452,15 +452,6 @@ std::cout << "event " << entry->name << std::endl;
 */
 }
 
-cl::Buffer Solver::createDStateDtMatrix() {
-	throw Common::Exception() << "not implemented";
-	return cl::Buffer();
-}
-
-void Solver::applyDStateDtMatrix(cl::Buffer result, cl::Buffer x) {
-	throw Common::Exception() << "not implemented";
-}
-
 void Solver::screenshot() {
 	for (int i = 0; i < 1000; ++i) {
 		std::string filename = std::string("screenshot") + std::to_string(i) + "layer0.png";

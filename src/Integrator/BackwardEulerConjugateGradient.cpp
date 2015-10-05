@@ -1,6 +1,7 @@
 #include "HydroGPU/Integrator/BackwardEulerConjugateGradient.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "Common/Exception.h"
 
 namespace HydroGPU {
 namespace Integrator {
@@ -75,8 +76,9 @@ reads x after modifying result, so they shouldn't be the same
 */
 void BackwardEulerConjugateGradient::applyLinear(cl::Buffer result, cl::Buffer x, real dt) {
 	int length = solver->getVolume() * solver->numStates();
-	
-	solver->applyDStateDtMatrix(result, x);
+
+	throw Common::Exception() << "FINISHMEPLZ";
+	//solver->applyDStateDtMatrix(result, x);
 	//result = D * x
 
 	CLCommon::setArgs(multAddKernel, result, x, result, -dt);

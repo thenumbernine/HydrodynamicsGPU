@@ -13,22 +13,19 @@ struct EulerBurgers : public SelfGravitationBehavior<Solver> {
 
 protected:
 	cl::Buffer interfaceVelocityBuffer;
-	cl::Buffer fluxStateCoeffBuffer;
-	cl::Buffer derivStateCoeffBuffer;
+	cl::Buffer fluxBuffer;
 	cl::Buffer pressureBuffer;
 
 	cl::Kernel findMinTimestepKernel;
 	cl::Kernel calcInterfaceVelocityKernel;
 	cl::Kernel calcFluxKernel;
-	cl::Kernel calcDerivCoeffsFromFluxCoeffsKernel;
-	cl::Kernel calcDerivFromStateCoeffsKernel;
+	cl::Kernel calcFluxDerivKernel;
 	cl::Kernel computePressureKernel;
 	cl::Kernel diffuseMomentumKernel;
 	cl::Kernel diffuseWorkKernel;
 
 public:
 	EulerBurgers(HydroGPUApp* app);
-	virtual void init();
 protected:
 	virtual void initKernels();
 	virtual void initBuffers();
@@ -36,12 +33,6 @@ protected:
 	virtual std::vector<std::string> getProgramSources();
 	virtual real calcTimestep();
 	virtual void step(real dt);
-
-	virtual cl::Buffer createDStateDtMatrix();
-	virtual void applyDStateDtMatrix(cl::Buffer result, cl::Buffer x);
-
-//temporary during transition...
-	std::shared_ptr<HydroGPU::Integrator::Integrator> pressureIntegrator;
 };
 
 }

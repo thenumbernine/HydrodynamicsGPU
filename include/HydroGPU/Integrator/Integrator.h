@@ -14,9 +14,6 @@ struct Integrator {
 	HydroGPU::Solver::Solver* solver;
 	Integrator(HydroGPU::Solver::Solver* solver);
 	virtual void integrate(real dt, std::function<void(cl::Buffer)> callback) = 0;
-
-	//temporary while restructuring...
-	virtual bool isImplicit() const { return false; }
 };
 
 }

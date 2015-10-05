@@ -11,8 +11,6 @@ struct BackwardEulerConjugateGradient : public Integrator {
 	BackwardEulerConjugateGradient(HydroGPU::Solver::Solver* solver);
 	virtual void integrate(real dt, std::function<void(cl::Buffer)> callback);
 	
-	//temporary while restructuring
-	virtual bool isImplicit() const { return true; }
 protected:
 	cl::Buffer rBuffer;
 	cl::Buffer pBuffer;

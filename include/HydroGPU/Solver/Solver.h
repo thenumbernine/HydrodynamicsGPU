@@ -91,19 +91,6 @@ protected:
 public:
 	virtual void update();
 
-	/*
-	Solver functions for the Implicit solver interface.
-	Implicit solvers create these, then pass them
-	These are used by the implicit solver, but their use  
-	*/
-
-	//create a coefficient buffer
-	virtual cl::Buffer createDStateDtMatrix();
-	
-	//multiplies the incoming vector by the sparse matrix of the coefficients of the matrix
-	// that, when multiplied by the state vector, forms d/dt(state)
-	virtual void applyDStateDtMatrix(cl::Buffer result, cl::Buffer x);
-
 protected:
 	//called upon resetState
 	//converts stateBuffer and whatever other buffers into CPU-side vectors
