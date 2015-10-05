@@ -27,6 +27,12 @@ Plot::~Plot() {
 	glDeleteTextures(1, &tex);
 }
 
+static int npo2(int x) {
+	int y = 1;	
+	for (--x; x>0; x>>=1, y<<=1);
+	return y;
+}
+
 void Plot::convertVariableToTex(int displayVariable) {
 	glFinish();
 	cl::CommandQueue commands = app->solver->commands;
@@ -36,7 +42,20 @@ void Plot::convertVariableToTex(int displayVariable) {
 
 	if (app->clCommon->useGPU) {
 		convertToTexKernel.setArg(1, displayVariable);
-		commands.enqueueNDRangeKernel(convertToTexKernel, app->solver->offsetNd, app->solver->globalSize, app->solver->localSize);
+		
+		//TODO round up next power of 2 of global size for texture ...
+		cl::NDRange npo2size = 
+			app->dim == 1
+			? cl::NDRange(npo2(app->size.s[0]))
+			: ( app->dim == 2
+				? cl::NDRange(npo2(app->size.s[0]), npo2(app->size.s[1]))
+				: ( app->dim == 3
+					? cl::NDRange(npo2(app->size.s[0]), npo2(app->size.s[1]), npo2(app->size.s[2]))
+					: throw Common::Exception() << "got an unknown dim " << app->dim
+				)
+			);
+		//TODO is localSize compatible?  is it always 16x16 for 2D?
+		commands.enqueueNDRangeKernel(convertToTexKernel, app->solver->offsetNd, npo2size /*app->solver->globalSize*/, app->solver->localSize);
 	} else {
 		//TODO if we're not using GPU then we need to transfer the contents via a CPU buffer ... or not at all?
 		throw Common::Exception() << "TODO";

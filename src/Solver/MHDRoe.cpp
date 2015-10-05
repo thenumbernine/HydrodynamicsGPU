@@ -16,7 +16,10 @@ void MHDRoe::initKernels() {
 	Super::initKernels();
 
 	//all Euler and MHD systems also have a separate potential buffer...
-	CLCommon::setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, selfgrav->potentialBuffer, fluxBuffer, 0, fluxFlagBuffer);
+	calcEigenBasisSideKernel.setArg(4, selfgrav->potentialBuffer);
+	calcEigenBasisSideKernel.setArg(5, selfgrav->solidBuffer);
+	calcEigenBasisSideKernel.setArg(6, fluxBuffer);
+	calcEigenBasisSideKernel.setArg(7, fluxFlagBuffer);
 
 	//just like ordinary calcMHDFluxKernel -- and calls the ordinary
 	// -- but with an extra step to bail out of the associated fluxFlag is already set 

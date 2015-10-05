@@ -149,6 +149,17 @@ function initNumRel(args)
 	}
 	assert(#exprs.g == 6)
 	assert(#exprs.K == 6)
+
+	local function toExpr(expr, name)
+		if type(expr) == 'number' then expr = symmath.Constant(expr) end
+		if type(expr) == 'table' then
+			if not expr.isa then
+				expr = table.map(expr, toExpr)
+			end
+		end
+		return expr, name
+	end
+	exprs = table.map(exprs, toExpr)
 	
 	local function buildCalc(expr, name)
 		assert(type(expr) == 'table')
@@ -174,7 +185,7 @@ function initNumRel(args)
 			return alpha, g, A, D, K
 		end
 	elseif solverName == 'ADM3DRoe' then
-		local mat33 = require 'mat33'	
+		local mat33 = require 'mat33'
 		local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = mat33.inv(unpack(exprs.g))
 		exprs.gU = table{gUxx, gUxy, gUxz, gUyy, gUyz, gUzz}
 		

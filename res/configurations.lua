@@ -253,6 +253,7 @@ return {
 		end
 	end,
 
+	-- TODO pick one of these two ...
 	-- http://www.astro.virginia.edu/VITA/ATHENA/dmr.html
 	['Double Mach Reflection'] = function()
 		xmin[1] = 0
@@ -420,7 +421,51 @@ return {
 		end
 	end,
 
-	-- gravity potential test - equilibrium - Rayleigh-Taylor
+	-- http://www.astro.princeton.edu/~jstone/Athena/tests/rt/rt.html
+	['Rayleigh-Taylor'] = function()
+		local k = #size
+
+		local xmid = {}
+		for i=1,3 do xmid[i] = .5 * (xmin[i] + xmax[i]) end
+		
+		-- triple the length along the interface dimension
+		xmin[k] = xmid[k] + (xmin[k] - xmid[k]) * 3
+		xmax[k] = xmid[k] + (xmax[k] - xmid[k]) * 3
+
+		-- triple resolution along interface dimension
+		size[k] = size[k] * 3
+		-- (can it handle npo2 sizes?)
+		
+		boundaryMethods = {
+			{min='PERIODIC', max='PERIODIC'},
+			{min='PERIODIC', max='PERIODIC'},
+			{min='PERIODIC', max='PERIODIC'},
+		}
+		boundaryMethods[k] = {min='MIRROR', max='MIRROR'}
+	
+		-- TODO incorporate this into the Euler model ..
+		local externalForce = {0, 1, 0}
+		
+		initState = function(x,y,z)
+			local xs = {x,y,z}
+			local top = xs[k] > xmid[k]
+			local potentialEnergy = 0	-- minPotentialEnergy
+			for k=1,#size do
+				potentialEnergy = potentialEnergy + (xs[k] - xmin[k]) * externalForce[k]
+			end
+			local density = top and 2 or 1
+			return buildStateEuler{
+				x=x,y=y,z=z,
+				noise = .001,
+				density = density,
+				potentialEnergy = potentialEnergy,
+				pressure = 2.5 - density * potentialEnergy,
+				-- or maybe it is ... pressure = (gamma - 1) * density * (2.5 - potentialEnergy)
+			}
+		end
+	end,
+
+	-- gravity potential test - equilibrium - Rayleigh-Taylor (still has an shock wave ... need to fix initial conditions?)
 
 	['self-gravitation test 1'] = function()
 		useGravity = true
@@ -506,46 +551,73 @@ return {
 	end,
 
 
+		-- Maxwell equations initial state
+
+
+	['Maxwell-1'] = function()
+		initState = function(x,y,z)
+			local inside = x <= 0 and y <= 0 and z <= 0
+			local ex = 0 
+			local ey = 0
+			local ez = 1
+			local bx = 0
+			local by = 0
+			local bz = inside and 1 or -1
+			return ex * permittivity, ey * permittivity, ez * permittivity, bx, by, bz
+		end
+	end,
+
+
 	-- Numerical Relativity problems: 
 	
 	
-	['NR Gauge Shock Waves'] = function()	
+	['NR Gauge Shock Waves'] = function(args)
 		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
 		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
 		print('deriving and compiling...')
 		local symmath = require 'symmath'	-- this is failing ...
+		local Tensor = symmath.Tensor
+		
+		local H, sigma
+		if not args.unitDomain then
 		-- [[ problem's original domain
-		local H = 5
-		local sigma = 10
-		xmin = {0, 0, 0}
-		xmax = {300, 300, 300}
-		camera.zoom = 1/300
-		camera.pos = {150,150}
-		camera.dist = 450
-		graphScale = 300
+			H = 5
+			sigma = 10
+			xmin = {0, 0, 0}
+			xmax = {300, 300, 300}
+			camera.zoom = 1/300
+			camera.pos = {150,150}
+			camera.dist = 450
+			graphScale = 300
 		--]]
-		--[[ keeping the unit domain (because I'm too lazy to reposition the camera)
-		local H = 1/1000
-		local sigma = 1/10
+		-- [[ keeping the unit domain (because I'm too lazy to reposition the camera)
+		else
+			H = 1/1000
+			sigma = 1/10
 		--]]
+		end
 		local xc = (xmax[1] + xmin[1]) * .5
 		local yc = (xmax[2] + xmin[2]) * .5
 		local zc = (xmax[3] + xmin[3]) * .5
 		local x = symmath.var'x'
 		local y = symmath.var'y'
 		local z = symmath.var'z'
+		Tensor.coords{
+			{variables={x,y,z}},
+		}
 		local alpha = symmath.Constant(1)
 		local h, g, K
 		if #size == 1 then
 			h = H * symmath.exp(-(x - xc)^2 / sigma^2)
-			g = {
-				1 - h:diff(x)^2,
-				symmath.Constant(0),
-				symmath.Constant(0),
-				symmath.Constant(1),
-				symmath.Constant(0),
-				symmath.Constant(1),
-			}
+			g = Tensor('_ij', 
+				{1 - h:diff(x)^2, 0, 0},
+				{0, 1, 0},
+				{0, 0, 1})
+			
+			-- keep the upper diagonal half
+			-- TODO just forward it as-is to initNumRel and, if anything, add the symmetric storage optimization to symmath
+			g = {g[1][1], g[1][2], g[1][3], g[2][2], g[2][3], g[3][3]}
+			
 			K = {
 				-h:diff(x,x) / g[1]^.5,	--g[1] = g_xx
 				symmath.Constant(0),
@@ -588,23 +660,50 @@ return {
 		}
 	end,
 
-	['Alcubierre'] = function()
+	['Alcubierre Warp Bubble'] = function()
+		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
+		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
+		
+		local R = .2	-- warp bubble radius
+		local sigma = .01	-- warp bubble thickness
+		local speed = .1		-- warp bubble speed
+
+		local symmath = require 'symmath'
+		local t,x,y,z = symmath.vars('t', 'x', 'y', 'z')
+		local x_s = 0 -- speed * t
+		local v_s = speed -- x_s:diff(t):simplify()
+		local r_s = ((x - x_s)^2 + y^2 + z^2)^.5
+		local f = (symmath.tanh(sigma * (r_s + R)) - symmath.tanh(sigma * (r_s - R))) / (2 * symmath.tanh(sigma * R))
+	
+		local betaUx = -v_s * f
+
+		local alpha = 1
+
+		local K_xx = betaUx:diff(x):simplify() / alpha
+		local K_xy = betaUx:diff(y):simplify() / (2 * alpha)
+		local K_xz = betaUx:diff(z):simplify() / (2 * alpha)
+
+		initNumRel{
+			vars = {x,y,z},
+			alpha = alpha,
+			
+			--[[
+			interesting note:
+			Alcubierre warp bubble drive depends on a beta parameter
+			(the local metric is completely flat)
+			however so does the toy 1+1 relativity require a beta parameter to produce the stated extrinsic curvature
+			yet the toy 1+1 sample set beta=0
+			--]]
+			beta = {betaUx, 0, 0},
+
+			g = {1, 0, 0, 1, 0, 1},		-- identity
+			K = {K_xx, K_xy, K_xz, 0, 0, 0},
+		}
 	end,
 
-		-- Maxwell equations initial state
-
-
-	['Maxwell-1'] = function()
-		initState = function(x,y,z)
-			local inside = x <= 0 and y <= 0 and z <= 0
-			local ex = 0 
-			local ey = 0
-			local ez = 1
-			local bx = 0
-			local by = 0
-			local bz = inside and 1 or -1
-			return ex * permittivity, ey * permittivity, ez * permittivity, bx, by, bz
-		end
+	['Schwarzschild Black Hole Pseudo-Cartesian'] = function()
+		-- upper metric of pseudo-cartesian requires a 4x4 matrix inverse ...
+		-- I'm still coaxing that out of symmath.Matrix.inverse
 	end,
 }
 

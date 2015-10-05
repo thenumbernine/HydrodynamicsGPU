@@ -13,6 +13,15 @@ __kernel void convertToTex(
 	)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 0 || i.x >= SIZE_X
+#if DIM > 1
+		|| i.y < 0 || i.y >= SIZE_Y
+#endif
+#if DIM > 2
+		|| i.z < 0 || i.z >= SIZE_Z
+#endif
+	) return;
+
 	int index = INDEXV(i);
 
 	const __global real* state = stateBuffer + NUM_STATES * index;
@@ -60,9 +69,18 @@ __kernel void convertToTex(
 		break;
 	case DISPLAY_MAGNETIC_DIVERGENCE:
 		{
-#if 1
+
+#if 1		//disable the magnetic divergence display.
+			//TODO: libRocket, a gui, and some toggle buttons for each variable ...
+
+value = 0; break;
+
+#elif 0		//use the divergence buffer (which was used to explicitly remove divergence)
+			
 			value = magneticFieldDivergenceBuffer[index];
-#else
+
+#elif 0		//manually calculate it again (which should be zero post-removed-divergence)
+
 			value = 0.f;
 			
 			//debugging: show magnetic field divergence

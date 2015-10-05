@@ -31,9 +31,10 @@ __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenfieldsBuffer,
 	const __global real* stateBuffer,
-	const __global real* potentialBuffer,
-	__global real* fluxBuffer,
 	int side,
+	const __global real* potentialBuffer,
+	const __global char* solidBuffer,
+	__global real* fluxBuffer,
 	__global char* fluxFlagBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -693,12 +694,27 @@ __kernel void calcMHDFlux(
 	const __global real* deltaQTildeBuffer,
 	real dt,
 	int side,
+#ifdef SOLID
+#error "using SOLID with MHD takes too many arguments"
+	const __global char* solidBuffer,
+#endif	//SOLID
 	const __global char* fluxFlagBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	if (fluxFlagBuffer[side + DIM * index]) return;
 	
-	calcFlux(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt, side);
+	calcFlux(
+		fluxBuffer,
+		stateBuffer,
+		eigenvaluesBuffer,
+		eigenfieldsBuffer,
+		deltaQTildeBuffer,
+		dt,
+		side
+#ifdef SOLID
+		, solidBuffer
+#endif	//SOLID
+	);
 }
 
