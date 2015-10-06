@@ -3,7 +3,6 @@
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
-#include "Image/FITS_IO.h"
 #include <OpenGL/gl.h>
 
 namespace HydroGPU {

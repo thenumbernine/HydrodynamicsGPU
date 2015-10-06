@@ -136,7 +136,7 @@ end
 --]=]
 --solidFilename = 'test-solid.png'
 
-configurations['Sod']()
+--configurations['Sod']()
 --configurations['Sphere']()
 --configurations['Square Cavity']()
 --configurations['Kelvin-Hemholtz']()
@@ -146,7 +146,7 @@ configurations['Sod']()
 --configurations['Forward Facing Step']()
 --configurations['Double Mach Reflection']()
 --configurations['Spiral Implosion']()
---configurations['self-gravitation test 1']()
+configurations['self-gravitation test 1']()
 --configurations['Colella-Woodward']()
 --configurations['Configuration 6']()
 --]]
