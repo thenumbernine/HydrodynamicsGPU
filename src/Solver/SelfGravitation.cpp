@@ -101,6 +101,11 @@ void SelfGravitation::applyPotential(real dt) {
 	cl::NDRange globalSize = solver->globalSize;
 	cl::NDRange localSize = solver->localSize;
 	cl::NDRange offsetNd = solver->offsetNd;
+
+	//TODO I had an idea of using the potential buffer to create static source fields even in the absense of self-gravitation
+	//  ... but I'm getting weird stuff even when the potential buffer *should* be zero
+	// so *either* zero your deriv buffers beforehand (which I'm doing now) *or* find where the fill-deriv kernels are missing their writes
+	//if (!solver->app->useGravity) return;
 	
 	solver->integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		if (solver->app->useGravity) {

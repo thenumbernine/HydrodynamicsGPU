@@ -17,8 +17,11 @@ the 1st and 3rd terms are integrated via the pressure integration
 __kernel void findMinTimestep(
 	__global real* dtBuffer,
 	const __global real* stateBuffer,
-	const __global real* potentialBuffer,
-	const __global char* solidBuffer)
+	const __global real* potentialBuffer
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+	)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
@@ -34,34 +37,50 @@ __kernel void findMinTimestep(
 		return;
 	}
 
+#ifdef SOLID
 	if (solidBuffer[index]) {
 		dtBuffer[index] = INFINITY;
 		return;
 	}
+#endif
 
 	const __global real* state = stateBuffer + NUM_STATES * index;
 	real density = state[STATE_DENSITY];
 	real energyTotal = state[STATE_ENERGY_TOTAL];
-	real4 velocity = VELOCITY(state);
 	
+	real velocityX = state[STATE_MOMENTUM_X] / density;
+	real velocitySq = velocityX * velocityX;
+#if DIM > 1
+	real velocityY = state[STATE_MOMENTUM_Y] / density;
+	velocitySq += velocityY * velocityY;
+#if DIM > 2
+	real velocityZ = state[STATE_MOMENTUM_Z] / density;
+	velocitySq += velocityZ * velocityZ;
+#endif
+#endif
+
 	real specificEnergyTotal = energyTotal / density;
-	real specificEnergyKinetic = .5f * dot(velocity, velocity);
+	real specificEnergyKinetic = .5f * velocitySq;
 	real specificEnergyPotential = potentialBuffer[index];
 	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
 
 	real speedOfSound = sqrt(gamma * (gamma - 1.f) * specificEnergyInternal);
-	real result = dx[0] / (speedOfSound + fabs(velocity[0]));
-	for (int side = 1; side < DIM; ++side) {
-		real dum = dx[side] / (speedOfSound + fabs(velocity[side]));
-		result = min(result, dum);
-	}
+	real result = DX / (speedOfSound + fabs(velocityX));
+#if DIM > 1
+	result = min(result, DY / (speedOfSound + fabs(velocityY)));
+#if DIM > 2
+	result = min(result, DZ / (speedOfSound + fabs(velocityZ)));
+#endif
+#endif
 	dtBuffer[index] = result;
 }
 
 __kernel void calcInterfaceVelocity(
 	__global real* interfaceVelocityBuffer,
 	const __global real* stateBuffer,
+#ifdef SOLID
 	const __global char* solidBuffer,
+#endif
 	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
@@ -78,13 +97,14 @@ __kernel void calcInterfaceVelocity(
 	int index = INDEXV(i);
 	int indexR = index;
 	int indexL = index - stepsize[side];
-		
+	
 	real densityL = stateBuffer[STATE_DENSITY + NUM_STATES * indexL];
 	real velocityL = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexL] / densityL;
 	
 	real densityR = stateBuffer[STATE_DENSITY + NUM_STATES * indexR];
 	real velocityR = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexR] / densityR;
 
+#ifdef SOLID
 	char solidL = solidBuffer[indexL];
 	char solidR = solidBuffer[indexR];
 	if (solidL && !solidR) {
@@ -92,7 +112,8 @@ __kernel void calcInterfaceVelocity(
 	} else if (solidR && !solidL) {
 		velocityR = -velocityL;
 	}
-	
+#endif
+
 	interfaceVelocityBuffer[index] = .5f * (velocityL + velocityR);
 }
 
@@ -100,7 +121,9 @@ __kernel void calcFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* interfaceVelocityBuffer,
+#ifdef SOLID
 	const __global char* solidBuffer,	
+#endif
 	real dt,
 	int side)
 {
@@ -125,10 +148,12 @@ __kernel void calcFlux(
 	int indexL2 = indexL - stepsize[side];
 	int indexR2 = index + stepsize[side];
 
+#ifdef SOLID
 	char solidL2 = solidBuffer[indexL2];
 	char solidL = solidBuffer[indexL];
 	char solidR = solidBuffer[indexR];
 	char solidR2 = solidBuffer[indexR2];
+#endif
 
 	real interfaceVelocity = interfaceVelocityBuffer[index];
 
@@ -139,7 +164,8 @@ __kernel void calcFlux(
 		real stateR = stateBuffer[j + NUM_STATES * indexR];
 		real stateL = stateBuffer[j + NUM_STATES * indexL];
 		real stateL2 = stateBuffer[j + NUM_STATES * indexL2];
-		
+
+#ifdef SOLID
 		/*
 		slope limiters and arbitrary boundaries...
 		we have to look two over in any direction
@@ -168,6 +194,8 @@ __kernel void calcFlux(
 			stateR2 = stateR;
 			if (j == STATE_MOMENTUM_X+side) stateR2 = -stateR2;
 		}
+#endif
+
 		real deltaStateL = stateL - stateL2;
 		real deltaState = stateR - stateL;
 		real deltaStateR = stateR2 - stateR;
@@ -197,7 +225,7 @@ __kernel void calcFlux(
 }
 
 __kernel void calcFluxDeriv(
-	__global real* derivBuffer,	//dstate/dt
+	__global real* derivBuffer,
 	const __global real* fluxBuffer,
 	int side
 #ifdef SOLID
@@ -206,6 +234,7 @@ __kernel void calcFluxDeriv(
 	)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
@@ -216,12 +245,13 @@ __kernel void calcFluxDeriv(
 	) {
 		return;
 	}
+	
 	int index = INDEXV(i);
 
 #ifdef SOLID
 	if (solidBuffer[index]) return;
 #endif	//SOLID
-
+	
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
 	int indexNext = index + stepsize[side];
@@ -236,8 +266,11 @@ __kernel void calcFluxDeriv(
 __kernel void computePressure(
 	__global real* pressureBuffer,
 	const __global real* stateBuffer,
-	const __global real* potentialBuffer,
-	const __global char* solidBuffer)
+	const __global real* potentialBuffer
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+	)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 1 || i.x >= SIZE_X - 1 
@@ -251,61 +284,66 @@ __kernel void computePressure(
 		return;
 	}
 	int index = INDEXV(i);
-	
+
+#ifdef SOLID
 	if (solidBuffer[index]) return;
+#endif
 
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
 	real density = state[STATE_DENSITY];
 	real energyTotal = state[STATE_ENERGY_TOTAL];
-	real4 velocity = VELOCITY(state);
+	
+	real velocityX = state[STATE_MOMENTUM_X] / density;
+	real velocitySq = velocityX * velocityX;
+#if DIM > 1
+	real velocityY = state[STATE_MOMENTUM_Y] / density;
+	velocitySq += velocityY * velocityY;
+#if DIM > 2
+	real velocityZ = state[STATE_MOMENTUM_Z] / density;
+	velocitySq += velocityZ * velocityZ;
+#endif
+#endif
+
 	real specificEnergyTotal = energyTotal / density;
-	real specificEnergyKinetic = .5f * dot(velocity, velocity);
+	real specificEnergyKinetic = .5f * velocitySq;
 	real specificEnergyPotential = potentialBuffer[index];
 	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
 	real pressure = (gamma - 1.f) * density * specificEnergyInternal;
+
+#ifdef USE_VON_NEUMANN_RICHTMYER_ARTIFICIAL_VISCOSITY
+	//TODO I broke something
 	//von Neumann-Richtmyer artificial viscosity
-	real deltaVelocitySq = 0.f;
-	for (int side = 0; side < DIM; ++side) {
-		int indexL = index - stepsize[side];
-		int indexR = index + stepsize[side];
-		const __global real* stateL = stateBuffer + NUM_STATES * indexL;
-		const __global real* stateR = stateBuffer + NUM_STATES * indexR;
-		real velocityL = stateL[side+STATE_MOMENTUM_X];
-		real velocityR = stateR[side+STATE_MOMENTUM_X];
-		const float ZETA = 2.f;
-		real deltaVelocity = ZETA * .5f * (velocityR - velocityL);
-		deltaVelocitySq += deltaVelocity * deltaVelocity; 
-	}
-	pressure += deltaVelocitySq * density;
-	
-	/*
-	pressure = (gamma - 1) * density * specificEnergyInternal ... plus artificial viscosity ...
-	pressure = (gamma - 1) * density * (specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential)
-	pressure = (gamma - 1) * (density * specificEnergyTotal - density * specificEnergyKinetic - density * specificEnergyPotential)
-	pressure = (gamma - 1) * (energyTotal - .5 * (momentum * momentum) - density * specificEnergyPotential)
-	pressure = [-(gamma - 1) * specificEnergyPotential] * density
-				+ [-(gamma - 1) * .5 * momentum] * momentum
-				+ [(gamma - 1)] * energyTotal
-	...and the artificial viscosity component:
-	
-	viscosity = deltaVelocity * deltaVelocity
-	viscosity = ZETA * .5 * (velocityR - velocityL)^2
-	viscosity = [ZETA * .5 * deltaVelocity * density / densityR] * momentumR
-				+ [-ZETA * .5 * deltaVelocity * density / densityL] * momentumL
-	
-	...or linearize it by density, nice and easy ...
-	viscosity = [deltaVelocitySq] * density
-	*/
+	real deltaVelocityX = stateBuffer[STATE_MOMENTUM_X + NUM_STATES * (index+STEP_X)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index+STEP_X)]
+						- stateBuffer[STATE_MOMENTUM_X + NUM_STATES * (index-STEP_X)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_X)];
+	real deltaVelocitySq = deltaVelocityX * deltaVelocityX; 
+#if DIM > 1
+	real deltaVelocityY = stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * (index+STEP_Y)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index+STEP_Y)]
+						- stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * (index-STEP_Y)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_Y)];
+	deltaVelocitySq += deltaVelocityY * deltaVelocityY; 
+#if DIM > 2
+	real deltaVelocityZ = stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * (index+STEP_Z)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index+STEP_Z)]
+						- stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * (index-STEP_Z)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_Z)];
+	deltaVelocitySq += deltaVelocityZ * deltaVelocityZ; 
+#endif
+#endif
+	const float ZETA = 2.f;
+	pressure += .25f * ZETA * ZETA * density * deltaVelocitySq;
+#endif	//USE_VON_NEUMANN_RICHTMYER_ARTIFICIAL_VISCOSITY
+
 	pressureBuffer[index] = pressure;
 }
 
 __kernel void diffuseMomentum(
 	__global real* derivBuffer,
-	const __global real* pressureBuffer,
-	const __global char* solidBuffer)
+	const __global real* pressureBuffer
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+	)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
@@ -316,54 +354,57 @@ __kernel void diffuseMomentum(
 	) {
 		return;
 	}
+	
 	int index = INDEXV(i);
 
+#ifdef SOLID
 	if (solidBuffer[index]) return;
-
+#endif
+	
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
-	for (int side = 0; side < DIM; ++side) {
-		int indexL = index - stepsize[side];
-		int indexR = index + stepsize[side];	
+	real pressureL, pressureR;
 
-		real pressureC = pressureBuffer[index];
-		
-		real pressureL = pressureBuffer[indexL];
-		if (solidBuffer[indexL]) pressureL = pressureC;
+	pressureL = pressureBuffer[index - STEP_X];
+	pressureR = pressureBuffer[index + STEP_X];
+#ifdef SOLID
+	if (solidBuffer[index - STEP_X]) pressureL = pressureBuffer[index];
+	if (solidBuffer[index + STEP_X]) pressureR = pressureBuffer[index];
+#endif
+	deriv[STATE_MOMENTUM_X] -= .5f * (pressureR - pressureL) / DX;
 
-		real pressureR = pressureBuffer[indexR];
-		if (solidBuffer[indexR]) pressureR = pressureC;
+#if DIM > 1
+	pressureL = pressureBuffer[index - STEP_Y];
+	pressureR = pressureBuffer[index + STEP_Y];
+#ifdef SOLID
+	if (solidBuffer[index - STEP_Y]) pressureL = pressureBuffer[index];
+	if (solidBuffer[index + STEP_Y]) pressureR = pressureBuffer[index];
+#endif
+	deriv[STATE_MOMENTUM_Y] -= .5f * (pressureR - pressureL) / DY;
 
-		real deltaPressure = .5f * (pressureR - pressureL);
-		deriv[side + STATE_MOMENTUM_X] -= deltaPressure / dx[side];
-
-		/*
-		deriv[STATE_MOMENTUM_X+side] = -deltaPressure / dx[side]
-									= (pressureL - pressureR) / dx[side]
-		...pressureL and pressureR themselves use neighbor information when it comes to artificial viscosity, when linearizing it based on velocity...	
-		so if we want to do that, we'll need a larger stencil for derivative state coefficients (2-wide rather than 1-wide) 
-		deriv[STATE_MOMENTUM_X+side] = 
-				//left cell:
-				  [-(gamma - 1) * specificEnergyPotentialL / dx[side]] * densityL
-				+ [-(gamma - 1) * .5 * momentum / dx[side]] * momentumL
-				+ [(gamma - 1) / dx[side]] * energyTotalL
-				//right cell:
-				+ [(gamma - 1) * specificEnergyPotentialR / dx[side]] * densityR
-				+ [(gamma - 1) * .5 * momentum / dx[side]] * momentumR
-				+ [-(gamma - 1) / dx[side]] * energyTotalR
-				//center cell:
-				+ [ZETA * .5 * sum_j (velocityR[j] - velocityL[j])^2] * density
-		*/
-	}
+#if DIM > 2
+	pressureL = pressureBuffer[index - STEP_Z];
+	pressureR = pressureBuffer[index + STEP_Z];
+#ifdef SOLID
+	if (solidBuffer[index - STEP_Z]) pressureL = pressureBuffer[index];
+	if (solidBuffer[index + STEP_Z]) pressureR = pressureBuffer[index];
+#endif
+	deriv[STATE_MOMENTUM_Z] -= .5f * (pressureR - pressureL) / DZ;
+#endif
+#endif
 }
 
 __kernel void diffuseWork(
 	__global real* derivBuffer,
 	const __global real* stateBuffer,
-	const __global real* pressureBuffer,
-	const __global char* solidBuffer)
+	const __global real* pressureBuffer
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+	)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
@@ -374,80 +415,59 @@ __kernel void diffuseWork(
 	) {
 		return;
 	}
+	
 	int index = INDEXV(i);
 
+#ifdef SOLID
 	if (solidBuffer[index]) return;
-
+#endif
 	__global real* deriv = derivBuffer + NUM_STATES * index;
-
-	for (int side = 0; side < DIM; ++side) {
-		int indexL = index - stepsize[side];
-		int indexR = index + stepsize[side];
-
-		real velocityL = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexL] / stateBuffer[STATE_DENSITY + NUM_STATES * indexL];
-		if (solidBuffer[indexL]) velocityL = -velocityL;
-
-		real velocityR = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexR] / stateBuffer[STATE_DENSITY + NUM_STATES * indexR];
-		if (solidBuffer[indexR]) velocityR = -velocityR;
-	
-		real pressureC = pressureBuffer[index];
-
-		real pressureL = pressureBuffer[indexL];
-		if (solidBuffer[indexL]) pressureL = pressureC;
-
-		real pressureR = pressureBuffer[indexR];
-		if (solidBuffer[indexR]) pressureR = pressureC;
-
-		real deltaWork = .5f * (pressureR * velocityR - pressureL * velocityL);
-
-		deriv[STATE_ENERGY_TOTAL] -= deltaWork / dx[side];
-	}
-}
-
-//this multiplies the derivative matrix -- sparse, but stored as a dense structure -- by the state buffer, unraveled as a vector
-//dState/dt = A*State
-//TODO should this go in Common.cl once I convert all the solvers over to support deriv coeffs / be implicit-compatible
-__kernel void calcDerivFromStateCoeffs(
-	__global real* derivBuffer,	//resulting dState/dt
-	const __global real* stateBuffer,	//State
-	const __global real* derivStateCoeffBuffer,	//dense structure of sparse matrix
-	const __global char* solidBuffer,
-	int side)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 2 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 2 
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
-#endif
-	) {
-		return;
-	}
-	int index = INDEXV(i);
-
-	if (solidBuffer[index]) return;
-	
 	const __global real* state = stateBuffer + NUM_STATES * index;
-	__global real* deriv = derivBuffer + NUM_STATES * index;
 
-#define NUM_NEIGHBORS (1 + 2 * DIM)
-	const __global real* derivStateCoeffs = derivStateCoeffBuffer + NUM_STATES * NUM_NEIGHBORS * index;
-	for (int j = 0; j < NUM_STATES; ++j) {
-		deriv[j] += state[j] * derivStateCoeffs[j + NUM_STATES * 2 * DIM];
-	}
+	real velocityL, velocityR, pressureL, pressureR;
+	real deltaEnergyTotal = 0.f;
 
-	//for (int side = 0; side < DIM; ++side)
-	{
-		int indexPrev = index - stepsize[side];
-		int indexNext = index + stepsize[side];
-		const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
-		const __global real* stateR = stateBuffer + NUM_STATES * indexNext;
-		for (int j = 0; j < NUM_STATES; ++j) {
-			deriv[j] += stateL[j] * derivStateCoeffs[j + NUM_STATES * (0 + 2 * side)];
-			deriv[j] += stateR[j] * derivStateCoeffs[j + NUM_STATES * (1 + 2 * side)];
-		}
-	}
+	velocityL = stateBuffer[STATE_MOMENTUM_X + NUM_STATES * (index-STEP_X)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_X)];
+	velocityR = stateBuffer[STATE_MOMENTUM_X + NUM_STATES * (index+STEP_X)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index+STEP_X)];
+	pressureL = pressureBuffer[index-STEP_X];
+	pressureR = pressureBuffer[index+STEP_X];
+#ifdef SOLID
+	if (solidBuffer[index-STEP_X]) velocityL = -velocityL;
+	if (solidBuffer[index+STEP_X]) velocityR = -velocityR;
+	if (solidBuffer[index-STEP_X]) pressureL = pressureBuffer[index];
+	if (solidBuffer[index+STEP_X]) pressureR = pressureBuffer[index];
+#endif
+	deltaEnergyTotal -= .5f * (pressureR * velocityR - pressureL * velocityL) / DX;
+
+#if DIM > 1
+	velocityL = stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * (index-STEP_Y)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_Y)];
+	velocityR = stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * (index+STEP_Y)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index+STEP_Y)];
+	pressureL = pressureBuffer[index-STEP_Y];
+	pressureR = pressureBuffer[index+STEP_Y];
+#ifdef SOLID
+	if (solidBuffer[index-STEP_Y]) velocityL = -velocityL;
+	if (solidBuffer[index+STEP_Y]) velocityR = -velocityR;
+	if (solidBuffer[index-STEP_Y]) pressureL = pressureBuffer[index];
+	if (solidBuffer[index+STEP_Y]) pressureR = pressureBuffer[index];
+#endif
+	deltaEnergyTotal -= .5f * (pressureR * velocityR - pressureL * velocityL) / DY;
+
+#if DIM > 2
+	velocityL = stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * (index-STEP_Z)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_Z)];
+	velocityR = stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * (index+STEP_Z)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index+STEP_Z)];
+	pressureL = pressureBuffer[index-STEP_Z];
+	pressureR = pressureBuffer[index+STEP_Z];
+#ifdef SOLID
+	if (solidBuffer[index-STEP_Z]) velocityL = -velocityL;
+	if (solidBuffer[index+STEP_Z]) velocityR = -velocityR;
+	if (solidBuffer[index-STEP_Z]) pressureL = pressureBuffer[index];
+	if (solidBuffer[index+STEP_Z]) pressureR = pressureBuffer[index];
+#endif
+	deltaEnergyTotal -= .5f * (pressureR * velocityR - pressureL * velocityL) / DZ;
+
+#endif
+#endif
+
+	deriv[STATE_ENERGY_TOTAL] += deltaEnergyTotal; 
 }
 

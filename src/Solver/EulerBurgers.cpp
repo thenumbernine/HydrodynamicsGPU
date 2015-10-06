@@ -25,6 +25,7 @@ void EulerBurgers::initBuffers() {
 
 	//zero interface and flux
 	commands.enqueueFillBuffer(interfaceVelocityBuffer, 0.f, 0, sizeof(real) * volume);
+	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume);
 }
 
 void EulerBurgers::initKernels() {

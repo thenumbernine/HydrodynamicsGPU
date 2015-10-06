@@ -99,12 +99,9 @@ void Roe::step(real dt) {
 	getSideRange(sideStart, sideEnd, sideStep);
 	for (int side = sideStart; side != sideEnd; side += sideStep) {
 		initFluxSide(side);
-		integrator->integrate(
-			dt,
-			[&](cl::Buffer derivBuffer) {
-				calcDeriv(derivBuffer, dt, side);
-			}
-		);
+		integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
+			calcDeriv(derivBuffer, dt, side);
+		});
 	}
 }
 

@@ -49,6 +49,9 @@ __kernel void calcGravityDeriv(
 	const __global real* gravityPotentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	int index = INDEXV(i);
+	__global real* deriv = derivBuffer + NUM_STATES * index;
+	
 	if (i.x < 2 || i.x >= SIZE_X - 2
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2
@@ -59,17 +62,11 @@ __kernel void calcGravityDeriv(
 	) {
 		return;
 	}
-	int index = INDEXV(i);
 
-	__global real* deriv = derivBuffer + NUM_STATES * index;
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
-	for (int j = 0; j < NUM_STATES; ++j) {
-		deriv[j] = 0.f;
-	}
-
 	real density = state[STATE_DENSITY];
-
+	real derivEnergyTotal = 0.f;
 	for (int side = 0; side < DIM; ++side) {
 		int indexPrev = index - stepsize[side];
 		int indexNext = index + stepsize[side];
@@ -78,7 +75,9 @@ __kernel void calcGravityDeriv(
 	
 		//gravitational force = -gradient of gravitational potential
 		deriv[side + STATE_MOMENTUM_X] -= density * gravityPotentialGradient;
-		deriv[STATE_ENERGY_TOTAL] -= density * gravityPotentialGradient * state[side + STATE_MOMENTUM_X];
+		derivEnergyTotal -= density * gravityPotentialGradient * state[side + STATE_MOMENTUM_X];
 	}
+
+	deriv[STATE_ENERGY_TOTAL] += derivEnergyTotal;
 }
 
