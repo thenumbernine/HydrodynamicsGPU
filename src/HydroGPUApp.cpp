@@ -140,7 +140,10 @@ void HydroGPUApp::init() {
 	std::cout << "dx " << dx << std::endl;
 
 	Super::init();
-	clCommon = std::make_shared<CLCommon::CLCommon>(useGPU);
+	clCommon = std::make_shared<CLCommon::CLCommon>(
+		useGPU,
+		/*verbose=*/true,
+		/*pickDevice=*/CLCommon::hasGLSharing);
 
 	glEnable(GL_DEPTH_TEST);
 
