@@ -422,7 +422,6 @@ __kernel void diffuseWork(
 	if (solidBuffer[index]) return;
 #endif
 	__global real* deriv = derivBuffer + NUM_STATES * index;
-	const __global real* state = stateBuffer + NUM_STATES * index;
 
 	real velocityL, velocityR, pressureL, pressureR;
 	real deltaEnergyTotal = 0.f;

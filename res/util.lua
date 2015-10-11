@@ -1,3 +1,6 @@
+local table = require 'ext.table'	
+local symmath = require 'symmath'
+local mat33 = require 'mat33'
 
 function crand() return math.random() * 2 - 1 end
 
@@ -94,7 +97,7 @@ function buildSelfGravitationState(x,y,z,args)
 	local minSource
 	local inside = false
 	for _,source in ipairs(args.sources) do
-		local sx, sy, sz = unpack(source.center)
+		local sx, sy, sz = table.unpack(source.center)
 		local dx = sx - x
 		local dy = sy - y
 		local dz = sz - z
@@ -136,16 +139,13 @@ args:
 
 	g & K are stored as {xx,xy,xz,yy,yz,zz}
 --]]
-function initNumRel(args)
-	local table = require 'ext.table'	
-	local symmath = require 'symmath'
-	
+function initNumRel(args)	
 	local vars = assert(args.vars)
 	
 	local exprs = table{
 		alpha = assert(args.alpha),
-		g = {unpack(args.g)},
-		K = {unpack(args.K)}
+		g = {table.unpack(args.g)},
+		K = {table.unpack(args.K)}
 	}
 	assert(#exprs.g == 6)
 	assert(#exprs.K == 6)
@@ -185,8 +185,7 @@ function initNumRel(args)
 			return alpha, g, A, D, K
 		end
 	elseif solverName == 'ADM3DRoe' then
-		local mat33 = require 'mat33'
-		local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = mat33.inv(unpack(exprs.g))
+		local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = mat33.inv(exprs.g:unpack())
 		exprs.gU = table{gUxx, gUxy, gUxz, gUyy, gUyz, gUzz}
 		
 		exprs.D = table.map(vars, function(x_k)
@@ -209,7 +208,7 @@ function initNumRel(args)
 			local D = calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
 			local gU = calc.gU:map(function(gUij) return gUij(x,y,z) end)
 			local function sym3x3(m,i,j)
-				local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = unpack(m)
+				local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = m:unpack()
 				return ({
 					{m_xx, m_xy, m_xz},
 					{m_xy, m_yy, m_yz},
