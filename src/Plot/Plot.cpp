@@ -40,7 +40,8 @@ void Plot::convertVariableToTex(int displayVariable) {
 	std::vector<cl::Memory> acquireGLMems = {texCLMem};
 	commands.enqueueAcquireGLObjects(&acquireGLMems);
 
-	if (app->clCommon->useGPU) {
+	//if (app->clCommon->useGPU)
+	{
 		convertToTexKernel.setArg(1, displayVariable);
 		
 		//TODO round up next power of 2 of global size for texture ...
@@ -56,9 +57,10 @@ void Plot::convertVariableToTex(int displayVariable) {
 			);
 		//TODO is localSize compatible?  is it always 16x16 for 2D?
 		commands.enqueueNDRangeKernel(convertToTexKernel, app->solver->offsetNd, npo2size /*app->solver->globalSize*/, app->solver->localSize);
-	} else {
+	//} else {
 		//TODO if we're not using GPU then we need to transfer the contents via a CPU buffer ... or not at all?
-		throw Common::Exception() << "TODO";
+		//do the CL drivers correctly emulate the GL share writes when using CPU instead of GPU?
+	//	throw Common::Exception() << "TODO";
 	}
 
 	commands.enqueueReleaseGLObjects(&acquireGLMems);

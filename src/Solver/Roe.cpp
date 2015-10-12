@@ -38,8 +38,8 @@ void Roe::initKernels() {
 	calcEigenBasisSideKernel = cl::Kernel(program, "calcEigenBasisSide");
 	CLCommon::setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer);
 	
-	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
-	CLCommon::setArgs(findMinTimestepKernel,
+	calcCellTimestepKernel = cl::Kernel(program, "calcCellTimestep");
+	CLCommon::setArgs(calcCellTimestepKernel,
 			dtBuffer,
 //Hydrodynamics ii
 #if 1
@@ -86,8 +86,8 @@ real Roe::calcTimestep() {
 	for (int side = 0; side < app->dim; ++side) {
 		initFluxSide(side);
 		
-		findMinTimestepKernel.setArg(2, side);
-		commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize);
+		calcCellTimestepKernel.setArg(2, side);
+		commands.enqueueNDRangeKernel(calcCellTimestepKernel, offsetNd, globalSize, localSize);
 		
 		dt = std::min(dt, findMinTimestep());
 	}

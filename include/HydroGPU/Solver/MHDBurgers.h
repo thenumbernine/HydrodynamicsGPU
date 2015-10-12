@@ -17,7 +17,7 @@ protected:
 	cl::Buffer fluxBuffer;
 	cl::Buffer pressureBuffer;
 
-	cl::Kernel findMinTimestepKernel;
+	cl::Kernel calcCellTimestepKernel;
 	cl::Kernel calcInterfaceVelocityKernel;
 	cl::Kernel calcVelocityFluxKernel;
 	cl::Kernel calcInterfaceMagneticFieldKernel;

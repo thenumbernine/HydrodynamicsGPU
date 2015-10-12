@@ -6,7 +6,7 @@ constant real4 dx = (real4)(DX, DY, DZ, 1.f);
 
 //http://developer.amd.com/resources/documentation-articles/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 //calculate min of all elements on buffer[0..length-1]
-__kernel void findMinTimestepReduce(
+__kernel void findMinTimestep(
 	const __global real* buffer,
 	__local real* scratch,
 	__const int length,

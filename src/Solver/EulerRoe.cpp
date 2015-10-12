@@ -11,7 +11,7 @@ void EulerRoe::initKernels() {
 	//all Euler and MHD systems also have a separate potential buffer...
 	calcEigenBasisSideKernel.setArg(4, selfgrav->potentialBuffer);
 	calcEigenBasisSideKernel.setArg(5, selfgrav->solidBuffer);
-	findMinTimestepKernel.setArg(3, selfgrav->solidBuffer);
+	calcCellTimestepKernel.setArg(3, selfgrav->solidBuffer);
 	calcDeltaQTildeKernel.setArg(4, selfgrav->solidBuffer);
 	calcFluxKernel.setArg(7, selfgrav->solidBuffer);
 	calcFluxDerivKernel.setArg(3, selfgrav->solidBuffer);

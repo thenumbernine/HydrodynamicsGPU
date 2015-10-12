@@ -208,8 +208,8 @@ void Solver::initKernels() {
 		}
 	}
 	
-	findMinTimestepReduceKernel = cl::Kernel(program, "findMinTimestepReduce");
-	CLCommon::setArgs(findMinTimestepReduceKernel, dtBuffer, cl::Local(localSize[0] * sizeof(real)), volume, dtSwapBuffer);	
+	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
+	CLCommon::setArgs(findMinTimestepKernel, dtBuffer, cl::Local(localSize[0] * sizeof(real)), volume, dtSwapBuffer);	
 }
 
 std::vector<std::string> Solver::getProgramSources() {
@@ -391,10 +391,10 @@ real Solver::findMinTimestep() {
 	while (reduceSize > 1) {
 		int nextSize = (reduceSize >> 4) + !!(reduceSize & ((1 << 4) - 1));
 		cl::NDRange reduceGlobalSize(std::max<int>(reduceSize, localSize[0]));
-		findMinTimestepReduceKernel.setArg(0, src);
-		findMinTimestepReduceKernel.setArg(2, reduceSize);
-		findMinTimestepReduceKernel.setArg(3, dst);
-		commands.enqueueNDRangeKernel(findMinTimestepReduceKernel, offset1d, reduceGlobalSize, localSize1d);
+		findMinTimestepKernel.setArg(0, src);
+		findMinTimestepKernel.setArg(2, reduceSize);
+		findMinTimestepKernel.setArg(3, dst);
+		commands.enqueueNDRangeKernel(findMinTimestepKernel, offset1d, reduceGlobalSize, localSize1d);
 		if (app->clCommon->useGPU) commands.finish();
 		std::swap(dst, src);
 		reduceSize = nextSize;

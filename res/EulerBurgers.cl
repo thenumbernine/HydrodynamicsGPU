@@ -14,7 +14,7 @@ the 1st and 3rd terms are integrated via the pressure integration
 */
 
 //based on max inter-cell wavespeed
-__kernel void findMinTimestep(
+__kernel void calcCellTimestep(
 	__global real* dtBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer

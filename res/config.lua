@@ -51,7 +51,7 @@ integratorName = 'ForwardEuler'
 
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
---maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -95,7 +95,7 @@ size = {32, 32, 32}
 vectorFieldResolution = 16
 --]]
 -- [[ 2D
-size = {512, 512}
+size = {256, 256}
 --]]
 --[[ 1D
 size = {1024}

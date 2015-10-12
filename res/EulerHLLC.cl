@@ -130,7 +130,7 @@ __kernel void calcEigenvalues(
 
 //do we want to use interface wavespeeds to calculate cfl?
 // esp when the flux values are computed from cell wavespeeds
-__kernel void findMinTimestep(
+__kernel void calcCellTimestep(
 	__global real* dtBuffer,
 	const __global real* eigenvaluesBuffer)
 {

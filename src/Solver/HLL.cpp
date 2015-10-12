@@ -22,8 +22,8 @@ void HLL::init() {
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
 	CLCommon::setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer);
 
-	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
-	CLCommon::setArgs(findMinTimestepKernel, dtBuffer, eigenvaluesBuffer);
+	calcCellTimestepKernel = cl::Kernel(program, "calcCellTimestep");
+	CLCommon::setArgs(calcCellTimestepKernel, dtBuffer, eigenvaluesBuffer);
 	
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	calcFluxDerivKernel.setArg(1, fluxBuffer);
@@ -40,7 +40,7 @@ void HLL::initStep() {
 }
 
 real HLL::calcTimestep() {
-	commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize);
+	commands.enqueueNDRangeKernel(calcCellTimestepKernel, offsetNd, globalSize, localSize);
 	return findMinTimestep();	
 }
 

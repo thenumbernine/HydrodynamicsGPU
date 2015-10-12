@@ -20,7 +20,7 @@ protected:
 	cl::Buffer fluxBuffer;
 	
 	cl::Kernel calcEigenBasisSideKernel;
-	cl::Kernel findMinTimestepKernel;
+	cl::Kernel calcCellTimestepKernel;
 	cl::Kernel calcDeltaQTildeKernel;
 	cl::Kernel calcFluxKernel;
 	cl::Kernel calcFluxDerivKernel;

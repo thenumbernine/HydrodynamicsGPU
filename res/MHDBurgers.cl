@@ -21,7 +21,7 @@ Looks a lot like the Euler Burgers breakdown, except with the added B advection 
 */
 
 //based on max inter-cell wavespeed
-__kernel void findMinTimestep(
+__kernel void calcCellTimestep(
 	__global real* dtBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer)

@@ -1,7 +1,7 @@
 #include "HydroGPU/Shared/Common.h"
 #include "HydroGPU/Roe.h"
 
-__kernel void findMinTimestep(
+__kernel void calcCellTimestep(
 	__global real* dtBuffer,
 //Hydrodynamics ii
 #if 1

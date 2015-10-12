@@ -31,8 +31,8 @@ void EulerBurgers::initBuffers() {
 void EulerBurgers::initKernels() {
 	Super::initKernels();
 	
-	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
-	CLCommon::setArgs(findMinTimestepKernel, dtBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer);
+	calcCellTimestepKernel = cl::Kernel(program, "calcCellTimestep");
+	CLCommon::setArgs(calcCellTimestepKernel, dtBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer);
 	
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
 	CLCommon::setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer, selfgrav->solidBuffer);
@@ -69,7 +69,7 @@ std::vector<std::string> EulerBurgers::getProgramSources() {
 }
 
 real EulerBurgers::calcTimestep() {
-	commands.enqueueNDRangeKernel(findMinTimestepKernel, offsetNd, globalSize, localSize);
+	commands.enqueueNDRangeKernel(calcCellTimestepKernel, offsetNd, globalSize, localSize);
 
 	return findMinTimestep();
 }

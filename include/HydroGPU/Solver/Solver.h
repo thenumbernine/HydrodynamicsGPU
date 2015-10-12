@@ -38,7 +38,7 @@ public:	//protected:
 	cl::Buffer dtBuffer;
 	cl::Buffer dtSwapBuffer;
 	
-	cl::Kernel findMinTimestepReduceKernel;
+	cl::Kernel findMinTimestepKernel;
 
 	std::vector<std::vector<std::vector<cl::Kernel>>> boundaryKernels;	//[NUM_BOUNDARY_METHODS][app.dim][min/max];
 
