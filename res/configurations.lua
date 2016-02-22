@@ -701,9 +701,31 @@ return {
 		}
 	end,
 
-	['Schwarzschild Black Hole Pseudo-Cartesian'] = function()
-		-- upper metric of pseudo-cartesian requires a 4x4 matrix inverse ...
-		-- I'm still coaxing that out of symmath.Matrix.inverse
+	['Schwarzschild Black Hole Cartesian'] = function()
+		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
+		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
+
+		local R = .002	-- Schwarzschild radius
+		
+		local symmath = require 'symmath'	
+		local t,x,y,z = symmath.vars('t','x','y','z')
+		local r = (x^2 + y^2 + z^2)^.5
+
+		initNumRel{
+			vars = {x,y,z},
+			-- 4D metric ADM components:
+			alpha = (1 - R/r)^.5,
+			beta = {0,0,0},
+			g = {
+				1 - R*x^2/r^3,	-- xx
+				-R*x*y/r^3,	-- xy
+				-R*x*z/r^3,	-- xz
+				1 - R*y^2/r^3,	-- yy
+				-R*y*z/r^3,	-- yz
+				1 - R*z^2/r^3,	-- zz
+			},
+			K = {0,0,0,0,0,0},
+		}
 	end,
 }
 

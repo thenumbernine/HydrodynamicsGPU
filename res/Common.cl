@@ -294,6 +294,14 @@ __kernel void multAdd(
 	result[i] = a[i] + b[i] * c;
 }
 
+__kernel void zero(
+	__global real* buffer)
+{
+	size_t i = get_global_id(0);
+	if (i >= get_global_size(0)) return;
+	buffer[i] = 0.f;
+}
+
 //BackwardEulerConjugateGradient
 //result[i] = a[i] - b[i]
 __kernel void subtract(

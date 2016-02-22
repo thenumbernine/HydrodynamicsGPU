@@ -12,6 +12,7 @@ struct ForwardEuler : public Integrator {
 protected:
 	cl::Buffer derivBuffer;	//d/dt[state]
 	cl::Kernel multAddKernel;
+	cl::Kernel zeroKernel;
 };
 
 }

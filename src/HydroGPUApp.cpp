@@ -143,7 +143,14 @@ void HydroGPUApp::init() {
 	clCommon = std::make_shared<CLCommon::CLCommon>(
 		useGPU,
 		/*verbose=*/true,
-		/*pickDevice=*/CLCommon::hasGLSharing);
+		/*pickDevice=*/[&](const std::vector<cl::Device>& devices) -> std::vector<cl::Device>::const_iterator {
+			return std::find_if(devices.begin(), devices.end(), [&](const cl::Device& device) -> bool {
+				std::vector<std::string> extensions = CLCommon::getExtensions(device);
+				return (std::find(extensions.begin(), extensions.end(), "cl_khr_gl_sharing") != extensions.end()
+					|| std::find(extensions.begin(), extensions.end(), "cl_APPLE_gl_sharing") != extensions.end())
+					&& std::find(extensions.begin(), extensions.end(), "cl_khr_fp64") != extensions.end();
+			});
+		});
 
 	glEnable(GL_DEPTH_TEST);
 

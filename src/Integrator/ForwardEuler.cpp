@@ -15,6 +15,8 @@ ForwardEuler::ForwardEuler(HydroGPU::Solver::Solver* solver)
 	multAddKernel.setArg(0, solver->stateBuffer);
 	multAddKernel.setArg(1, solver->stateBuffer);
 	multAddKernel.setArg(2, derivBuffer);
+	
+	zeroKernel = cl::Kernel(solver->program, "zero");
 }
 
 void ForwardEuler::integrate(real dt, std::function<void(cl::Buffer)> callback) {
@@ -23,7 +25,10 @@ void ForwardEuler::integrate(real dt, std::function<void(cl::Buffer)> callback) 
 	//TODO store globalSize1d in Solver?
 	cl::NDRange globalSize1d(length);
 	
-	solver->commands.enqueueFillBuffer(derivBuffer, 0.f, 0, sizeof(real) * length);
+	//solver->commands.enqueueFillBuffer(derivBuffer, 0.f, 0, sizeof(real) * length);
+	//because 'fillBuffer' is not working ... ???!!!!
+	zeroKernel.setArg(0, derivBuffer);
+	solver->commands.enqueueNDRangeKernel(zeroKernel, solver->offset1d, globalSize1d, solver->localSize1d);
 
 	callback(derivBuffer);
 

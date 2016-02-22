@@ -7,10 +7,10 @@ local configurations = require 'configurations'	--holds catalog of configuration
 	-- solver variables
 
 
-solverName = 'EulerBurgers'
+--solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
---solverName = 'EulerRoe'			-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
+solverName = 'EulerRoe'			-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe'		-- not yet
 --solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
@@ -23,7 +23,7 @@ solverName = 'EulerBurgers'
 -- TODO ImplicitIncompressibleNavierStokes	<- from my GPU fluid sim Lua+GLSL project
 --solverName = 'BSSNOKFiniteDifference'	-- doing the bare minimum to consider this a solver.  I could use this to make a coefficient matrix (application function) and, from there, make the implicit solver.
 
-slopeLimiterName = 'DonorCell'
+--slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'LaxWendroff'
 --slopeLimiterName = 'BeamWarming'	-- not behaving correctly
 --slopeLimiterName = 'Fromm'		-- not behaving correctly
@@ -41,7 +41,7 @@ slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'VanAlbada2'
 --slopeLimiterName = 'VanLeer'		-- not behaving correctly
 --slopeLimiterName = 'MonotizedCentral'
---slopeLimiterName = 'Superbee'
+slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
@@ -51,7 +51,7 @@ integratorName = 'ForwardEuler'
 
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
-maxFrames = 1			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+maxFrames = nil			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -63,9 +63,9 @@ heatMapVariable = 'DENSITY'
 heatMapColorScale = 2
 
 boundaryMethods = {
-	{min='MIRROR', max='MIRROR'},
-	{min='MIRROR', max='MIRROR'},
-	{min='MIRROR', max='MIRROR'},
+	{min='FREEFLOW', max='FREEFLOW'},
+	{min='FREEFLOW', max='FREEFLOW'},
+	{min='FREEFLOW', max='FREEFLOW'},
 }
 
 -- gravity is specific to the Euler fluid equation solver
@@ -105,7 +105,7 @@ heatMapColorScale = .25
 camera = {}
 
 
--- [[ Euler
+--[[ Euler
 
 -- override solids:
 
@@ -136,7 +136,7 @@ end
 --]=]
 --solidFilename = 'test-solid.png'
 
---configurations['Sod']()
+configurations['Sod']()
 --configurations['Sphere']()
 --configurations['Square Cavity']()
 --configurations['Kelvin-Hemholtz']()
@@ -146,7 +146,7 @@ end
 --configurations['Forward Facing Step']()
 --configurations['Double Mach Reflection']()
 --configurations['Spiral Implosion']()
-configurations['self-gravitation test 1']()
+--configurations['self-gravitation test 1']()
 --configurations['Colella-Woodward']()
 --configurations['Configuration 6']()
 --]]
@@ -175,18 +175,19 @@ camera.zoom = 1/300
 camera.pos = {150,150}
 --]]
 
---[[ ADM (3D)
+-- [[ ADM (3D)
 solverName = 'ADM3DRoe'
 --size = {1024} heatMapColorScale = 128
 size = {256, 256} heatMapColorScale = 1
 --configurations['NR Gauge Shock Waves']{unitDomain=false}
-configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true
+--configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true
 --configurations['Alcubierre Warp Bubble']()
+configurations['Schwarzschild Black Hole Cartesian']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
 --fixedDT = .125
 --useFixedDT = true
-useGraph = true
+--useGraph = true
 --]]
 
 

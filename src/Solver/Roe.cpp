@@ -22,6 +22,10 @@ void Roe::initBuffers() {
 
 	//zero flux
 	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume);
+	//doesn't seem to harm too much to use FillBuffer upon init ... it was always hit or miss ...
+	//cl::Kernel zeroKernel = cl::Kernel(program, "zero");
+	//zeroKernel.setArg(0, fluxBuffer);
+	//commands.enqueueNDRangeKernel(zeroKernel, offset1d, cl::NDRange(getVolume() * numStates()), localSize1d);
 }
 
 int Roe::getEigenTransformStructSize() {
