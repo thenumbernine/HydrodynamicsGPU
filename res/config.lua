@@ -23,7 +23,7 @@ solverName = 'EulerRoe'			-- fails on Colella-Woodward 2-wave problem, but works
 -- TODO ImplicitIncompressibleNavierStokes	<- from my GPU fluid sim Lua+GLSL project
 --solverName = 'BSSNOKFiniteDifference'	-- doing the bare minimum to consider this a solver.  I could use this to make a coefficient matrix (application function) and, from there, make the implicit solver.
 
---slopeLimiterName = 'DonorCell'
+slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'LaxWendroff'
 --slopeLimiterName = 'BeamWarming'	-- not behaving correctly
 --slopeLimiterName = 'Fromm'		-- not behaving correctly
@@ -41,7 +41,7 @@ solverName = 'EulerRoe'			-- fails on Colella-Woodward 2-wave problem, but works
 --slopeLimiterName = 'VanAlbada2'
 --slopeLimiterName = 'VanLeer'		-- not behaving correctly
 --slopeLimiterName = 'MonotizedCentral'
-slopeLimiterName = 'Superbee'
+--slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
 
@@ -71,6 +71,7 @@ boundaryMethods = {
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false
 gravitationalConstant = 1	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful units please
+-- used for gravitation Poisson solver
 gaussSeidelMaxIter = 20
 
 showVectorField = false
@@ -180,9 +181,9 @@ solverName = 'ADM3DRoe'
 --size = {1024} heatMapColorScale = 128
 size = {256, 256} heatMapColorScale = 1
 --configurations['NR Gauge Shock Waves']{unitDomain=false}
---configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true
+configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true
 --configurations['Alcubierre Warp Bubble']()
-configurations['Schwarzschild Black Hole Cartesian']()
+--configurations['Schwarzschild Black Hole Cartesian']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
 --fixedDT = .125
