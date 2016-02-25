@@ -1,6 +1,6 @@
 #pragma once
 
-#if 0	//double
+#if 1	//double
 
 #ifdef __OPENCL_VERSION__
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
@@ -19,7 +19,6 @@ typedef cl_double4 real4;
 typedef cl_double8 real8;
 typedef cl_double16 real16;
 #endif
-
 
 #else	//single
 

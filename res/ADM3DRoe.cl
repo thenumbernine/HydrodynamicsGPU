@@ -408,7 +408,7 @@ void eigenfieldTransform(
 		real sqrt_gUzz = sqrt(gUzz);
 		real gUzz_toThe_3_2 = sqrt_gUzz * gUzz;
 		
-results[0] = (((((-(2.f * gUzz * input[36])) - (2.f * gUyz * input[35])) - (gUzz * input[9])) + (sqrt_f * gUxx * input[28] * sqrt_gUzz) + (sqrt_f * gUxy * input[29] * sqrt_gUzz) + (sqrt_f * gUxz * input[30] * sqrt_gUzz) + (sqrt_f * gUyy * input[31] * sqrt_gUzz) + (sqrt_f * gUyz * input[32] * sqrt_gUzz) + ((sqrt_f * gUzz_toThe_3_2 * input[33]) - (2.f * gUxz * input[34]))) / sqrt_gUzz);
+		results[0] = (((((-(2.f * gUzz * input[36])) - (2.f * gUyz * input[35])) - (gUzz * input[9])) + (sqrt_f * gUxx * input[28] * sqrt_gUzz) + (sqrt_f * gUxy * input[29] * sqrt_gUzz) + (sqrt_f * gUxz * input[30] * sqrt_gUzz) + (sqrt_f * gUyy * input[31] * sqrt_gUzz) + (sqrt_f * gUyz * input[32] * sqrt_gUzz) + ((sqrt_f * gUzz_toThe_3_2 * input[33]) - (2.f * gUxz * input[34]))) / sqrt_gUzz);
 		results[1] = ((-(sqrt_gUzz * input[22])) + input[28]);
 		results[2] = ((-(sqrt_gUzz * input[23])) + input[29]);
 		results[3] = (((-(gUzz * input[24])) + ((input[30] * sqrt_gUzz) - input[34])) / sqrt_gUzz);

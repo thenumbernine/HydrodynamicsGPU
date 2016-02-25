@@ -647,6 +647,26 @@ return {
 				symmath.Constant(0),
 			}
 		else
+			h = H * symmath.exp(-((x - xc)^2 + (y - yc)^2 + (z - zc)^2) / sigma^2)
+			g = {
+				1 - h:diff(x)^2,
+				-h:diff(x) * h:diff(y),
+				-h:diff(x) * h:diff(z),
+				1 - h:diff(y)^2,
+				-h:diff(y) * h:diff(z),
+				1 - h:diff(z)^2,
+			}
+			local div_h = h:diff(x)^2 + h:diff(y)^2 + h:diff(z)^2
+			local K_denom = (1 - div_h)^.5
+			K = {
+				-h:diff(x,x) / K_denom,
+				-h:diff(x,y) / K_denom,
+				-h:diff(x,z) / K_denom,
+				-h:diff(y,y) / K_denom,
+				-h:diff(y,z) / K_denom,
+				-h:diff(z,z) / K_denom,
+			}
+			
 			error'TODO 3D initial condition equations for ADM-3D'
 		end
 	
@@ -702,6 +722,39 @@ return {
 	end,
 
 	['Schwarzschild Black Hole Cartesian'] = function()
+		-- [[
+		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
+		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
+		--]]
+		--[[ constant
+		adm_BonaMasso_f = '1.f'	-- '1.69f'	-- '.49f'
+		adm_BonaMasso_df_dalpha = '0.f'
+		--]]
+
+		local R = .002	-- Schwarzschild radius
+		
+		local symmath = require 'symmath'	
+		local t,x,y,z = symmath.vars('t','x','y','z')
+		local r = (x^2 + y^2 + z^2)^.5
+
+		initNumRel{
+			vars = {x,y,z},
+			-- 4D metric ADM components:
+			alpha = (1 - R/r)^.5,
+			beta = {0,0,0},
+			g = {
+				1 - R*x^2/r^3,	-- xx
+				-R*x*y/r^3,	-- xy
+				-R*x*z/r^3,	-- xz
+				1 - R*y^2/r^3,	-- yy
+				-R*y*z/r^3,	-- yz
+				1 - R*z^2/r^3,	-- zz
+			},
+			K = {0,0,0,0,0,0},
+		}
+	end,
+
+	['Spherical Star Cartesian'] = function()
 		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
 		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
 
@@ -727,6 +780,7 @@ return {
 			K = {0,0,0,0,0,0},
 		}
 	end,
+
 }
 
 

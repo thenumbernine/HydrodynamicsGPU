@@ -182,8 +182,9 @@ solverName = 'ADM3DRoe'
 size = {256, 256} heatMapColorScale = 1
 --configurations['NR Gauge Shock Waves']{unitDomain=false}
 configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true
---configurations['Alcubierre Warp Bubble']()
+--configurations['Alcubierre Warp Bubble']()	-- ...needs shift vector support
 --configurations['Schwarzschild Black Hole Cartesian']()
+--configurations['Spherical Star Cartesian']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
 --fixedDT = .125

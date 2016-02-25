@@ -36,13 +36,13 @@ __kernel void calcCellTimestep(
 	const __global real* state = stateBuffer + index;
 	
 	real density = state[STATE_DENSITY];
-	real invDensity = 1.f / density;
+	real invDensity = 1. / density;
 	real4 velocity = VELOCITY(state);
 	real energyTotal = state[STATE_ENERGY_TOTAL] * invDensity;
-	real energyKinetic = .5f * dot(velocity, velocity);
+	real energyKinetic = .5 * dot(velocity, velocity);
 	//real energyPotential = potentialBuffer[index];	//TODO ... if we want to use this method ...
 	real energyInternal = energyTotal - energyKinetic;	// - energyPotential;
-	real pressure = (gamma - 1.f) * density * energyInternal;
+	real pressure = (gamma - 1.) * density * energyInternal;
 	real speedOfSound = sqrt(gamma * pressure * invDensity); 
 #endif
 
@@ -69,8 +69,8 @@ __kernel void calcCellTimestep(
 	const __global real* eigenvaluesR = eigenvaluesBuffer + EIGEN_SPACE_DIM * indexR;
 	
 	//NOTICE assumes eigenvalues are sorted from min to max
-	real maxLambda = max(0.f, eigenvaluesL[EIGEN_SPACE_DIM-1]);
-	real minLambda = min(0.f, eigenvaluesR[0]);
+	real maxLambda = max(0., eigenvaluesL[EIGEN_SPACE_DIM-1]);
+	real minLambda = min(0., eigenvaluesR[0]);
 	real dum = dx[side] / (fabs(maxLambda - minLambda) + 1e-9f);
 #endif
 //Toro 16.38
@@ -233,12 +233,12 @@ __kernel void calcFlux(
 	eigenfieldTransform(stateRTilde, eigenfields, stateR, side);
 
 	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
-		fluxTilde[i] = .5f * (stateRTilde[i] + stateLTilde[i]);
+		fluxTilde[i] = .5 * (stateRTilde[i] + stateLTilde[i]);
 	}
 #else	//ROE_EIGENFIELD_TRANSFORM_SEPARATE
 	real stateAvg[NUM_STATES];
 	for (int i = 0; i < NUM_STATES; ++i) {
-		stateAvg[i] = .5f * (stateR[i] + stateL[i]);
+		stateAvg[i] = .5 * (stateR[i] + stateL[i]);
 	}
 	eigenfieldTransform(fluxTilde, eigenfields, stateAvg, side);
 #endif	//ROE_EIGENFIELD_TRANSFORM_SEPARATE
@@ -249,24 +249,24 @@ __kernel void calcFlux(
 
 		real rTilde;
 		real theta;
-		if (eigenvalue >= 0.f) {
+		if (eigenvalue >= 0.) {
 			rTilde = deltaQTildeL[i] / deltaQTilde[i];
-			theta = 1.f;
+			theta = 1.;
 #ifdef SOLID
-			if (solidL2) rTilde = 1.f;
+			if (solidL2) rTilde = 1.;
 #endif	//SOLID
 		} else {
 			rTilde = deltaQTildeR[i] / deltaQTilde[i];
-			theta = -1.f;
+			theta = -1.;
 #ifdef SOLID
-			if (solidR2) rTilde = 1.f;
+			if (solidR2) rTilde = 1.;
 #endif	//SOLID
 		}
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
 
 		real deltaFluxTilde = eigenvalue * deltaQTilde[i];
-		fluxTilde[i] -= .5f * deltaFluxTilde * (theta + phi * (epsilon - theta));
+		fluxTilde[i] -= .5 * deltaFluxTilde * (theta + phi * (epsilon - theta));
 	}
 
 	eigenfieldInverseTransform(flux, eigenfields, fluxTilde, side);
