@@ -61,6 +61,7 @@ ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 	displayVariables.push_back("K");
 	displayVariables.push_back("GAMMA");
 	displayVariables.push_back("VOLUME");
+	addSuffixes(displayVariables, "V_CONSTRAINT_", spaceSuffixes);
 }
 
 void ADM3D::getProgramSources(std::vector<std::string>& sources) {

@@ -671,10 +671,10 @@ __kernel void constrain(
 	real gUxx = gInv[0], gUxy = gInv[1], gUxz = gInv[2], gUyy = gInv[3], gUyz = gInv[4], gUzz = gInv[5];
 
 	state[34] = 
-		(D_xxy - D_yxx) * gUxy
-		+ (D_xxz - D_zxx) * gUxz
+		2. * (D_xxy - D_yxx) * gUxy
 		+ (D_xyy - D_yxy) * gUyy
 		+ (D_xyz - D_yxz) * gUyz
+		+ 2. * (D_xxz - D_zxx) * gUxz
 		+ (D_xyz - D_zxy) * gUyz
 		+ (D_xzz - D_zxz) * gUzz;
 	state[35] = 

@@ -57,6 +57,15 @@ __kernel void convertToTex(
 	case DISPLAY_GAMMA:
 		value = g;
 		break;
+	case V_CONSTRAINT_X:
+		//value = V_x - calcDConstraint(state,0);
+		break;
+	case V_CONSTRAINT_Y:
+		//value = V_y - calcDConstraint(state,1);
+		break;
+	case V_CONSTRAINT_Z:
+		//value = V_x - calcDConstraint(state,2);
+		break;
 	default:
 		value = state[displayMethod];
 		break;
