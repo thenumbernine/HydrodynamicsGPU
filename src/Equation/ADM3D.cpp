@@ -39,14 +39,6 @@ ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 		}
 	};
 
-
-	displayVariables = std::vector<std::string>{
-		"ALPHA",
-		"VOLUME",
-		"K"
-	};
-	addSuffixes(displayVariables, "K_", sym33suffixes);
-
 	//matches above
 	boundaryMethods = std::vector<std::string>{
 		"PERIODIC",
@@ -64,6 +56,11 @@ ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 	addSuffixes(states, "D_Z", sym33suffixes);
 	addSuffixes(states, "K_", sym33suffixes);	//extrinsic curvature
 	addSuffixes(states, "V_", spaceSuffixes);	//V_k = D_km^m - D^m_mk
+
+	displayVariables = states;
+	displayVariables.push_back("K");
+	displayVariables.push_back("GAMMA");
+	displayVariables.push_back("VOLUME");
 }
 
 void ADM3D::getProgramSources(std::vector<std::string>& sources) {

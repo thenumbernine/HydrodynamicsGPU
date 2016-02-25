@@ -326,7 +326,7 @@ void eigenfieldTransform(
 		real sqrt_gUxx = sqrt(gUxx);
 		real gUxx_toThe_3_2 = sqrt_gUxx * gUxx;
 
-		results[0] = ((((-(2.f * gUxz * input[36])) - (gUxx * input[7])) + (sqrt_f * gUxx_toThe_3_2 * input[28]) + (sqrt_f * gUxy * input[29] * sqrt_gUxx) + (sqrt_f * gUxz * input[30] * sqrt_gUxx) + (sqrt_f * gUyy * input[31] * sqrt_gUxx) + (sqrt_f * gUyz * input[32] * sqrt_gUxx) + (((sqrt_f * gUzz * input[33] * sqrt_gUxx) - (2.f * gUxx * input[34])) - (2.f * gUxy * input[35]))) / sqrt_gUxx);
+		results[0] = ((((-(2.f * gUxz * input[36])) - (gUxx * input[7])) + (sqrt_f * gUxx_toThe_3_2 * input[28]) + (2.f * sqrt_f * gUxy * input[29] * sqrt_gUxx) + (2.f * sqrt_f * gUxz * input[30] * sqrt_gUxx) + (sqrt_f * gUyy * input[31] * sqrt_gUxx) + (2.f * sqrt_f * gUyz * input[32] * sqrt_gUxx) + (((sqrt_f * gUzz * input[33] * sqrt_gUxx) - (2.f * gUxx * input[34])) - (2.f * gUxy * input[35]))) / sqrt_gUxx);
 		results[1] = (((-(gUxx * input[11])) + ((input[29] * sqrt_gUxx) - input[35])) / sqrt_gUxx);
 		results[2] = (((-(gUxx * input[12])) + ((input[30] * sqrt_gUxx) - input[36])) / sqrt_gUxx);
 		results[3] = ((-(sqrt_gUxx * input[13])) + input[31]);
@@ -356,18 +356,18 @@ void eigenfieldTransform(
 		results[27] = input[34];
 		results[28] = input[35];
 		results[29] = input[36];
-		results[30] = ((((((input[7] - (f * gUxx * input[10])) - (f * gUxy * input[11])) - (f * gUxz * input[12])) - (f * gUyy * input[13])) - (f * gUyz * input[14])) - (f * gUzz * input[15]));
+		results[30] = ((((((input[7] - (f * gUxx * input[10])) - (2.f * f * gUxy * input[11])) - (2.f * f * gUxz * input[12])) - (f * gUyy * input[13])) - (2.f * f * gUyz * input[14])) - (f * gUzz * input[15]));
 		results[31] = (((gUxx * input[11]) + (input[29] * sqrt_gUxx) + input[35]) / sqrt_gUxx);
 		results[32] = (((gUxx * input[12]) + (input[30] * sqrt_gUxx) + input[36]) / sqrt_gUxx);
 		results[33] = ((sqrt_gUxx * input[13]) + input[31]);
 		results[34] = ((sqrt_gUxx * input[14]) + input[32]);
 		results[35] = ((sqrt_gUxx * input[15]) + input[33]);
-		results[36] = (((2.f * gUxz * input[36]) + (gUxx * input[7]) + (sqrt_f * gUxx_toThe_3_2 * input[28]) + (sqrt_f * gUxy * input[29] * sqrt_gUxx) + (sqrt_f * gUxz * input[30] * sqrt_gUxx) + (sqrt_f * gUyy * input[31] * sqrt_gUxx) + (sqrt_f * gUyz * input[32] * sqrt_gUxx) + (sqrt_f * gUzz * input[33] * sqrt_gUxx) + (2.f * gUxx * input[34]) + (2.f * gUxy * input[35])) / sqrt_gUxx);	
+		results[36] = (((2.f * gUxz * input[36]) + (gUxx * input[7]) + (sqrt_f * gUxx_toThe_3_2 * input[28]) + (2.f * sqrt_f * gUxy * input[29] * sqrt_gUxx) + (2.f * sqrt_f * gUxz * input[30] * sqrt_gUxx) + (sqrt_f * gUyy * input[31] * sqrt_gUxx) + (2.f * sqrt_f * gUyz * input[32] * sqrt_gUxx) + (sqrt_f * gUzz * input[33] * sqrt_gUxx) + (2.f * gUxx * input[34]) + (2.f * gUxy * input[35])) / sqrt_gUxx);
 	} else if (side == 1) {
 		real sqrt_gUyy = sqrt(gUyy);
 		real gUyy_toThe_3_2 = sqrt_gUyy * gUyy;
 
-		results[0] = (((((-(2.f * gUyz * input[36])) - (2.f * gUyy * input[35])) - (gUyy * input[8])) + (sqrt_f * gUxx * input[28] * sqrt_gUyy) + (sqrt_f * gUxy * input[29] * sqrt_gUyy) + (sqrt_f * gUxz * input[30] * sqrt_gUyy) + (sqrt_f * gUyy_toThe_3_2 * input[31]) + (sqrt_f * gUyz * input[32] * sqrt_gUyy) + ((sqrt_f * gUzz * input[33] * sqrt_gUyy) - (2.f * gUxy * input[34]))) / sqrt_gUyy);
+		results[0] = (((((-(2.f * gUyz * input[36])) - (2.f * gUyy * input[35])) - (gUyy * input[8])) + (sqrt_f * gUxx * input[28] * sqrt_gUyy) + (2.f * sqrt_f * gUxy * input[29] * sqrt_gUyy) + (2.f * sqrt_f * gUxz * input[30] * sqrt_gUyy) + (sqrt_f * gUyy_toThe_3_2 * input[31]) + (2.f * sqrt_f * gUyz * input[32] * sqrt_gUyy) + ((sqrt_f * gUzz * input[33] * sqrt_gUyy) - (2.f * gUxy * input[34]))) / sqrt_gUyy);
 		results[1] = ((-(sqrt_gUyy * input[16])) + input[28]);
 		results[2] = (((-(gUyy * input[17])) + ((input[29] * sqrt_gUyy) - input[34])) / sqrt_gUyy);
 		results[3] = ((-(sqrt_gUyy * input[18])) + input[30]);
@@ -397,18 +397,18 @@ void eigenfieldTransform(
 		results[27] = input[34];
 		results[28] = input[35];
 		results[29] = input[36];
-		results[30] = ((((((input[8] - (f * gUxx * input[16])) - (f * gUxy * input[17])) - (f * gUxz * input[18])) - (f * gUyy * input[19])) - (f * gUyz * input[20])) - (f * gUzz * input[21]));
+		results[30] = ((((((input[8] - (f * gUxx * input[16])) - (2.f * f * gUxy * input[17])) - (2.f * f * gUxz * input[18])) - (f * gUyy * input[19])) - (2.f * f * gUyz * input[20])) - (f * gUzz * input[21]));
 		results[31] = ((sqrt_gUyy * input[16]) + input[28]);
 		results[32] = (((gUyy * input[17]) + (input[29] * sqrt_gUyy) + input[34]) / sqrt_gUyy);
 		results[33] = ((sqrt_gUyy * input[18]) + input[30]);
 		results[34] = (((gUyy * input[20]) + (input[32] * sqrt_gUyy) + input[36]) / sqrt_gUyy);
 		results[35] = ((sqrt_gUyy * input[21]) + input[33]);
-		results[36] = (((2.f * gUyz * input[36]) + (2.f * gUyy * input[35]) + (gUyy * input[8]) + (sqrt_f * gUxx * input[28] * sqrt_gUyy) + (sqrt_f * gUxy * input[29] * sqrt_gUyy) + (sqrt_f * gUxz * input[30] * sqrt_gUyy) + (sqrt_f * gUyy_toThe_3_2 * input[31]) + (sqrt_f * gUyz * input[32] * sqrt_gUyy) + (sqrt_f * gUzz * input[33] * sqrt_gUyy) + (2.f * gUxy * input[34])) / sqrt_gUyy);
+		results[36] = (((2.f * gUyz * input[36]) + (2.f * gUyy * input[35]) + (gUyy * input[8]) + (sqrt_f * gUxx * input[28] * sqrt_gUyy) + (2.f * sqrt_f * gUxy * input[29] * sqrt_gUyy) + (2.f * sqrt_f * gUxz * input[30] * sqrt_gUyy) + (sqrt_f * gUyy_toThe_3_2 * input[31]) + (2.f * sqrt_f * gUyz * input[32] * sqrt_gUyy) + (sqrt_f * gUzz * input[33] * sqrt_gUyy) + (2.f * gUxy * input[34])) / sqrt_gUyy);
 	} else if (side == 2) {
 		real sqrt_gUzz = sqrt(gUzz);
 		real gUzz_toThe_3_2 = sqrt_gUzz * gUzz;
-		
-		results[0] = (((((-(2.f * gUzz * input[36])) - (2.f * gUyz * input[35])) - (gUzz * input[9])) + (sqrt_f * gUxx * input[28] * sqrt_gUzz) + (sqrt_f * gUxy * input[29] * sqrt_gUzz) + (sqrt_f * gUxz * input[30] * sqrt_gUzz) + (sqrt_f * gUyy * input[31] * sqrt_gUzz) + (sqrt_f * gUyz * input[32] * sqrt_gUzz) + ((sqrt_f * gUzz_toThe_3_2 * input[33]) - (2.f * gUxz * input[34]))) / sqrt_gUzz);
+	
+		results[0] = (((((-(2.f * gUzz * input[36])) - (2.f * gUyz * input[35])) - (gUzz * input[9])) + (sqrt_f * gUxx * input[28] * sqrt_gUzz) + (2.f * sqrt_f * gUxy * input[29] * sqrt_gUzz) + (2.f * sqrt_f * gUxz * input[30] * sqrt_gUzz) + (sqrt_f * gUyy * input[31] * sqrt_gUzz) + (2.f * sqrt_f * gUyz * input[32] * sqrt_gUzz) + ((sqrt_f * gUzz_toThe_3_2 * input[33]) - (2.f * gUxz * input[34]))) / sqrt_gUzz);
 		results[1] = ((-(sqrt_gUzz * input[22])) + input[28]);
 		results[2] = ((-(sqrt_gUzz * input[23])) + input[29]);
 		results[3] = (((-(gUzz * input[24])) + ((input[30] * sqrt_gUzz) - input[34])) / sqrt_gUzz);
@@ -438,13 +438,13 @@ void eigenfieldTransform(
 		results[27] = input[34];
 		results[28] = input[35];
 		results[29] = input[36];
-		results[30] = ((((((input[9] - (f * gUxx * input[22])) - (f * gUxy * input[23])) - (f * gUxz * input[24])) - (f * gUyy * input[25])) - (f * gUyz * input[26])) - (f * gUzz * input[27]));
+		results[30] = ((((((input[9] - (f * gUxx * input[22])) - (2.f * f * gUxy * input[23])) - (2.f * f * gUxz * input[24])) - (f * gUyy * input[25])) - (2.f * f * gUyz * input[26])) - (f * gUzz * input[27]));
 		results[31] = ((sqrt_gUzz * input[22]) + input[28]);
 		results[32] = ((sqrt_gUzz * input[23]) + input[29]);
 		results[33] = (((gUzz * input[24]) + (input[30] * sqrt_gUzz) + input[34]) / sqrt_gUzz);
 		results[34] = ((sqrt_gUzz * input[25]) + input[31]);
 		results[35] = (((gUzz * input[26]) + (input[32] * sqrt_gUzz) + input[35]) / sqrt_gUzz);
-		results[36] = (((2.f * gUzz * input[36]) + (2.f * gUyz * input[35]) + (gUzz * input[9]) + (sqrt_f * gUxx * input[28] * sqrt_gUzz) + (sqrt_f * gUxy * input[29] * sqrt_gUzz) + (sqrt_f * gUxz * input[30] * sqrt_gUzz) + (sqrt_f * gUyy * input[31] * sqrt_gUzz) + (sqrt_f * gUyz * input[32] * sqrt_gUzz) + (sqrt_f * gUzz_toThe_3_2 * input[33]) + (2.f * gUxz * input[34])) / sqrt_gUzz);
+		results[36] = (((2.f * gUzz * input[36]) + (2.f * gUyz * input[35]) + (gUzz * input[9]) + (sqrt_f * gUxx * input[28] * sqrt_gUzz) + (2.f * sqrt_f * gUxy * input[29] * sqrt_gUzz) + (2.f * sqrt_f * gUxz * input[30] * sqrt_gUzz) + (sqrt_f * gUyy * input[31] * sqrt_gUzz) + (2.f * sqrt_f * gUyz * input[32] * sqrt_gUzz) + (sqrt_f * gUzz_toThe_3_2 * input[33]) + (2.f * gUxz * input[34])) / sqrt_gUzz);
 	}
 }
 
@@ -471,7 +471,7 @@ void eigenfieldInverseTransform(
 	if (side == 0) {
 		real sqrt_gUxx = sqrt(gUxx);
 		real gUxx_toThe_3_2 = sqrt_gUxx * gUxx;
-		
+	
 		results[0] = input[6];
 		results[1] = input[7];
 		results[2] = input[8];
@@ -482,7 +482,7 @@ void eigenfieldInverseTransform(
 		results[7] = (((-input[36]) + (4.f * gUxz * input[29] * (1.f / sqrt_gUxx)) + (4.f * gUxy * input[28] * (1.f / sqrt_gUxx)) + (4.f * input[27] * sqrt_gUxx) + input[0]) / (-(2.f * sqrt_gUxx)));
 		results[8] = input[13];
 		results[9] = input[14];
-		results[10] = (((-input[36]) + (gUzz * input[35] * f) + (gUyz * input[34] * f) + (gUyy * input[33] * f) + (gUxz * input[32] * f) + (gUxy * input[31] * f) + (2.f * input[30] * sqrt_gUxx) + ((4.f * gUxz * input[29] * (1.f / sqrt_gUxx)) - (2.f * gUxz * f * input[29] * (1.f / sqrt_gUxx))) + ((4.f * gUxy * input[28] * (1.f / sqrt_gUxx)) - (2.f * gUxy * f * input[28] * (1.f / sqrt_gUxx))) + ((((((4.f * input[27] * sqrt_gUxx) - (gUzz * input[5] * f)) - (gUyz * input[4] * f)) - (gUyy * input[3] * f)) - (gUxz * input[2] * f)) - (gUxy * input[1] * f)) + input[0]) / (-(2.f * gUxx_toThe_3_2 * f)));
+		results[10] = (((-input[36]) + (gUzz * input[35] * f) + (2.f * gUyz * input[34] * f) + (gUyy * input[33] * f) + (2.f * gUxz * input[32] * f) + (2.f * gUxy * input[31] * f) + (2.f * input[30] * sqrt_gUxx) + ((4.f * gUxz * input[29] * (1.f / sqrt_gUxx)) - (4.f * gUxz * f * input[29] * (1.f / sqrt_gUxx))) + ((4.f * gUxy * input[28] * (1.f / sqrt_gUxx)) - (4.f * gUxy * f * input[28] * (1.f / sqrt_gUxx))) + ((((((4.f * input[27] * sqrt_gUxx) - (gUzz * input[5] * f)) - (2.f * gUyz * input[4] * f)) - (gUyy * input[3] * f)) - (2.f * gUxz * input[2] * f)) - (2.f * gUxy * input[1] * f)) + input[0]) / (-(2.f * gUxx_toThe_3_2 * f)));
 		results[11] = (((-input[31]) + (2.f * input[28] * (1.f / sqrt_gUxx)) + input[1]) / (-(2.f * sqrt_gUxx)));
 		results[12] = (((-input[32]) + (2.f * input[29] * (1.f / sqrt_gUxx)) + input[2]) / (-(2.f * sqrt_gUxx)));
 		results[13] = (((-input[33]) + input[3]) / (-(2.f * sqrt_gUxx)));
@@ -500,7 +500,7 @@ void eigenfieldInverseTransform(
 		results[25] = input[24];
 		results[26] = input[25];
 		results[27] = input[26];
-		results[28] = ((((((((((((input[36] - (gUzz * input[35] * sqrt_f)) - (gUyz * input[34] * sqrt_f)) - (gUyy * input[33] * sqrt_f)) - (gUxz * input[32] * sqrt_f)) - (gUxy * input[31] * sqrt_f)) - (gUzz * input[5] * sqrt_f)) - (gUyz * input[4] * sqrt_f)) - (gUyy * input[3] * sqrt_f)) - (gUxz * input[2] * sqrt_f)) - (gUxy * input[1] * sqrt_f)) + input[0]) / (2.f * sqrt_f * gUxx));
+		results[28] = ((((((((((((input[36] - (gUzz * input[35] * sqrt_f)) - (2.f * gUyz * input[34] * sqrt_f)) - (gUyy * input[33] * sqrt_f)) - (2.f * gUxz * input[32] * sqrt_f)) - (2.f * gUxy * input[31] * sqrt_f)) - (gUzz * input[5] * sqrt_f)) - (2.f * gUyz * input[4] * sqrt_f)) - (gUyy * input[3] * sqrt_f)) - (2.f * gUxz * input[2] * sqrt_f)) - (2.f * gUxy * input[1] * sqrt_f)) + input[0]) / (2.f * sqrt_f * gUxx));
 		results[29] = ((input[31] + input[1]) / 2.f);
 		results[30] = ((input[32] + input[2]) / 2.f);
 		results[31] = ((input[33] + input[3]) / 2.f);
@@ -512,7 +512,7 @@ void eigenfieldInverseTransform(
 	} else if (side == 1) {
 		real sqrt_gUyy = sqrt(gUyy);
 		real gUyy_toThe_3_2 = sqrt_gUyy * gUyy;
-		
+
 		results[0] = input[6];
 		results[1] = input[7];
 		results[2] = input[8];
@@ -532,7 +532,7 @@ void eigenfieldInverseTransform(
 		results[16] = (((-input[31]) + input[1]) / (-(2.f * sqrt_gUyy)));
 		results[17] = (((-input[32]) + (2.f * input[27] * (1.f / sqrt_gUyy)) + input[2]) / (-(2.f * sqrt_gUyy)));
 		results[18] = (((-input[33]) + input[3]) / (-(2.f * sqrt_gUyy)));
-		results[19] = (((-input[36]) + (gUzz * input[35] * f) + (gUyz * input[34] * f) + (gUxz * input[33] * f) + (gUxy * input[32] * f) + (gUxx * input[31] * f) + (2.f * input[30] * sqrt_gUyy) + ((4.f * gUyz * input[29] * (1.f / sqrt_gUyy)) - (2.f * gUyz * f * input[29] * (1.f / sqrt_gUyy))) + (4.f * input[28] * sqrt_gUyy) + (((((((4.f * gUxy * input[27] * (1.f / sqrt_gUyy)) - (2.f * gUxy * f * input[27] * (1.f / sqrt_gUyy))) - (gUzz * input[5] * f)) - (gUyz * input[4] * f)) - (gUxz * input[3] * f)) - (gUxy * input[2] * f)) - (gUxx * input[1] * f)) + input[0]) / (-(2.f * gUyy_toThe_3_2 * f)));
+		results[19] = (((-input[36]) + (gUzz * input[35] * f) + (2.f * gUyz * input[34] * f) + (2.f * gUxz * input[33] * f) + (2.f * gUxy * input[32] * f) + (gUxx * input[31] * f) + (2.f * input[30] * sqrt_gUyy) + ((4.f * gUyz * input[29] * (1.f / sqrt_gUyy)) - (4.f * gUyz * f * input[29] * (1.f / sqrt_gUyy))) + (4.f * input[28] * sqrt_gUyy) + (((((((4.f * gUxy * input[27] * (1.f / sqrt_gUyy)) - (4.f * gUxy * f * input[27] * (1.f / sqrt_gUyy))) - (gUzz * input[5] * f)) - (2.f * gUyz * input[4] * f)) - (2.f * gUxz * input[3] * f)) - (2.f * gUxy * input[2] * f)) - (gUxx * input[1] * f)) + input[0]) / (-(2.f * gUyy_toThe_3_2 * f)));
 		results[20] = (((-input[34]) + (2.f * input[29] * (1.f / sqrt_gUyy)) + input[4]) / (-(2.f * sqrt_gUyy)));
 		results[21] = (((-input[35]) + input[5]) / (-(2.f * sqrt_gUyy)));
 		results[22] = input[21];
@@ -544,7 +544,7 @@ void eigenfieldInverseTransform(
 		results[28] = ((input[31] + input[1]) / 2.f);
 		results[29] = ((input[32] + input[2]) / 2.f);
 		results[30] = ((input[33] + input[3]) / 2.f);
-		results[31] = ((((((((((((input[36] - (gUzz * input[35] * sqrt_f)) - (gUyz * input[34] * sqrt_f)) - (gUxz * input[33] * sqrt_f)) - (gUxy * input[32] * sqrt_f)) - (gUxx * input[31] * sqrt_f)) - (gUzz * input[5] * sqrt_f)) - (gUyz * input[4] * sqrt_f)) - (gUxz * input[3] * sqrt_f)) - (gUxy * input[2] * sqrt_f)) - (gUxx * input[1] * sqrt_f)) + input[0]) / (2.f * sqrt_f * gUyy));
+		results[31] = ((((((((((((input[36] - (gUzz * input[35] * sqrt_f)) - (2.f * gUyz * input[34] * sqrt_f)) - (2.f * gUxz * input[33] * sqrt_f)) - (2.f * gUxy * input[32] * sqrt_f)) - (gUxx * input[31] * sqrt_f)) - (gUzz * input[5] * sqrt_f)) - (2.f * gUyz * input[4] * sqrt_f)) - (2.f * gUxz * input[3] * sqrt_f)) - (2.f * gUxy * input[2] * sqrt_f)) - (gUxx * input[1] * sqrt_f)) + input[0]) / (2.f * sqrt_f * gUyy));
 		results[32] = ((input[34] + input[4]) / 2.f);
 		results[33] = ((input[35] + input[5]) / 2.f);
 		results[34] = input[27];
@@ -553,7 +553,7 @@ void eigenfieldInverseTransform(
 	} else if (side == 2) {
 		real sqrt_gUzz = sqrt(gUzz);
 		real gUzz_toThe_3_2 = sqrt_gUzz * gUzz;
-		
+	
 		results[0] = input[6];
 		results[1] = input[7];
 		results[2] = input[8];
@@ -581,13 +581,13 @@ void eigenfieldInverseTransform(
 		results[24] = (((-input[33]) + (2.f * input[27] * (1.f / sqrt_gUzz)) + input[3]) / (-(2.f * sqrt_gUzz)));
 		results[25] = (((-input[34]) + input[4]) / (-(2.f * sqrt_gUzz)));
 		results[26] = (((-input[35]) + (2.f * input[28] * (1.f / sqrt_gUzz)) + input[5]) / (-(2.f * sqrt_gUzz)));
-		results[27] = (((-input[36]) + (gUyz * input[35] * f) + (gUyy * input[34] * f) + (gUxz * input[33] * f) + (gUxy * input[32] * f) + (gUxx * input[31] * f) + (2.f * input[30] * sqrt_gUzz) + (4.f * input[29] * sqrt_gUzz) + ((4.f * gUyz * input[28] * (1.f / sqrt_gUzz)) - (2.f * gUyz * f * input[28] * (1.f / sqrt_gUzz))) + (((((((4.f * gUxz * input[27] * (1.f / sqrt_gUzz)) - (2.f * gUxz * f * input[27] * (1.f / sqrt_gUzz))) - (gUyz * input[5] * f)) - (gUyy * input[4] * f)) - (gUxz * input[3] * f)) - (gUxy * input[2] * f)) - (gUxx * input[1] * f)) + input[0]) / (-(2.f * gUzz_toThe_3_2 * f)));
+		results[27] = (((-input[36]) + (2.f * gUyz * input[35] * f) + (gUyy * input[34] * f) + (2.f * gUxz * input[33] * f) + (2.f * gUxy * input[32] * f) + (gUxx * input[31] * f) + (2.f * input[30] * sqrt_gUzz) + (4.f * input[29] * sqrt_gUzz) + ((4.f * gUyz * input[28] * (1.f / sqrt_gUzz)) - (4.f * gUyz * f * input[28] * (1.f / sqrt_gUzz))) + (((((((4.f * gUxz * input[27] * (1.f / sqrt_gUzz)) - (4.f * gUxz * f * input[27] * (1.f / sqrt_gUzz))) - (2.f * gUyz * input[5] * f)) - (gUyy * input[4] * f)) - (2.f * gUxz * input[3] * f)) - (2.f * gUxy * input[2] * f)) - (gUxx * input[1] * f)) + input[0]) / (-(2.f * gUzz_toThe_3_2 * f)));
 		results[28] = ((input[31] + input[1]) / 2.f);
 		results[29] = ((input[32] + input[2]) / 2.f);
 		results[30] = ((input[33] + input[3]) / 2.f);
 		results[31] = ((input[34] + input[4]) / 2.f);
 		results[32] = ((input[35] + input[5]) / 2.f);
-		results[33] = ((((((((((((input[36] - (gUyz * input[35] * sqrt_f)) - (gUyy * input[34] * sqrt_f)) - (gUxz * input[33] * sqrt_f)) - (gUxy * input[32] * sqrt_f)) - (gUxx * input[31] * sqrt_f)) - (gUyz * input[5] * sqrt_f)) - (gUyy * input[4] * sqrt_f)) - (gUxz * input[3] * sqrt_f)) - (gUxy * input[2] * sqrt_f)) - (gUxx * input[1] * sqrt_f)) + input[0]) / (2.f * sqrt_f * gUzz));
+		results[33] = ((((((((((((input[36] - (2.f * gUyz * input[35] * sqrt_f)) - (gUyy * input[34] * sqrt_f)) - (2.f * gUxz * input[33] * sqrt_f)) - (2.f * gUxy * input[32] * sqrt_f)) - (gUxx * input[31] * sqrt_f)) - (2.f * gUyz * input[5] * sqrt_f)) - (gUyy * input[4] * sqrt_f)) - (2.f * gUxz * input[3] * sqrt_f)) - (2.f * gUxy * input[2] * sqrt_f)) - (gUxx * input[1] * sqrt_f)) + input[0]) / (2.f * sqrt_f * gUzz));
 		results[34] = input[27];
 		results[35] = input[28];
 		results[36] = input[29];
@@ -642,6 +642,7 @@ __kernel void addSource(
 __kernel void constrain(
 	__global real* stateBuffer)
 {
+#if 0
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
@@ -690,5 +691,5 @@ __kernel void constrain(
 		+ (D_zxz - D_xzz) * gUxz
 		+ (D_zyy - D_yyz) * gUyy
 		+ (D_zyz - D_yzz) * gUyz;
+#endif
 }
-

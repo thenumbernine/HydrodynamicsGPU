@@ -39,26 +39,27 @@ __kernel void convertToTex(
 	//real D_yxx = state[16], D_yxy = state[17], D_yxz = state[18], D_yyy = state[19], D_yyz = state[20], D_yzz = state[21];
 	//real D_zxx = state[22], D_zxy = state[23], D_zxz = state[24], D_zyy = state[25], D_zyz = state[26], D_zzz = state[27];
 	real K_xx = state[28], K_xy = state[29], K_xz = state[30], K_yy = state[31], K_yz = state[32], K_zz = state[33];
+	
 	real g = det3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz);
 	real8 gInv = inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz, g);
 	real gUxx = gInv[0], gUxy = gInv[1], gUxz = gInv[2], gUyy = gInv[3], gUyz = gInv[4], gUzz = gInv[5];
+	
 	real tr_K = K_xx * gUxx + K_yy * gUyy + K_zz * gUzz + 2.f * K_xy * gUxy + 2.f * K_yz * gUyz + 2.f * K_xz * gUxz;
 	
 	float value = 0.f;
 	switch (displayMethod) {
-	case DISPLAY_ALPHA:
-		value = alpha;
-		break;
 	case DISPLAY_VOLUME:
 		value = alpha * g; 
 		break;
-	case DISPLAY_K: value = tr_K; break;
-	case DISPLAY_K_XX: value = K_xx; break;
-	case DISPLAY_K_XY: value = K_xy; break;
-	case DISPLAY_K_XZ: value = K_xz; break;
-	case DISPLAY_K_YY: value = K_yy; break;
-	case DISPLAY_K_YZ: value = K_yz; break;
-	case DISPLAY_K_ZZ: value = K_zz; break;
+	case DISPLAY_K:
+		value = tr_K;
+		break;
+	case DISPLAY_GAMMA:
+		value = g;
+		break;
+	default:
+		value = state[displayMethod];
+		break;
 	}
 	
 	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0.f, 0.f, 0.f));
