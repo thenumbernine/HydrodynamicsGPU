@@ -163,7 +163,7 @@ function initNumRel(args)
 	
 	local function buildCalc(expr, name)
 		assert(type(expr) == 'table')
-		if expr.isa and expr:isa(symmath.Expression) then 
+		if symmath.Expression.is(expr) then 
 			return expr:simplify():compile(vars), name
 		end
 		return table.map(expr, buildCalc), name
@@ -185,9 +185,10 @@ function initNumRel(args)
 			return alpha, g, A, D, K
 		end
 	elseif solverName == 'ADM3DRoe' then
+		-- for complex computations it might be handy to extract the determinant first ...
 		local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = mat33.inv(exprs.g:unpack())
 		exprs.gU = table{gUxx, gUxy, gUxz, gUyy, gUyz, gUzz}
-		
+
 		exprs.D = table.map(vars, function(x_k)
 			return table.map(exprs.g, function(g_ij)
 				return (g_ij:diff(x_k)/2):simplify()

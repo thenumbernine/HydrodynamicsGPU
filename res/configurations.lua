@@ -590,7 +590,7 @@ return {
 			camera.dist = 450
 			graphScale = 300
 		--]]
-		-- [[ keeping the unit domain (because I'm too lazy to reposition the camera)
+		-- [[ keeping the unit domain (because I'm too lazy to reposition the camera ... and probably numerical stability too)
 		else
 			H = 1/1000
 			sigma = 1/10
@@ -752,16 +752,15 @@ return {
 		}
 	end,
 
-	['Spherical Star Cartesian'] = function()
-		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
-		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
-
-		local M = .001	-- total mass of planet 
-		local R = .1
-
-		local symmath = require 'symmath'	
-		local t,x,y,z = symmath.vars('t','x','y','z')
-		local r = (x^2 + y^2 + z^2)^.5
+	['NR Stellar'] = function(args)
+		
+		local symmath = require 'symmath'
+		symmath.tostring = require 'symmath.tostring.SingleLine'
+		
+		-- need heaviside function ... or conditional statements ... or something ...
+		local function H(u)
+			return symmath.tanh((u) * 10) * .5 + .5
+		end
 
 		local min = class(require 'symmath.Function')
 		min.name = 'min'
@@ -770,25 +769,51 @@ return {
 		function min:evaluateDerivative(...)
 			local a = self[1]
 			local b = self[2]
-			-- need heaviside function ... or conditional statements ... or something ...
-			return (symmath.tanh((b - a) * 10) * .5 + .5) * symmath.diff(a, ...)
-				+ (symmath.tanh((a - b) * 10) * .5 + .5) * symmath.diff(b, ...)
+			return H(b - a) * symmath.diff(a, ...) + H(a - b) * symmath.diff(b, ...)
 		end
-		local m = M * min(r/R, 1)^3
+	
+		local bodies = args and args.bodies or {{
+			pos = {0,0,0},
+			mass = .001,
+			radius = .1,
+		}}
+
+		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
+		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
+		
+		local t,x,y,z = symmath.vars('t','x','y','z')
+
+		local alpha = 1
+		local g = {1,0,0,1,0,1}
+		for _,body in ipairs(bodies) do
+			local M = body.mass 
+			local R = body.radius
+			local xc, yc, zc = table.unpack(body.pos)
+
+			local x_ = x - xc
+			local y_ = y - yc
+			local z_ = z - zc
+			local rSq = x_^2 + y_^2 + z_^2
+			local r = rSq^.5
+			local m = M * min(r/R, 1)^3
+			local R = 2*m
+		
+			alpha = alpha - 2*m/r
+			g[1] = g[1] + x_^2/((r/R-1)*rSq)
+			g[2] = g[2] + x_*y_/((r/R-1)*rSq)
+			g[3] = g[3] + x_*z_/((r/R-1)*rSq)
+			g[4] = g[4] + y_^2/((r/R-1)*rSq)
+			g[5] = g[5] + y_*z_/((r/R-1)*rSq)
+			g[6] = g[6] + z_^2/((r/R-1)*rSq)
+		end
+		alpha = alpha^.5
 
 		initNumRel{
 			vars = {x,y,z},
 			-- 4D metric ADM components:
-			alpha = (1 - 2*m/r)^.5,
+			alpha = alpha,
 			beta = {0,0,0},
-			g = {
-				1 - 2*m*x^2/r^3,	-- xx
-				-2*m*x*y/r^3,	-- xy
-				-2*m*x*z/r^3,	-- xz
-				1 - 2*m*y^2/r^3,	-- yy
-				-2*m*y*z/r^3,	-- yz
-				1 - 2*m*z^2/r^3,	-- zz
-			},
+			g = g,
 			K = {0,0,0,0,0,0},
 		}
 	end,

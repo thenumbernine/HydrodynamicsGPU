@@ -23,7 +23,7 @@ solverName = 'EulerRoe'			-- fails on Colella-Woodward 2-wave problem, but works
 -- TODO ImplicitIncompressibleNavierStokes	<- from my GPU fluid sim Lua+GLSL project
 --solverName = 'BSSNOKFiniteDifference'	-- doing the bare minimum to consider this a solver.  I could use this to make a coefficient matrix (application function) and, from there, make the implicit solver.
 
-slopeLimiterName = 'DonorCell'
+--slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'LaxWendroff'
 --slopeLimiterName = 'BeamWarming'	-- not behaving correctly
 --slopeLimiterName = 'Fromm'		-- not behaving correctly
@@ -41,10 +41,10 @@ slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'VanAlbada2'
 --slopeLimiterName = 'VanLeer'		-- not behaving correctly
 --slopeLimiterName = 'MonotizedCentral'
---slopeLimiterName = 'Superbee'
+slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
-
+-- TODO AMD card has trouble with RK4
 integratorName = 'ForwardEuler'
 --integratorName = 'RungeKutta4'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
@@ -62,6 +62,7 @@ cfl = .5
 heatMapVariable = 'DENSITY'
 heatMapColorScale = 2
 
+-- TODO AMD card has trouble with mirror and periodic boundaries ... probably all boundaries
 boundaryMethods = {
 	{min='FREEFLOW', max='FREEFLOW'},
 	{min='FREEFLOW', max='FREEFLOW'},
@@ -169,7 +170,7 @@ configurations['Maxwell-1']()
 solverName = 'ADM1DRoe'
 size = {1024}
 heatMapColorScale = 128
-configurations['NR Gauge Shock Waves']()
+configurations['NR Gauge Shock Waves']{unitDomain=false}
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
 camera.zoom = 1/300
@@ -182,15 +183,15 @@ solverName = 'ADM3DRoe'
 size = {256, 256} heatMapColorScale = 1
 --size = {16, 16, 16} heatMapColorScale = 1
 --configurations['NR Gauge Shock Waves']{unitDomain=false}
---configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true
+--configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now 1D as well
 --configurations['Alcubierre Warp Bubble']()	-- ...needs shift vector support
 --configurations['Schwarzschild Black Hole Cartesian']()
-configurations['Spherical Star Cartesian']()
+configurations['NR Stellar']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
 --fixedDT = .125
 --useFixedDT = true
-useGraph = true
+--useGraph = true
 --]]
 
 
@@ -199,9 +200,8 @@ useGraph = true
 if #size == 1 then			-- 1D better be ortho
 	camera.mode = 'ortho'
 elseif #size == 2 then		-- 2D can handle either ortho or frustum
-	--camera.mode = 'ortho'
-	camera.mode = 'frustum'
+	camera.mode = 'ortho'
+	--camera.mode = 'frustum'
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end
-
