@@ -1,4 +1,4 @@
-package.path = '?.lua;?/init.lua'
+package.path = '?.lua;?/?.lua'
 
 require 'util'	--holds helper functions
 local configurations = require 'configurations'	--holds catalog of configurations
@@ -180,6 +180,7 @@ camera.pos = {150,150}
 solverName = 'ADM3DRoe'
 --size = {1024} heatMapColorScale = 128
 size = {256, 256} heatMapColorScale = 1
+--size = {16, 16, 16} heatMapColorScale = 1
 --configurations['NR Gauge Shock Waves']{unitDomain=false}
 configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true
 --configurations['Alcubierre Warp Bubble']()	-- ...needs shift vector support

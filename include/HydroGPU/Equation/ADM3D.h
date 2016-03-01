@@ -1,5 +1,7 @@
 #pragma once
 
+//Bona-Masso hyperbolic formalism of the ADM equations
+
 #include "HydroGPU/Equation/Equation.h"
 #include <vector>
 #include <string>
@@ -20,5 +22,3 @@ struct ADM3D : public Equation {
 
 }
 }
-
-

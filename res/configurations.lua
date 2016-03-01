@@ -666,8 +666,6 @@ return {
 				-h:diff(y,z) / K_denom,
 				-h:diff(z,z) / K_denom,
 			}
-			
-			error'TODO 3D initial condition equations for ADM-3D'
 		end
 	
 		print('...done deriving and compiling.')

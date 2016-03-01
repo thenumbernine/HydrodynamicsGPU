@@ -149,7 +149,7 @@ __kernel void updateVectorField(
 #if 1	//plotting velocity 
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
-	float4 velocity = VELOCITY(state);
+	real4 velocity = VELOCITY(state);
 #endif
 #if 0	//plotting gravity
 	int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
@@ -157,7 +157,7 @@ __kernel void updateVectorField(
 	int4 iyL = si; iyL.y = (iyL.y + SIZE_X - 1) % SIZE_X;
 	int4 iyR = si; iyR.y = (iyR.y + 1) % SIZE_X;
 	//external force is negative the potential gradient
-	float4 velocity = (float4)(
+	real4 velocity = (float4)(
 		gravityPotentialBuffer[INDEXV(ixL)] - gravityPotentialBuffer[INDEXV(ixR)],
 		gravityPotentialBuffer[INDEXV(iyL)] - gravityPotentialBuffer[INDEXV(iyR)],
 		0.f,
