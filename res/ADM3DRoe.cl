@@ -824,6 +824,7 @@ GU0L[2] + AKL[2] - A_z * trK + K12D23L[2] + KD23L[2] - 2 * K12D12L[2] + 2 * KD12
 
 }
 
+// the 1D version has no problems, but at 2D we get instabilities ... 
 __kernel void constrain(
 	__global real* stateBuffer)
 {
@@ -855,26 +856,51 @@ __kernel void constrain(
 	real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
 	real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
 
-	state[34] = 
-		2. * (D_xxy - D_yxx) * gammaUxy
-		+ (D_xyy - D_yxy) * gammaUyy
-		+ (D_xyz - D_yxz) * gammaUyz
-		+ 2. * (D_xxz - D_zxx) * gammaUxz
-		+ (D_xyz - D_zxy) * gammaUyz
-		+ (D_xzz - D_zxz) * gammaUzz;
-	state[35] = 
-		(D_yxx - D_xxy) * gammaUxx
-		+ (D_yxy - D_xyy) * gammaUxy
-		+ (D_yxz - D_xyz) * gammaUxz
-		+ (D_yxz - D_zxy) * gammaUxz
-		+ (D_yyz - D_zyy) * gammaUyz
-		+ (D_yzz - D_zyz) * gammaUzz;
-	state[36] = 
-		(D_zxx - D_xxz) * gammaUxx
-		+ (D_zxy - D_xyz) * gammaUxy
-		+ (D_zxy - D_yxz) * gammaUxy
-		+ (D_zxz - D_xzz) * gammaUxz
-		+ (D_zyy - D_yyz) * gammaUyy
-		+ (D_zyz - D_yzz) * gammaUyz;
+	real D3_D1_x = 
+		(gammaUxy * D_xxy)
+		+ (gammaUxz * D_xxz)
+		+ (gammaUyy * D_xyy)
+		+ (2. * gammaUyz * D_xyz)
+		+ (gammaUzz * D_xzz)
+		- (gammaUxy * D_yxx)
+		- (gammaUxz * D_zxx)
+		- (gammaUyy * D_yxy)
+		- (gammaUyz * D_zxy)
+		- (gammaUyz * D_yxz)
+		- (gammaUzz * D_zxz);
+	real D3_D1_y = 
+		(gammaUxx * D_yxx)
+		+ (gammaUxy * D_yxy)
+		+ (2. * gammaUxz * D_yxz)
+		+ (gammaUyz * D_yyz)
+		+ (gammaUzz * D_yzz)
+		- (gammaUxx * D_xxy)
+		- (gammaUxz * D_zxy)
+		- (gammaUxy * D_xyy)
+		- (gammaUyz * D_zyy)
+		- (gammaUxz * D_xyz)
+		- (gammaUzz * D_zyz);
+	real D3_D1_z = 
+		(gammaUxx * D_zxx)
+		+ (2. * gammaUxy * D_zxy)
+		+ (gammaUxz * D_zxz)
+		+ (gammaUyy * D_zyy)
+		+ (gammaUyz * D_zyz)
+		- (gammaUxx * D_xxz)
+		- (gammaUxy * D_yxz)
+		- (gammaUxy * D_xyz)
+		- (gammaUyy * D_yyz)
+		- (gammaUxz * D_xzz)
+		- (gammaUyz * D_yzz);
+
+#if 0	//directly assign V_i's
+	state[34] = D3_D1_x;
+	state[35] = D3_D1_y;
+	state[36] = D3_D1_z;
+#endif
+#if 1	//linearly project out the [V_i, D_ijk] vector
+
+#endif
+
 #endif
 }

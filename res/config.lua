@@ -182,15 +182,15 @@ solverName = 'ADM3DRoe'
 size = {256, 256} heatMapColorScale = 1
 --size = {16, 16, 16} heatMapColorScale = 1
 --configurations['NR Gauge Shock Waves']{unitDomain=false}
-configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true
+--configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true
 --configurations['Alcubierre Warp Bubble']()	-- ...needs shift vector support
 --configurations['Schwarzschild Black Hole Cartesian']()
---configurations['Spherical Star Cartesian']()
+configurations['Spherical Star Cartesian']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
 --fixedDT = .125
 --useFixedDT = true
---useGraph = true
+useGraph = true
 --]]
 
 
@@ -199,8 +199,8 @@ heatMapVariable = 'ALPHA'
 if #size == 1 then			-- 1D better be ortho
 	camera.mode = 'ortho'
 elseif #size == 2 then		-- 2D can handle either ortho or frustum
-	camera.mode = 'ortho'
-	--camera.mode = 'frustum'
+	--camera.mode = 'ortho'
+	camera.mode = 'frustum'
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end

@@ -207,13 +207,23 @@ function initNumRel(args)
 			local g = calc.g:map(function(g_ij) return g_ij(x,y,z) end)
 			local D = calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
 			local gU = calc.gU:map(function(gUij) return gUij(x,y,z) end)
+			
 			local function sym3x3(m,i,j)
 				local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = m:unpack()
-				return ({
-					{m_xx, m_xy, m_xz},
-					{m_xy, m_yy, m_yz},
-					{m_xz, m_yz, m_zz},
-				})[i][j]
+				if i==1 then
+					if j==1 then return m_xx end
+					if j==2 then return m_xy end
+					if j==3 then return m_xz end
+				elseif i==2 then
+					if j==1 then return m_xy end
+					if j==2 then return m_yy end
+					if j==3 then return m_yz end
+				elseif i==3 then
+					if j==1 then return m_xz end
+					if j==2 then return m_yz end
+					if j==3 then return m_zz end
+				end
+				error'here'
 			end
 			local V = range(3):map(function(i)
 				local s = 0

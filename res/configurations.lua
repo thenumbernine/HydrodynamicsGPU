@@ -756,24 +756,38 @@ return {
 		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
 		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
 
-		local R = .002	-- Schwarzschild radius
-		
+		local M = .001	-- total mass of planet 
+		local R = .1
+
 		local symmath = require 'symmath'	
 		local t,x,y,z = symmath.vars('t','x','y','z')
 		local r = (x^2 + y^2 + z^2)^.5
 
+		local min = class(require 'symmath.Function')
+		min.name = 'min'
+		min.func = math.min
+		-- derivative wrt 1st param... 
+		function min:evaluateDerivative(...)
+			local a = self[1]
+			local b = self[2]
+			-- need heaviside function ... or conditional statements ... or something ...
+			return (symmath.tanh((b - a) * 10) * .5 + .5) * symmath.diff(a, ...)
+				+ (symmath.tanh((a - b) * 10) * .5 + .5) * symmath.diff(b, ...)
+		end
+		local m = M * min(r/R, 1)^3
+
 		initNumRel{
 			vars = {x,y,z},
 			-- 4D metric ADM components:
-			alpha = (1 - R/r)^.5,
+			alpha = (1 - 2*m/r)^.5,
 			beta = {0,0,0},
 			g = {
-				1 - R*x^2/r^3,	-- xx
-				-R*x*y/r^3,	-- xy
-				-R*x*z/r^3,	-- xz
-				1 - R*y^2/r^3,	-- yy
-				-R*y*z/r^3,	-- yz
-				1 - R*z^2/r^3,	-- zz
+				1 - 2*m*x^2/r^3,	-- xx
+				-2*m*x*y/r^3,	-- xy
+				-2*m*x*z/r^3,	-- xz
+				1 - 2*m*y^2/r^3,	-- yy
+				-2*m*y*z/r^3,	-- yz
+				1 - 2*m*z^2/r^3,	-- zz
 			},
 			K = {0,0,0,0,0,0},
 		}
