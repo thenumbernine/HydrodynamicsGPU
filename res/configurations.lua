@@ -678,7 +678,7 @@ return {
 		}
 	end,
 
-	['Alcubierre Warp Bubble'] = function()
+	['NR Alcubierre Warp Bubble'] = function()
 		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
 		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
 		
@@ -719,7 +719,7 @@ return {
 		}
 	end,
 
-	['Schwarzschild Black Hole Cartesian'] = function()
+	['NR Schwarzschild Black Hole'] = function()
 		-- [[
 		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
 		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
@@ -741,12 +741,12 @@ return {
 			alpha = (1 - R/r)^.5,
 			beta = {0,0,0},
 			g = {
-				1 - R*x^2/r^3,	-- xx
-				-R*x*y/r^3,	-- xy
-				-R*x*z/r^3,	-- xz
-				1 - R*y^2/r^3,	-- yy
-				-R*y*z/r^3,	-- yz
-				1 - R*z^2/r^3,	-- zz
+				x^2/((r/R-1)*r^2) + 1,	-- xx
+				x*y/((r/R-1)*r^2),		-- xy
+				x*z/((r/R-1)*r^2),		-- xz
+				y^2/((r/R-1)*r^2) + 1,	-- yy
+				y*z/((r/R-1)*r^2),		-- yz
+				z^2/((r/R-1)*r^2) + 1,	-- zz
 			},
 			K = {0,0,0,0,0,0},
 		}

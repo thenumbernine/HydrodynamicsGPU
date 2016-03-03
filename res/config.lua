@@ -184,9 +184,9 @@ size = {256, 256} heatMapColorScale = 1
 --size = {16, 16, 16} heatMapColorScale = 1
 --configurations['NR Gauge Shock Waves']{unitDomain=false}
 --configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now 1D as well
---configurations['Alcubierre Warp Bubble']()	-- ...needs shift vector support
---configurations['Schwarzschild Black Hole Cartesian']()
-configurations['NR Stellar']()
+--configurations['NR Alcubierre Warp Bubble']()	-- ...needs shift vector support
+configurations['NR Schwarzschild Black Hole']()
+--configurations['NR Stellar']()
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
 --fixedDT = .125

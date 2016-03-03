@@ -1,4 +1,5 @@
 local table = require 'ext.table'	
+local range = require 'ext.range'
 local symmath = require 'symmath'
 local mat33 = require 'mat33'
 
