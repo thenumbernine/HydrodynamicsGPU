@@ -620,31 +620,31 @@ return {
 			
 			K = {
 				-h:diff(x,x) / g[1]^.5,	--g[1] = g_xx
-				symmath.Constant(0),
-				symmath.Constant(0),
-				symmath.Constant(0),
-				symmath.Constant(0),
-				symmath.Constant(0),
+				0,
+				0,
+				0,
+				0,
+				0,
 			}
 		elseif #size == 2 then
 			h = H * symmath.exp(-((x - xc)^2 + (y - yc)^2) / sigma^2)
 			g = {
 				1 - h:diff(x)^2,
 				-h:diff(x) * h:diff(y),		-- x derivs adds interference, which causes asymmetry, and eventually divergence.  maybe its the influence of D that causes this?
-				symmath.Constant(0),
+				0,
 				1 - h:diff(y)^2,
-				symmath.Constant(0),
-				symmath.Constant(1),
+				0,
+				1,
 			}
 			local div_h = h:diff(x)^2 + h:diff(y)^2
 			local K_denom = (1 - div_h)^.5
 			K = {
 				-h:diff(x,x) / K_denom,
 				-h:diff(x,y) / K_denom,
-				symmath.Constant(0),
+				0,
 				-h:diff(y,y) / K_denom,		-- 2nd derivs are nonzero and are causing problems
-				symmath.Constant(0),
-				symmath.Constant(0),
+				0,
+				0,
 			}
 		else
 			h = H * symmath.exp(-((x - xc)^2 + (y - yc)^2 + (z - zc)^2) / sigma^2)
@@ -758,10 +758,12 @@ return {
 		symmath.tostring = require 'symmath.tostring.SingleLine'
 		
 		-- need heaviside function ... or conditional statements ... or something ...
+		-- adding it to symmath (instead of tanh) might speed up the evaluations ...
 		local function H(u)
 			return symmath.tanh((u) * 10) * .5 + .5
 		end
-
+	
+		local class = require 'ext.class'
 		local min = class(require 'symmath.Function')
 		min.name = 'min'
 		min.func = math.min
@@ -778,8 +780,8 @@ return {
 			radius = .1,
 		}}
 
-		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
-		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
+		adm_BonaMasso_f = '1. + 1. / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
+		adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
 		
 		local t,x,y,z = symmath.vars('t','x','y','z')
 

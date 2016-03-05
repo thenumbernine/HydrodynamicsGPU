@@ -176,7 +176,7 @@ function initNumRel(args)
 		exprs.A = (exprs.alpha:diff(vars[1]) / exprs.alpha):simplify()	-- only need a_x
 		exprs.D = (exprs.g:diff(vars[1])/2):simplify()	-- only need D_xxx
 		exprs.K = exprs.K[1]	-- only need K_xx
-		local calc = exprs:map(buildCalc)
+		local calc = table.map(exprs, buildCalc)
 		initState = function(x,y,z)
 			local alpha = calc.alpha(x,y,z)
 			local g = calc.g(x,y,z)
@@ -200,7 +200,7 @@ function initNumRel(args)
 			return (exprs.alpha:diff(var) / exprs.alpha):simplify()
 		end)
 		
-		local calc = exprs:map(buildCalc)
+		local calc = table.map(exprs, buildCalc)
 		
 		initState = function(x,y,z)
 		
