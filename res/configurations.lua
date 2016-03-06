@@ -817,6 +817,7 @@ return {
 			beta = {0,0,0},
 			g = g,
 			K = {0,0,0,0,0,0},
+			useNumericInverse = true,	-- if g gets too complex ...
 		}
 	end,
 

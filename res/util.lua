@@ -187,8 +187,10 @@ function initNumRel(args)
 		end
 	elseif solverName == 'ADM3DRoe' then
 		-- for complex computations it might be handy to extract the determinant first ...
-		local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = mat33.inv(exprs.g:unpack())
-		exprs.gU = table{gUxx, gUxy, gUxz, gUyy, gUyz, gUzz}
+		-- or even just perform a numerical inverse ...
+		if not args.useNumericInverse then
+			exprs.gU = table{mat33.inv(exprs.g:unpack())}
+		end
 
 		exprs.D = table.map(vars, function(x_k)
 			return table.map(exprs.g, function(g_ij)
@@ -208,7 +210,7 @@ function initNumRel(args)
 			local A = calc.A:map(function(A_i) return A_i(x,y,z) end)
 			local g = calc.g:map(function(g_ij) return g_ij(x,y,z) end)
 			local D = calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
-			local gU = calc.gU:map(function(gUij) return gUij(x,y,z) end)
+			local gU = args.useNumericInverse and table{mat33.inv(g:unpack())} or calc.gU:map(function(gUij) return gUij(x,y,z) end) 
 			
 			local function sym3x3(m,i,j)
 				local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = m:unpack()
