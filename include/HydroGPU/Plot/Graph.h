@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Shader/Program.h"
+#include "Tensor/Tensor.h"
 #include <OpenGL/gl.h>
 #include <memory>
 
@@ -10,7 +11,9 @@ namespace Plot {
 
 struct Graph {
 	HydroGPU::HydroGPUApp* app;	
-	float graphScale;
+	float scale;
+	Tensor::Vector<int,3> step;
+	std::vector<int> variables;
 	std::shared_ptr<Shader::Program> graphShader;
 
 	Graph(HydroGPU::HydroGPUApp* app_);

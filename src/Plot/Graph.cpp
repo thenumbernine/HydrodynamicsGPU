@@ -10,7 +10,7 @@ namespace Plot {
 
 Graph::Graph(HydroGPU::HydroGPUApp* app_)
 : app(app_)
-, graphScale(1.f)
+, scale(1.f)
 {
 	std::string shaderCode = Common::File::read("Graph.shader");
 	std::vector<Shader::Shader> shaders = {
@@ -23,13 +23,11 @@ Graph::Graph(HydroGPU::HydroGPUApp* app_)
 	graphShader->setUniform<float>("xmin", app->xmin.s[0], app->xmin.s[1]);
 	graphShader->setUniform<float>("xmax", app->xmax.s[0], app->xmax.s[1]);
 	graphShader->done();
-
-	app->lua.ref()["graphScale"] >> graphScale;
 }
 
 void Graph::display() {
 if (app->dim == 1) return;	//for now plot1d does the same thing ...
-	
+
 	app->camera->setupModelview();
 
 	static float colors[][3] = {
@@ -38,15 +36,16 @@ if (app->dim == 1) return;	//for now plot1d does the same thing ...
 		{0,.5,1},
 		{1,.5,0}
 	};
-	
-	for (int variableIndex = 0; variableIndex < app->solver->equation->displayVariables.size(); ++variableIndex) {
-		app->plot->convertVariableToTex(variableIndex);
+
+	// TODO only select variables? 
+	for (int var : variables) {
+		app->plot->convertVariableToTex(var);
 		
 		graphShader->use();
-		graphShader->setUniform<float>("scale", graphScale)
+		graphShader->setUniform<float>("scale", scale)
 					.setUniform<int>("axis", app->dim);
 		glBindTexture(GL_TEXTURE_2D, app->plot->tex);
-		glColor3fv(colors[variableIndex % numberof(colors)]);
+		glColor3fv(colors[var % numberof(colors)]);
 		
 		switch (app->dim) {
 		case 1:
@@ -61,7 +60,7 @@ if (app->dim == 1) return;	//for now plot1d does the same thing ...
 			{
 				Tensor::Vector<float,2> pt;
 				for (int k = 0; k < app->dim; ++k) {
-					for (int j = 2; j < app->size.s[!k]-2; j += app->size.s[!k]>>5) {
+					for (int j = 2; j < app->size.s[!k]-2; j += step(k)) {
 						pt(!k) = ((real)(j) + .5f) / (real)app->size.s[!k];
 						glBegin(GL_LINE_STRIP);
 						for (int i = 2; i < app->size.s[k]-2; ++i) {

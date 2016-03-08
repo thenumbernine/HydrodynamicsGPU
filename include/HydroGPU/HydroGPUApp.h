@@ -40,6 +40,7 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	bool useFixedDT;
 	real fixedDT;
 	real cfl;
+	bool useHeatMap;
 	int heatMapVariable;	//TODO the enumeration of these values is dependent on the solver equation 
 	float heatMapColorScale;
 	Tensor::Tensor<int, Tensor::Lower<3>, Tensor::Lower<2>> boundaryMethods;

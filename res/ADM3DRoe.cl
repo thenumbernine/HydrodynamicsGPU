@@ -149,7 +149,7 @@ void eigenfieldTransform(
 		real sqrt_gammaUxx = sqrt(gammaUxx);
 		real gammaUxx_toThe_3_2 = sqrt_gammaUxx * gammaUxx;
 		
-		results[0] = (((sqrt_f * gammaUxx_toThe_3_2 * input[28]) + (2.f * sqrt_f * gammaUxy * input[29] * sqrt_gammaUxx) + (2.f * sqrt_f * gammaUxz * input[30] * sqrt_gammaUxx) + (sqrt_f * gammaUyy * input[31] * sqrt_gammaUxx) + (2.f * sqrt_f * gammaUyz * input[32] * sqrt_gammaUxx) + (((((sqrt_f * gammaUzz * input[33] * sqrt_gammaUxx) - (gammaUxx * input[7])) - (2.f * gammaUxx * input[34])) - (2.f * gammaUxy * input[35])) - (2.f * gammaUxz * input[36]))) / sqrt_gammaUxx);
+		results[0] = ((sqrt_f * gammaUxx_toThe_3_2 * input[28]) + (2.f * sqrt_f * sqrt_gammaUxx * gammaUxy * input[29]) + (2.f * sqrt_f * sqrt_gammaUxx * gammaUxz * input[30]) + (sqrt_f * sqrt_gammaUxx * gammaUyy * input[31]) + (2.f * sqrt_f * sqrt_gammaUxx * gammaUyz * input[32]) + (((((((sqrt_f * sqrt_gammaUxx * gammaUzz * input[33]) - (gammaUxx * input[7])) - (2.f * gammaUxx * input[34])) - (gammaUxy * input[8])) - (2.f * gammaUxy * input[35])) - (gammaUxz * input[9])) - (2.f * gammaUxz * input[36])));
 		results[1] = ((-(input[8] + (2.f * input[35]) + ((((2.f * gammaUxx * input[11]) - (gammaUxx * input[16])) - (2.f * sqrt_gammaUxx * input[29])) - (2.f * gammaUxz * input[18])) + ((((2.f * gammaUxz * input[23]) - (gammaUyy * input[19])) - (2.f * gammaUyz * input[20])) - (gammaUzz * input[21])))) / 2.f);
 		results[2] = ((-(input[9] + (2.f * input[36]) + (((2.f * gammaUxx * input[12]) - (gammaUxx * input[22])) - (2.f * sqrt_gammaUxx * input[30])) + (((((2.f * gammaUxy * input[18]) - (2.f * gammaUxy * input[23])) - (gammaUyy * input[25])) - (2.f * gammaUyz * input[26])) - (gammaUzz * input[27])))) / 2.f);
 		results[3] = (-(((gammaUxx * input[13]) - (sqrt_gammaUxx * input[31])) + (gammaUxy * input[19]) + (gammaUxz * input[25])));
@@ -185,13 +185,13 @@ void eigenfieldTransform(
 		results[33] = ((gammaUxx * input[13]) + (sqrt_gammaUxx * input[31]) + (gammaUxy * input[19]) + (gammaUxz * input[25]));
 		results[34] = ((gammaUxx * input[14]) + (sqrt_gammaUxx * input[32]) + (gammaUxy * input[20]) + (gammaUxz * input[26]));
 		results[35] = ((gammaUxx * input[15]) + (sqrt_gammaUxx * input[33]) + (gammaUxy * input[21]) + (gammaUxz * input[27]));
-		results[36] = (((sqrt_f * gammaUxx_toThe_3_2 * input[28]) + (2.f * sqrt_f * gammaUxy * input[29] * sqrt_gammaUxx) + (2.f * sqrt_f * gammaUxz * input[30] * sqrt_gammaUxx) + (sqrt_f * gammaUyy * input[31] * sqrt_gammaUxx) + (2.f * sqrt_f * gammaUyz * input[32] * sqrt_gammaUxx) + (sqrt_f * gammaUzz * input[33] * sqrt_gammaUxx) + (gammaUxx * input[7]) + (2.f * gammaUxx * input[34]) + (2.f * gammaUxy * input[35]) + (2.f * gammaUxz * input[36])) / sqrt_gammaUxx);
+		results[36] = ((sqrt_f * gammaUxx_toThe_3_2 * input[28]) + (2.f * sqrt_f * sqrt_gammaUxx * gammaUxy * input[29]) + (2.f * sqrt_f * sqrt_gammaUxx * gammaUxz * input[30]) + (sqrt_f * sqrt_gammaUxx * gammaUyy * input[31]) + (2.f * sqrt_f * sqrt_gammaUxx * gammaUyz * input[32]) + (sqrt_f * sqrt_gammaUxx * gammaUzz * input[33]) + (gammaUxx * input[7]) + (2.f * gammaUxx * input[34]) + (gammaUxy * input[8]) + (2.f * gammaUxy * input[35]) + (gammaUxz * input[9]) + (2.f * gammaUxz * input[36]));
 	// left eigenvectors in y:
 	} else if (side == 1) {
 		real sqrt_gammaUyy = sqrt(gammaUyy);
 		real gammaUyy_toThe_3_2 = sqrt_gammaUyy * gammaUyy;
 		
-		results[0] = (((sqrt_f * gammaUxx * input[28] * sqrt_gammaUyy) + (2.f * sqrt_f * gammaUxy * input[29] * sqrt_gammaUyy) + (2.f * sqrt_f * gammaUxz * input[30] * sqrt_gammaUyy) + (sqrt_f * gammaUyy_toThe_3_2 * input[31]) + (2.f * sqrt_f * gammaUyz * input[32] * sqrt_gammaUyy) + (((((sqrt_f * gammaUzz * input[33] * sqrt_gammaUyy) - (2.f * gammaUxy * input[34])) - (gammaUyy * input[8])) - (2.f * gammaUyy * input[35])) - (2.f * gammaUyz * input[36]))) / sqrt_gammaUyy);
+		results[0] = ((sqrt_f * gammaUyy_toThe_3_2 * input[31]) + (sqrt_f * sqrt_gammaUyy * gammaUxx * input[28]) + (2.f * sqrt_f * sqrt_gammaUyy * gammaUxy * input[29]) + (2.f * sqrt_f * sqrt_gammaUyy * gammaUxz * input[30]) + (2.f * sqrt_f * sqrt_gammaUyy * gammaUyz * input[32]) + (((((((sqrt_f * sqrt_gammaUyy * gammaUzz * input[33]) - (gammaUxy * input[7])) - (2.f * gammaUxy * input[34])) - (gammaUyy * input[8])) - (2.f * gammaUyy * input[35])) - (gammaUyz * input[9])) - (2.f * gammaUyz * input[36])));
 		results[1] = (-((gammaUxy * input[10]) + ((gammaUyy * input[16]) - (sqrt_gammaUyy * input[28])) + (gammaUyz * input[22])));
 		results[2] = ((-(input[7] + ((((2.f * input[34]) - (gammaUxx * input[10])) - (2.f * gammaUxz * input[12])) - (gammaUyy * input[13])) + (((2.f * gammaUyy * input[17]) - (2.f * sqrt_gammaUyy * input[29])) - (2.f * gammaUyz * input[14])) + ((2.f * gammaUyz * input[23]) - (gammaUzz * input[15])))) / 2.f);
 		results[3] = (-((gammaUxy * input[12]) + ((gammaUyy * input[18]) - (sqrt_gammaUyy * input[30])) + (gammaUyz * input[24])));
@@ -227,13 +227,13 @@ void eigenfieldTransform(
 		results[33] = ((gammaUxy * input[12]) + (gammaUyy * input[18]) + (sqrt_gammaUyy * input[30]) + (gammaUyz * input[24]));
 		results[34] = ((input[9] + ((2.f * input[36]) - (gammaUxx * input[22])) + (((2.f * gammaUxy * input[14]) - (2.f * gammaUxy * input[23])) - (2.f * gammaUxz * input[24])) + ((2.f * gammaUyy * input[20]) - (gammaUyy * input[25])) + ((2.f * sqrt_gammaUyy * input[32]) - (gammaUzz * input[27]))) / 2.f);
 		results[35] = ((gammaUxy * input[15]) + (gammaUyy * input[21]) + (sqrt_gammaUyy * input[33]) + (gammaUyz * input[27]));
-		results[36] = (((sqrt_f * gammaUxx * input[28] * sqrt_gammaUyy) + (2.f * sqrt_f * gammaUxy * input[29] * sqrt_gammaUyy) + (2.f * sqrt_f * gammaUxz * input[30] * sqrt_gammaUyy) + (sqrt_f * gammaUyy_toThe_3_2 * input[31]) + (2.f * sqrt_f * gammaUyz * input[32] * sqrt_gammaUyy) + (sqrt_f * gammaUzz * input[33] * sqrt_gammaUyy) + (2.f * gammaUxy * input[34]) + (gammaUyy * input[8]) + (2.f * gammaUyy * input[35]) + (2.f * gammaUyz * input[36])) / sqrt_gammaUyy);
+		results[36] = ((sqrt_f * gammaUyy_toThe_3_2 * input[31]) + (sqrt_f * sqrt_gammaUyy * gammaUxx * input[28]) + (2.f * sqrt_f * sqrt_gammaUyy * gammaUxy * input[29]) + (2.f * sqrt_f * sqrt_gammaUyy * gammaUxz * input[30]) + (2.f * sqrt_f * sqrt_gammaUyy * gammaUyz * input[32]) + (sqrt_f * sqrt_gammaUyy * gammaUzz * input[33]) + (gammaUxy * input[7]) + (2.f * gammaUxy * input[34]) + (gammaUyy * input[8]) + (2.f * gammaUyy * input[35]) + (gammaUyz * input[9]) + (2.f * gammaUyz * input[36]));
 	// left eigenvectors in z:
 	} else if (side == 2) {
 		real sqrt_gammaUzz = sqrt(gammaUzz);
 		real gammaUzz_toThe_3_2 = sqrt_gammaUzz * gammaUzz;
 		
-		results[0] = (((sqrt_f * gammaUxx * input[28] * sqrt_gammaUzz) + (2.f * sqrt_f * gammaUxy * input[29] * sqrt_gammaUzz) + (2.f * sqrt_f * gammaUxz * input[30] * sqrt_gammaUzz) + (sqrt_f * gammaUyy * input[31] * sqrt_gammaUzz) + (2.f * sqrt_f * gammaUyz * input[32] * sqrt_gammaUzz) + (((((sqrt_f * gammaUzz_toThe_3_2 * input[33]) - (2.f * gammaUxz * input[34])) - (2.f * gammaUyz * input[35])) - (gammaUzz * input[9])) - (2.f * gammaUzz * input[36]))) / sqrt_gammaUzz);
+		results[0] = ((sqrt_f * gammaUzz_toThe_3_2 * input[33]) + (sqrt_f * sqrt_gammaUzz * gammaUxx * input[28]) + (2.f * sqrt_f * sqrt_gammaUzz * gammaUxy * input[29]) + (2.f * sqrt_f * sqrt_gammaUzz * gammaUxz * input[30]) + (sqrt_f * sqrt_gammaUzz * gammaUyy * input[31]) + (((((((2.f * sqrt_f * sqrt_gammaUzz * gammaUyz * input[32]) - (gammaUxz * input[7])) - (2.f * gammaUxz * input[34])) - (gammaUyz * input[8])) - (2.f * gammaUyz * input[35])) - (gammaUzz * input[9])) - (2.f * gammaUzz * input[36])));
 		results[1] = (-((gammaUxz * input[10]) + (gammaUyz * input[16]) + ((gammaUzz * input[22]) - (sqrt_gammaUzz * input[28]))));
 		results[2] = (-((gammaUxz * input[11]) + (gammaUyz * input[17]) + ((gammaUzz * input[23]) - (sqrt_gammaUzz * input[29]))));
 		results[3] = ((-(input[7] + (((((2.f * input[34]) - (gammaUxx * input[10])) - (2.f * gammaUxy * input[11])) - (gammaUyy * input[13])) - (2.f * gammaUyz * input[14])) + ((2.f * gammaUyz * input[18]) - (gammaUzz * input[15])) + ((2.f * gammaUzz * input[24]) - (2.f * sqrt_gammaUzz * input[30])))) / 2.f);
@@ -269,10 +269,8 @@ void eigenfieldTransform(
 		results[33] = ((input[7] + (((((2.f * input[34]) - (gammaUxx * input[10])) - (2.f * gammaUxy * input[11])) - (gammaUyy * input[13])) - (2.f * gammaUyz * input[14])) + ((2.f * gammaUyz * input[18]) - (gammaUzz * input[15])) + (2.f * gammaUzz * input[24]) + (2.f * sqrt_gammaUzz * input[30])) / 2.f);
 		results[34] = ((gammaUxz * input[13]) + (gammaUyz * input[19]) + (gammaUzz * input[25]) + (sqrt_gammaUzz * input[31]));
 		results[35] = ((input[8] + (((2.f * input[35]) - (gammaUxx * input[16])) - (2.f * gammaUxy * input[17])) + ((((2.f * gammaUxz * input[14]) - (2.f * gammaUxz * input[18])) - (gammaUyy * input[19])) - (gammaUzz * input[21])) + (2.f * gammaUzz * input[26]) + (2.f * sqrt_gammaUzz * input[32])) / 2.f);
-		results[36] = (((sqrt_f * gammaUxx * input[28] * sqrt_gammaUzz) + (2.f * sqrt_f * gammaUxy * input[29] * sqrt_gammaUzz) + (2.f * sqrt_f * gammaUxz * input[30] * sqrt_gammaUzz) + (sqrt_f * gammaUyy * input[31] * sqrt_gammaUzz) + (2.f * sqrt_f * gammaUyz * input[32] * sqrt_gammaUzz) + (sqrt_f * gammaUzz_toThe_3_2 * input[33]) + (2.f * gammaUxz * input[34]) + (2.f * gammaUyz * input[35]) + (gammaUzz * input[9]) + (2.f * gammaUzz * input[36])) / sqrt_gammaUzz);
+		results[36] = ((sqrt_f * gammaUzz_toThe_3_2 * input[33]) + (sqrt_f * sqrt_gammaUzz * gammaUxx * input[28]) + (2.f * sqrt_f * sqrt_gammaUzz * gammaUxy * input[29]) + (2.f * sqrt_f * sqrt_gammaUzz * gammaUxz * input[30]) + (sqrt_f * sqrt_gammaUzz * gammaUyy * input[31]) + (2.f * sqrt_f * sqrt_gammaUzz * gammaUyz * input[32]) + (gammaUxz * input[7]) + (2.f * gammaUxz * input[34]) + (gammaUyz * input[8]) + (2.f * gammaUyz * input[35]) + (gammaUzz * input[9]) + (2.f * gammaUzz * input[36]));
 	}
-	
-
 }
 
 void eigenfieldInverseTransform(
@@ -296,12 +294,11 @@ void eigenfieldInverseTransform(
 	real sqrt_f = sqrt(f);
 
 	
-	
-	
 	// right eigenvectors in x:
 	if (side == 0) {
 		real sqrt_gammaUxx = sqrt(gammaUxx);
 		real gammaUxx_toThe_3_2 = sqrt_gammaUxx * gammaUxx;
+		real gammaUxxSq = gammaUxx * gammaUxx;
 		
 		results[0] = input[6];
 		results[1] = input[7];
@@ -310,10 +307,10 @@ void eigenfieldInverseTransform(
 		results[4] = input[10];
 		results[5] = input[11];
 		results[6] = input[12];
-		results[7] = ((((4.f * input[27] * sqrt_gammaUxx) - input[36]) + input[0] + (4.f * gammaUxy * input[28] * (1.f / sqrt_gammaUxx)) + (4.f * gammaUxz * input[29] * (1.f / sqrt_gammaUxx))) / (-(2.f * sqrt_gammaUxx)));
+		results[7] = ((((4.f * input[27] * gammaUxx) - input[36]) + input[0] + (2.f * gammaUxy * input[13]) + (4.f * gammaUxy * input[28]) + (2.f * gammaUxz * input[14]) + (4.f * gammaUxz * input[29])) / (-(2.f * gammaUxx)));
 		results[8] = input[13];
 		results[9] = input[14];
-		results[10] = ((-((4.f * input[27] * sqrt_gammaUxx) + ((2.f * input[30] * sqrt_gammaUxx) - input[36]) + (input[0] - (2.f * gammaUxy * input[13] * (1.f / sqrt_gammaUxx) * f)) + (2.f * gammaUxy * input[15] * sqrt_gammaUxx * f) + (4.f * gammaUxy * input[28] * (1.f / sqrt_gammaUxx)) + ((((2.f * gammaUxy * input[31] * (1.f / sqrt_gammaUxx) * f) - (4.f * gammaUxy * f * input[28] * (1.f / sqrt_gammaUxx))) - (2.f * gammaUxy * input[1] * (1.f / sqrt_gammaUxx) * f)) - (2.f * gammaUxz * input[14] * (1.f / sqrt_gammaUxx) * f)) + (2.f * gammaUxz * input[21] * sqrt_gammaUxx * f) + (4.f * gammaUxz * input[29] * (1.f / sqrt_gammaUxx)) + (((2.f * gammaUxz * input[32] * (1.f / sqrt_gammaUxx) * f) - (4.f * gammaUxz * f * input[29] * (1.f / sqrt_gammaUxx))) - (2.f * gammaUxz * input[2] * (1.f / sqrt_gammaUxx) * f)) + ((gammaUyy * input[33] * (1.f / sqrt_gammaUxx) * f) - (gammaUyy * input[3] * (1.f / sqrt_gammaUxx) * f)) + ((2.f * gammaUyz * input[34] * (1.f / sqrt_gammaUxx) * f) - (2.f * gammaUyz * input[4] * (1.f / sqrt_gammaUxx) * f)) + ((gammaUzz * input[35] * (1.f / sqrt_gammaUxx) * f) - (gammaUzz * input[5] * (1.f / sqrt_gammaUxx) * f)))) / (2.f * gammaUxx_toThe_3_2 * f));
+		results[10] = ((-((4.f * input[27] * gammaUxx) + ((2.f * input[30] * gammaUxx) - input[36]) + input[0] + (2.f * gammaUxy * input[13]) + (2.f * gammaUxy * input[15] * gammaUxx * f) + (4.f * gammaUxy * input[28]) + ((((2.f * gammaUxy * input[31] * f) - (2.f * gammaUxy * f * input[13])) - (4.f * gammaUxy * f * input[28])) - (2.f * gammaUxy * input[1] * f)) + (2.f * gammaUxz * input[14]) + (2.f * gammaUxz * input[21] * gammaUxx * f) + (4.f * gammaUxz * input[29]) + ((((2.f * gammaUxz * input[32] * f) - (2.f * gammaUxz * f * input[14])) - (4.f * gammaUxz * f * input[29])) - (2.f * gammaUxz * input[2] * f)) + ((gammaUyy * input[33] * f) - (gammaUyy * input[3] * f)) + ((2.f * gammaUyz * input[34] * f) - (2.f * gammaUyz * input[4] * f)) + ((gammaUzz * input[35] * f) - (gammaUzz * input[5] * f)))) / (2.f * gammaUxxSq * f));
 		results[11] = (((input[13] - (input[15] * gammaUxx)) + (((2.f * input[28]) - input[31]) - (2.f * gammaUxz * input[17])) + ((((2.f * gammaUxz * input[22]) - (gammaUyy * input[18])) - (2.f * gammaUyz * input[19])) - (gammaUzz * input[20])) + input[1]) / (-(2.f * gammaUxx)));
 		results[12] = (((input[14] - (input[21] * gammaUxx)) + ((2.f * input[29]) - input[32]) + (((((2.f * gammaUxy * input[17]) - (2.f * gammaUxy * input[22])) - (gammaUyy * input[24])) - (2.f * gammaUyz * input[25])) - (gammaUzz * input[26])) + input[2]) / (-(2.f * gammaUxx)));
 		results[13] = ((((input[33] - (2.f * gammaUxy * input[18])) - (2.f * gammaUxz * input[24])) - input[3]) / (2.f * gammaUxx));
@@ -331,7 +328,7 @@ void eigenfieldInverseTransform(
 		results[25] = input[24];
 		results[26] = input[25];
 		results[27] = input[26];
-		results[28] = ((input[36] + ((((((((((input[0] - (2.f * gammaUxy * input[31] * sqrt_f * (1.f / sqrt_gammaUxx))) - (2.f * gammaUxy * input[1] * sqrt_f * (1.f / sqrt_gammaUxx))) - (2.f * gammaUxz * input[32] * sqrt_f * (1.f / sqrt_gammaUxx))) - (2.f * gammaUxz * input[2] * sqrt_f * (1.f / sqrt_gammaUxx))) - (gammaUyy * input[33] * sqrt_f * (1.f / sqrt_gammaUxx))) - (gammaUyy * input[3] * sqrt_f * (1.f / sqrt_gammaUxx))) - (2.f * gammaUyz * input[34] * sqrt_f * (1.f / sqrt_gammaUxx))) - (2.f * gammaUyz * input[4] * sqrt_f * (1.f / sqrt_gammaUxx))) - (gammaUzz * input[35] * sqrt_f * (1.f / sqrt_gammaUxx))) - (gammaUzz * input[5] * sqrt_f * (1.f / sqrt_gammaUxx)))) / (2.f * sqrt_f * gammaUxx));
+		results[28] = ((input[36] + ((((((((((input[0] - (2.f * gammaUxy * input[31] * sqrt_f)) - (2.f * gammaUxy * input[1] * sqrt_f)) - (2.f * gammaUxz * input[32] * sqrt_f)) - (2.f * gammaUxz * input[2] * sqrt_f)) - (gammaUyy * input[33] * sqrt_f)) - (gammaUyy * input[3] * sqrt_f)) - (2.f * gammaUyz * input[34] * sqrt_f)) - (2.f * gammaUyz * input[4] * sqrt_f)) - (gammaUzz * input[35] * sqrt_f)) - (gammaUzz * input[5] * sqrt_f))) / (2.f * sqrt_f * gammaUxx_toThe_3_2));
 		results[29] = ((input[31] + input[1]) / (2.f * sqrt_gammaUxx));
 		results[30] = ((input[32] + input[2]) / (2.f * sqrt_gammaUxx));
 		results[31] = ((input[33] + input[3]) / (2.f * sqrt_gammaUxx));
@@ -344,6 +341,7 @@ void eigenfieldInverseTransform(
 	} else if (side == 1) {
 		real sqrt_gammaUyy = sqrt(gammaUyy);
 		real gammaUyy_toThe_3_2 = sqrt_gammaUyy * gammaUyy;
+		real gammaUyySq = gammaUyy * gammaUyy;
 		
 		results[0] = input[6];
 		results[1] = input[7];
@@ -353,7 +351,7 @@ void eigenfieldInverseTransform(
 		results[5] = input[11];
 		results[6] = input[12];
 		results[7] = input[13];
-		results[8] = ((((4.f * input[28] * sqrt_gammaUyy) - input[36]) + input[0] + (4.f * gammaUxy * input[27] * (1.f / sqrt_gammaUyy)) + (4.f * gammaUyz * input[29] * (1.f / sqrt_gammaUyy))) / (-(2.f * sqrt_gammaUyy)));
+		results[8] = ((((4.f * input[28] * gammaUyy) - input[36]) + input[0] + (2.f * gammaUxy * input[13]) + (4.f * gammaUxy * input[27]) + (2.f * gammaUyz * input[14]) + (4.f * gammaUyz * input[29])) / (-(2.f * gammaUyy)));
 		results[9] = input[14];
 		results[10] = input[15];
 		results[11] = input[16];
@@ -364,7 +362,7 @@ void eigenfieldInverseTransform(
 		results[16] = ((((input[31] - (2.f * gammaUxy * input[15])) - (2.f * gammaUyz * input[21])) - input[1]) / (2.f * gammaUyy));
 		results[17] = ((-((input[13] - (input[18] * gammaUyy)) + (((((2.f * input[27]) - input[32]) - (gammaUxx * input[15])) - (2.f * gammaUxz * input[17])) - (2.f * gammaUyz * input[19])) + ((2.f * gammaUyz * input[22]) - (gammaUzz * input[20])) + input[2])) / (2.f * gammaUyy));
 		results[18] = ((((input[33] - (2.f * gammaUxy * input[17])) - (2.f * gammaUyz * input[23])) - input[3]) / (2.f * gammaUyy));
-		results[19] = ((-((4.f * input[28] * sqrt_gammaUyy) + ((2.f * input[30] * sqrt_gammaUyy) - input[36]) + input[0] + (((gammaUxx * input[31] * (1.f / sqrt_gammaUyy) * f) - (gammaUxx * input[1] * (1.f / sqrt_gammaUyy) * f)) - (2.f * gammaUxy * input[13] * (1.f / sqrt_gammaUyy) * f)) + (2.f * gammaUxy * input[18] * sqrt_gammaUyy * f) + (4.f * gammaUxy * input[27] * (1.f / sqrt_gammaUyy)) + (((2.f * gammaUxy * input[32] * (1.f / sqrt_gammaUyy) * f) - (4.f * gammaUxy * f * input[27] * (1.f / sqrt_gammaUyy))) - (2.f * gammaUxy * input[2] * (1.f / sqrt_gammaUyy) * f)) + (((2.f * gammaUxz * input[33] * (1.f / sqrt_gammaUyy) * f) - (2.f * gammaUxz * input[3] * (1.f / sqrt_gammaUyy) * f)) - (2.f * gammaUyz * input[14] * (1.f / sqrt_gammaUyy) * f)) + (2.f * gammaUyz * input[24] * sqrt_gammaUyy * f) + (4.f * gammaUyz * input[29] * (1.f / sqrt_gammaUyy)) + (((2.f * gammaUyz * input[34] * (1.f / sqrt_gammaUyy) * f) - (4.f * gammaUyz * f * input[29] * (1.f / sqrt_gammaUyy))) - (2.f * gammaUyz * input[4] * (1.f / sqrt_gammaUyy) * f)) + ((gammaUzz * input[35] * (1.f / sqrt_gammaUyy) * f) - (gammaUzz * input[5] * (1.f / sqrt_gammaUyy) * f)))) / (2.f * gammaUyy_toThe_3_2 * f));
+		results[19] = ((-((4.f * input[28] * gammaUyy) + ((2.f * input[30] * gammaUyy) - input[36]) + input[0] + ((gammaUxx * input[31] * f) - (gammaUxx * input[1] * f)) + (2.f * gammaUxy * input[13]) + (2.f * gammaUxy * input[18] * gammaUyy * f) + (4.f * gammaUxy * input[27]) + ((((2.f * gammaUxy * input[32] * f) - (2.f * gammaUxy * f * input[13])) - (4.f * gammaUxy * f * input[27])) - (2.f * gammaUxy * input[2] * f)) + ((2.f * gammaUxz * input[33] * f) - (2.f * gammaUxz * input[3] * f)) + (2.f * gammaUyz * input[14]) + (2.f * gammaUyz * input[24] * gammaUyy * f) + (4.f * gammaUyz * input[29]) + ((((2.f * gammaUyz * input[34] * f) - (2.f * gammaUyz * f * input[14])) - (4.f * gammaUyz * f * input[29])) - (2.f * gammaUyz * input[4] * f)) + ((gammaUzz * input[35] * f) - (gammaUzz * input[5] * f)))) / (2.f * gammaUyySq * f));
 		results[20] = (((input[14] - (input[24] * gammaUyy)) + (((2.f * input[29]) - input[34]) - (gammaUxx * input[21])) + ((((2.f * gammaUxy * input[19]) - (2.f * gammaUxy * input[22])) - (2.f * gammaUxz * input[23])) - (gammaUzz * input[26])) + input[4]) / (-(2.f * gammaUyy)));
 		results[21] = ((((input[35] - (2.f * gammaUxy * input[20])) - (2.f * gammaUyz * input[26])) - input[5]) / (2.f * gammaUyy));
 		results[22] = input[21];
@@ -376,7 +374,7 @@ void eigenfieldInverseTransform(
 		results[28] = ((input[31] + input[1]) / (2.f * sqrt_gammaUyy));
 		results[29] = ((input[32] + input[2]) / (2.f * sqrt_gammaUyy));
 		results[30] = ((input[33] + input[3]) / (2.f * sqrt_gammaUyy));
-		results[31] = ((input[36] + ((((((((((input[0] - (gammaUxx * input[31] * sqrt_f * (1.f / sqrt_gammaUyy))) - (gammaUxx * input[1] * sqrt_f * (1.f / sqrt_gammaUyy))) - (2.f * gammaUxy * input[32] * sqrt_f * (1.f / sqrt_gammaUyy))) - (2.f * gammaUxy * input[2] * sqrt_f * (1.f / sqrt_gammaUyy))) - (2.f * gammaUxz * input[33] * sqrt_f * (1.f / sqrt_gammaUyy))) - (2.f * gammaUxz * input[3] * sqrt_f * (1.f / sqrt_gammaUyy))) - (2.f * gammaUyz * input[34] * sqrt_f * (1.f / sqrt_gammaUyy))) - (2.f * gammaUyz * input[4] * sqrt_f * (1.f / sqrt_gammaUyy))) - (gammaUzz * input[35] * sqrt_f * (1.f / sqrt_gammaUyy))) - (gammaUzz * input[5] * sqrt_f * (1.f / sqrt_gammaUyy)))) / (2.f * sqrt_f * gammaUyy));
+		results[31] = ((input[36] + ((((((((((input[0] - (gammaUxx * input[31] * sqrt_f)) - (gammaUxx * input[1] * sqrt_f)) - (2.f * gammaUxy * input[32] * sqrt_f)) - (2.f * gammaUxy * input[2] * sqrt_f)) - (2.f * gammaUxz * input[33] * sqrt_f)) - (2.f * gammaUxz * input[3] * sqrt_f)) - (2.f * gammaUyz * input[34] * sqrt_f)) - (2.f * gammaUyz * input[4] * sqrt_f)) - (gammaUzz * input[35] * sqrt_f)) - (gammaUzz * input[5] * sqrt_f))) / (2.f * sqrt_f * gammaUyy_toThe_3_2));
 		results[32] = ((input[34] + input[4]) / (2.f * sqrt_gammaUyy));
 		results[33] = ((input[35] + input[5]) / (2.f * sqrt_gammaUyy));
 		results[34] = input[27];
@@ -386,6 +384,7 @@ void eigenfieldInverseTransform(
 	} else if (side == 2) {
 		real sqrt_gammaUzz = sqrt(gammaUzz);
 		real gammaUzz_toThe_3_2 = sqrt_gammaUzz * gammaUzz;
+		real gammaUzzSq = gammaUzz * gammaUzz;
 		
 		results[0] = input[6];
 		results[1] = input[7];
@@ -396,7 +395,7 @@ void eigenfieldInverseTransform(
 		results[6] = input[12];
 		results[7] = input[13];
 		results[8] = input[14];
-		results[9] = ((((4.f * input[29] * sqrt_gammaUzz) - input[36]) + input[0] + (4.f * gammaUxz * input[27] * (1.f / sqrt_gammaUzz)) + (4.f * gammaUyz * input[28] * (1.f / sqrt_gammaUzz))) / (-(2.f * sqrt_gammaUzz)));
+		results[9] = ((((4.f * input[29] * gammaUzz) - input[36]) + input[0] + (2.f * gammaUxz * input[13]) + (4.f * gammaUxz * input[27]) + (2.f * gammaUyz * input[14]) + (4.f * gammaUyz * input[28])) / (-(2.f * gammaUzz)));
 		results[10] = input[15];
 		results[11] = input[16];
 		results[12] = input[17];
@@ -414,13 +413,13 @@ void eigenfieldInverseTransform(
 		results[24] = ((-((input[13] - (input[20] * gammaUzz)) + ((((((2.f * input[27]) - input[33]) - (gammaUxx * input[15])) - (2.f * gammaUxy * input[16])) - (gammaUyy * input[18])) - (2.f * gammaUyz * input[19])) + (2.f * gammaUyz * input[23]) + input[3])) / (2.f * gammaUzz));
 		results[25] = ((((input[34] - (2.f * gammaUxz * input[18])) - (2.f * gammaUyz * input[24])) - input[4]) / (2.f * gammaUzz));
 		results[26] = ((-((input[14] - (input[26] * gammaUzz)) + ((((2.f * input[28]) - input[35]) - (gammaUxx * input[21])) - (2.f * gammaUxy * input[22])) + (((2.f * gammaUxz * input[19]) - (2.f * gammaUxz * input[23])) - (gammaUyy * input[24])) + input[5])) / (2.f * gammaUzz));
-		results[27] = ((-((4.f * input[29] * sqrt_gammaUzz) + ((2.f * input[30] * sqrt_gammaUzz) - input[36]) + input[0] + ((gammaUxx * input[31] * (1.f / sqrt_gammaUzz) * f) - (gammaUxx * input[1] * (1.f / sqrt_gammaUzz) * f)) + (((2.f * gammaUxy * input[32] * (1.f / sqrt_gammaUzz) * f) - (2.f * gammaUxy * input[2] * (1.f / sqrt_gammaUzz) * f)) - (2.f * gammaUxz * input[13] * (1.f / sqrt_gammaUzz) * f)) + (2.f * gammaUxz * input[20] * sqrt_gammaUzz * f) + (4.f * gammaUxz * input[27] * (1.f / sqrt_gammaUzz)) + (((2.f * gammaUxz * input[33] * (1.f / sqrt_gammaUzz) * f) - (4.f * gammaUxz * f * input[27] * (1.f / sqrt_gammaUzz))) - (2.f * gammaUxz * input[3] * (1.f / sqrt_gammaUzz) * f)) + (((gammaUyy * input[34] * (1.f / sqrt_gammaUzz) * f) - (gammaUyy * input[4] * (1.f / sqrt_gammaUzz) * f)) - (2.f * gammaUyz * input[14] * (1.f / sqrt_gammaUzz) * f)) + (2.f * gammaUyz * input[26] * sqrt_gammaUzz * f) + (4.f * gammaUyz * input[28] * (1.f / sqrt_gammaUzz)) + (((2.f * gammaUyz * input[35] * (1.f / sqrt_gammaUzz) * f) - (4.f * gammaUyz * f * input[28] * (1.f / sqrt_gammaUzz))) - (2.f * gammaUyz * input[5] * (1.f / sqrt_gammaUzz) * f)))) / (2.f * gammaUzz_toThe_3_2 * f));
+		results[27] = ((-((4.f * input[29] * gammaUzz) + ((2.f * input[30] * gammaUzz) - input[36]) + input[0] + ((gammaUxx * input[31] * f) - (gammaUxx * input[1] * f)) + ((2.f * gammaUxy * input[32] * f) - (2.f * gammaUxy * input[2] * f)) + (2.f * gammaUxz * input[13]) + (2.f * gammaUxz * input[20] * gammaUzz * f) + (4.f * gammaUxz * input[27]) + ((((2.f * gammaUxz * input[33] * f) - (2.f * gammaUxz * f * input[13])) - (4.f * gammaUxz * f * input[27])) - (2.f * gammaUxz * input[3] * f)) + ((gammaUyy * input[34] * f) - (gammaUyy * input[4] * f)) + (2.f * gammaUyz * input[14]) + (2.f * gammaUyz * input[26] * gammaUzz * f) + (4.f * gammaUyz * input[28]) + ((((2.f * gammaUyz * input[35] * f) - (2.f * gammaUyz * f * input[14])) - (4.f * gammaUyz * f * input[28])) - (2.f * gammaUyz * input[5] * f)))) / (2.f * gammaUzzSq * f));
 		results[28] = ((input[31] + input[1]) / (2.f * sqrt_gammaUzz));
 		results[29] = ((input[32] + input[2]) / (2.f * sqrt_gammaUzz));
 		results[30] = ((input[33] + input[3]) / (2.f * sqrt_gammaUzz));
 		results[31] = ((input[34] + input[4]) / (2.f * sqrt_gammaUzz));
 		results[32] = ((input[35] + input[5]) / (2.f * sqrt_gammaUzz));
-		results[33] = ((input[36] + ((((((((((input[0] - (gammaUxx * input[31] * sqrt_f * (1.f / sqrt_gammaUzz))) - (gammaUxx * input[1] * sqrt_f * (1.f / sqrt_gammaUzz))) - (2.f * gammaUxy * input[32] * sqrt_f * (1.f / sqrt_gammaUzz))) - (2.f * gammaUxy * input[2] * sqrt_f * (1.f / sqrt_gammaUzz))) - (2.f * gammaUxz * input[33] * sqrt_f * (1.f / sqrt_gammaUzz))) - (2.f * gammaUxz * input[3] * sqrt_f * (1.f / sqrt_gammaUzz))) - (gammaUyy * input[34] * sqrt_f * (1.f / sqrt_gammaUzz))) - (gammaUyy * input[4] * sqrt_f * (1.f / sqrt_gammaUzz))) - (2.f * gammaUyz * input[35] * sqrt_f * (1.f / sqrt_gammaUzz))) - (2.f * gammaUyz * input[5] * sqrt_f * (1.f / sqrt_gammaUzz)))) / (2.f * sqrt_f * gammaUzz));
+		results[33] = ((input[36] + ((((((((((input[0] - (gammaUxx * input[31] * sqrt_f)) - (gammaUxx * input[1] * sqrt_f)) - (2.f * gammaUxy * input[32] * sqrt_f)) - (2.f * gammaUxy * input[2] * sqrt_f)) - (2.f * gammaUxz * input[33] * sqrt_f)) - (2.f * gammaUxz * input[3] * sqrt_f)) - (gammaUyy * input[34] * sqrt_f)) - (gammaUyy * input[4] * sqrt_f)) - (2.f * gammaUyz * input[35] * sqrt_f)) - (2.f * gammaUyz * input[5] * sqrt_f))) / (2.f * sqrt_f * gammaUzz_toThe_3_2));
 		results[34] = input[27];
 		results[35] = input[28];
 		results[36] = input[29];

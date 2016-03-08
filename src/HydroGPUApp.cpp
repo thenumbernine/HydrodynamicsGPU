@@ -44,6 +44,7 @@ HydroGPUApp::HydroGPUApp()
 , useFixedDT(false)
 , fixedDT(.001f)
 , cfl(.5f)
+, useHeatMap(true)
 , heatMapVariable(0)
 , heatMapColorScale(2.f)
 , useGravity(false)
@@ -77,6 +78,19 @@ int HydroGPUApp::main(const std::vector<std::string>& args) {
 }
 
 void HydroGPUApp::init() {
+
+	{
+		std::string extensionStr = (char*)glGetString(GL_EXTENSIONS);
+		std::istringstream iss(extensionStr);
+		std::vector<std::string> extensions;
+		std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(), std::back_inserter<std::vector<std::string>>(extensions));
+		std::cout << "GL_EXTENSIONS:" << std::endl;
+		for (std::string &s : extensions) {
+			std::cout << "\t" << s << std::endl;
+		}
+		std::cout << std::endl;
+	}
+	
 	//config before Super::init so we can provide it 'useGPU'
 	std::cout << "loading config file " << configFilename << std::endl;
 	lua.loadFile(configFilename);
@@ -260,11 +274,71 @@ void HydroGPUApp::init() {
 	{
 		bool useGraph = false;
 		if ((lua.ref()["useGraph"] >> useGraph).good() && useGraph) {
+		
+			std::vector<std::string> graphVariableNames;
+			LuaCxx::Ref graphVariablesRef = lua.ref()["graphVariables"];
+			if (graphVariablesRef.isTable()) {
+				//TODO LuaCxx iterator
+				for (int i = 0; i < graphVariablesRef.len(); ++i) {
+					std::string varName;
+					if ((graphVariablesRef[i+1] >> varName).good()) {
+						graphVariableNames.push_back(varName);
+					}
+				}
+			}
+			
+			//make a mapping from names to indexes
+			std::map<std::string, int> varIndexForName;
+			const std::vector<std::string>& displayVariables = solver->equation->displayVariables;
+			for (std::vector<std::string>::const_iterator i = displayVariables.begin(); i != displayVariables.end(); ++i) {
+				varIndexForName[*i] = i - displayVariables.begin();
+			}
+
+			//if we weren't given any then assign it all vars in the equation 
+			if (graphVariableNames.empty()) {
+				graphVariableNames = displayVariables;
+			}
+			
+			//now verify that the variables are legit, complain otherwise
+			std::vector<int> graphVariables;
+			for (const std::string& graphVarName : graphVariableNames) {
+				std::map<std::string, int>::iterator loc = varIndexForName.find(graphVarName);
+				if (loc == varIndexForName.end()) {
+					throw Common::Exception() << "couldn't find graph variable " << graphVarName << " among display variables";
+				}
+				graphVariables.push_back(loc->second);
+			}
+
 			graph = std::make_shared<HydroGPU::Plot::Graph>(this);
+			graph->variables = graphVariables;
+
+			lua.ref()["graphScale"] >> graph->scale;
+
+			{
+				int i = 0;
+				LuaCxx::Ref graphStepRef = lua.ref()["graphStep"];
+				for (; i < dim; ++i) {
+					graph->step(i) = size.s[i] >> 5;
+					if (!graphStepRef.isTable()) {
+						continue;
+					}
+					if (i >= graphStepRef.len()) {
+						continue;
+					}
+					if (!(graphStepRef[i+1] >> graph->step(i)).good()) {
+						continue;
+					}
+				}
+				for (int i = 0; i < 3; ++i) {
+					if (graph->step(i) == 0) graph->step(i) = 1;
+				}
+			}
 		}
 	}
-	
+
 	solver->resetState();
+
+	lua.ref()["useHeatMap"] >> useHeatMap;
 
 	heatMapVariable = std::find(
 		solver->equation->displayVariables.begin(), 
@@ -333,7 +407,7 @@ PROFILE_BEGIN_FRAME()
 
 	camera->setupProjection();
 	solver->app->camera->setupModelview();
-	plot->display();	
+	if (useHeatMap) plot->display();	
 	vectorField->display();
 	if (graph) graph->display();
 PROFILE_END_FRAME();
@@ -410,6 +484,19 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				heatMapColorScale *= 2.;
 			}
 			std::cout << "heatMapColorScale " << heatMapColorScale << std::endl;
+		} else if (event.key.keysym.sym == SDLK_b) {
+			if (graph) {
+				if (shiftDown) {
+					graph->scale *= .5;
+				} else {
+					graph->scale *= 2.;
+				}
+				std::cout << "graph->scale " << graph->scale << std::endl;
+			} else {
+				//TODO always instanciate a graph, add controls for picking variables
+				//TODO that gui ...
+				std::cout << "no graph present" << std::endl;
+			}
 		} else if (event.key.keysym.sym == SDLK_d) {
 			if (shiftDown) {
 				heatMapVariable = (heatMapVariable + solver->equation->displayVariables.size() - 1) % solver->equation->displayVariables.size();
