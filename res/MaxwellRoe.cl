@@ -10,9 +10,9 @@ Described in Trangenstein, "Numeric Solutions of Hyperbolic Partial Differential
 
 constant float sqrt_1_2 = 0.7071067811865475727373109293694142252206802368164f;
 
-void eigenfieldTransform(
+void leftEigenvectorTransform(
 	real* results,
-	const __global real* eigenfield,	//not used
+	const __global real* eigenvectorData,	//not used
 	const real* input,
 	int side)
 {
@@ -61,9 +61,9 @@ void eigenfieldTransform(
 */
 }
 
-void eigenfieldInverseTransform(
+void rightEigenvectorTransform(
 	__global real* results,
-	const __global real* eigenfield,	//not used
+	const __global real* eigenvector,	//not used
 	const real* input,
 	int side)
 {
@@ -110,7 +110,7 @@ void eigenfieldInverseTransform(
 
 __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,	//not used
+	__global real* eigenvectorsBuffer,	//not used
 	const __global real* stateBuffer,
 	int side)
 {
@@ -170,4 +170,3 @@ return;
 	deriv[STATE_ELECTRIC_Y] -= conductiveElectric.y;
 	deriv[STATE_ELECTRIC_Z] -= conductiveElectric.z;
 }
-

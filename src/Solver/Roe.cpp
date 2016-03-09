@@ -15,17 +15,12 @@ void Roe::initBuffers() {
 
 	int volume = getVolume();
 
-	eigenvaluesBuffer = clAlloc(sizeof(real) * getEigenSpaceDim() * volume, "Roe::eigenvaluesBuffer");
-	eigenfieldsBuffer = clAlloc(sizeof(real) * getEigenTransformStructSize() * volume, "Roe::eigenfieldsBuffer");
-	deltaQTildeBuffer = clAlloc(sizeof(real) * getEigenSpaceDim() * volume, "Roe::deltaQTildeBuffer");
-	fluxBuffer = clAlloc(sizeof(real) * numStates() * volume, "Roe::fluxBuffer");
+	eigenvaluesBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * volume, "Roe::eigenvaluesBuffer");
+	eigenvectorsBuffer = cl.alloc(sizeof(real) * getEigenTransformStructSize() * volume, "Roe::eigenvectorsBuffer");
+	deltaQTildeBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * volume, "Roe::deltaQTildeBuffer");
+	fluxBuffer = cl.alloc(sizeof(real) * numStates() * volume, "Roe::fluxBuffer");
 
-	//zero flux
-	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume);
-	//doesn't seem to harm too much to use FillBuffer upon init ... it was always hit or miss ...
-	//cl::Kernel zeroKernel = cl::Kernel(program, "zero");
-	//zeroKernel.setArg(0, fluxBuffer);
-	//commands.enqueueNDRangeKernel(zeroKernel, offset1d, cl::NDRange(getVolume() * numStates()), localSize1d);
+	cl.zero(fluxBuffer, numStates() * volume);
 }
 
 int Roe::getEigenTransformStructSize() {
@@ -40,7 +35,7 @@ void Roe::initKernels() {
 	Super::initKernels();
 
 	calcEigenBasisSideKernel = cl::Kernel(program, "calcEigenBasisSide");
-	CLCommon::setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer);
+	CLCommon::setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer);
 	
 	calcCellTimestepKernel = cl::Kernel(program, "calcCellTimestep");
 	CLCommon::setArgs(calcCellTimestepKernel,
@@ -55,10 +50,10 @@ void Roe::initKernels() {
 #endif	
 
 	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
-	CLCommon::setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenfieldsBuffer, stateBuffer);
+	CLCommon::setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenvectorsBuffer, stateBuffer);
 	
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	CLCommon::setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer); 
+	CLCommon::setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, deltaQTildeBuffer); 
 	
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	calcFluxDerivKernel.setArg(1, fluxBuffer);
@@ -128,4 +123,3 @@ void Roe::calcFlux(real dt, int side) {
 
 }
 }
-

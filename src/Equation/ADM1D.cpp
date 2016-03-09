@@ -58,7 +58,7 @@ void ADM1D::getProgramSources(std::vector<std::string>& sources) {
 	
 	//tell the Roe solver to calculate left & right separately
 	// this is slower for dense small matrices (like the Euler equations)
-	// but for the ADM, which hold no eigenfield struct data, and compute the eigentransform solely from state data
+	// but for the ADM, which hold no eigenvector struct data, and compute the eigentransform solely from state data
 	// because they are sparse huge matrices, 
 	//it saves both speed and memory.
 	sources.push_back("#define ROE_EIGENFIELD_TRANSFORM_SEPARATE 1\n");

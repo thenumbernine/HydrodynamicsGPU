@@ -9,7 +9,7 @@ void MHDRoe::initBuffers() {
 	Super::initBuffers();
 	
 	//allocate flux flag buffer for determining if any flux values had to be pre-filled for bad eigenstate areas
-	fluxFlagBuffer = clAlloc(sizeof(char) * getVolume() * app->dim);
+	fluxFlagBuffer = cl.alloc(sizeof(char) * getVolume() * app->dim);
 }
 
 void MHDRoe::initKernels() {
@@ -24,7 +24,7 @@ void MHDRoe::initKernels() {
 	//just like ordinary calcMHDFluxKernel -- and calls the ordinary
 	// -- but with an extra step to bail out of the associated fluxFlag is already set 
 	calcMHDFluxKernel = cl::Kernel(program, "calcMHDFlux");
-	CLCommon::setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, 0, 0, fluxFlagBuffer);
+	CLCommon::setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, deltaQTildeBuffer, 0, 0, fluxFlagBuffer);
 }
 	
 void MHDRoe::createEquation() {
@@ -42,7 +42,7 @@ void MHDRoe::initFluxSide(int side) {
 	//(in the case of negative fluxes)
 	// so for that, I'm going to fill the flux kernel to some flag beforehand.
 	// zero is a safe flag, right?  no ... not for steady states ...
-	commands.enqueueFillBuffer(fluxFlagBuffer, 0, 0, getVolume() * app->dim);
+	cl.zero(fluxFlagBuffer, getVolume() * app->dim / sizeof(real));
 
 	Super::initFluxSide(side);
 }

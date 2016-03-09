@@ -2,15 +2,14 @@
 
 #include "HydroGPU/Shared/Common.h"
 
-void eigenfieldTransform(
+void leftEigenvectorTransform(
 	real* results,
-	const __global real* eigenfield,
+	const __global real* eigenvectorData,
 	const real* input,
 	int side);
 
-void eigenfieldInverseTransform(
+void rightEigenvectorTransform(
 	__global real* results,
-	const __global real* eigenfield,
+	const __global real* eigenvectorData,
 	const real* input,
 	int side);
-

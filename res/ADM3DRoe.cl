@@ -16,7 +16,7 @@ check out symmath/tests/numerical_relativity_codegen.lua for my derivation
 
 __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
+	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	int side)
 {
@@ -39,35 +39,35 @@ __kernel void calcEigenBasisSide(
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenfield = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	__global real* eigenvector = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 
-	//store the intermediate state in the eigenfield and reconstruct it upon eigenfield[Inverse]Transform()
+	//store the intermediate state in the eigenvector and reconstruct it upon [left|right]EigenvectorTransform()
 	for (int i = 0; i < NUM_STATES; ++i) {
-		eigenfield[i] = .5f * (stateL[i] + stateR[i]);
+		eigenvector[i] = .5f * (stateL[i] + stateR[i]);
 	}
 
-	real alpha = eigenfield[0];
-	real gamma_xx = eigenfield[1], gamma_xy = eigenfield[2], gamma_xz = eigenfield[3], gamma_yy = eigenfield[4], gamma_yz = eigenfield[5], gamma_zz = eigenfield[6];
-	//real A_x = eigenfield[7], A_y = eigenfield[8], A_z = eigenfield[9];
-	//real D_xxx = eigenfield[10], D_xxy = eigenfield[11], D_xxz = eigenfield[12], D_xyy = eigenfield[13], D_xyz = eigenfield[14], D_xzz = eigenfield[15];
-	//real D_yxx = eigenfield[16], D_yxy = eigenfield[17], D_yxz = eigenfield[18], D_yyy = eigenfield[19], D_yyz = eigenfield[20], D_yzz = eigenfield[21];
-	//real D_zxx = eigenfield[22], D_zxy = eigenfield[23], D_zxz = eigenfield[24], D_zyy = eigenfield[25], D_zyz = eigenfield[26], D_zzz = eigenfield[27];
-	//real K_xx = eigenfield[28], K_xy = eigenfield[29], K_xz = eigenfield[30], K_yy = eigenfield[31], K_yz = eigenfield[32], K_zz = eigenfield[33];
-	//real V_x = eigenfield[34], V_y = eigenfield[35], V_z = eigenfield[36];
+	real alpha = eigenvector[0];
+	real gamma_xx = eigenvector[1], gamma_xy = eigenvector[2], gamma_xz = eigenvector[3], gamma_yy = eigenvector[4], gamma_yz = eigenvector[5], gamma_zz = eigenvector[6];
+	//real A_x = eigenvector[7], A_y = eigenvector[8], A_z = eigenvector[9];
+	//real D_xxx = eigenvector[10], D_xxy = eigenvector[11], D_xxz = eigenvector[12], D_xyy = eigenvector[13], D_xyz = eigenvector[14], D_xzz = eigenvector[15];
+	//real D_yxx = eigenvector[16], D_yxy = eigenvector[17], D_yxz = eigenvector[18], D_yyy = eigenvector[19], D_yyz = eigenvector[20], D_yzz = eigenvector[21];
+	//real D_zxx = eigenvector[22], D_zxy = eigenvector[23], D_zxz = eigenvector[24], D_zyy = eigenvector[25], D_zyz = eigenvector[26], D_zzz = eigenvector[27];
+	//real K_xx = eigenvector[28], K_xy = eigenvector[29], K_xz = eigenvector[30], K_yy = eigenvector[31], K_yz = eigenvector[32], K_zz = eigenvector[33];
+	//real V_x = eigenvector[34], V_y = eigenvector[35], V_z = eigenvector[36];
 	real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
 	real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
 	real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
 	real f = ADM_BONA_MASSO_F;	//could be based on alpha...
 
 	//store only what information is needed for the function of applying the eigenvectors/inverses 
-	eigenfield[37] = gammaUxx;
-	eigenfield[38] = gammaUxy;
-	eigenfield[39] = gammaUxz;
-	eigenfield[40] = gammaUyy;
-	eigenfield[41] = gammaUyz;
-	eigenfield[42] = gammaUzz;
-	eigenfield[43] = gamma;
-	eigenfield[44] = f;
+	eigenvector[37] = gammaUxx;
+	eigenvector[38] = gammaUxy;
+	eigenvector[39] = gammaUxz;
+	eigenvector[40] = gammaUyy;
+	eigenvector[41] = gammaUyz;
+	eigenvector[42] = gammaUzz;
+	eigenvector[43] = gamma;
+	eigenvector[44] = f;
 
 	//eigenvalues
 
@@ -123,23 +123,23 @@ __kernel void calcEigenBasisSide(
 	eigenvalues[36] = lambdaGauge;
 }
 
-void eigenfieldTransform(
+void leftEigenvectorTransform(
 	real* results,
-	const __global real* eigenfield,
+	const __global real* eigenvectorData,
 	const real* input,
 	int side)
 {
-	//real alpha = eigenfield[0];
-	//real gamma_xx = eigenfield[1], gamma_xy = eigenfield[2], gamma_xz = eigenfield[3], gamma_yy = eigenfield[4], gamma_yz = eigenfield[5], gamma_zz = eigenfield[6];
-	//real A_x = eigenfield[7], A_y = eigenfield[8], A_z = eigenfield[9];
-	//real D_xxx = eigenfield[10], D_xxy = eigenfield[11], D_xxz = eigenfield[12], D_xyy = eigenfield[13], D_xyz = eigenfield[14], D_xzz = eigenfield[15];
-	//real D_yxx = eigenfield[16], D_yxy = eigenfield[17], D_yxz = eigenfield[18], D_yyy = eigenfield[19], D_yyz = eigenfield[20], D_yzz = eigenfield[21];
-	//real D_zxx = eigenfield[22], D_zxy = eigenfield[23], D_zxz = eigenfield[24], D_zyy = eigenfield[25], D_zyz = eigenfield[26], D_zzz = eigenfield[27];
-	//real K_xx = eigenfield[28], K_xy = eigenfield[29], K_xz = eigenfield[30], K_yy = eigenfield[31], K_yz = eigenfield[32], K_zz = eigenfield[33];
-	//real V_x = eigenfield[34], V_y = eigenfield[35], V_z = eigenfield[36];
-	real gammaUxx = eigenfield[37], gammaUxy = eigenfield[38], gammaUxz = eigenfield[39], gammaUyy = eigenfield[40], gammaUyz = eigenfield[41], gammaUzz = eigenfield[42];
-	//real gamma = eigenfield[43];
-	real f = eigenfield[44];
+	//real alpha = eigenvectorData[0];
+	//real gamma_xx = eigenvectorData[1], gamma_xy = eigenvectorData[2], gamma_xz = eigenvectorData[3], gamma_yy = eigenvectorData[4], gamma_yz = eigenvectorData[5], gamma_zz = eigenvectorData[6];
+	//real A_x = eigenvectorData[7], A_y = eigenvectorData[8], A_z = eigenvectorData[9];
+	//real D_xxx = eigenvectorData[10], D_xxy = eigenvectorData[11], D_xxz = eigenvectorData[12], D_xyy = eigenvectorData[13], D_xyz = eigenvectorData[14], D_xzz = eigenvectorData[15];
+	//real D_yxx = eigenvectorData[16], D_yxy = eigenvectorData[17], D_yxz = eigenvectorData[18], D_yyy = eigenvectorData[19], D_yyz = eigenvectorData[20], D_yzz = eigenvectorData[21];
+	//real D_zxx = eigenvectorData[22], D_zxy = eigenvectorData[23], D_zxz = eigenvectorData[24], D_zyy = eigenvectorData[25], D_zyz = eigenvectorData[26], D_zzz = eigenvectorData[27];
+	//real K_xx = eigenvectorData[28], K_xy = eigenvectorData[29], K_xz = eigenvectorData[30], K_yy = eigenvectorData[31], K_yz = eigenvectorData[32], K_zz = eigenvectorData[33];
+	//real V_x = eigenvectorData[34], V_y = eigenvectorData[35], V_z = eigenvectorData[36];
+	real gammaUxx = eigenvectorData[37], gammaUxy = eigenvectorData[38], gammaUxz = eigenvectorData[39], gammaUyy = eigenvectorData[40], gammaUyz = eigenvectorData[41], gammaUzz = eigenvectorData[42];
+	//real gamma = eigenvectorData[43];
+	real f = eigenvectorData[44];
 
 	real sqrt_f = sqrt(f);
 
@@ -273,23 +273,23 @@ void eigenfieldTransform(
 	}
 }
 
-void eigenfieldInverseTransform(
+void rightEigenvectorTransform(
 	__global real* results,
-	const __global real* eigenfield,
+	const __global real* eigenvectorData,
 	const real* input,
 	int side)
 {
-	//real alpha = eigenfield[0];
-	//real gamma_xx = eigenfield[1], gamma_xy = eigenfield[2], gamma_xz = eigenfield[3], gamma_yy = eigenfield[4], gamma_yz = eigenfield[5], gamma_zz = eigenfield[6];
-	//real A_x = eigenfield[7], A_y = eigenfield[8], A_z = eigenfield[9];
-	//real D_xxx = eigenfield[10], D_xxy = eigenfield[11], D_xxz = eigenfield[12], D_xyy = eigenfield[13], D_xyz = eigenfield[14], D_xzz = eigenfield[15];
-	//real D_yxx = eigenfield[16], D_yxy = eigenfield[17], D_yxz = eigenfield[18], D_yyy = eigenfield[19], D_yyz = eigenfield[20], D_yzz = eigenfield[21];
-	//real D_zxx = eigenfield[22], D_zxy = eigenfield[23], D_zxz = eigenfield[24], D_zyy = eigenfield[25], D_zyz = eigenfield[26], D_zzz = eigenfield[27];
-	//real K_xx = eigenfield[28], K_xy = eigenfield[29], K_xz = eigenfield[30], K_yy = eigenfield[31], K_yz = eigenfield[32], K_zz = eigenfield[33];
-	//real V_x = eigenfield[34], V_y = eigenfield[35], V_z = eigenfield[36];
-	real gammaUxx = eigenfield[37], gammaUxy = eigenfield[38], gammaUxz = eigenfield[39], gammaUyy = eigenfield[40], gammaUyz = eigenfield[41], gammaUzz = eigenfield[42];
-	//real gamma = eigenfield[43];
-	real f = eigenfield[44];
+	//real alpha = eigenvectorData[0];
+	//real gamma_xx = eigenvectorData[1], gamma_xy = eigenvectorData[2], gamma_xz = eigenvectorData[3], gamma_yy = eigenvectorData[4], gamma_yz = eigenvectorData[5], gamma_zz = eigenvectorData[6];
+	//real A_x = eigenvectorData[7], A_y = eigenvectorData[8], A_z = eigenvectorData[9];
+	//real D_xxx = eigenvectorData[10], D_xxy = eigenvectorData[11], D_xxz = eigenvectorData[12], D_xyy = eigenvectorData[13], D_xyz = eigenvectorData[14], D_xzz = eigenvectorData[15];
+	//real D_yxx = eigenvectorData[16], D_yxy = eigenvectorData[17], D_yxz = eigenvectorData[18], D_yyy = eigenvectorData[19], D_yyz = eigenvectorData[20], D_yzz = eigenvectorData[21];
+	//real D_zxx = eigenvectorData[22], D_zxy = eigenvectorData[23], D_zxz = eigenvectorData[24], D_zyy = eigenvectorData[25], D_zyz = eigenvectorData[26], D_zzz = eigenvectorData[27];
+	//real K_xx = eigenvectorData[28], K_xy = eigenvectorData[29], K_xz = eigenvectorData[30], K_yy = eigenvectorData[31], K_yz = eigenvectorData[32], K_zz = eigenvectorData[33];
+	//real V_x = eigenvectorData[34], V_y = eigenvectorData[35], V_z = eigenvectorData[36];
+	real gammaUxx = eigenvectorData[37], gammaUxy = eigenvectorData[38], gammaUxz = eigenvectorData[39], gammaUyy = eigenvectorData[40], gammaUyz = eigenvectorData[41], gammaUzz = eigenvectorData[42];
+	//real gamma = eigenvectorData[43];
+	real f = eigenvectorData[44];
 
 	real sqrt_f = sqrt(f);
 

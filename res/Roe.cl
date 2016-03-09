@@ -82,7 +82,7 @@ __kernel void calcCellTimestep(
 
 __kernel void calcDeltaQTilde(
 	__global real* deltaQTildeBuffer,
-	const __global real* eigenfieldsBuffer,
+	const __global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	int side
 #ifdef SOLID
@@ -104,7 +104,7 @@ __kernel void calcDeltaQTilde(
 	int indexPrev = index - stepsize[side];
 	int interfaceIndex = index;
 			
-	const __global real* eigenfields = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	const __global real* eigenvectors = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* deltaQTilde = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceIndex;
 
 	real stateL[NUM_STATES];
@@ -130,13 +130,13 @@ __kernel void calcDeltaQTilde(
 #endif	//SOLID
 
 #ifdef ROE_EIGENFIELD_TRANSFORM_SEPARATE
-	//calculating this twice because eigenfieldTransform could use the state variables to construct the field information on the fly
+	//calculating this twice because leftEigenvectorTransform could use the state variables to construct the field information on the fly
 
 	real stateLTilde[EIGEN_SPACE_DIM];
-	eigenfieldTransform(stateLTilde, eigenfields, stateL, side);
+	leftEigenvectorTransform(stateLTilde, eigenvectors, stateL, side);
 
 	real stateRTilde[EIGEN_SPACE_DIM];
-	eigenfieldTransform(stateRTilde, eigenfields, stateR, side);
+	leftEigenvectorTransform(stateRTilde, eigenvectors, stateR, side);
 
 	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
 		deltaQTilde[i] = stateRTilde[i] - stateLTilde[i];
@@ -147,7 +147,7 @@ __kernel void calcDeltaQTilde(
 	for (int i = 0; i < NUM_STATES; ++i) {
 		deltaState[i] = stateR[i] - stateL[i];
 	}
-	eigenfieldTransform(deltaQTilde_, eigenfields, deltaState, side);
+	leftEigenvectorTransform(deltaQTilde_, eigenvectors, deltaState, side);
 	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
 		deltaQTilde[i] = deltaQTilde_[i];
 	}
@@ -158,7 +158,7 @@ __kernel void calcFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* eigenvaluesBuffer,
-	const __global real* eigenfieldsBuffer,
+	const __global real* eigenvectorsBuffer,
 	const __global real* deltaQTildeBuffer,
 	real dt,
 	int side
@@ -194,7 +194,7 @@ __kernel void calcFlux(
 	const __global real* deltaQTildeR = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceRIndex;
 	
 	const __global real* eigenvalues = eigenvaluesBuffer + EIGEN_SPACE_DIM * interfaceIndex;
-	const __global real* eigenfields = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	const __global real* eigenvectors = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
 
 	real stateL[NUM_STATES];
@@ -227,10 +227,10 @@ __kernel void calcFlux(
 	real fluxTilde[EIGEN_SPACE_DIM];
 #ifdef ROE_EIGENFIELD_TRANSFORM_SEPARATE
 	real stateLTilde[EIGEN_SPACE_DIM];
-	eigenfieldTransform(stateLTilde, eigenfields, stateL, side);
+	leftEigenvectorTransform(stateLTilde, eigenvectors, stateL, side);
 
 	real stateRTilde[EIGEN_SPACE_DIM];
-	eigenfieldTransform(stateRTilde, eigenfields, stateR, side);
+	leftEigenvectorTransform(stateRTilde, eigenvectors, stateR, side);
 
 	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
 		fluxTilde[i] = .5 * (stateRTilde[i] + stateLTilde[i]);
@@ -240,7 +240,7 @@ __kernel void calcFlux(
 	for (int i = 0; i < NUM_STATES; ++i) {
 		stateAvg[i] = .5 * (stateR[i] + stateL[i]);
 	}
-	eigenfieldTransform(fluxTilde, eigenfields, stateAvg, side);
+	leftEigenvectorTransform(fluxTilde, eigenvectors, stateAvg, side);
 #endif	//ROE_EIGENFIELD_TRANSFORM_SEPARATE
 
 	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
@@ -269,7 +269,7 @@ __kernel void calcFlux(
 		fluxTilde[i] -= .5 * deltaFluxTilde * (theta + phi * (epsilon - theta));
 	}
 
-	eigenfieldInverseTransform(flux, eigenfields, fluxTilde, side);
+	rightEigenvectorTransform(flux, eigenvectors, fluxTilde, side);
 }
 
 __kernel void calcFluxDeriv(

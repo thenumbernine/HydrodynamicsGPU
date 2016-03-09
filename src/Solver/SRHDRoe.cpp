@@ -10,7 +10,7 @@ void SRHDRoe::init() {
 	Super::init();
 
 	int volume = getVolume();
-	primitiveBuffer = clAlloc(sizeof(real) * numStates() * volume);
+	primitiveBuffer = cl.alloc(sizeof(real) * numStates() * volume);
 
 	calcEigenBasisSideKernel.setArg(4, primitiveBuffer);
 	//calcEigenBasisSideKernel.setArg(5, selfgrav->potentialBuffer);

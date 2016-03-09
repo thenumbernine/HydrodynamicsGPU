@@ -9,7 +9,7 @@ This currently only supports 1D
 
 __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
+	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	int side)
 {
@@ -36,7 +36,7 @@ __kernel void calcEigenBasisSide(
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenfields = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	__global real* eigenvectors = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 
 	//q0 = d/dx ln alpha
 	//q1 = d/dx ln g = d/dx ln g_xx
@@ -44,13 +44,13 @@ __kernel void calcEigenBasisSide(
 	//I'm assigning the fwd and reverse eigenfield info the same
 	// I guess only the linear systems technically need both
 	// I should make that a special case of the base Roe solver
-	// and merge eigenvectorsBuffer and eigenvectorsInverse buffer into one eigenfieldsBuffer
+	// and merge eigenvectorsBuffer and eigenvectorsInverse buffer into one eigenvectorsBuffer
 	real alpha = .5f * (stateL[STATE_ALPHA] + stateR[STATE_ALPHA]);
 	real f = ADM_BONA_MASSO_F;
 	real g = .5f * (stateL[STATE_G] + stateR[STATE_G]);
 	
-	//the only variable used for the eigenfield functions
-	eigenfields[EIGENFIELD_F] = f;
+	//the only variable used for the eigenvector functions
+	eigenvectors[EIGENFIELD_F] = f;
 
 	//eigenvalues
 

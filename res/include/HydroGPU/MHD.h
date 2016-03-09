@@ -16,4 +16,3 @@ typedef struct {
 	real Alfven;
 	real fast;
 } Wavespeed_t;
-

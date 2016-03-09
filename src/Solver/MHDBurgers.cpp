@@ -14,14 +14,14 @@ void MHDBurgers::init() {
 
 	int volume = getVolume();
 
-	interfaceVelocityBuffer = clAlloc(sizeof(real) * volume * app->dim);
-	interfaceMagneticFieldBuffer = clAlloc(sizeof(real) * volume * app->dim);
-	fluxBuffer = clAlloc(sizeof(real) * numStates() * volume * app->dim);
-	pressureBuffer = clAlloc(sizeof(real) * volume);
+	interfaceVelocityBuffer = cl.alloc(sizeof(real) * volume * app->dim);
+	interfaceMagneticFieldBuffer = cl.alloc(sizeof(real) * volume * app->dim);
+	fluxBuffer = cl.alloc(sizeof(real) * numStates() * volume * app->dim);
+	pressureBuffer = cl.alloc(sizeof(real) * volume);
 
-	commands.enqueueFillBuffer(interfaceVelocityBuffer, 0.f, 0, sizeof(real) * volume * app->dim);
-	commands.enqueueFillBuffer(interfaceMagneticFieldBuffer, 0.f, 0, sizeof(real) * volume * app->dim);
-	commands.enqueueFillBuffer(fluxBuffer, 0.f, 0, sizeof(real) * numStates() * volume * app->dim);
+	cl.zero(interfaceVelocityBuffer, volume * app->dim);
+	cl.zero(interfaceMagneticFieldBuffer, volume * app->dim);
+	cl.zero(fluxBuffer, numStates() * volume * app->dim);
 
 	calcCellTimestepKernel = cl::Kernel(program, "calcCellTimestep");
 	CLCommon::setArgs(calcCellTimestepKernel, dtBuffer, stateBuffer, selfgrav->potentialBuffer);

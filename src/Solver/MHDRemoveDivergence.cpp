@@ -15,9 +15,9 @@ void MHDRemoveDivergence::init() {
 	
 	int volume = solver->getVolume();
 	
-	magneticFieldDivergenceBuffer = solver->clAlloc(sizeof(real) * volume);
-	magneticFieldPotentialBuffer = solver->clAlloc(sizeof(real) * volume);
-	magneticFieldPotential2Buffer = solver->clAlloc(sizeof(real) * volume);
+	magneticFieldDivergenceBuffer = solver->cl.alloc(sizeof(real) * volume);
+	magneticFieldPotentialBuffer = solver->cl.alloc(sizeof(real) * volume);
+	magneticFieldPotential2Buffer = solver->cl.alloc(sizeof(real) * volume);
 
 	calcMagneticFieldDivergenceKernel = cl::Kernel(program, "calcMagneticFieldDivergence");
 	CLCommon::setArgs(calcMagneticFieldDivergenceKernel, magneticFieldDivergenceBuffer, solver->stateBuffer);
@@ -50,7 +50,7 @@ void MHDRemoveDivergence::update() {
 	boundary(magneticFieldDivergenceBuffer);	//boundary to magnetic field potential buffer
 
 	//poisson relax divergence into potential buffer
-	commands.enqueueFillBuffer(magneticFieldPotentialBuffer, 0.f, 0, sizeof(real) * volume);
+	solver->cl.zero(magneticFieldPotentialBuffer, volume);
 	for (int i = 0; i < solver->app->gaussSeidelMaxIter; ++i) {
 		magneticPotentialPoissonRelaxKernel.setArg(0, magneticFieldPotential2Buffer);
 		magneticPotentialPoissonRelaxKernel.setArg(1, magneticFieldPotentialBuffer);

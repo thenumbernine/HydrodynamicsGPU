@@ -52,8 +52,6 @@ public:	//protected:
 	cl::NDRange offset1d;
 	cl::NDRange offsetNd;
 
-	size_t totalAlloc;
-
 	int frame;
 
 public:
@@ -74,9 +72,7 @@ protected:
 	virtual void initKernels();
 public:
 	int numStates();	//shorthand
-	int getVolume();
-	
-	cl::Buffer clAlloc(size_t size, const std::string& name = std::string());
+	int getVolume();	
 protected:
 	virtual real findMinTimestep();
 public:
@@ -134,6 +130,20 @@ protected:
 public:
 	virtual void save();
 
+	//so AMD sucks
+	//enqueueFillBuffer is broken on my card.  a simple test case can show this.
+	//to work around it I have a separate kernel to do that task.
+	//On a separate note, maybe put the offset1d and localSize1d ranges in a separate object, along with this function?
+	struct CL {
+		CL(Solver* solver_);
+		void initKernels();
+		void zero(cl::Buffer buffer, size_t sizeInReals);
+		cl::Buffer alloc(size_t size, const std::string& name = std::string());
+	//protected:	
+		Solver* solver;
+		cl::Kernel zeroKernel;
+		size_t totalAlloc;
+	} cl;
 };
 
 }

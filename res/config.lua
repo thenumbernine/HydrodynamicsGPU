@@ -3,25 +3,7 @@ package.path = '?.lua;?/?.lua'
 require 'util'	--holds helper functions
 local configurations = require 'configurations'	--holds catalog of configurations
 
-
-	-- solver variables
-
-
---solverName = 'EulerBurgers'
---solverName = 'EulerHLL'		-- needs slope limiter support
---solverName = 'EulerHLLC'		-- needs slope limiter support
-solverName = 'EulerRoe'			-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
---solverName = 'SRHDRoe'		-- not yet
---solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
---solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
---solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
---solverName = 'MaxwellRoe'		-- Roe solver based on Trangenstein's Maxwell equations hyperbolic formalism
---solverName = 'ADM1DRoe'			-- Bona-Masso based on "The Appearance of Coordinate Shocks in Hyperbolic Formalisms of General Relativity" by Alcubierre, 1997 
---solverName = 'ADM2DSpherical'	-- not yet
---solverName = 'ADM3DRoe'		-- same as ADM1DRoe but for 3D 
---solverName = 'BSSNOKRoe'		-- not yet.  TODO copy from the gravitation wave sim project, but that BSSNOK+Roe solver isn't as accurate as it should be
--- TODO ImplicitIncompressibleNavierStokes	<- from my GPU fluid sim Lua+GLSL project
---solverName = 'BSSNOKFiniteDifference'	-- doing the bare minimum to consider this a solver.  I could use this to make a coefficient matrix (application function) and, from there, make the implicit solver.
+-- solver variables
 
 --slopeLimiterName = 'DonorCell'
 --slopeLimiterName = 'LaxWendroff'
@@ -44,11 +26,9 @@ solverName = 'EulerRoe'			-- fails on Colella-Woodward 2-wave problem, but works
 slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
--- TODO AMD card has trouble with RK4
 integratorName = 'ForwardEuler'
 --integratorName = 'RungeKutta4'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
-
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
 maxFrames = nil			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
@@ -104,10 +84,18 @@ size = {1024}
 heatMapColorScale = .25
 --]]
 
+
 camera = {}
 
 
 --[[ Euler
+
+-- uncomment one:
+--solverName = 'EulerBurgers'
+--solverName = 'EulerHLL'		-- needs slope limiter support
+--solverName = 'EulerHLLC'		-- needs slope limiter support
+solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
+--solverName = 'SRHDRoe'		-- not yet
 
 -- override solids:
 
@@ -125,18 +113,15 @@ end
 --]=]
 
 --[=[ arbitrary
--- hmm ... loading images from Lua ...
--- 1) provide a filename, but that means interjecting it into the resetState() converter code, which is a long way to carry it ... maybe not ...
--- 2) Lua image loading libraries.  the current one depends on FFI.  the LuaCxx binding based ones are having link location problems ...
--- 3) Lua image loading libraries in pure LuaJIT.  This forces us to only build this against LuaJIT though ...
--- 4) ... if someone would make the ffi library for the original Lua (without FFI) that would fix 3)
 function calcSolid(x,y,z)
 	if x > -.275 and x < -.225 and y > -.4 and y < .4 then
 		return 1
 	end
 end
 --]=]
+--[=[ loading images from Lua ...
 --solidFilename = 'test-solid.png'
+--]=]
 
 configurations['Sod']()
 --configurations['Sphere']()
@@ -154,6 +139,11 @@ configurations['Sod']()
 --]]
 
 --[[ MHD
+
+--solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
+--solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
+--solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
+
 solverName = 'MHDRoe'
 --configurations['Sod']()
 configurations['Brio-Wu']()
@@ -168,6 +158,10 @@ configurations['Maxwell-1']()
 
 --[[ ADM (1D)
 solverName = 'ADM1DRoe'
+--solverName = 'BSSNOKRoe'		-- not yet.  TODO copy from the gravitation wave sim project, but that BSSNOK+Roe solver isn't as accurate as it should be
+-- TODO ImplicitIncompressibleNavierStokes	<- from my GPU fluid sim Lua+GLSL project
+--solverName = 'BSSNOKFiniteDifference'	-- doing the bare minimum to consider this a solver.  I could use this to make a coefficient matrix (application function) and, from there, make the implicit solver.
+
 size = {1024}
 heatMapColorScale = 128
 configurations['NR Gauge Shock Waves']{unitDomain=false}
@@ -175,6 +169,11 @@ boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEF
 heatMapVariable = 'ALPHA'
 camera.zoom = 1/300
 camera.pos = {150,150}
+--]]
+
+--[[ ADM 2D Spherical
+solverName = 'ADM2DSpherical'	-- not yet
+-- no test cases yet?
 --]]
 
 -- [[ ADM (3D)

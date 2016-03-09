@@ -52,38 +52,38 @@ void calcEigenvaluesSide(
 	//if they could be stored somewhere, that might speed things up, but would take up a bit more memory
 
 	real densityL = stateL[STATE_DENSITY];
-	real invDensityL = 1.f / densityL;
+	real invDensityL = 1. / densityL;
 	real4 velocityL = VELOCITY(stateL);
 	real velocitySqL = dot(velocityL, velocityL);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
-	real energyKineticL = .5f * velocitySqL;
+	real energyKineticL = .5 * velocitySqL;
 	real energyPotentialL = potentialBuffer[indexPrev];
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
-	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
+	real pressureL = (gamma - 1.) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
-	real speedOfSoundL = sqrt((gamma - 1.f) * (enthalpyTotalL - .5f * velocitySqL));
+	real speedOfSoundL = sqrt((gamma - 1.) * (enthalpyTotalL - .5 * velocitySqL));
 	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
-	real invDensityR = 1.f / densityR;
+	real invDensityR = 1. / densityR;
 	real4 velocityR = VELOCITY(stateR);
 	real velocitySqR = dot(velocityR, velocityR);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
-	real energyKineticR = .5f * velocitySqR;
+	real energyKineticR = .5 * velocitySqR;
 	real energyPotentialR = potentialBuffer[index];
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
-	real pressureR = (gamma - 1.f) * densityR * energyInternalR;
+	real pressureR = (gamma - 1.) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
-	real speedOfSoundR = sqrt((gamma - 1.f) * (enthalpyTotalR - .5f * velocitySqR));
+	real speedOfSoundR = sqrt((gamma - 1.) * (enthalpyTotalR - .5 * velocitySqR));
 	real roeWeightR = sqrt(densityR);
 	
-	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
+	real roeWeightNormalization = 1. / (roeWeightL + roeWeightR);
 	real4 velocity = (roeWeightL * velocityL + roeWeightR * velocityR) * roeWeightNormalization;
 	real enthalpyTotal = (roeWeightL * enthalpyTotalL + roeWeightR * enthalpyTotalR) * roeWeightNormalization;
 	real energyPotential = (roeWeightL * energyPotentialL + roeWeightR * energyPotentialR) * roeWeightNormalization; 
 	
 	real velocitySq = dot(velocity, velocity);
-	real speedOfSound = sqrt((gamma - 1.f) * (enthalpyTotal - .5f * velocitySq - energyPotential));
+	real speedOfSound = sqrt((gamma - 1.) * (enthalpyTotal - .5 * velocitySq - energyPotential));
 
 	//eigenvalues
 
@@ -162,8 +162,8 @@ __kernel void calcCellTimestep(
 		const __global real* eigenvaluesL = eigenvaluesBuffer + NUM_STATES * (side + DIM * index);
 		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexNext);
 		
-		real minLambda = min(0.f, eigenvaluesR[0]);
-		real maxLambda = max(0.f, eigenvaluesL[DIM+1]);
+		real minLambda = min(0., eigenvaluesR[0]);
+		real maxLambda = max(0., eigenvaluesL[DIM+1]);
 		
 		real dum = dx[side] / (maxLambda - minLambda);
 		result = min(result, dum);
@@ -221,25 +221,25 @@ void calcFluxSide(
 	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
 
 	real densityL = stateL[STATE_DENSITY];
-	real invDensityL = 1.f / densityL;
+	real invDensityL = 1. / densityL;
 	real4 velocityL = VELOCITY(stateL);
 	real velocitySqL = dot(velocityL, velocityL);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
-	real energyKineticL = .5f * velocitySqL;
+	real energyKineticL = .5 * velocitySqL;
 	real energyPotentialL = potentialBuffer[indexPrev];
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
-	real pressureL = (gamma - 1.f) * densityL * energyInternalL;
+	real pressureL = (gamma - 1.) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
 
 	real densityR = stateR[STATE_DENSITY];
-	real invDensityR = 1.f / densityR;
+	real invDensityR = 1. / densityR;
 	real4 velocityR = VELOCITY(stateR);
 	real velocitySqR = dot(velocityR, velocityR);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
-	real energyKineticR = .5f * velocitySqR;
+	real energyKineticR = .5 * velocitySqR;
 	real energyPotentialR = potentialBuffer[index];
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
-	real pressureR = (gamma - 1.f) * densityR * energyInternalR;
+	real pressureR = (gamma - 1.) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
 	
 	real sl = eigenvalues[0];
@@ -270,17 +270,17 @@ void calcFluxSide(
 	fluxR[DIM+1] = densityR * enthalpyTotalR * velocityR.x;	
 
 	//HLL-specific
-	if (0.f <= sl) {
+	if (0. <= sl) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxL[i];
 		}
-	} else if (sl <= 0.f && 0.f <= sr) {
+	} else if (sl <= 0. && 0. <= sr) {
 		//(sr * fluxL[j] - sl * fluxR[j] + sl * sr * (stateR[j] - stateL[j])) / (sr - sl)
-		real invDenom = 1.f / (sr - sl);
+		real invDenom = 1. / (sr - sl);
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = (sr * fluxL[i] - sl * fluxR[i] + sl * sr * (stateR[i] - stateL[i])) * invDenom; 
 		}
-	} else if (sr <= 0.f) {
+	} else if (sr <= 0.) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			flux[i] = fluxR[i];
 		}
@@ -319,16 +319,16 @@ or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, ch
 		real deltaQ = stateR[i] - stateL[i];
 		real rTilde = deltaFlux / deltaQ;
 		real theta;
-		if (eigenvalue >= 0.f) {
-			theta = 1.f;
+		if (eigenvalue >= 0.) {
+			theta = 1.;
 			//rTilde = (stateMid - stateL[i]) / deltaQ;
 		} else {
-			theta = -1.f;
+			theta = -1.;
 			//rTilde = (stateR[i] - stateMid) / deltaQ;
 		}
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
-		flux[i] -= .5f * deltaFlux * (theta + phi * (epsilon - theta) / (float)DIM);
+		flux[i] -= .5 * deltaFlux * (theta + phi * (epsilon - theta) / (real)DIM);
 	}
 #endif
 

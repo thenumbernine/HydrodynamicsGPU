@@ -46,4 +46,3 @@ void MaxwellRoe::step(real dt) {
 
 }
 }
-

@@ -29,7 +29,7 @@ have dug through
 
 __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
+	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	int side,
 	const __global real* potentialBuffer,
@@ -55,7 +55,7 @@ __kernel void calcEigenBasisSide(
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	__global real* eigenvectorsInverse = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 	
 	const real gammaMinusOne = gamma - 1.f;
@@ -690,7 +690,7 @@ __kernel void calcMHDFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* eigenvaluesBuffer,
-	const __global real* eigenfieldsBuffer,
+	const __global real* eigenvectorsBuffer,
 	const __global real* deltaQTildeBuffer,
 	real dt,
 	int side,
@@ -708,7 +708,7 @@ __kernel void calcMHDFlux(
 		fluxBuffer,
 		stateBuffer,
 		eigenvaluesBuffer,
-		eigenfieldsBuffer,
+		eigenvectorsBuffer,
 		deltaQTildeBuffer,
 		dt,
 		side

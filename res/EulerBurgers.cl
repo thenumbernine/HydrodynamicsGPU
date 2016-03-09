@@ -60,11 +60,11 @@ __kernel void calcCellTimestep(
 #endif
 
 	real specificEnergyTotal = energyTotal / density;
-	real specificEnergyKinetic = .5f * velocitySq;
+	real specificEnergyKinetic = .5 * velocitySq;
 	real specificEnergyPotential = potentialBuffer[index];
 	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
 
-	real speedOfSound = sqrt(gamma * (gamma - 1.f) * specificEnergyInternal);
+	real speedOfSound = sqrt(gamma * (gamma - 1.) * specificEnergyInternal);
 	real result = DX / (speedOfSound + fabs(velocityX));
 #if DIM > 1
 	result = min(result, DY / (speedOfSound + fabs(velocityY)));
@@ -114,7 +114,7 @@ __kernel void calcInterfaceVelocity(
 	}
 #endif
 
-	interfaceVelocityBuffer[index] = .5f * (velocityL + velocityR);
+	interfaceVelocityBuffer[index] = .5 * (velocityL + velocityR);
 }
 
 __kernel void calcFlux(
@@ -208,18 +208,18 @@ __kernel void calcFlux(
 		//...but writing it out explicitly works fine
 		real theta;
 		real stateSlopeRatio;
-		if (interfaceVelocity >= 0.f) {
-			theta = 1.f;
+		if (interfaceVelocity >= 0.) {
+			theta = 1.;
 			stateSlopeRatio = deltaStateL / deltaState;
 		} else {
-			theta = -1.f;
+			theta = -1.;
 			stateSlopeRatio = deltaStateR / deltaState;
 		}
 		//2nd order stuff:
 		real phi = slopeLimiter(stateSlopeRatio);
 		
-		flux[j] = .5f * interfaceVelocity * ((1.f + theta) * stateL + (1.f - theta) * stateR)
-				+ .5f * deltaState * phi * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side]));
+		flux[j] = .5 * interfaceVelocity * ((1. + theta) * stateL + (1. - theta) * stateR)
+				+ .5 * deltaState * phi * fabs(interfaceVelocity) * (1. - fabs(interfaceVelocity * dt_dx[side]));
 		//		/ (real)DIM;	//this wasn't in the Hydrodynamics II papers, but it seems to help.  there is some error with splitting higher dimensions.
 	}
 }
@@ -306,10 +306,10 @@ __kernel void computePressure(
 #endif
 
 	real specificEnergyTotal = energyTotal / density;
-	real specificEnergyKinetic = .5f * velocitySq;
+	real specificEnergyKinetic = .5 * velocitySq;
 	real specificEnergyPotential = potentialBuffer[index];
 	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
-	real pressure = (gamma - 1.f) * density * specificEnergyInternal;
+	real pressure = (gamma - 1.) * density * specificEnergyInternal;
 
 #ifdef USE_VON_NEUMANN_RICHTMYER_ARTIFICIAL_VISCOSITY
 	//TODO I broke something
@@ -327,8 +327,8 @@ __kernel void computePressure(
 	deltaVelocitySq += deltaVelocityZ * deltaVelocityZ; 
 #endif
 #endif
-	const float ZETA = 2.f;
-	pressure += .25f * ZETA * ZETA * density * deltaVelocitySq;
+	const real ZETA = 2.;
+	pressure += .25 * ZETA * ZETA * density * deltaVelocitySq;
 #endif	//USE_VON_NEUMANN_RICHTMYER_ARTIFICIAL_VISCOSITY
 
 	pressureBuffer[index] = pressure;
@@ -371,7 +371,7 @@ __kernel void diffuseMomentum(
 	if (solidBuffer[index - STEP_X]) pressureL = pressureBuffer[index];
 	if (solidBuffer[index + STEP_X]) pressureR = pressureBuffer[index];
 #endif
-	deriv[STATE_MOMENTUM_X] -= .5f * (pressureR - pressureL) / DX;
+	deriv[STATE_MOMENTUM_X] -= .5 * (pressureR - pressureL) / DX;
 
 #if DIM > 1
 	pressureL = pressureBuffer[index - STEP_Y];
@@ -380,7 +380,7 @@ __kernel void diffuseMomentum(
 	if (solidBuffer[index - STEP_Y]) pressureL = pressureBuffer[index];
 	if (solidBuffer[index + STEP_Y]) pressureR = pressureBuffer[index];
 #endif
-	deriv[STATE_MOMENTUM_Y] -= .5f * (pressureR - pressureL) / DY;
+	deriv[STATE_MOMENTUM_Y] -= .5 * (pressureR - pressureL) / DY;
 
 #if DIM > 2
 	pressureL = pressureBuffer[index - STEP_Z];
@@ -389,7 +389,7 @@ __kernel void diffuseMomentum(
 	if (solidBuffer[index - STEP_Z]) pressureL = pressureBuffer[index];
 	if (solidBuffer[index + STEP_Z]) pressureR = pressureBuffer[index];
 #endif
-	deriv[STATE_MOMENTUM_Z] -= .5f * (pressureR - pressureL) / DZ;
+	deriv[STATE_MOMENTUM_Z] -= .5 * (pressureR - pressureL) / DZ;
 #endif
 #endif
 }
@@ -424,7 +424,7 @@ __kernel void diffuseWork(
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
 	real velocityL, velocityR, pressureL, pressureR;
-	real deltaEnergyTotal = 0.f;
+	real deltaEnergyTotal = 0.;
 
 	velocityL = stateBuffer[STATE_MOMENTUM_X + NUM_STATES * (index-STEP_X)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_X)];
 	velocityR = stateBuffer[STATE_MOMENTUM_X + NUM_STATES * (index+STEP_X)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index+STEP_X)];
@@ -436,7 +436,7 @@ __kernel void diffuseWork(
 	if (solidBuffer[index-STEP_X]) pressureL = pressureBuffer[index];
 	if (solidBuffer[index+STEP_X]) pressureR = pressureBuffer[index];
 #endif
-	deltaEnergyTotal -= .5f * (pressureR * velocityR - pressureL * velocityL) / DX;
+	deltaEnergyTotal -= .5 * (pressureR * velocityR - pressureL * velocityL) / DX;
 
 #if DIM > 1
 	velocityL = stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * (index-STEP_Y)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_Y)];
@@ -449,7 +449,7 @@ __kernel void diffuseWork(
 	if (solidBuffer[index-STEP_Y]) pressureL = pressureBuffer[index];
 	if (solidBuffer[index+STEP_Y]) pressureR = pressureBuffer[index];
 #endif
-	deltaEnergyTotal -= .5f * (pressureR * velocityR - pressureL * velocityL) / DY;
+	deltaEnergyTotal -= .5 * (pressureR * velocityR - pressureL * velocityL) / DY;
 
 #if DIM > 2
 	velocityL = stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * (index-STEP_Z)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_Z)];
@@ -462,7 +462,7 @@ __kernel void diffuseWork(
 	if (solidBuffer[index-STEP_Z]) pressureL = pressureBuffer[index];
 	if (solidBuffer[index+STEP_Z]) pressureR = pressureBuffer[index];
 #endif
-	deltaEnergyTotal -= .5f * (pressureR * velocityR - pressureL * velocityL) / DZ;
+	deltaEnergyTotal -= .5 * (pressureR * velocityR - pressureL * velocityL) / DZ;
 
 #endif
 #endif

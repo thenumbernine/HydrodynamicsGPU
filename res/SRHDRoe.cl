@@ -7,7 +7,7 @@ paritcularly the spectral decomposition
 
 __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
+	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	int side,
 	const __global real* primitiveBuffer,
@@ -34,8 +34,8 @@ __kernel void calcEigenBasisSide(
 	const __global real* primitiveR = primitiveBuffer + NUM_PRIMITIVE * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
-	__global real* eigenvectors = eigenvectors + NUM_STATES * NUM_STATES;
+	__global real* eigenvectorsInverse = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 
 	real properRestMassDensityL = primitiveL[PRIMITIVE_DENSITY];	//rho
 	real restMassDensityL = stateL[STATE_REST_MASS_DENSITY];	//D

@@ -15,7 +15,7 @@ protected:
 	typedef Solver Super;
 
 	cl::Buffer eigenvaluesBuffer;
-	cl::Buffer eigenfieldsBuffer;	//contains forward and inverse transform information
+	cl::Buffer eigenvectorsBuffer;	//contains forward and inverse transform information
 	cl::Buffer deltaQTildeBuffer;
 	cl::Buffer fluxBuffer;
 	

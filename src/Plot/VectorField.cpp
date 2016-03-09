@@ -23,7 +23,7 @@ VectorField::VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_)
 	}
 	vectorFieldVertexCount = 3 * 6 * vectorFieldVolume;
 	glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(real) * vectorFieldVertexCount, nullptr, GL_DYNAMIC_DRAW_ARB);
-	solver->totalAlloc += sizeof(real) * vectorFieldVertexCount;
+	solver->cl.totalAlloc += sizeof(real) * vectorFieldVertexCount;
 	glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
 	//create CL interop
 	vectorFieldVertexBuffer = cl::BufferGL(solver->app->clCommon->context, CL_MEM_READ_WRITE, vectorFieldGLBuffer);

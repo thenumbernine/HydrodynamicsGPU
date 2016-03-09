@@ -10,11 +10,11 @@ RungeKutta4::RungeKutta4(HydroGPU::Solver::Solver* solver)
 {
 	int volume = solver->getVolume();
 
-	restoreBuffer = solver->clAlloc(sizeof(real) * solver->numStates() * volume, "RungeKutta4::restoreBuffer");
-	deriv1Buffer = solver->clAlloc(sizeof(real) * solver->numStates() * volume, "RungeKutta4::deriv1Buffer");
-	deriv2Buffer = solver->clAlloc(sizeof(real) * solver->numStates() * volume, "RungeKutta4::deriv2Buffer");
-	deriv3Buffer = solver->clAlloc(sizeof(real) * solver->numStates() * volume, "RungeKutta4::deriv3Buffer");
-	deriv4Buffer = solver->clAlloc(sizeof(real) * solver->numStates() * volume, "RungeKutta4::deriv4Buffer");
+	restoreBuffer = solver->cl.alloc(sizeof(real) * solver->numStates() * volume, "RungeKutta4::restoreBuffer");
+	deriv1Buffer = solver->cl.alloc(sizeof(real) * solver->numStates() * volume, "RungeKutta4::deriv1Buffer");
+	deriv2Buffer = solver->cl.alloc(sizeof(real) * solver->numStates() * volume, "RungeKutta4::deriv2Buffer");
+	deriv3Buffer = solver->cl.alloc(sizeof(real) * solver->numStates() * volume, "RungeKutta4::deriv3Buffer");
+	deriv4Buffer = solver->cl.alloc(sizeof(real) * solver->numStates() * volume, "RungeKutta4::deriv4Buffer");
 
 	//put this in parent class of ForwardEuler and RungeKutta4?
 	multAddKernel = cl::Kernel(solver->program, "multAdd");
@@ -30,7 +30,7 @@ void RungeKutta4::integrate(real dt, std::function<void(cl::Buffer)> callback) {
 	//store backup
 	solver->commands.enqueueCopyBuffer(solver->stateBuffer, restoreBuffer, 0, 0, bufferSize);
 	
-	solver->commands.enqueueFillBuffer(deriv1Buffer, 0.f, 0, bufferSize);
+	solver->cl.zero(deriv1Buffer, length);
 	callback(deriv1Buffer);
 	
 	//integrate by dt/2 along deriv1
@@ -38,7 +38,7 @@ void RungeKutta4::integrate(real dt, std::function<void(cl::Buffer)> callback) {
 	multAddKernel.setArg(3, .5f * dt);
 	solver->commands.enqueueNDRangeKernel(multAddKernel, solver->offset1d, globalSize1d, solver->localSize1d);
 	
-	solver->commands.enqueueFillBuffer(deriv2Buffer, 0.f, 0, bufferSize);
+	solver->cl.zero(deriv2Buffer, length);
 	callback(deriv2Buffer);
 	
 	//restore backup
@@ -49,7 +49,7 @@ void RungeKutta4::integrate(real dt, std::function<void(cl::Buffer)> callback) {
 	multAddKernel.setArg(3, .5f * dt);
 	solver->commands.enqueueNDRangeKernel(multAddKernel, solver->offset1d, globalSize1d, solver->localSize1d);
 	
-	solver->commands.enqueueFillBuffer(deriv3Buffer, 0.f, 0, bufferSize);
+	solver->cl.zero(deriv3Buffer, length);
 	callback(deriv3Buffer);
 	
 	//restore backup
@@ -60,7 +60,7 @@ void RungeKutta4::integrate(real dt, std::function<void(cl::Buffer)> callback) {
 	multAddKernel.setArg(3, .5f * dt);
 	solver->commands.enqueueNDRangeKernel(multAddKernel, solver->offset1d, globalSize1d, solver->localSize1d);
 	
-	solver->commands.enqueueFillBuffer(deriv4Buffer, 0.f, 0, bufferSize);
+	solver->cl.zero(deriv4Buffer, length);
 	callback(deriv4Buffer);
 	
 	//restore backup

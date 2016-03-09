@@ -32,8 +32,8 @@ Plot1D2D::Plot1D2D(HydroGPU::HydroGPUApp* app_)
 		}
 	}
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app->size.s[0], app->size.s[1], 0, GL_RGBA, GL_FLOAT, nullptr);
-	app->solver->totalAlloc += sizeof(float) * 4 * volume;
-	std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << app->solver->totalAlloc << std::endl;
+	app->solver->cl.totalAlloc += sizeof(float) * 4 * volume;
+	std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << app->solver->cl.totalAlloc << std::endl;
 	glBindTexture(GL_TEXTURE_2D, 0);
 	int err = glGetError();
 	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;

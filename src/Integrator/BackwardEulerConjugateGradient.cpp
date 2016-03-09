@@ -41,11 +41,11 @@ x is the result
 BackwardEulerConjugateGradient::BackwardEulerConjugateGradient(HydroGPU::Solver::Solver* solver) 
 : Super(solver)
 {
-	rBuffer = solver->clAlloc(sizeof(real) * solver->numStates() * solver->getVolume(), "BackwardEulerConjugateGradient::derivBuffer");
-	pBuffer = solver->clAlloc(sizeof(real) * solver->numStates() * solver->getVolume(), "BackwardEulerConjugateGradient::derivBuffer");
-	ApBuffer = solver->clAlloc(sizeof(real) * solver->numStates() * solver->getVolume(), "BackwardEulerConjugateGradient::derivBuffer");
+	rBuffer = solver->cl.alloc(sizeof(real) * solver->numStates() * solver->getVolume(), "BackwardEulerConjugateGradient::derivBuffer");
+	pBuffer = solver->cl.alloc(sizeof(real) * solver->numStates() * solver->getVolume(), "BackwardEulerConjugateGradient::derivBuffer");
+	ApBuffer = solver->cl.alloc(sizeof(real) * solver->numStates() * solver->getVolume(), "BackwardEulerConjugateGradient::derivBuffer");
 
-	scratchScalarBuffer = solver->clAlloc(sizeof(real));
+	scratchScalarBuffer = solver->cl.alloc(sizeof(real));
 	
 	multAddKernel = cl::Kernel(solver->program, "multAdd");
 

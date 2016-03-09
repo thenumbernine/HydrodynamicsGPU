@@ -13,7 +13,7 @@ using the following:
 
 void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
+	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
 	__global real* fluxBuffer,
@@ -22,7 +22,7 @@ void calcEigenBasisSide(
 
 void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
+	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
 	__global real* fluxBuffer,
@@ -39,7 +39,7 @@ void calcEigenBasisSide(
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
 
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	__global real* eigenvectorsInverse = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 
 	const real gammaMinusOne = gamma - 1.f;
@@ -189,7 +189,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		W = (tau, ux, uy, uz, By, Bz, p)'
 		U = (rho, rho*ux, rho*uy, rho*uz, By, Bz, rho*E)'
 		tau = 1 / rho
-		rho * E = 1/2 * rho * uSq + p / (%gamma - 1) + BTSq / (8 * pi)		<- NOTICE that E is defined in terms of BTSq = By^2 + Bz^2, which means we have to refactor out the normal magnetic field from total energy every time the eigenfield transform is made
+		rho * E = 1/2 * rho * uSq + p / (%gamma - 1) + BTSq / (8 * pi)		<- NOTICE that E is defined in terms of BTSq = By^2 + Bz^2, which means we have to refactor out the normal magnetic field from total energy every time the eigenvector transform is made
 
 		gives
 		U = (1/tau, ux/tau, uy/tau, uz/tau, By, Bz, ((4*%gamma−4)*pi*uz^2+(4*%gamma−4)*pi*uy^2+(4*%gamma−4)*pi*ux^2+(8*p*pi+(%gamma−1)*By^2+(%gamma−1)*Bx^2)*tau)/((8*%gamma−8)*pi*tau))'
@@ -697,7 +697,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 
 __kernel void calcEigenBasis(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
+	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
 	__global real* fluxBuffer,
@@ -713,12 +713,12 @@ __kernel void calcEigenBasis(
 #endif
 	) return;
 
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, fluxBuffer, fluxFlagBuffer, 0);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, potentialBuffer, fluxBuffer, fluxFlagBuffer, 0);
 #if DIM > 1
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, fluxBuffer, fluxFlagBuffer, 1);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, potentialBuffer, fluxBuffer, fluxFlagBuffer, 1);
 #endif
 #if DIM > 2
-	calcEigenBasisSide(eigenvaluesBuffer, eigenfieldsBuffer, stateBuffer, potentialBuffer, fluxBuffer, fluxFlagBuffer, 2);
+	calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, potentialBuffer, fluxBuffer, fluxFlagBuffer, 2);
 #endif
 }
 
@@ -727,7 +727,7 @@ __kernel void calcMHDFlux(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* eigenvaluesBuffer,
-	const __global real* eigenfieldsBuffer,
+	const __global real* eigenvectorsBuffer,
 	const __global real* deltaQTildeBuffer,
 	const __global real* dtBuffer,
 	const __global char* fluxFlagBuffer)
@@ -746,16 +746,16 @@ __kernel void calcMHDFlux(
 
 	int index = INDEXV(i);
 	if (!fluxFlagBuffer[0 + DIM * index]) {
-		calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DX, 0);
+		calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, deltaQTildeBuffer, dt / DX, 0);
 	}
 #if DIM > 1
 	if (!fluxFlagBuffer[1 + DIM * index]) {
-		calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DY, 1);
+		calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, deltaQTildeBuffer, dt / DY, 1);
 	}
 #endif
 #if DIM > 2
 	if (!fluxFlagBuffer[2 + DIM * index]) {
-		calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenfieldsBuffer, deltaQTildeBuffer, dt / DZ, 2);
+		calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, deltaQTildeBuffer, dt / DZ, 2);
 	}
 #endif
 }

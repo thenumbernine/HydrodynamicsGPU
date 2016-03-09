@@ -12,17 +12,35 @@
 namespace HydroGPU {
 namespace Solver {
 
-cl::Buffer Solver::clAlloc(size_t size, const std::string& name) {
+Solver::CL::CL(Solver* solver_)
+: solver(solver_)
+, totalAlloc(0)
+{}
+
+void Solver::CL::initKernels() {
+	zeroKernel = cl::Kernel(solver->program, "zero");
+}
+
+void Solver::CL::zero(cl::Buffer buffer, size_t sizeInReals) {
+#ifndef AMD_SUCKS
+	solver->commands.enqueueFillBuffer(buffer, 0.f, 0, sizeof(real) * sizeInReals);
+#else	//because 'enqueueFillBuffer' is not working ... ???!!!!
+	zeroKernel.setArg(0, buffer);
+	solver->commands.enqueueNDRangeKernel(zeroKernel, solver->offset1d, cl::NDRange(sizeInReals), solver->localSize1d);
+#endif
+}
+
+cl::Buffer Solver::CL::alloc(size_t size, const std::string& name) {
 	totalAlloc += size;
 	std::cout << "allocating gpu mem " << name << " size " << size << " running total " << totalAlloc << std::endl; 
-	return cl::Buffer(app->clCommon->context, CL_MEM_READ_WRITE, size);
+	return cl::Buffer(solver->app->clCommon->context, CL_MEM_READ_WRITE, size);
 }
 
 Solver::Solver(HydroGPUApp* app_)
 : app(app_)
 , commands(app->clCommon->commands)
-, totalAlloc(0)
 , frame(0)
+, cl(this)
 {
 }
 
@@ -141,9 +159,12 @@ OR I could just have the debug printfs also output their thread ID and filter al
 
 		Common::File::write("program.cl.bin", std::string(&binary[0], binary.size()));
 	}
+	
+	cl.initKernels();
 
 	initBuffers();
 	initKernels();
+
 
 	//create integrator
 	std::string integratorName = "ForwardEuler";
@@ -164,10 +185,10 @@ void Solver::initBuffers() {
 	int volume = getVolume();
 
 	//not necessary for fixed timestep.  TODO don't allocate in that case.
-	dtBuffer = clAlloc(sizeof(real) * volume, "Solver::dtBuffer");
-	dtSwapBuffer = clAlloc(sizeof(real) * volume / localSize[0], "Solver::dtSwapBuffer");
+	dtBuffer = cl.alloc(sizeof(real) * volume, "Solver::dtBuffer");
+	dtSwapBuffer = cl.alloc(sizeof(real) * volume / localSize[0], "Solver::dtSwapBuffer");
 	
-	stateBuffer = clAlloc(sizeof(real) * numStates() * volume, "Solver::stateBuffer");
+	stateBuffer = cl.alloc(sizeof(real) * numStates() * volume, "Solver::stateBuffer");
 	
 	//get the edges, so reduction doesn't
 	{
@@ -509,4 +530,3 @@ void Solver::save() {
 
 }
 }
-

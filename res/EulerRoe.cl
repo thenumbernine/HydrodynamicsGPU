@@ -7,7 +7,7 @@ paritcularly the spectral decomposition
 
 __kernel void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
-	__global real* eigenfieldsBuffer,
+	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	int side,
 	const __global real* potentialBuffer,
@@ -30,7 +30,7 @@ __kernel void calcEigenBasisSide(
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * index;
-	__global real* eigenvectorsInverse = eigenfieldsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * index;
+	__global real* eigenvectorsInverse = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * index;
 	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 
 	char solidL = solidBuffer[indexPrev];

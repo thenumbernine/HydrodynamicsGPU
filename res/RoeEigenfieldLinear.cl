@@ -1,11 +1,11 @@
 #include "HydroGPU/Roe.h"
 
 /*
-default implementation assumes eigenfield are inverse eigenvector matrices
+default implementation assumes eigenvector are inverse eigenvector matrices
 and EIGEN_TRANSFORM_STRUCT_SIZE == 2 * NUM_STATES
 */
 #if EIGEN_TRANSFORM_STRUCT_SIZE != 2 * NUM_STATES * NUM_STATES
-#error expected eignfields to be square matrices size of NUM_STATES
+#error expected eignvectors to be square matrices size of NUM_STATES
 #endif
 
 //c_i = a_ij b_j
@@ -50,23 +50,22 @@ void stateMatrixTransformGG_(
 	}
 }
 
-// eigenfield functions
+// eigenvector functions
 
-void eigenfieldTransform(
+void leftEigenvectorTransform(
 	real* results,
-	const __global real* eigenfield,
+	const __global real* eigenvector,
 	const real* input,
 	int side)
 {
-	stateMatrixTransform_G_(results, eigenfield, input);
+	stateMatrixTransform_G_(results, eigenvector, input);
 }
 
-void eigenfieldInverseTransform(
+void rightEigenvectorTransform(
 	__global real* results,
-	const __global real* eigenfield,
+	const __global real* eigenvector,
 	const real* input,
 	int side)
 {
-	stateMatrixTransformGG_(results, eigenfield + NUM_STATES * NUM_STATES, input);
+	stateMatrixTransformGG_(results, eigenvector + NUM_STATES * NUM_STATES, input);
 }
-
