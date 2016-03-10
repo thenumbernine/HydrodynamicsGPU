@@ -25,12 +25,20 @@ std::vector<std::string> ADM3DRoe::getProgramSources() {
 	return sources;
 }
 
+std::vector<std::string> ADM3DRoe::getRoeFluxDerivProgramSources() {
+	return {};
+}
+
 std::vector<std::string> ADM3DRoe::getEigenProgramSources() {
 	return {};
 }
 
 int ADM3DRoe::getEigenTransformStructSize() {
 	return numStates() + 6 + 1 + 1;	//states, gInv, g, f
+}
+
+int ADM3DRoe::getEigenSpaceDim() {
+	return 30;	//37 state variables, but skip the first 7 (which only have source terms and which aren't used in any eigenfields)
 }
 
 void ADM3DRoe::step(real dt) {

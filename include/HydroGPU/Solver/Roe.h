@@ -31,8 +31,8 @@ protected:
 	virtual void initBuffers();
 	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();
+	virtual std::vector<std::string> getRoeFluxDerivProgramSources();
 	virtual std::vector<std::string> getEigenProgramSources();
-	virtual int getEigenSpaceDim();
 	virtual int getEigenTransformStructSize();	//total size of forward and inverse
 	virtual void initFluxSide(int side);
 	virtual real calcTimestep();

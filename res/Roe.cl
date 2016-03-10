@@ -195,7 +195,7 @@ __kernel void calcFlux(
 	
 	const __global real* eigenvalues = eigenvaluesBuffer + EIGEN_SPACE_DIM * interfaceIndex;
 	const __global real* eigenvectors = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
-	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
+	__global real* flux = fluxBuffer + EIGEN_SPACE_DIM * interfaceIndex;
 
 	real stateL[NUM_STATES];
 	for (int i = 0; i < NUM_STATES; ++i) {
@@ -271,41 +271,3 @@ __kernel void calcFlux(
 
 	rightEigenvectorTransform(flux, eigenvectors, fluxTilde, side);
 }
-
-__kernel void calcFluxDeriv(
-	__global real* derivBuffer,
-	const __global real* fluxBuffer,
-	int side
-#ifdef SOLID
-	, const __global char* solidBuffer
-#endif	//SOLID
-	)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 2 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 2 
-#endif
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
-	) {
-		return;
-	}
-	int index = INDEXV(i);
-
-#ifdef SOLID
-	if (solidBuffer[index]) return;
-#endif	//SOLID
-
-	__global real* deriv = derivBuffer + NUM_STATES * index;
-
-	int indexNext = index + stepsize[side];
-	const __global real* fluxL = fluxBuffer + NUM_STATES * index;
-	const __global real* fluxR = fluxBuffer + NUM_STATES * indexNext;
-	for (int j = 0; j < NUM_STATES; ++j) {
-		real deltaFlux = fluxR[j] - fluxL[j];
-		deriv[j] -= deltaFlux / dx[side];
-	}
-}
-

@@ -19,8 +19,10 @@ protected:
 	virtual void initKernels();
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
+	virtual std::vector<std::string> getRoeFluxDerivProgramSources();
 	virtual std::vector<std::string> getEigenProgramSources();
 	virtual int getEigenTransformStructSize();
+	virtual int getEigenSpaceDim();
 	virtual void step(real dt);
 };
 

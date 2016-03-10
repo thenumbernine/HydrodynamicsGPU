@@ -7,6 +7,9 @@ and EIGEN_TRANSFORM_STRUCT_SIZE == 2 * NUM_STATES
 #if EIGEN_TRANSFORM_STRUCT_SIZE != 2 * NUM_STATES * NUM_STATES
 #error expected eignvectors to be square matrices size of NUM_STATES
 #endif
+#if EIGEN_SPACE_DIM != NUM_STATES
+#error expected eigen space dim to match number of states
+#endif
 
 //c_i = a_ij b_j
 

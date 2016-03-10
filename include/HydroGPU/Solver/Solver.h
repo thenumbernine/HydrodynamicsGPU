@@ -72,6 +72,7 @@ protected:
 	virtual void initKernels();
 public:
 	int numStates();	//shorthand
+	virtual int getEigenSpaceDim();	//numStates() in most cases
 	int getVolume();	
 protected:
 	virtual real findMinTimestep();

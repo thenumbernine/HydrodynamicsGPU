@@ -253,7 +253,8 @@ std::vector<std::string> Solver::getProgramSources() {
 		"#define XMAX " + toNumericString<real>(app->xmax.s[0]) + "\n" +
 		"#define YMAX " + toNumericString<real>(app->xmax.s[1]) + "\n" +
 		"#define ZMAX " + toNumericString<real>(app->xmax.s[2]) + "\n" +
-		"#define NUM_STATES " + std::to_string(numStates()) + "\n"
+		"#define NUM_STATES " + std::to_string(numStates()) + "\n" +
+		"#define EIGEN_SPACE_DIM "+std::to_string(getEigenSpaceDim())+"\n"
 	};
 
 	std::string slopeLimiterName = "Superbee";
@@ -349,6 +350,17 @@ void Solver::resetState() {
 
 int Solver::numStates() {
 	return (int)equation->states.size();
+}
+
+/*
+Some solvers advect a different number of variables (particularly less variables) 
+ than the total number of state variables.
+Specifically because some variables are only driven by source terms.
+In some cases, some extra variables ( for which getEigenSpaceDim() < numStates() )
+could be used as static fields.
+*/
+int Solver::getEigenSpaceDim() {
+	return numStates();
 }
 
 int Solver::getVolume() {

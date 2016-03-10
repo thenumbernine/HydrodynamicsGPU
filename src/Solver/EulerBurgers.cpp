@@ -20,12 +20,12 @@ void EulerBurgers::initBuffers() {
 	int volume = getVolume();
 
 	interfaceVelocityBuffer = cl.alloc(sizeof(real) * volume, "EulerBurgers::interfaceVelocityBuffer");
-	fluxBuffer = cl.alloc(sizeof(real) * numStates() * volume, "EulerBurgers::fluxBuffer");
+	fluxBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * volume, "EulerBurgers::fluxBuffer");
 	pressureBuffer = cl.alloc(sizeof(real) * volume, "EulerBurgers::pressureBuffer");
 
 	//zero interface and flux
 	cl.zero(interfaceVelocityBuffer, volume);
-	cl.zero(fluxBuffer, numStates() * volume);
+	cl.zero(fluxBuffer, getEigenSpaceDim() * volume);
 }
 
 void EulerBurgers::initKernels() {

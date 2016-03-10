@@ -13,8 +13,8 @@ void HLL::init() {
 
 	int volume = getVolume();
 
-	eigenvaluesBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app->dim);
-	fluxBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(real) * numStates() * volume * app->dim);
+	eigenvaluesBuffer = cl.alloc(sizeof(real) * numStates() * volume * app->dim);
+	fluxBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * volume * app->dim);
 	
 	calcEigenvaluesKernel = cl::Kernel(program, "calcEigenvalues");
 	CLCommon::setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer);
