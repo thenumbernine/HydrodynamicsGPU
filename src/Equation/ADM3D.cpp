@@ -55,7 +55,11 @@ ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 	addSuffixes(states, "D_Y", sym33suffixes);
 	addSuffixes(states, "D_Z", sym33suffixes);
 	addSuffixes(states, "K_", sym33suffixes);	//extrinsic curvature
-	addSuffixes(states, "V_", spaceSuffixes);	//V_k = D_km^m - D^m_mk
+	addSuffixes(states, "V_", spaceSuffixes);	//V_k = D_km^m - D^m_mk. TODO replace with Gamma^k = Gamma^k_ij gamma^ij as the book describes
+
+	states.push_back("DENSITY");
+	addSuffixes(states, "MOMENTUM_", spaceSuffixes);
+	states.push_back("ENERGY");
 
 	displayVariables = states;
 	displayVariables.push_back("K");

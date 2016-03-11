@@ -6,20 +6,19 @@ For that reason, I should probably separate this into its own file, so other sol
 */
 __kernel void calcFluxDeriv(
 	__global real* derivBuffer,
-	const __global real* fluxBuffer,
-	int side
+	const __global real* fluxBuffer
 #ifdef SOLID
 	, const __global char* solidBuffer
 #endif	//SOLID
-	)
+)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
-#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 2
+#endif
 #endif
 	) {
 		return;
@@ -32,11 +31,14 @@ __kernel void calcFluxDeriv(
 
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
-	int indexNext = index + stepsize[side];
-	const __global real* fluxL = fluxBuffer + EIGEN_SPACE_DIM * index;
-	const __global real* fluxR = fluxBuffer + EIGEN_SPACE_DIM * indexNext;
-	for (int j = 0; j < EIGEN_SPACE_DIM; ++j) {
-		real deltaFlux = fluxR[j] - fluxL[j];
-		deriv[j] -= deltaFlux / dx[side];
+	for (int side = 0; side < DIM; ++side) {
+		int interfaceIndex = side + DIM * index;
+		int interfaceIndexNext = interfaceIndex + DIM * stepsize[side];
+		const __global real* fluxL = fluxBuffer + NUM_FLUX_STATES * interfaceIndex;
+		const __global real* fluxR = fluxBuffer + NUM_FLUX_STATES * interfaceIndexNext;
+		for (int j = 0; j < NUM_FLUX_STATES; ++j) {
+			real deltaFlux = fluxR[j] - fluxL[j];
+			deriv[j] -= deltaFlux / dx[side];
+		}
 	}
 }

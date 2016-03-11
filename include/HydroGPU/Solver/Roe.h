@@ -1,6 +1,6 @@
 #pragma once
 
-#include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Solver/FiniteVolumeSolver.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
@@ -8,39 +8,36 @@ namespace Solver {
 
 /*
 General Roe solver
-subclasses need to implement calcEigenBasisSide
+subclasses need to implement calcEigenBasis
 */
-struct Roe : public Solver {
+struct Roe : public FiniteVolumeSolver {
 protected:
-	typedef Solver Super;
+	typedef FiniteVolumeSolver Super;
 
 	cl::Buffer eigenvaluesBuffer;
 	cl::Buffer eigenvectorsBuffer;	//contains forward and inverse transform information
 	cl::Buffer deltaQTildeBuffer;
-	cl::Buffer fluxBuffer;
 	
-	cl::Kernel calcEigenBasisSideKernel;
+	cl::Kernel calcEigenBasisKernel;
 	cl::Kernel calcCellTimestepKernel;
 	cl::Kernel calcDeltaQTildeKernel;
-	cl::Kernel calcFluxKernel;
-	cl::Kernel calcFluxDerivKernel;
 
 public:
 	Roe(HydroGPUApp* app);
+	virtual void init();
 protected:
 	virtual void initBuffers();
 	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();
-	virtual std::vector<std::string> getRoeFluxDerivProgramSources();
 	virtual std::vector<std::string> getEigenProgramSources();
+	virtual int getEigenSpaceDim();	//numStates() in most cases
 	virtual int getEigenTransformStructSize();	//total size of forward and inverse
-	virtual void initFluxSide(int side);
 	virtual real calcTimestep();
+	virtual void initFlux();
 	virtual void step(real dt);
-	virtual void calcDeriv(cl::Buffer derivBuffer, real dt, int side);
-	virtual void calcFlux(real dt, int side);
+	virtual void calcDeriv(cl::Buffer derivBuffer, real dt);
+	virtual void calcFlux(real dt);
 };
 
 }
 }
-

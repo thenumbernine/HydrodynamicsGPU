@@ -218,7 +218,7 @@ void calcFluxSide(
 	
 	const __global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 
-	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
+	__global real* flux = fluxBuffer + NUM_FLUX_STATES * interfaceIndex;
 
 	real densityL = stateL[STATE_DENSITY];
 	real invDensityL = 1. / densityL;
@@ -365,32 +365,3 @@ __kernel void calcFlux(
 	calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, potentialBuffer, dt/DZ, 2);
 #endif
 }
-
-__kernel void calcFluxDeriv(
-	__global real* derivBuffer,
-	const __global real* fluxBuffer)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 1 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 1
-#endif
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 1
-#endif
-	) return;
-	int index = INDEXV(i);
-
-	__global real* deriv = derivBuffer + NUM_STATES * index;
-
-	for (int side = 0; side < DIM; ++side) {
-		int indexNext = index + stepsize[side];
-		const __global real* fluxL = fluxBuffer + NUM_STATES * (side + DIM * index);
-		const __global real* fluxR = fluxBuffer + NUM_STATES * (side + DIM * indexNext);
-		for (int j = 0; j < NUM_STATES; ++j) {
-			real deltaFlux = fluxR[j] - fluxL[j];
-			deriv[j] -= deltaFlux / dx[side];
-		}
-	}
-}
-

@@ -7,6 +7,7 @@ namespace Solver {
 
 void MaxwellRoe::initKernels() {
 	Super::initKernels();
+	
 	addSourceKernel = cl::Kernel(program, "addSource");
 	addSourceKernel.setArg(1, stateBuffer);
 }

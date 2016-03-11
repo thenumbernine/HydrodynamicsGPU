@@ -165,7 +165,6 @@ OR I could just have the debug printfs also output their thread ID and filter al
 	initBuffers();
 	initKernels();
 
-
 	//create integrator
 	std::string integratorName = "ForwardEuler";
 	app->lua.ref()["integratorName"] >> integratorName;
@@ -185,16 +184,16 @@ void Solver::initBuffers() {
 	int volume = getVolume();
 
 	//not necessary for fixed timestep.  TODO don't allocate in that case.
-	dtBuffer = cl.alloc(sizeof(real) * volume, "Solver::dtBuffer");
-	dtSwapBuffer = cl.alloc(sizeof(real) * volume / localSize[0], "Solver::dtSwapBuffer");
+	dtBuffer = cl.alloc(sizeof(real) * volume * app->dim, "Solver::dtBuffer");
+	dtSwapBuffer = cl.alloc(sizeof(real) * volume * app->dim / localSize[0], "Solver::dtSwapBuffer");
 	
 	stateBuffer = cl.alloc(sizeof(real) * numStates() * volume, "Solver::stateBuffer");
 	
 	//get the edges, so reduction doesn't
 	{
-		std::vector<real> dtVec(volume);
+		std::vector<real> dtVec(volume * app->dim);
 		for (real &r : dtVec) { r = std::numeric_limits<real>::max(); }
-		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real) * volume, &dtVec[0]);
+		commands.enqueueWriteBuffer(dtBuffer, CL_TRUE, 0, sizeof(real) * volume * app->dim, &dtVec[0]);
 	}
 }
 
@@ -230,7 +229,7 @@ void Solver::initKernels() {
 	}
 	
 	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
-	CLCommon::setArgs(findMinTimestepKernel, dtBuffer, cl::Local(localSize[0] * sizeof(real)), volume, dtSwapBuffer);	
+	CLCommon::setArgs(findMinTimestepKernel, dtBuffer, cl::Local(localSize[0] * sizeof(real)), volume * app->dim, dtSwapBuffer);	
 }
 
 std::vector<std::string> Solver::getProgramSources() {
@@ -254,7 +253,7 @@ std::vector<std::string> Solver::getProgramSources() {
 		"#define YMAX " + toNumericString<real>(app->xmax.s[1]) + "\n" +
 		"#define ZMAX " + toNumericString<real>(app->xmax.s[2]) + "\n" +
 		"#define NUM_STATES " + std::to_string(numStates()) + "\n" +
-		"#define EIGEN_SPACE_DIM "+std::to_string(getEigenSpaceDim())+"\n"
+		"#define NUM_FLUX_STATES "+std::to_string(getNumFluxStates())+"\n"
 	};
 
 	std::string slopeLimiterName = "Superbee";
@@ -353,13 +352,12 @@ int Solver::numStates() {
 }
 
 /*
-Some solvers advect a different number of variables (particularly less variables) 
- than the total number of state variables.
-Specifically because some variables are only driven by source terms.
-In some cases, some extra variables ( for which getEigenSpaceDim() < numStates() )
-could be used as static fields.
+flux vector.  typically equal to the state vector size
+(when used with the default finite-volume integrator)
+I should move the flux allocation down to this class,
+or put an intermediate finite-volume solver class with the flux information.
 */
-int Solver::getEigenSpaceDim() {
+int Solver::getNumFluxStates() {
 	return numStates();
 }
 
@@ -438,25 +436,6 @@ real Solver::findMinTimestep() {
 }
 
 void Solver::initStep() {
-}
-
-//helper function for iterating through all dimensions
-//switches between forward and backward depending on the frame
-void Solver::getSideRange(int& sideStart, int& sideEnd, int& sideStep) { 
-	switch (frame&1) {
-	case 0:
-		sideStart = 0;
-		sideEnd = app->dim;
-		sideStep = 1;
-		break;
-	case 1:
-		sideStart = app->dim-1;
-		sideEnd = -1;
-		sideStep = -1;
-		break;
-	default:
-		throw Common::Exception() << "unknown sideStep " << sideStep;
-	}
 }
 
 void Solver::update() {

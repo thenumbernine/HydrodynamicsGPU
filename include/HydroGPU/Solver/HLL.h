@@ -1,24 +1,21 @@
 #pragma once
 
-#include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Solver/FiniteVolumeSolver.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
 namespace Solver {
 
-struct HLL : public Solver {
-	typedef Solver Super;
+struct HLL : public FiniteVolumeSolver {
+	typedef FiniteVolumeSolver Super;
 
 	cl::Buffer eigenvaluesBuffer;
 	cl::Buffer eigenvectorsBuffer;
 	cl::Buffer eigenvectorsInverseBuffer;
 	cl::Buffer deltaQTildeBuffer;
-	cl::Buffer fluxBuffer;
 	
 	cl::Kernel calcEigenvaluesKernel;
-	cl::Kernel calcFluxKernel;
 	cl::Kernel calcCellTimestepKernel;
-	cl::Kernel calcFluxDerivKernel;
 	
 	using Super::Super;
 	virtual void init();

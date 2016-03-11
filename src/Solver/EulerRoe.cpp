@@ -9,12 +9,12 @@ void EulerRoe::initKernels() {
 	Super::initKernels();
 	
 	//all Euler and MHD systems also have a separate potential buffer...
-	calcEigenBasisSideKernel.setArg(4, selfgrav->potentialBuffer);
-	calcEigenBasisSideKernel.setArg(5, selfgrav->solidBuffer);
-	calcCellTimestepKernel.setArg(3, selfgrav->solidBuffer);
-	calcDeltaQTildeKernel.setArg(4, selfgrav->solidBuffer);
-	calcFluxKernel.setArg(7, selfgrav->solidBuffer);
-	calcFluxDerivKernel.setArg(3, selfgrav->solidBuffer);
+	calcEigenBasisKernel.setArg(3, selfgrav->potentialBuffer);
+	calcEigenBasisKernel.setArg(4, selfgrav->solidBuffer);
+	calcCellTimestepKernel.setArg(2, selfgrav->solidBuffer);
+	calcDeltaQTildeKernel.setArg(3, selfgrav->solidBuffer);
+	calcFluxKernel.setArg(6, selfgrav->solidBuffer);
+	calcFluxDerivKernel.setArg(2, selfgrav->solidBuffer);
 }
 
 void EulerRoe::createEquation() {
@@ -35,4 +35,3 @@ void EulerRoe::step(real dt) {
 
 }
 }
-

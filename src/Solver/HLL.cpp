@@ -14,19 +14,14 @@ void HLL::init() {
 	int volume = getVolume();
 
 	eigenvaluesBuffer = cl.alloc(sizeof(real) * numStates() * volume * app->dim);
-	fluxBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * volume * app->dim);
 	
 	calcEigenvaluesKernel = cl::Kernel(program, "calcEigenvalues");
 	CLCommon::setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer);
 	
-	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	CLCommon::setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer);
+	calcFluxKernel.setArg(2, eigenvaluesBuffer);
 
 	calcCellTimestepKernel = cl::Kernel(program, "calcCellTimestep");
 	CLCommon::setArgs(calcCellTimestepKernel, dtBuffer, eigenvaluesBuffer);
-	
-	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
-	calcFluxDerivKernel.setArg(1, fluxBuffer);
 }	
 
 std::vector<std::string> HLL::getProgramSources() {

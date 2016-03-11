@@ -11,3 +11,9 @@ Simulates Euler equations, Maxwell, and Bona-Masso ADM formalism
 Working on MHD, SRHD
 
 Might get around to CG or GMRes method of Backward Euler implicit integration
+
+
+TODO:
+EulerHLL, EulerHLLC, MHDBurgers, MHDHLLC are using the old all-sides-at-once integration method
+everything else is using the one-side-at-a-time method
+I think I want to go back to the old method.

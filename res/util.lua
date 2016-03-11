@@ -255,7 +255,10 @@ function initNumRel(args)
 				D[2][1], D[2][2], D[2][3], D[2][4], D[2][5], D[2][6],
 				D[3][1], D[3][2], D[3][3], D[3][4], D[3][5], D[3][6],
 				K[1], K[2], K[3], K[4], K[5], K[6],
-				V[1], V[2], V[3]
+				V[1], V[2], V[3],
+				density,
+				momentumX, momentumY, momentumZ,
+				energy
 		end
 	end
 end

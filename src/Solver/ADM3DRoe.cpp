@@ -25,7 +25,7 @@ std::vector<std::string> ADM3DRoe::getProgramSources() {
 	return sources;
 }
 
-std::vector<std::string> ADM3DRoe::getRoeFluxDerivProgramSources() {
+std::vector<std::string> ADM3DRoe::getCalcFluxDerivProgramSources() {
 	return {};
 }
 
@@ -34,7 +34,7 @@ std::vector<std::string> ADM3DRoe::getEigenProgramSources() {
 }
 
 int ADM3DRoe::getEigenTransformStructSize() {
-	return numStates() + 6 + 1 + 1;	//states, gInv, g, f
+	return 7 + 30 + 6 + 1 + 1;	//time states, field states, gInv, g, f
 }
 
 int ADM3DRoe::getEigenSpaceDim() {
@@ -68,4 +68,3 @@ for (int i = 0; i < getVolume(); ++i) {
 
 }
 }
-

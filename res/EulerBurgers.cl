@@ -75,7 +75,15 @@ __kernel void calcCellTimestep(
 	dtBuffer[index] = result;
 }
 
-__kernel void calcInterfaceVelocity(
+void calcInterfaceVelocitySide(
+	__global real* interfaceVelocityBuffer,
+	const __global real* stateBuffer,
+#ifdef SOLID
+	const __global char* solidBuffer,
+#endif
+	int side);
+
+void calcInterfaceVelocitySide(
 	__global real* interfaceVelocityBuffer,
 	const __global real* stateBuffer,
 #ifdef SOLID
@@ -97,7 +105,9 @@ __kernel void calcInterfaceVelocity(
 	int index = INDEXV(i);
 	int indexR = index;
 	int indexL = index - stepsize[side];
-	
+
+	int interfaceIndex = side + DIM * index;
+
 	real densityL = stateBuffer[STATE_DENSITY + NUM_STATES * indexL];
 	real velocityL = stateBuffer[side+STATE_MOMENTUM_X + NUM_STATES * indexL] / densityL;
 	
@@ -114,10 +124,37 @@ __kernel void calcInterfaceVelocity(
 	}
 #endif
 
-	interfaceVelocityBuffer[index] = .5 * (velocityL + velocityR);
+	interfaceVelocityBuffer[interfaceIndex] = .5 * (velocityL + velocityR);
 }
 
-__kernel void calcFlux(
+__kernel void calcInterfaceVelocity(
+	__global real* interfaceVelocityBuffer,
+	const __global real* stateBuffer
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif
+)
+{
+	for (int side = 0; side < DIM; ++side) {
+		calcInterfaceVelocitySide(interfaceVelocityBuffer, stateBuffer,
+#ifdef SOLID
+			solidBuffer,
+#endif
+			side);
+	}
+}
+
+void calcFluxSide(
+	__global real* fluxBuffer,
+	const __global real* stateBuffer,
+	const __global real* interfaceVelocityBuffer,
+#ifdef SOLID
+	const __global char* solidBuffer,	
+#endif
+	real dt,
+	int side);
+
+void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* interfaceVelocityBuffer,
@@ -155,11 +192,13 @@ __kernel void calcFlux(
 	char solidR2 = solidBuffer[indexR2];
 #endif
 
-	real interfaceVelocity = interfaceVelocityBuffer[index];
+	int interfaceIndex = side + DIM * index;
 
-	__global real* flux = fluxBuffer + NUM_STATES * index;
+	real interfaceVelocity = interfaceVelocityBuffer[interfaceIndex];
 
-	for (int j = 0; j < NUM_STATES; ++j) {
+	__global real* flux = fluxBuffer + NUM_FLUX_STATES * interfaceIndex;
+
+	for (int j = 0; j < NUM_FLUX_STATES; ++j) {
 		real stateR2 = stateBuffer[j + NUM_STATES * indexR2];
 		real stateR = stateBuffer[j + NUM_STATES * indexR];
 		real stateL = stateBuffer[j + NUM_STATES * indexL];
@@ -224,42 +263,21 @@ __kernel void calcFlux(
 	}
 }
 
-__kernel void calcFluxDeriv(
-	__global real* derivBuffer,
-	const __global real* fluxBuffer,
-	int side
+__kernel void calcFlux(
+	__global real* fluxBuffer,
+	const __global real* stateBuffer,
+	const __global real* interfaceVelocityBuffer,
 #ifdef SOLID
-	, const __global char* solidBuffer
-#endif	//SOLID
-	)
+	const __global char* solidBuffer,	
+#endif
+	real dt)
 {
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	
-	if (i.x < 2 || i.x >= SIZE_X - 2 
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 2 
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
-#endif
-	) {
-		return;
-	}
-	
-	int index = INDEXV(i);
-
+	for (int side = 0; side < DIM; ++side) {
+		calcFluxSide(fluxBuffer, stateBuffer, interfaceVelocityBuffer
 #ifdef SOLID
-	if (solidBuffer[index]) return;
-#endif	//SOLID
-	
-	__global real* deriv = derivBuffer + NUM_STATES * index;
-
-	int indexNext = index + stepsize[side];
-	const __global real* fluxL = fluxBuffer + NUM_STATES * index;
-	const __global real* fluxR = fluxBuffer + NUM_STATES * indexNext;
-	for (int j = 0; j < NUM_STATES; ++j) {
-		real deltaFlux = fluxR[j] - fluxL[j];
-		deriv[j] -= deltaFlux / dx[side];
+			, solidBuffer
+#endif
+			, dt, side);
 	}
 }
 
@@ -469,4 +487,3 @@ __kernel void diffuseWork(
 
 	deriv[STATE_ENERGY_TOTAL] += deltaEnergyTotal; 
 }
-

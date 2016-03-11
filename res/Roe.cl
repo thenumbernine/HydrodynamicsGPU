@@ -5,13 +5,12 @@ __kernel void calcCellTimestep(
 	__global real* dtBuffer,
 //Hydrodynamics ii
 #if 1
-	const __global real* eigenvaluesBuffer,
+	const __global real* eigenvaluesBuffer
 #endif
 //Toro 16.38
 #if 0
-	const __global real* stateBuffer,
+	const __global real* stateBuffer
 #endif
-	int side
 #ifdef SOLID
 	, const __global char* solidBuffer
 #endif	//SOLID
@@ -19,68 +18,82 @@ __kernel void calcCellTimestep(
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
-	if (i.x < 2 || i.x >= SIZE_X - 2 
+
+	for (int side = 0; side < DIM; ++side) {
+
+		if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 2
+			|| i.y < 2 || i.y >= SIZE_Y - 2
 #endif
 #if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 2
+			|| i.z < 2 || i.z >= SIZE_Z - 2
 #endif
-	) {
-		dtBuffer[index] = INFINITY;
-		return;
-	}
+		) {
+			dtBuffer[side + DIM * index] = INFINITY;
+			continue;
+		}
 
 //Toro 16.38
 #if 0
-	const __global real* state = stateBuffer + index;
-	
-	real density = state[STATE_DENSITY];
-	real invDensity = 1. / density;
-	real4 velocity = VELOCITY(state);
-	real energyTotal = state[STATE_ENERGY_TOTAL] * invDensity;
-	real energyKinetic = .5 * dot(velocity, velocity);
-	//real energyPotential = potentialBuffer[index];	//TODO ... if we want to use this method ...
-	real energyInternal = energyTotal - energyKinetic;	// - energyPotential;
-	real pressure = (gamma - 1.) * density * energyInternal;
-	real speedOfSound = sqrt(gamma * pressure * invDensity); 
+		const __global real* state = stateBuffer + index;
+		
+		real density = state[STATE_DENSITY];
+		real invDensity = 1. / density;
+		real4 velocity = VELOCITY(state);
+		real energyTotal = state[STATE_ENERGY_TOTAL] * invDensity;
+		real energyKinetic = .5 * dot(velocity, velocity);
+		//real energyPotential = potentialBuffer[index];	//TODO ... if we want to use this method ...
+		real energyInternal = energyTotal - energyKinetic;	// - energyPotential;
+		real pressure = (gamma - 1.) * density * energyInternal;
+		real speedOfSound = sqrt(gamma * pressure * invDensity); 
 #endif
 
-	int indexL = index;
-	int indexR = index + stepsize[side];
+		int indexL = index;
+		int indexR = index + stepsize[side];
 
 #ifdef SOLID
 //Hydrodynamics ii
 #if 1
-	if (solidBuffer[indexL] || solidBuffer[indexR]) {
-		dtBuffer[index] = INFINITY; 
-		return;
-	}
+		if (solidBuffer[indexL] || solidBuffer[indexR]) {
+			dtBuffer[side + DIM * index] = INFINITY; 
+			continue;
+		}
 #endif
 //Toro 16.38
 #if 0
-	if (solidBuffer[index]) return;
+		if (solidBuffer[index]) continue;
 #endif
 #endif	//SOLID
 
 //Hydrodynamics ii
 #if 1
-	const __global real* eigenvaluesL = eigenvaluesBuffer + EIGEN_SPACE_DIM * indexL;
-	const __global real* eigenvaluesR = eigenvaluesBuffer + EIGEN_SPACE_DIM * indexR;
-	
-	//NOTICE assumes eigenvalues are sorted from min to max
-	real maxLambda = max(0., eigenvaluesL[EIGEN_SPACE_DIM-1]);
-	real minLambda = min(0., eigenvaluesR[0]);
-	real dum = dx[side] / (fabs(maxLambda - minLambda) + 1e-9f);
+		const __global real* eigenvaluesL = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexL);
+		const __global real* eigenvaluesR = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexR);
+		
+		//NOTICE assumes eigenvalues are sorted from min to max
+		real maxLambda = max(0., eigenvaluesL[EIGEN_SPACE_DIM-1]);
+		real minLambda = min(0., eigenvaluesR[0]);
+		real dum = dx[side] / (fabs(maxLambda - minLambda) + 1e-9f);
 #endif
 //Toro 16.38
 #if 0
-	real dum = dx[side] / (max(fabs(velocity[side] - speedOfSound), fabs(velocity[side] + speedOfSound)) + 1e-9f);
+		real dum = dx[side] / (max(fabs(velocity[side] - speedOfSound), fabs(velocity[side] + speedOfSound)) + 1e-9f);
 #endif
-	dtBuffer[index] = dum;
+		dtBuffer[side + DIM * index] = dum;
+	}
 }
 
-__kernel void calcDeltaQTilde(
+void calcDeltaQTildeSide(
+	__global real* deltaQTildeBuffer,
+	const __global real* eigenvectorsBuffer,
+	const __global real* stateBuffer,
+	int side
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif	//SOLID
+);
+
+void calcDeltaQTildeSide(
 	__global real* deltaQTildeBuffer,
 	const __global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
@@ -102,7 +115,7 @@ __kernel void calcDeltaQTilde(
 	
 	int index = INDEXV(i);
 	int indexPrev = index - stepsize[side];
-	int interfaceIndex = index;
+	int interfaceIndex = side + DIM * index;
 			
 	const __global real* eigenvectors = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* deltaQTilde = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceIndex;
@@ -154,7 +167,38 @@ __kernel void calcDeltaQTilde(
 #endif	//ROE_EIGENFIELD_TRANSFORM_SEPARATE
 }
 
-__kernel void calcFlux(
+__kernel void calcDeltaQTilde(
+	__global real* deltaQTildeBuffer,
+	const __global real* eigenvectorsBuffer,
+	const __global real* stateBuffer
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif	//SOLID
+)
+{
+	for (int side = 0; side < DIM; ++side) {
+		calcDeltaQTildeSide(deltaQTildeBuffer, eigenvectorsBuffer, stateBuffer, side
+#ifdef SOLID
+			, solidBuffer
+#endif
+		);
+	}
+}
+
+void calcFluxSide(
+	__global real* fluxBuffer,
+	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
+	const __global real* eigenvectorsBuffer,
+	const __global real* deltaQTildeBuffer,
+	real dt,
+	int side
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif	//SOLID
+);
+
+void calcFluxSide(
 	__global real* fluxBuffer,
 	const __global real* stateBuffer,
 	const __global real* eigenvaluesBuffer,
@@ -185,9 +229,9 @@ __kernel void calcFlux(
 	int indexL = index - stepsize[side];
 	int indexR2 = indexR + stepsize[side];
 
-	int interfaceLIndex = indexL;
-	int interfaceIndex = indexR;
-	int interfaceRIndex = indexR2;
+	int interfaceLIndex = side + DIM * indexL;
+	int interfaceIndex = side + DIM * indexR;
+	int interfaceRIndex = side + DIM * indexR2;
 	
 	const __global real* deltaQTildeL = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceLIndex;
 	const __global real* deltaQTilde = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceIndex;
@@ -195,7 +239,7 @@ __kernel void calcFlux(
 	
 	const __global real* eigenvalues = eigenvaluesBuffer + EIGEN_SPACE_DIM * interfaceIndex;
 	const __global real* eigenvectors = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
-	__global real* flux = fluxBuffer + EIGEN_SPACE_DIM * interfaceIndex;
+	__global real* flux = fluxBuffer + NUM_FLUX_STATES * interfaceIndex;
 
 	real stateL[NUM_STATES];
 	for (int i = 0; i < NUM_STATES; ++i) {
@@ -270,4 +314,25 @@ __kernel void calcFlux(
 	}
 
 	rightEigenvectorTransform(flux, eigenvectors, fluxTilde, side);
+}
+
+__kernel void calcFlux(
+	__global real* fluxBuffer,
+	const __global real* stateBuffer,
+	const __global real* eigenvaluesBuffer,
+	const __global real* eigenvectorsBuffer,
+	const __global real* deltaQTildeBuffer,
+	real dt
+#ifdef SOLID
+	, const __global char* solidBuffer
+#endif	//SOLID
+)
+{
+	for (int side = 0; side < DIM; ++side) {
+		calcFluxSide(fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, deltaQTildeBuffer, dt, side
+#ifdef SOLID
+			, solidBuffer
+#endif
+		);
+	}
 }

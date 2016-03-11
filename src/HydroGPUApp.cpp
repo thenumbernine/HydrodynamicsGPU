@@ -40,7 +40,7 @@ HydroGPUApp::HydroGPUApp()
 , dim(0)
 , doUpdate(1)
 , maxFrames(-1)
-, currentFrame(0)
+, currentFrame(-1)
 , useFixedDT(false)
 , fixedDT(.001f)
 , cfl(.5f)
@@ -235,7 +235,7 @@ void HydroGPUApp::init() {
 	} else {
 		throw Common::Exception() << "unknown solver " << solverName;
 	}
-
+	
 	solver->init();	//..now that the vtable is in place
 
 	//needs solver->program to be created

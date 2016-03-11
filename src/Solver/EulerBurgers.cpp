@@ -19,13 +19,10 @@ void EulerBurgers::initBuffers() {
 	
 	int volume = getVolume();
 
-	interfaceVelocityBuffer = cl.alloc(sizeof(real) * volume, "EulerBurgers::interfaceVelocityBuffer");
-	fluxBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * volume, "EulerBurgers::fluxBuffer");
+	interfaceVelocityBuffer = cl.alloc(sizeof(real) * volume * app->dim, "EulerBurgers::interfaceVelocityBuffer");
 	pressureBuffer = cl.alloc(sizeof(real) * volume, "EulerBurgers::pressureBuffer");
 
-	//zero interface and flux
-	cl.zero(interfaceVelocityBuffer, volume);
-	cl.zero(fluxBuffer, getEigenSpaceDim() * volume);
+	cl.zero(interfaceVelocityBuffer, volume * app->dim);
 }
 
 void EulerBurgers::initKernels() {
@@ -37,12 +34,10 @@ void EulerBurgers::initKernels() {
 	calcInterfaceVelocityKernel = cl::Kernel(program, "calcInterfaceVelocity");
 	CLCommon::setArgs(calcInterfaceVelocityKernel, interfaceVelocityBuffer, stateBuffer, selfgrav->solidBuffer);
 	
-	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	CLCommon::setArgs(calcFluxKernel, fluxBuffer, stateBuffer, interfaceVelocityBuffer, selfgrav->solidBuffer);
+	calcFluxKernel.setArg(2, interfaceVelocityBuffer);
+	calcFluxKernel.setArg(3, selfgrav->solidBuffer);
 	
-	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
-	calcFluxDerivKernel.setArg(1, fluxBuffer);
-	calcFluxDerivKernel.setArg(3, selfgrav->solidBuffer);
+	calcFluxDerivKernel.setArg(2, selfgrav->solidBuffer);
 	
 	computePressureKernel = cl::Kernel(program, "computePressure");
 	CLCommon::setArgs(computePressureKernel, pressureBuffer, stateBuffer, selfgrav->potentialBuffer, selfgrav->solidBuffer);
@@ -75,22 +70,16 @@ real EulerBurgers::calcTimestep() {
 }
 
 void EulerBurgers::step(real dt) {
-	int sideStart, sideEnd, sideStep;
-	getSideRange(sideStart, sideEnd, sideStep);
-	for (int side = sideStart; side != sideEnd; side += sideStep) {
-		integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
-			calcInterfaceVelocityKernel.setArg(3, side);
-			commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize);
-			
-			calcFluxKernel.setArg(4, dt);
-			calcFluxKernel.setArg(5, side);
-			commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize);
+	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
+		commands.enqueueNDRangeKernel(calcInterfaceVelocityKernel, offsetNd, globalSize, localSize);
+		
+		calcFluxKernel.setArg(4, dt);
+		commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize);
 
-			calcFluxDerivKernel.setArg(0, derivBuffer);
-			calcFluxDerivKernel.setArg(2, side);
-			commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
-		});
-	}
+		calcFluxDerivKernel.setArg(0, derivBuffer);
+		commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
+	});
+	
 	boundary();
 
 	selfgrav->applyPotential(dt);
@@ -115,4 +104,3 @@ void EulerBurgers::step(real dt) {
 
 }
 }
-

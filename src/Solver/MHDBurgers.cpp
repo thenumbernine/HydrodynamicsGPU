@@ -5,23 +5,21 @@
 namespace HydroGPU {
 namespace Solver {
 
-void MHDBurgers::init() {
-	Super::init();
-
-	cl::Context context = app->clCommon->context;
-
-	//memory
+void MHDBurgers::initBuffers() {
+	Super::initBuffers();
 
 	int volume = getVolume();
 
 	interfaceVelocityBuffer = cl.alloc(sizeof(real) * volume * app->dim);
 	interfaceMagneticFieldBuffer = cl.alloc(sizeof(real) * volume * app->dim);
-	fluxBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * volume * app->dim);
 	pressureBuffer = cl.alloc(sizeof(real) * volume);
 
 	cl.zero(interfaceVelocityBuffer, volume * app->dim);
 	cl.zero(interfaceMagneticFieldBuffer, volume * app->dim);
-	cl.zero(fluxBuffer, getEigenSpaceDim() * volume * app->dim);
+}
+
+void MHDBurgers::initKernels() {
+	Super::initKernels();
 
 	calcCellTimestepKernel = cl::Kernel(program, "calcCellTimestep");
 	CLCommon::setArgs(calcCellTimestepKernel, dtBuffer, stateBuffer, selfgrav->potentialBuffer);
@@ -38,10 +36,6 @@ void MHDBurgers::init() {
 	calcMagneticFieldFluxKernel = cl::Kernel(program, "calcMagneticFieldFlux");
 	CLCommon::setArgs(calcMagneticFieldFluxKernel, fluxBuffer, stateBuffer, interfaceMagneticFieldBuffer);
 
-	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
-	//arg0 will be provided by the integrator
-	calcFluxDerivKernel.setArg(1, fluxBuffer);
-	
 	computePressureKernel = cl::Kernel(program, "computePressure");
 	CLCommon::setArgs(computePressureKernel, pressureBuffer, stateBuffer, selfgrav->potentialBuffer);
 

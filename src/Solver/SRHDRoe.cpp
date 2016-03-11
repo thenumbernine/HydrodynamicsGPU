@@ -12,8 +12,8 @@ void SRHDRoe::init() {
 	int volume = getVolume();
 	primitiveBuffer = cl.alloc(sizeof(real) * numStates() * volume);
 
-	calcEigenBasisSideKernel.setArg(4, primitiveBuffer);
-	//calcEigenBasisSideKernel.setArg(5, selfgrav->potentialBuffer);
+	calcEigenBasisKernel.setArg(3, primitiveBuffer);
+	//calcEigenBasisKernel.setArg(4, selfgrav->potentialBuffer);
 
 	initVariablesKernel = cl::Kernel(program, "initVariables");
 	CLCommon::setArgs(initVariablesKernel, stateBuffer, primitiveBuffer);

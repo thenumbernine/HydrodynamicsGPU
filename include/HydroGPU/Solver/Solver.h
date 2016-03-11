@@ -72,7 +72,7 @@ protected:
 	virtual void initKernels();
 public:
 	int numStates();	//shorthand
-	virtual int getEigenSpaceDim();	//numStates() in most cases
+	virtual int getNumFluxStates();
 	int getVolume();	
 protected:
 	virtual real findMinTimestep();
@@ -84,7 +84,6 @@ protected:
 	virtual void initStep();
 	virtual real calcTimestep() = 0;
 	virtual void step(real dt) = 0;
-	void getSideRange(int& sideStart, int& sideEnd, int& sideStep);
 public:
 	virtual void update();
 

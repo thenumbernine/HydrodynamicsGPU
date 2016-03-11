@@ -25,12 +25,10 @@ protected:
 	virtual void initKernels();
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
-	virtual void initStep();
-	virtual void calcFlux(real dt, int side);
+	virtual void calcFlux(real dt);
 	virtual void step(real dt);
-	virtual void initFluxSide(int side);
+	virtual void initFlux();
 };
 
 }
 }
-

@@ -108,7 +108,13 @@ void rightEigenvectorTransform(
 	}
 }
 
-__kernel void calcEigenBasisSide(
+void calcEigenBasisSide(
+	__global real* eigenvaluesBuffer,
+	__global real* eigenvectorsBuffer,	//not used
+	const __global real* stateBuffer,
+	int side);
+
+void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenvectorsBuffer,	//not used
 	const __global real* stateBuffer,
@@ -125,7 +131,7 @@ __kernel void calcEigenBasisSide(
 	) return;
 	int index = INDEXV(i);
 
-	int interfaceIndex = index;
+	int interfaceIndex = side + DIM * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 
@@ -138,6 +144,16 @@ __kernel void calcEigenBasisSide(
 	eigenvalues[3] = 0.f;
 	eigenvalues[4] = eigenvalue;
 	eigenvalues[5] = eigenvalue;
+}
+
+__kernel void calcEigenBasis(
+	__global real* eigenvaluesBuffer,
+	__global real* eigenvectorsBuffer,	//not used
+	const __global real* stateBuffer)
+{
+	for (int side = 0; side < DIM; ++side) {
+		calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, side);
+	}
 }
 
 __kernel void addSource(

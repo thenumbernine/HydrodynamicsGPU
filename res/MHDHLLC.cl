@@ -148,7 +148,7 @@ void calcFluxSide(
 
 	const __global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 	
-	__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
+	__global real* flux = fluxBuffer + NUM_FLUX_STATES * interfaceIndex;
 
 	Primitives_t primsL = calcPrimitivesFromState(stateL, potentialBuffer[indexPrev]);
 	Wavespeed_t speedL = calcWavespeedFromPrimitives(primsL);
@@ -388,9 +388,9 @@ __kernel void calcFluxDeriv(
 
 	for (int side = 0; side < DIM; ++side) {
 		int indexNext = index + stepsize[side];
-		const __global real* fluxL = fluxBuffer + NUM_STATES * (side + DIM * index);
-		const __global real* fluxR = fluxBuffer + NUM_STATES * (side + DIM * indexNext);
-		for (int j = 0; j < NUM_STATES; ++j) {
+		const __global real* fluxL = fluxBuffer + NUM_FLUX_STATES * (side + DIM * index);
+		const __global real* fluxR = fluxBuffer + NUM_FLUX_STATES * (side + DIM * indexNext);
+		for (int j = 0; j < NUM_FLUX_STATES; ++j) {
 			real deltaFlux = fluxR[j] - fluxL[j];
 			deriv[j] -= deltaFlux / dx[side];
 		}

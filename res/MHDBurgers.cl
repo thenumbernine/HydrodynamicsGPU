@@ -145,7 +145,7 @@ __kernel void calcVelocityFlux(
 			real delta = phi * deltaState;
 			flux += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])) / (float)DIM;
 			
-			fluxBuffer[j + NUM_STATES * (side + DIM * index)] = flux;
+			fluxBuffer[j + NUM_FLUX_STATES * (side + DIM * index)] = flux;
 		}
 	}
 }
@@ -271,7 +271,7 @@ __kernel void calcMagneticFieldFlux(
 			real delta = phi * deltaState;
 			flux += delta * .5f * fabs(interfaceMagneticField) * (1.f - fabs(interfaceMagneticField * dt_dx[side])) / (float)DIM;
 			
-			fluxBuffer[j + NUM_STATES * (side + DIM * index)] = flux;
+			fluxBuffer[j + NUM_FLUX_STATES * (side + DIM * index)] = flux;
 		}
 	}
 }
@@ -300,9 +300,9 @@ __kernel void calcFluxDeriv(
 
 	for (int side = 0; side < DIM; ++side) {
 		int indexNext = index + stepsize[side];
-		for (int j = 0; j < NUM_STATES; ++j) {
-			real fluxL = fluxBuffer[j + NUM_STATES * (side + DIM * index)];
-			real fluxR = fluxBuffer[j + NUM_STATES * (side + DIM * indexNext)];
+		for (int j = 0; j < NUM_FLUX_STATES; ++j) {
+			real fluxL = fluxBuffer[j + NUM_FLUX_STATES * (side + DIM * index)];
+			real fluxR = fluxBuffer[j + NUM_FLUX_STATES * (side + DIM * indexNext)];
 			real deltaFlux = fluxR - fluxL;
 			deriv[j] -= deltaFlux / dx[side];
 		}

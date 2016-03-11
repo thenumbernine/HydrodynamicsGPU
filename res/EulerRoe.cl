@@ -5,13 +5,21 @@ paritcularly the spectral decomposition
 
 #include "HydroGPU/Shared/Common.h"
 
-__kernel void calcEigenBasisSide(
+void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
-	int side,
 	const __global real* potentialBuffer,
-	const __global char* solidBuffer)
+	const __global char* solidBuffer,
+	int side);
+
+void calcEigenBasisSide(
+	__global real* eigenvaluesBuffer,
+	__global real* eigenvectorsBuffer,
+	const __global real* stateBuffer,
+	const __global real* potentialBuffer,
+	const __global char* solidBuffer,
+	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -29,8 +37,10 @@ __kernel void calcEigenBasisSide(
 	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	
-	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * index;
-	__global real* eigenvectorsInverse = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * index;
+	int interfaceIndex = side + DIM * index;
+	
+	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
+	__global real* eigenvectorsInverse = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
 
 	char solidL = solidBuffer[indexPrev];
@@ -246,3 +256,14 @@ __kernel void calcEigenBasisSide(
 
 }
 
+__kernel void calcEigenBasis(
+	__global real* eigenvaluesBuffer,
+	__global real* eigenvectorsBuffer,
+	const __global real* stateBuffer,
+	const __global real* potentialBuffer,
+	const __global char* solidBuffer)
+{
+	for (int side = 0; side < DIM; ++side) {
+		calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, potentialBuffer, solidBuffer, side);
+	}
+}

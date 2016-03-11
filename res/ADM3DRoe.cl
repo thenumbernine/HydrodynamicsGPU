@@ -14,7 +14,13 @@ check out symmath/tests/numerical_relativity_codegen.lua for my derivation
 #include "HydroGPU/Shared/Common.h"
 #include "HydroGPU/ADM3D.h"
 
-__kernel void calcEigenBasisSide(
+void calcEigenBasisSide(
+	__global real* eigenvaluesBuffer,
+	__global real* eigenvectorsBuffer,
+	const __global real* stateBuffer,
+	int side);
+
+void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
@@ -33,7 +39,7 @@ __kernel void calcEigenBasisSide(
 	
 	int indexPrev = index - stepsize[side];
 	
-	int interfaceIndex = index;
+	int interfaceIndex = side + DIM * index;
 	
 	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
@@ -114,6 +120,16 @@ __kernel void calcEigenBasisSide(
 	eigenvalues[27] = lambdaLight;
 	eigenvalues[28] = lambdaLight;
 	eigenvalues[29] = lambdaGauge;
+}
+
+__kernel void calcEigenBasis(
+	__global real* eigenvaluesBuffer,
+	__global real* eigenvectorsBuffer,
+	const __global real* stateBuffer)
+{
+	for (int side = 0; side < DIM; ++side) {
+		calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, side);
+	}
 }
 
 void leftEigenvectorTransform(
@@ -381,8 +397,7 @@ void rightEigenvectorTransform(
 
 __kernel void calcFluxDeriv(
 	__global real* derivBuffer,
-	const __global real* fluxBuffer,
-	int side)
+	const __global real* fluxBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
@@ -399,15 +414,20 @@ __kernel void calcFluxDeriv(
 
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 
+	//this is what makes the ADM3D calcFluxDeriv special
+	//though I'm going to go back to the default for shift conditions, so alpha and gamma do get advected correctly
 	//offset to location in the state vector that flux influences
 	deriv += 7;
 
-	int indexNext = index + stepsize[side];
-	const __global real* fluxL = fluxBuffer + EIGEN_SPACE_DIM * index;
-	const __global real* fluxR = fluxBuffer + EIGEN_SPACE_DIM * indexNext;
-	for (int j = 0; j < EIGEN_SPACE_DIM; ++j) {
-		real deltaFlux = fluxR[j] - fluxL[j];
-		deriv[j] -= deltaFlux / dx[side];
+	for (int side = 0; side < DIM; ++side) {
+		int interfaceIndex = side + DIM * index;
+		int interfaceIndexNext = interfaceIndex + DIM * stepsize[side];
+		const __global real* fluxL = fluxBuffer + NUM_FLUX_STATES * interfaceIndex;
+		const __global real* fluxR = fluxBuffer + NUM_FLUX_STATES * interfaceIndexNext;
+		for (int j = 0; j < NUM_FLUX_STATES; ++j) {
+			real deltaFlux = fluxR[j] - fluxL[j];
+			deriv[j] -= deltaFlux / dx[side];
+		}
 	}
 }
 
@@ -722,6 +742,19 @@ GU0L[1] + AKL[1] - A_y * trK + K12D23L[1] + KD23L[1] - 2 * K12D12L[1] + 2 * KD12
 GU0L[2] + AKL[2] - A_z * trK + K12D23L[2] + KD23L[2] - 2 * K12D12L[2] + 2 * KD12L[2],
 };
 
+	/*
+	TODO now that alpha and gamma are moved from the flux eigensystem
+	how would we still incorporate the shift terms with them?
+	the easy solution is to re-add them back in (even though shift computation is supposed to go on apart from the eigensystem)
+	typically, when they are included, they get a flux between cells equal to the shift at that cell
+	maybe that has to be done, even if they are not a part of the eigensystem?
+	then again, maybe I should be keeping alpha and gamma in the eigensystem,
+	and maybe aux vars like the density should be in the eigensystem as well,
+	all for no reason more than to be influenced by the shift
+	
+	Then again, maybe this is an argument for the solver to specify the flux vector size 
+	-- especially if it is allowed a custom RoeFluxDeriv function.
+	*/
 
 	deriv[0] += -alpha * alpha * f * trK;
 	deriv[1] += -2.f * alpha * K_xx;
@@ -730,6 +763,7 @@ GU0L[2] + AKL[2] - A_z * trK + K12D23L[2] + KD23L[2] - 2 * K12D12L[2] + 2 * KD12
 	deriv[4] += -2.f * alpha * K_yy;
 	deriv[5] += -2.f * alpha * K_yz;
 	deriv[6] += -2.f * alpha * K_zz;
+	
 	deriv[28] += alpha * SSymLL[0];
 	deriv[29] += alpha * SSymLL[1];
 	deriv[30] += alpha * SSymLL[2];
@@ -739,8 +773,6 @@ GU0L[2] + AKL[2] - A_z * trK + K12D23L[2] + KD23L[2] - 2 * K12D12L[2] + 2 * KD12
 	deriv[34] += alpha * PL[0];
 	deriv[35] += alpha * PL[1];
 	deriv[36] += alpha * PL[2];
-
-
 }
 
 // the 1D version has no problems, but at 2D we get instabilities ... 

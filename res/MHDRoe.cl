@@ -27,15 +27,15 @@ have dug through
 
 //#define USE_FLUX_FIX
 
-__kernel void calcEigenBasisSide(
+void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
-	int side,
 	const __global real* potentialBuffer,
 	const __global char* solidBuffer,
 	__global real* fluxBuffer,
-	__global char* fluxFlagBuffer)
+	__global char* fluxFlagBuffer,
+	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -173,7 +173,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		fluxR[STATE_ENERGY_TOTAL] = (totalPlasmaEnergyDensityR + pressureR) * velocityR.x + dot(velocityR, magneticFieldR) * magneticFieldR.x / vaccuumPermeability;
 
 		//HLL-specific
-		__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
+		__global real* flux = fluxBuffer + NUM_FLUX_STATES * interfaceIndex;
 		__global char* fluxFlag = fluxFlagBuffer + interfaceIndex;
 	
 		//1 means we've got something 
@@ -685,6 +685,20 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 
 }
 
+__kernel void calcEigenBasis(
+	__global real* eigenvaluesBuffer,
+	__global real* eigenvectorsBuffer,
+	const __global real* stateBuffer,
+	const __global real* potentialBuffer,
+	const __global char* solidBuffer,
+	__global real* fluxBuffer,
+	__global char* fluxFlagBuffer)
+{
+	for (int side = 0; side < DIM; ++side) {
+		calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, potentialBuffer, solidBuffer, fluxBuffer, fluxFlagBuffer, side);
+	}
+}
+
 //just like calcFlux except if the flux flag is already set then don't do it
 __kernel void calcMHDFlux(
 	__global real* fluxBuffer,
@@ -693,9 +707,7 @@ __kernel void calcMHDFlux(
 	const __global real* eigenvectorsBuffer,
 	const __global real* deltaQTildeBuffer,
 	real dt,
-	int side,
 #ifdef SOLID
-#error "using SOLID with MHD takes too many arguments"
 	const __global char* solidBuffer,
 #endif	//SOLID
 	const __global char* fluxFlagBuffer)
@@ -711,10 +723,8 @@ __kernel void calcMHDFlux(
 		eigenvectorsBuffer,
 		deltaQTildeBuffer,
 		dt,
-		side
 #ifdef SOLID
 		, solidBuffer
 #endif	//SOLID
 	);
 }
-

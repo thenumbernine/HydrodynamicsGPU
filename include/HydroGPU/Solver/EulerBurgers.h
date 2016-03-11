@@ -1,25 +1,22 @@
 #pragma once
 
 #include "HydroGPU/Solver/SelfGravitationBehavior.h"
-#include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Solver/FiniteVolumeSolver.h"
 #include "Tensor/Vector.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
 namespace Solver {
 
-struct EulerBurgers : public SelfGravitationBehavior<Solver> {
-	typedef SelfGravitationBehavior<Solver> Super;
+struct EulerBurgers : public SelfGravitationBehavior<FiniteVolumeSolver> {
+	typedef SelfGravitationBehavior<FiniteVolumeSolver> Super;
 
 protected:
 	cl::Buffer interfaceVelocityBuffer;
-	cl::Buffer fluxBuffer;
 	cl::Buffer pressureBuffer;
 
 	cl::Kernel calcCellTimestepKernel;
 	cl::Kernel calcInterfaceVelocityKernel;
-	cl::Kernel calcFluxKernel;
-	cl::Kernel calcFluxDerivKernel;
 	cl::Kernel computePressureKernel;
 	cl::Kernel diffuseMomentumKernel;
 	cl::Kernel diffuseWorkKernel;

@@ -5,7 +5,7 @@ paritcularly the spectral decomposition
 
 #include "HydroGPU/Shared/Common.h"
 
-__kernel void calcEigenBasisSide(
+void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
@@ -283,3 +283,14 @@ __kernel void calcEigenBasisSide(
 
 }
 
+__kernel void calcEigenBasis(
+	__global real* eigenvaluesBuffer,
+	__global real* eigenvectorsBuffer,
+	const __global real* stateBuffer,
+	const __global real* primitiveBuffer,
+	const __global real* potentialBuffer)
+{
+	for (int side = 0; side < DIM; ++side) {
+		calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, primitiveBuffer, potentialBuffer);
+	}
+}

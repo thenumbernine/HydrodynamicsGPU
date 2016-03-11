@@ -31,13 +31,12 @@ integratorName = 'ForwardEuler'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
-maxFrames = nil			--enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
-showTimestep = false	--whether to print timestep.  useful for debugging.  push 't' to toggle.
+maxFrames = nil			-- enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+showTimestep = false	-- whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
 useFixedDT = false
-fixedDT = .125
-cfl = .5
+fixedDT = .001
 
 heatMapVariable = 'DENSITY'
 heatMapColorScale = 2
@@ -208,3 +207,5 @@ elseif #size == 2 then		-- 2D can handle either ortho or frustum
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end
+
+cfl = cfl or 1/#size

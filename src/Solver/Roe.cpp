@@ -4,77 +4,70 @@
 namespace HydroGPU {
 namespace Solver {
 
-Roe::Roe(
-	HydroGPUApp* app_)
+Roe::Roe(HydroGPUApp* app_)
 : Super(app_)
-{
-}
+{}
 
 void Roe::initBuffers() {
 	Super::initBuffers();
-
-	int volume = getVolume();
-
-	eigenvaluesBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * volume, "Roe::eigenvaluesBuffer");
-	eigenvectorsBuffer = cl.alloc(sizeof(real) * getEigenTransformStructSize() * volume, "Roe::eigenvectorsBuffer");
-	deltaQTildeBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * volume, "Roe::deltaQTildeBuffer");
-	fluxBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * volume, "Roe::fluxBuffer");
-
-	cl.zero(fluxBuffer, getEigenSpaceDim() * volume);
+	eigenvaluesBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * getVolume() * app->dim, "Roe::eigenvaluesBuffer");
+	eigenvectorsBuffer = cl.alloc(sizeof(real) * getEigenTransformStructSize() * getVolume() * app->dim, "Roe::eigenvectorsBuffer");
+	deltaQTildeBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * getVolume() * app->dim, "Roe::deltaQTildeBuffer");
 }
 
 int Roe::getEigenTransformStructSize() {
 	return getEigenSpaceDim() * getEigenSpaceDim() * 2;	//times two for forward and inverse
 }
 
+/*
+Some solvers advect a different number of variables (particularly less variables) 
+ than the total number of state variables.
+Specifically because some variables are only driven by source terms, or are altogether static.
+*/
+int Roe::getEigenSpaceDim() {
+	return numStates();
+}
+
 void Roe::initKernels() {
 	Super::initKernels();
 
-	calcEigenBasisSideKernel = cl::Kernel(program, "calcEigenBasisSide");
-	CLCommon::setArgs(calcEigenBasisSideKernel, eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer);
+	calcEigenBasisKernel = cl::Kernel(program, "calcEigenBasis");
+	CLCommon::setArgs(calcEigenBasisKernel, eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer);
 	
 	calcCellTimestepKernel = cl::Kernel(program, "calcCellTimestep");
 	CLCommon::setArgs(calcCellTimestepKernel,
-			dtBuffer,
+		dtBuffer,
 //Hydrodynamics ii
 #if 1
-			eigenvaluesBuffer);
+		eigenvaluesBuffer);
 #endif
 //Toro 16.38
 #if 0
-			stateBuffer);
+		stateBuffer);
 #endif	
 
 	calcDeltaQTildeKernel = cl::Kernel(program, "calcDeltaQTilde");
 	CLCommon::setArgs(calcDeltaQTildeKernel, deltaQTildeBuffer, eigenvectorsBuffer, stateBuffer);
-	
-	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	CLCommon::setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, deltaQTildeBuffer); 
-	
-	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
-	calcFluxDerivKernel.setArg(1, fluxBuffer);
 }	
 
+void Roe::init() {
+	Super::init();
+	calcFluxKernel.setArg(2, eigenvaluesBuffer);
+	calcFluxKernel.setArg(3, eigenvectorsBuffer);
+	calcFluxKernel.setArg(4, deltaQTildeBuffer); 
+}
+
 std::vector<std::string> Roe::getProgramSources() {
-	
 	std::vector<std::string> sources = Super::getProgramSources();
 	sources.push_back("#define EIGEN_TRANSFORM_STRUCT_SIZE "+std::to_string(getEigenTransformStructSize())+"\n");
+	sources.push_back("#define EIGEN_SPACE_DIM "+std::to_string(getEigenSpaceDim())+"\n");
 	
 	std::vector<std::string> added = getEigenProgramSources();
 	sources.insert(sources.end(), added.begin(), added.end());
-	
-	added = getRoeFluxDerivProgramSources();
-	sources.insert(sources.end(), added.begin(), added.end());
-	
+		
 	sources.push_back("#include \"Roe.cl\"\n");
 	
 	return sources;
-}
-
-std::vector<std::string> Roe::getRoeFluxDerivProgramSources() {
-	return {
-		"#include \"RoeFluxDeriv.cl\"\n"
-	};
 }
 
 std::vector<std::string> Roe::getEigenProgramSources() {
@@ -82,50 +75,38 @@ std::vector<std::string> Roe::getEigenProgramSources() {
 		"#include \"RoeEigenfieldLinear.cl\"\n"
 	};
 }
-	
-void Roe::initFluxSide(int side) {
-	calcEigenBasisSideKernel.setArg(3, side);
-	commands.enqueueNDRangeKernel(calcEigenBasisSideKernel, offsetNd, globalSize, localSize);
+
+#warning here
+//note this is called to compute eigenvalues before the timestep finds the highest (for cfl#)
+//then this is called again before calcderiv ...
+//don't I just need this in one spot?
+void Roe::initFlux() {
+	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize);
 }
 
 real Roe::calcTimestep() {
-	real dt = std::numeric_limits<real>::infinity();
-	for (int side = 0; side < app->dim; ++side) {
-		initFluxSide(side);
-		
-		calcCellTimestepKernel.setArg(2, side);
-		commands.enqueueNDRangeKernel(calcCellTimestepKernel, offsetNd, globalSize, localSize);
-		
-		dt = std::min(dt, findMinTimestep());
-	}
-	return dt;
+	initFlux();
+	commands.enqueueNDRangeKernel(calcCellTimestepKernel, offsetNd, globalSize, localSize);
+	return findMinTimestep();
 }
 
 void Roe::step(real dt) {
-	int sideStart, sideEnd, sideStep;
-	getSideRange(sideStart, sideEnd, sideStep);
-	for (int side = sideStart; side != sideEnd; side += sideStep) {
-		initFluxSide(side);
-		integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
-			calcDeriv(derivBuffer, dt, side);
-		});
-	}
+	initFlux();
+	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
+		calcDeriv(derivBuffer, dt);
+	});
 }
 
-void Roe::calcDeriv(cl::Buffer derivBuffer, real dt, int side) {
-	calcDeltaQTildeKernel.setArg(3, side);
+void Roe::calcDeriv(cl::Buffer derivBuffer, real dt) {
 	commands.enqueueNDRangeKernel(calcDeltaQTildeKernel, offsetNd, globalSize, localSize);
-	
-	calcFlux(dt, side);
+	calcFlux(dt);
 	
 	calcFluxDerivKernel.setArg(0, derivBuffer);
-	calcFluxDerivKernel.setArg(2, side);
 	commands.enqueueNDRangeKernel(calcFluxDerivKernel, offsetNd, globalSize, localSize);
 }
 
-void Roe::calcFlux(real dt, int side) {
+void Roe::calcFlux(real dt) {
 	calcFluxKernel.setArg(5, dt);
-	calcFluxKernel.setArg(6, side);
 	commands.enqueueNDRangeKernel(calcFluxKernel, offsetNd, globalSize, localSize);
 }
 

@@ -2,19 +2,18 @@
 
 #include "HydroGPU/Solver/SelfGravitationBehavior.h"
 #include "HydroGPU/Solver/MHDRemoveDivergenceBehavior.h"
-#include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Solver/FiniteVolumeSolver.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
 namespace Solver {
 
-struct MHDBurgers : public MHDRemoveDivergenceBehavior<SelfGravitationBehavior<Solver>> {
-	typedef MHDRemoveDivergenceBehavior<SelfGravitationBehavior<Solver>> Super;
+struct MHDBurgers : public MHDRemoveDivergenceBehavior<SelfGravitationBehavior<FiniteVolumeSolver>> {
+	typedef MHDRemoveDivergenceBehavior<SelfGravitationBehavior<FiniteVolumeSolver>> Super;
 
 protected:
 	cl::Buffer interfaceVelocityBuffer;
 	cl::Buffer interfaceMagneticFieldBuffer;
-	cl::Buffer fluxBuffer;
 	cl::Buffer pressureBuffer;
 
 	cl::Kernel calcCellTimestepKernel;
@@ -22,7 +21,6 @@ protected:
 	cl::Kernel calcVelocityFluxKernel;
 	cl::Kernel calcInterfaceMagneticFieldKernel;
 	cl::Kernel calcMagneticFieldFluxKernel;
-	cl::Kernel calcFluxDerivKernel;
 	cl::Kernel computePressureKernel;
 	cl::Kernel diffuseMomentumKernel;
 	cl::Kernel diffuseWorkKernel;
@@ -32,7 +30,8 @@ protected:
 
 public:
 	using Super::Super;
-	virtual void init();
+	virtual void initBuffers();
+	virtual void initKernels();
 
 protected:	
 	virtual void createEquation();

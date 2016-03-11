@@ -16,10 +16,10 @@ void MHDRoe::initKernels() {
 	Super::initKernels();
 
 	//all Euler and MHD systems also have a separate potential buffer...
-	calcEigenBasisSideKernel.setArg(4, selfgrav->potentialBuffer);
-	calcEigenBasisSideKernel.setArg(5, selfgrav->solidBuffer);
-	calcEigenBasisSideKernel.setArg(6, fluxBuffer);
-	calcEigenBasisSideKernel.setArg(7, fluxFlagBuffer);
+	calcEigenBasisKernel.setArg(3, selfgrav->potentialBuffer);
+	calcEigenBasisKernel.setArg(4, selfgrav->solidBuffer);
+	calcEigenBasisKernel.setArg(5, fluxBuffer);
+	calcEigenBasisKernel.setArg(6, fluxFlagBuffer);
 
 	//just like ordinary calcMHDFluxKernel -- and calls the ordinary
 	// -- but with an extra step to bail out of the associated fluxFlag is already set 
@@ -37,28 +37,21 @@ std::vector<std::string> MHDRoe::getProgramSources() {
 	return sources;
 }
 
-void MHDRoe::initFluxSide(int side) {
+void MHDRoe::initFlux() {
 	//MHD-Roe is special in that it can write fluxes during the calc eigen basis kernel
 	//(in the case of negative fluxes)
 	// so for that, I'm going to fill the flux kernel to some flag beforehand.
 	// zero is a safe flag, right?  no ... not for steady states ...
 	cl.zero(fluxFlagBuffer, getVolume() * app->dim / sizeof(real));
 
-	Super::initFluxSide(side);
-}
-
-void MHDRoe::initStep() {
-
-	//and fill buffer
-	Super::initStep();
+	Super::initFlux();
 }
 
 //override parent call
 //call this instead
 //it'll call through the CL code if it's needed
-void MHDRoe::calcFlux(real dt, int side) {
+void MHDRoe::calcFlux(real dt) {
 	calcMHDFluxKernel.setArg(5, dt);
-	calcMHDFluxKernel.setArg(6, side);
 	commands.enqueueNDRangeKernel(calcMHDFluxKernel, offsetNd, globalSize, localSize);
 }
 
@@ -70,4 +63,3 @@ void MHDRoe::step(real dt) {
 
 }
 }
-
