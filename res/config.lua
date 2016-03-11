@@ -173,20 +173,41 @@ camera.pos = {150,150}
 --[[ ADM 2D Spherical
 solverName = 'ADM2DSpherical'	-- not yet
 -- no test cases yet?
+-- I want to get rid of this one.  and the 1D ADM as well -- just one Bona-Masso ADM implementation is enough (I think) unless I should have separate ones for shift/less and mass/less
 --]]
 
 -- [[ ADM (3D)
 solverName = 'ADM3DRoe'
+		
+--[=[
+earth radius = 6.37101e+6 m
+domain: 10x radius = 6.37101e+7 m
+earth mass = 5.9736e+24 kg = 5.9736e+24 * 6.6738480e-11 / 299792458^2 m
+earth mass = Em * G / c^2 in meters
+--]=]
+local G = 6.6738480e-11	-- kg m^3/s^2
+local c = 299792458	-- m/s
+local earthRadiusInM = 6.37101e+6
+local earthMassInKg = 5.9736e+24
+local earthMassInM = earthMassInKg * G / c^2
+local earthMassInRadii = earthMassInM / earthRadiusInM	-- on the order of 1e-9.  much more subtle than the default 1e-3 demo
+local sunRadiusInM = 6.960e+8
+local sunMassInKg = 1.9891e+30
+local sunMassInM = sunMassInKg * G / c^2
+local sunMassInRadii = sunMassInM / sunRadiusInM		-- order of 1e-6
+
 --size = {1024} heatMapColorScale = 128
 size = {256, 256} heatMapColorScale = 1
 --size = {16, 16, 16} heatMapColorScale = 1
 --configurations['NR Gauge Shock Waves']{unitDomain=false}
-configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now 1D as well
+--configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
 --configurations['NR Alcubierre Warp Bubble']()	-- ...needs shift vector support
 --configurations['NR Schwarzschild Black Hole']()
 --configurations['NR Stellar']()
+--configurations['NR Stellar']{{pos = {0,0,0}, radius = .1, mass = earthMassInRadii}}
+configurations['NR Stellar']{{pos = {0,0,0}, radius = .1, mass = sunMassInRadii}}
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
-useHeatMap = false
+--useHeatMap = false
 heatMapVariable = 'ALPHA'
 --fixedDT = .125
 --useFixedDT = true

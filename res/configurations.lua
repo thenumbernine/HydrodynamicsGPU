@@ -784,14 +784,14 @@ return {
 		adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
 		
 		local t,x,y,z = symmath.vars('t','x','y','z')
-
+		
 		local alpha = 1
 		local g = {1,0,0,1,0,1}
 		for _,body in ipairs(bodies) do
 			local M = body.mass 
 			local R = body.radius
 			local xc, yc, zc = table.unpack(body.pos)
-
+			
 			local x_ = x - xc
 			local y_ = y - yc
 			local z_ = z - zc
@@ -799,7 +799,7 @@ return {
 			local r = rSq^.5
 			local m = M * min(r/R, 1)^3
 			local R = 2*m
-		
+			
 			alpha = alpha - 2*m/r
 			g[1] = g[1] + x_^2/((r/R-1)*rSq)
 			g[2] = g[2] + x_*y_/((r/R-1)*rSq)
@@ -820,7 +820,4 @@ return {
 			useNumericInverse = true,	-- if g gets too complex ...
 		}
 	end,
-
 }
-
-

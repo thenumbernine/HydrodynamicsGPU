@@ -49,14 +49,17 @@ __kernel void convertToTex(
 	
 	float value = 0.f;
 	switch (displayMethod) {
+	case DISPLAY_ALPHA:
+		value = alpha - 1.;	//bias to zero
+		break;
 	case DISPLAY_VOLUME:
-		value = alpha * gamma; 
+		value = alpha * gamma - 1.;	//bias to zero 
 		break;
 	case DISPLAY_K:
 		value = tr_K;
 		break;
 	case DISPLAY_GAMMA:
-		value = gamma;
+		value = gamma - 1.;	//bias to zero
 		break;
 	
 	//V_k = D_km^m - D^m_mk = (D_kmn - D_mnk) gamma^mn
