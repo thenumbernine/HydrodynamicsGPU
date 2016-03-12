@@ -135,20 +135,22 @@ args:
 	args = {x,y,z} spatial basis variables
 	alpha = lapse expression
 	(beta isn't used yet)
-	g = 3-metric
+	gamma = 3-metric
 	K = extrinsic curvature
 
-	g & K are stored as {xx,xy,xz,yy,yz,zz}
+	gamma & K are stored as {xx,xy,xz,yy,yz,zz}
+
+	density = lua function
 --]]
 function initNumRel(args)	
 	local vars = assert(args.vars)
 	
 	local exprs = table{
 		alpha = assert(args.alpha),
-		g = {table.unpack(args.g)},
+		gamma = {table.unpack(args.gamma)},
 		K = {table.unpack(args.K)}
 	}
-	assert(#exprs.g == 6)
+	assert(#exprs.gamma == 6)
 	assert(#exprs.K == 6)
 
 	local function toExpr(expr, name)
@@ -157,60 +159,91 @@ function initNumRel(args)
 			if not expr.isa then
 				expr = table.map(expr, toExpr)
 			end
+			-- simplify?
+			if symmath.Expression.is(expr) then
+				expr = expr()
+			end
 		end
 		return expr, name
 	end
+	print('converting everything to expressions...')
 	exprs = table.map(exprs, toExpr)
+	print('...done converting everything to expressions')
 	
 	local function buildCalc(expr, name)
 		assert(type(expr) == 'table')
 		if symmath.Expression.is(expr) then 
-			return expr:simplify():compile(vars), name
+			expr = expr()
+			print('compiling '..expr)
+			return expr:compile(vars), name
 		end
 		return table.map(expr, buildCalc), name
 	end
 	
 	-- ADM
 	if solverName == 'ADM1DRoe' then
-		exprs.g = exprs.g[1]	-- only need g_xx
-		exprs.A = (exprs.alpha:diff(vars[1]) / exprs.alpha):simplify()	-- only need a_x
-		exprs.D = (exprs.g:diff(vars[1])/2):simplify()	-- only need D_xxx
+		exprs.gamma = exprs.gamma[1]	-- only need g_xx
+		exprs.A = (exprs.alpha:diff(vars[1]) / exprs.alpha)()	-- only need a_x
+		exprs.D = (exprs.gamma:diff(vars[1])/2)()	-- only need D_xxx
 		exprs.K = exprs.K[1]	-- only need K_xx
+		print('compiling expressions...')
 		local calc = table.map(exprs, buildCalc)
+		print('...done compiling expressions')
 		initState = function(x,y,z)
 			local alpha = calc.alpha(x,y,z)
-			local g = calc.g(x,y,z)
+			local gamma = calc.gamma(x,y,z)
 			local A = calc.A(x,y,z)
 			local D = calc.D(x,y,z)
 			local K = calc.K(x,y,z)
-			return alpha, g, A, D, K
+			return alpha, gamma, A, D, K
 		end
 	elseif solverName == 'ADM3DRoe' then
+		
 		-- for complex computations it might be handy to extract the determinant first ...
 		-- or even just perform a numerical inverse ...
 		if not args.useNumericInverse then
-			exprs.gU = table{mat33.inv(exprs.g:unpack())}
+			print('inverting spatial metric...')
+			exprs.gammaU = {mat33.inv(exprs.gamma:unpack())}
+			print('...done inverting spatial metric')
 		end
 
+		-- this takes forever.  why is that?  differentiation?
+		print('building metric partials...')
 		exprs.D = table.map(vars, function(x_k)
-			return table.map(exprs.g, function(g_ij)
-				return (g_ij:diff(x_k)/2):simplify()
+			return table.map(exprs.gamma, function(g_ij)
+				print('differentiating '..g_ij)
+				return (g_ij:diff(x_k)/2)()
 			end)
 		end)
-		
+		print('...done building metric partials')
+	
+		print('building lapse partials...')
 		exprs.A = table.map(vars, function(var)
-			return (exprs.alpha:diff(var) / exprs.alpha):simplify()
+			return (exprs.alpha:diff(var) / exprs.alpha)()
 		end)
+		print('...done building lapse partials')
 		
+		print('compiling expressions...')
 		local calc = table.map(exprs, buildCalc)
-		
+		print('...done compiling expressions')
+	
+		local densityFunc = args.density or 0
+		if symmath.Expression.is(densityFunc) then
+			densityFunc = densityFunc():compile(vars)
+		end
+
+		local pressureFunc = args.pressure or 0
+		if symmath.Expression.is(pressureFunc) then
+			pressureFunc = pressureFunc():compile(vars)
+		end
+
 		initState = function(x,y,z)
 		
 			local alpha = calc.alpha(x,y,z)
+			local gamma = calc.gamma:map(function(g_ij) return g_ij(x,y,z) end)
 			local A = calc.A:map(function(A_i) return A_i(x,y,z) end)
-			local g = calc.g:map(function(g_ij) return g_ij(x,y,z) end)
 			local D = calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
-			local gU = args.useNumericInverse and table{mat33.inv(g:unpack())} or calc.gU:map(function(gUij) return gUij(x,y,z) end) 
+			local gammaU = args.useNumericInverse and table{mat33.inv(gamma:unpack())} or calc.gammaU:map(function(gammaUij) return gammaUij(x,y,z) end) 
 			
 			local function sym3x3(m,i,j)
 				local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = m:unpack()
@@ -235,8 +268,8 @@ function initNumRel(args)
 					for k=1,3 do
 						local D_ijk = sym3x3(D[i],j,k)
 						local D_kji = sym3x3(D[k],j,i)
-						local gUjk = sym3x3(gU,j,k)
-						local dg = (D_ijk - D_kji) * gUjk
+						local gammaUjk = sym3x3(gammaU,j,k)
+						local dg = (D_ijk - D_kji) * gammaUjk
 						s = s + dg
 					end
 				end
@@ -247,9 +280,33 @@ function initNumRel(args)
 				K[i] = calc.K[i](x,y,z)
 			end
 
+			local density = 0
+			if type(densityFunc) == 'number' then
+				density = densityFunc
+			elseif type(densityFunc) == 'function' then
+				density = densityFunc(x,y,z)
+			elseif densityFunc ~= nil then
+				error("don't know how to handle density")
+			end
+			
+			local pressure = 0
+			if type(pressureFunc) == 'number' then
+				pressure = pressureFunc
+			elseif type(pressureFunc) == 'function' then
+				pressure = pressureFunc(x,y,z)
+			elseif pressureFunc ~= nil then
+				error("don't know how to handle pressure")
+			end
+		
+			local velocityX, velocityY, velocityZ
+			if args.velocity then velocityX, velocityY, velocityZ = args.velocity(x,y,z) end
+			velocityX = velocityX or 0
+			velocityY = velocityY or 0
+			velocityZ = velocityZ or 0
+
 			return
 				alpha,
-				g[1], g[2], g[3], g[4], g[5], g[6],
+				gamma[1], gamma[2], gamma[3], gamma[4], gamma[5], gamma[6],
 				A[1], A[2], A[3],
 				D[1][1], D[1][2], D[1][3], D[1][4], D[1][5], D[1][6],
 				D[2][1], D[2][2], D[2][3], D[2][4], D[2][5], D[2][6],
@@ -257,9 +314,8 @@ function initNumRel(args)
 				K[1], K[2], K[3], K[4], K[5], K[6],
 				V[1], V[2], V[3],
 				density,
-				momentumX, momentumY, momentumZ,
-				energy
+				velocityX, velocityY, velocityZ,
+				pressure
 		end
 	end
 end
-

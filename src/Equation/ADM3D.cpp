@@ -58,8 +58,8 @@ ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 	addSuffixes(states, "V_", spaceSuffixes);	//V_k = D_km^m - D^m_mk. TODO replace with Gamma^k = Gamma^k_ij gamma^ij as the book describes
 
 	states.push_back("DENSITY");
-	addSuffixes(states, "MOMENTUM_", spaceSuffixes);
-	states.push_back("ENERGY");
+	addSuffixes(states, "VELOCITY_", spaceSuffixes);
+	states.push_back("PRESSURE");
 
 	displayVariables = states;
 	displayVariables.push_back("K");
@@ -80,10 +80,17 @@ void ADM3D::getProgramSources(std::vector<std::string>& sources) {
 	std::string adm_BonaMasso_f = "1.f";
 	solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	sources[0] += "#define ADM_BONA_MASSO_F " + adm_BonaMasso_f + "\n";
+	
 	std::string adm_BonaMasso_df_dalpha = "0.f";
 	solver->app->lua.ref()["adm_BonaMasso_df_dalpha"] >> adm_BonaMasso_df_dalpha;
 	sources[0] += "#define ADM_BONA_MASSO_DF_DALPHA " + adm_BonaMasso_df_dalpha + "\n";
 
+	//speed of light is used for coordinate transform from 3-vel to 4-vel with the stress-energy tensor
+	//for the R4_ij and G_ij components
+	real speedOfLight = 299792458;	//default in m/s
+	solver->app->lua.ref()["speedOfLight"] >> speedOfLight;
+	sources[0] += "#define SPEED_OF_LIGHT " + toNumericString<real>(speedOfLight) + "\n";
+	
 	{
 		int i = 0;
 		for (const std::string& suffix : sym33suffixes){

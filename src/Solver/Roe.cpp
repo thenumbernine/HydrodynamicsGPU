@@ -76,11 +76,9 @@ std::vector<std::string> Roe::getEigenProgramSources() {
 	};
 }
 
-#warning here
-//note this is called to compute eigenvalues before the timestep finds the highest (for cfl#)
-//then this is called again before calcderiv ...
-//don't I just need this in one spot?
 void Roe::initFlux() {
+	//compute eigenbasis here, once
+	//then, because we're not integrating separate dimensions separately, the states won't get intermediately changed and we won't have to update this value
 	commands.enqueueNDRangeKernel(calcEigenBasisKernel, offsetNd, globalSize, localSize);
 }
 
@@ -91,7 +89,7 @@ real Roe::calcTimestep() {
 }
 
 void Roe::step(real dt) {
-	initFlux();
+	//no need to re-init flux here unless we are separating integraion per-side
 	integrator->integrate(dt, [&](cl::Buffer derivBuffer) {
 		calcDeriv(derivBuffer, dt);
 	});

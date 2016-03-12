@@ -464,6 +464,15 @@ __kernel void addSource(
 	real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
 	real f = ADM_BONA_MASSO_F;	//could be based on alpha...
 
+real density = state[STATE_DENSITY];
+real pressure = state[STATE_PRESSURE];
+real4 vel3 = (real4)(state[STATE_VELOCITY_X], state[STATE_VELOCITY_Y], state[STATE_VELOCITY_Z], 0.);
+real vel3Sq = dot(vel3, vel3);
+real velGamma = 1. / sqrt(1. - vel3Sq / (SPEED_OF_LIGHT * SPEED_OF_LIGHT));
+real4 vel4_ = vel3 * (velGamma / SPEED_OF_LIGHT);
+vel4_.w = velGamma;
+
+real4 beta_ = (real4)(0., 0., 0., 0.);
 
 // source terms
 real KUL[3][3] = {
@@ -691,12 +700,12 @@ ADU[0] * (D_yxz + D_zxy) + ADU[1] * (D_yyz + D_zyy) + ADU[2] * (D_yzz + D_zyz),
 ADU[0] * (2 * D_zxz) + ADU[1] * (2 * D_zyz) + ADU[2] * (2 * D_zzz),
 };
 real R4SymLL[6] = {
-0,
-0,
-0,
-0,
-0,
-0,
+8. * M_PI * ((density + pressure) * vel4_.x * vel4_.x + .5 * (density - pressure) * gamma_xx),
+8. * M_PI * ((density + pressure) * vel4_.x * vel4_.y + .5 * (density - pressure) * gamma_xy),
+8. * M_PI * ((density + pressure) * vel4_.x * vel4_.z + .5 * (density - pressure) * gamma_xz),
+8. * M_PI * ((density + pressure) * vel4_.y * vel4_.y + .5 * (density - pressure) * gamma_yy),
+8. * M_PI * ((density + pressure) * vel4_.y * vel4_.z + .5 * (density - pressure) * gamma_yz),
+8. * M_PI * ((density + pressure) * vel4_.z * vel4_.z + .5 * (density - pressure) * gamma_zz),
 };
 real SSymLL[6] = {
 -R4SymLL[0] + trK * K_xx - 2 * KSqSymLL[0] + 4 * D12SymLL[0] + Gamma31SymLL[0] - Gamma11SymLL[0] + ADDSymLL[0] + (A_x * ((2 * V_x) - D1L[0])),
@@ -707,9 +716,9 @@ real SSymLL[6] = {
 -R4SymLL[5] + trK * K_zz - 2 * KSqSymLL[5] + 4 * D12SymLL[5] + Gamma31SymLL[5] - Gamma11SymLL[5] + ADDSymLL[5] + (A_z * ((2 * V_z) - D1L[2])),
 };
 real GU0L[3] = {
-0,
-0,
-0,
+8. * M_PI * ((density + pressure) * vel4_.w * vel4_.x + pressure * beta_.x),
+8. * M_PI * ((density + pressure) * vel4_.w * vel4_.y + pressure * beta_.y),
+8. * M_PI * ((density + pressure) * vel4_.w * vel4_.z + pressure * beta_.z),
 };
 real AKL[3] = {
 A_x * KUL[0][0] + A_y * KUL[1][0] + A_z * KUL[2][0],

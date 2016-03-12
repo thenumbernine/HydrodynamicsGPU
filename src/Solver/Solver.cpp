@@ -96,6 +96,7 @@ OR I could just have the debug printfs also output their thread ID and filter al
 	case 2:
 		globalSize = cl::NDRange(app->size.s[0], app->size.s[1]);
 		{
+			//I never did get why, when the max work item size is 256^3, the largest local size is still just 16
 			int n = app->clCommon->useGPU ? 16 : 1;
 #ifdef DEBUG_OVERRIDE
 			n = 1;
@@ -110,6 +111,9 @@ OR I could just have the debug printfs also output their thread ID and filter al
 		globalSize = cl::NDRange(app->size.s[0], app->size.s[1], app->size.s[2]);
 		{
 			int n = app->clCommon->useGPU ? 8 : 1;
+#ifdef AMD_SUCKS //the AMD card doesn't like having a local size of ... anything
+			n = 1;
+#endif
 #ifdef DEBUG_OVERRIDE
 			n = 1;
 #endif

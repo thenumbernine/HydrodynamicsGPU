@@ -18,8 +18,8 @@ CameraFrustum::CameraFrustum(HydroGPU::HydroGPUApp* app_)
 }
 
 void CameraFrustum::setupProjection() {
-	float zFar = 2.f * dist;
-	float zNear = dist / 1000.f;
+	float zFar = 10.;
+	float zNear = .001;
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glFrustum(-app->aspectRatio * zNear, app->aspectRatio * zNear, -zNear, zNear, zNear, zFar);

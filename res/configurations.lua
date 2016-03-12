@@ -599,27 +599,26 @@ return {
 		local xc = (xmax[1] + xmin[1]) * .5
 		local yc = (xmax[2] + xmin[2]) * .5
 		local zc = (xmax[3] + xmin[3]) * .5
-		local x = symmath.var'x'
-		local y = symmath.var'y'
-		local z = symmath.var'z'
+		local x, y, z = symmath.vars('x', 'y', 'z')
 		Tensor.coords{
 			{variables={x,y,z}},
 		}
 		local alpha = symmath.Constant(1)
-		local h, g, K
+		local h, gamma, K
+--[[	
 		if #size == 1 then
 			h = H * symmath.exp(-(x - xc)^2 / sigma^2)
-			g = Tensor('_ij', 
+			gamma = Tensor('_ij', 
 				{1 - h:diff(x)^2, 0, 0},
 				{0, 1, 0},
 				{0, 0, 1})
 			
 			-- keep the upper diagonal half
 			-- TODO just forward it as-is to initNumRel and, if anything, add the symmetric storage optimization to symmath
-			g = {g[1][1], g[1][2], g[1][3], g[2][2], g[2][3], g[3][3]}
+			gamma = {gamma[1][1], gamma[1][2], gamma[1][3], gamma[2][2], gamma[2][3], gamma[3][3]}
 			
 			K = {
-				-h:diff(x,x) / g[1]^.5,	--g[1] = g_xx
+				-h:diff(x,x) / gamma[1]^.5,	--gamma[1] = g_xx
 				0,
 				0,
 				0,
@@ -628,7 +627,7 @@ return {
 			}
 		elseif #size == 2 then
 			h = H * symmath.exp(-((x - xc)^2 + (y - yc)^2) / sigma^2)
-			g = {
+			gamma = {
 				1 - h:diff(x)^2,
 				-h:diff(x) * h:diff(y),		-- x derivs adds interference, which causes asymmetry, and eventually divergence.  maybe its the influence of D that causes this?
 				0,
@@ -647,8 +646,9 @@ return {
 				0,
 			}
 		else
+--]] do
 			h = H * symmath.exp(-((x - xc)^2 + (y - yc)^2 + (z - zc)^2) / sigma^2)
-			g = {
+			gamma = {
 				1 - h:diff(x)^2,
 				-h:diff(x) * h:diff(y),
 				-h:diff(x) * h:diff(z),
@@ -673,7 +673,7 @@ return {
 		initNumRel{
 			vars = {x,y,z},
 			alpha = alpha,
-			g = g,
+			gamma = gamma,
 			K = K,
 		}
 	end,
@@ -714,7 +714,7 @@ return {
 			--]]
 			beta = {betaUx, 0, 0},
 
-			g = {1, 0, 0, 1, 0, 1},		-- identity
+			gamma = {1, 0, 0, 1, 0, 1},		-- identity
 			K = {K_xx, K_xy, K_xz, 0, 0, 0},
 		}
 	end,
@@ -740,7 +740,7 @@ return {
 			-- 4D metric ADM components:
 			alpha = (1 - R/r)^.5,
 			beta = {0,0,0},
-			g = {
+			gamma = {
 				x^2/((r/R-1)*r^2) + 1,	-- xx
 				x*y/((r/R-1)*r^2),		-- xy
 				x*z/((r/R-1)*r^2),		-- xz
@@ -756,13 +756,14 @@ return {
 		
 		local symmath = require 'symmath'
 		symmath.tostring = require 'symmath.tostring.SingleLine'
-		
-		-- need heaviside function ... or conditional statements ... or something ...
-		-- adding it to symmath (instead of tanh) might speed up the evaluations ...
-		local function H(u)
-			return symmath.tanh((u) * 10) * .5 + .5
-		end
-	
+
+		--[[ this is technically correct, but gets some artifacts with the radial boundary on the cartesian grid
+		local H = symmath.Heaviside
+		--]]
+		-- [[ this looks a bit smoother.  sharper edges mean greater artifacts.
+		local function H(u) return symmath.tanh((u) * 10) * .5 + .5 end
+		--]]
+			
 		local class = require 'ext.class'
 		local min = class(require 'symmath.Function')
 		min.name = 'min'
@@ -773,20 +774,28 @@ return {
 			local b = self[2]
 			return H(b - a) * symmath.diff(a, ...) + H(a - b) * symmath.diff(b, ...)
 		end
-	
+		
 		local bodies = args and args.bodies or {{
 			pos = {0,0,0},
 			mass = .001,
 			radius = .1,
 		}}
+	
+		-- based on mass and radius, get density
+		-- TODO allow specifying density profiles
+		-- separate cases for each dimension?  nah, just assume 3D
+		local density = 0 
+		local pressure = 0
 
 		adm_BonaMasso_f = '1. + 1. / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
 		adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
 		
 		local t,x,y,z = symmath.vars('t','x','y','z')
 		
+		print('building variables ...')
+		
 		local alpha = 1
-		local g = {1,0,0,1,0,1}
+		local gamma = {1,0,0,1,0,1}
 		for _,body in ipairs(bodies) do
 			local M = body.mass 
 			local R = body.radius
@@ -801,23 +810,33 @@ return {
 			local R = 2*m
 			
 			alpha = alpha - 2*m/r
-			g[1] = g[1] + x_^2/((r/R-1)*rSq)
-			g[2] = g[2] + x_*y_/((r/R-1)*rSq)
-			g[3] = g[3] + x_*z_/((r/R-1)*rSq)
-			g[4] = g[4] + y_^2/((r/R-1)*rSq)
-			g[5] = g[5] + y_*z_/((r/R-1)*rSq)
-			g[6] = g[6] + z_^2/((r/R-1)*rSq)
+			gamma[1] = gamma[1] + x_^2/((r/R-1)*rSq)
+			gamma[2] = gamma[2] + x_*y_/((r/R-1)*rSq)
+			gamma[3] = gamma[3] + x_*z_/((r/R-1)*rSq)
+			gamma[4] = gamma[4] + y_^2/((r/R-1)*rSq)
+			gamma[5] = gamma[5] + y_*z_/((r/R-1)*rSq)
+			gamma[6] = gamma[6] + z_^2/((r/R-1)*rSq)
+		
+			density = density + H(1-r/R) * M / (4/3 * math.pi * R^3)
+			-- TODO pressure as well.  see TOV equations: https://en.wikipedia.org/wiki/Tolman%E2%80%93Oppenheimer%E2%80%93Volkoff_equation
 		end
 		alpha = alpha^.5
-
+		
+		print('...done building variables')
+		
+		print('initializing numerical relativity variables ...')
 		initNumRel{
 			vars = {x,y,z},
 			-- 4D metric ADM components:
 			alpha = alpha,
 			beta = {0,0,0},
-			g = g,
+			gamma = gamma,
 			K = {0,0,0,0,0,0},
-			useNumericInverse = true,	-- if g gets too complex ...
+			useNumericInverse = true,	-- if gamma gets too complex ...
+			-- hmm would be nice if any field could be a function, algebra, or constant ...
+			density = density,
+			pressure = pressure,
 		}
+		print('...done initializing numerical relativity variables') 
 	end,
 }

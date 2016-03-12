@@ -92,12 +92,13 @@ void HydroGPUApp::init() {
 	}
 	
 	//config before Super::init so we can provide it 'useGPU'
-	std::cout << "loading config file " << configFilename << std::endl;
+	std::cout << "loading config file " << configFilename << " ..." << std::endl;
 	lua.loadFile(configFilename);
 	if (!configString.empty()) {
 		std::cout << "loading config string " << configString << std::endl;
 		lua.loadString(configString);
 	}
+	std::cout << "...loaded config file" << std::endl;
 
 	bool useGPU = true;
 	lua.ref()["useGPU"] >> useGPU;
@@ -154,6 +155,7 @@ void HydroGPUApp::init() {
 	std::cout << "dx " << dx << std::endl;
 
 	Super::init();
+	
 	clCommon = std::make_shared<CLCommon::CLCommon>(
 		useGPU,
 		/*verbose=*/true,
@@ -407,9 +409,14 @@ PROFILE_BEGIN_FRAME()
 
 	camera->setupProjection();
 	solver->app->camera->setupModelview();
-	if (useHeatMap) plot->display();	
 	vectorField->display();
 	if (graph) graph->display();
+	
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	if (useHeatMap) plot->display();	
+	glDisable(GL_BLEND);
+
 PROFILE_END_FRAME();
 }
 

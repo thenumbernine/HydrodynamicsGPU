@@ -69,14 +69,18 @@ permittivity = 1
 permeability = 1
 conductivity = 1
 
+-- numerical relativity, speed of light, in grid units
+speedOfLightInM = 299792458
+speedOfLight = speedOfLightInM
+
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
 --[[ 3D
-size = {32, 32, 32}
+size = {16, 16, 16}
 vectorFieldResolution = 16
 --]]
 -- [[ 2D
-size = {256, 256}
+size = {2048, 2048}
 --]]
 --[[ 1D
 size = {1024}
@@ -90,10 +94,10 @@ camera = {}
 --[[ Euler
 
 -- uncomment one:
---solverName = 'EulerBurgers'
+solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
-solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
+--solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
 --solverName = 'SRHDRoe'		-- not yet
 
 -- override solids:
@@ -196,6 +200,8 @@ local sunMassInKg = 1.9891e+30
 local sunMassInM = sunMassInKg * G / c^2
 local sunMassInRadii = sunMassInM / sunRadiusInM		-- order of 1e-6
 
+local planetRadiusInCoords = .1
+
 --size = {1024} heatMapColorScale = 128
 size = {256, 256} heatMapColorScale = 1
 --size = {16, 16, 16} heatMapColorScale = 1
@@ -205,7 +211,10 @@ size = {256, 256} heatMapColorScale = 1
 --configurations['NR Schwarzschild Black Hole']()
 --configurations['NR Stellar']()
 --configurations['NR Stellar']{{pos = {0,0,0}, radius = .1, mass = earthMassInRadii}}
-configurations['NR Stellar']{{pos = {0,0,0}, radius = .1, mass = sunMassInRadii}}
+local gridUnitsInM = sunRadiusInM / planetRadiusInCoords
+speedOfLight = speedOfLightInM / gridUnitsInM
+configurations['NR Stellar']{{pos = {0,0,0}, radius = planetRadiusInCoords, mass = sunMassInRadii}}
+
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 --useHeatMap = false
 heatMapVariable = 'ALPHA'
@@ -216,7 +225,6 @@ graphVariables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = al
 graphStep = {1,1,1}
 graphScale = 1
 --]]
-
 
 -- camera setup:
 

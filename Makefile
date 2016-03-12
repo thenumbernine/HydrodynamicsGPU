@@ -13,6 +13,7 @@ include ../Shader/Include.mk
 include ../LuaCxx/Include.mk
 
 MACROS+= AMD_SUCKS
+DYNAMIC_LIBS+= libnanogui.dylib
 LUA_EXT_PATH=$(HYDROGPU_PATH)/../lua/ext
 LUA_SYMMATH_PATH=$(HYDROGPU_PATH)/../lua/symmath
 DIST_RESOURCE_PATH=$(DISTDIR)/$(call concat,$(call buildVar,DIST_PREFIX)$(DIST_FILENAME)).app/Contents/Resources/
