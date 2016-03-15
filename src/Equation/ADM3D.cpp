@@ -17,7 +17,7 @@ enum {
 
 static std::vector<std::string> spaceSuffixes {"X", "Y", "Z"};
 
-static std::vector<std::string> sym33suffixes {
+static std::vector<std::string> sym33Suffixes {
 	"XX",
 	"XY",
 	"XZ",
@@ -48,13 +48,13 @@ ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 
 	//you can factor these out someday ...
 	states.push_back("ALPHA");
-	addSuffixes(states, "GAMMA_", sym33suffixes);
+	addSuffixes(states, "GAMMA_", sym33Suffixes);
 	//these form the hyperbolic system ...
-	addSuffixes(states, "A_", spaceSuffixes);	//A_i = partial_i alpha
-	addSuffixes(states, "D_X", sym33suffixes);	//D_kij = 1/2 partial_k gamma_ij
-	addSuffixes(states, "D_Y", sym33suffixes);
-	addSuffixes(states, "D_Z", sym33suffixes);
-	addSuffixes(states, "K_", sym33suffixes);	//extrinsic curvature
+	addSuffixes(states, "A_", spaceSuffixes);	//A_i = partial_i ln alpha
+	addSuffixes(states, "D_X", sym33Suffixes);	//D_kij = 1/2 partial_k gamma_ij
+	addSuffixes(states, "D_Y", sym33Suffixes);
+	addSuffixes(states, "D_Z", sym33Suffixes);
+	addSuffixes(states, "K_", sym33Suffixes);	//extrinsic curvature
 	addSuffixes(states, "V_", spaceSuffixes);	//V_k = D_km^m - D^m_mk. TODO replace with Gamma^k = Gamma^k_ij gamma^ij as the book describes
 
 	states.push_back("DENSITY");
@@ -65,7 +65,17 @@ ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 	displayVariables.push_back("K");
 	displayVariables.push_back("GAMMA");
 	displayVariables.push_back("VOLUME");
-	addSuffixes(displayVariables, "V_CONSTRAINT_", spaceSuffixes);
+	addSuffixes(displayVariables, "A_ALPHA_CONSTRAINT_", spaceSuffixes);	//A_i = partial_i ln alpha
+	addSuffixes(displayVariables, "D_X_GAMMA_CONSTRAINT_", sym33Suffixes);	//D_kij = 1/2 partial_k gamma_ij
+	addSuffixes(displayVariables, "D_Y_GAMMA_CONSTRAINT_", sym33Suffixes);	//D_kij = 1/2 partial_k gamma_ij
+	addSuffixes(displayVariables, "D_Z_GAMMA_CONSTRAINT_", sym33Suffixes);	//D_kij = 1/2 partial_k gamma_ij
+	addSuffixes(displayVariables, "V_CONSTRAINT_", spaceSuffixes);	//V^i = D^im_m - D_m^mi
+
+	//TODO more constraints:
+	//displayVariables.push_back("CONSTRAINT_HAMILTONIAN");
+	//addSuffixes(displayVariables, "CONSTRAINT_MOMENTUM_", spaceSuffixes);
+	//addSuffixes(displayVariables, "CONSTRAINT_EFE_", sym33Suffixes);
+
 }
 
 void ADM3D::getProgramSources(std::vector<std::string>& sources) {
@@ -93,7 +103,7 @@ void ADM3D::getProgramSources(std::vector<std::string>& sources) {
 	
 	{
 		int i = 0;
-		for (const std::string& suffix : sym33suffixes){
+		for (const std::string& suffix : sym33Suffixes){
 			sources[0] += "#define SYM33_" + suffix + " " + std::to_string(i) + "\n";
 			++i;
 		}

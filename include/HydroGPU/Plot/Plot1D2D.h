@@ -11,8 +11,6 @@ struct Plot1D2D : public Plot {
 	typedef Plot Super;
 	
 	Plot1D2D(HydroGPU::HydroGPUApp* app_);
-	
-	virtual void screenshot(const std::string& filename);
 };
 
 }

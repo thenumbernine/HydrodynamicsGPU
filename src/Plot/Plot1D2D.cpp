@@ -2,7 +2,6 @@
 #include "HydroGPU/Plot/CameraOrtho.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Image/System.h"
 #include <OpenGL/gl.h>
 
 namespace HydroGPU {
@@ -37,17 +36,6 @@ Plot1D2D::Plot1D2D(HydroGPU::HydroGPUApp* app_)
 	glBindTexture(GL_TEXTURE_2D, 0);
 	int err = glGetError();
 	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
-}
-
-void Plot1D2D::screenshot(const std::string& filename) {
-	std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(
-		Tensor::Vector<int,2>(app->size.s[0], app->size.s[1]),
-		nullptr, 3);
-	
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, image->getData());
-	glBindTexture(GL_TEXTURE_2D, 0);
-	Image::system->write(filename, image);
 }
 
 }

@@ -788,7 +788,8 @@ GU0L[2] + AKL[2] - A_z * trK + K12D23L[2] + KD23L[2] - 2 * K12D12L[2] + 2 * KD12
 __kernel void constrain(
 	__global real* stateBuffer)
 {
-#if 0
+#if 0	//use constraints at all?
+	
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
@@ -800,8 +801,8 @@ __kernel void constrain(
 	) {
 		return;
 	}
-	int index = INDEXV(i);
 	
+	int index = INDEXV(i);
 	__global real* state = stateBuffer + NUM_STATES * index;
 
 	//real alpha = state[0];
@@ -854,12 +855,19 @@ __kernel void constrain(
 		- (gammaUyz * D_yzz);
 
 #if 0	//directly assign V_i's
-	state[34] = D3_D1_x;
-	state[35] = D3_D1_y;
-	state[36] = D3_D1_z;
+	state[STATE_V_X] = D3_D1_x;
+	state[STATE_V_Y] = D3_D1_y;
+	state[STATE_V_Z] = D3_D1_z;
 #endif
-#if 1	//linearly project out the [V_i, D_ijk] vector
-
+#if 0	//linearly project out the [V_i, D_ijk] vector
+#endif
+#if 0	//do a single gradient descent step
+/*
+V_i = d_ik^k - d^k_ki
+f_i = V_i - (d_ijk - d_jki) gamma^jk
+*/
+	state[STATE_V_X] -= epsilon;
+	state[STATE_V_Y] -= epsilon;
 #endif
 
 #endif

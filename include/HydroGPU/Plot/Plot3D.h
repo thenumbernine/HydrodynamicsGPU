@@ -16,7 +16,6 @@ struct Plot3D : public Plot {
 	Plot3D(HydroGPU::HydroGPUApp* app_);
 	
 	virtual void display();
-	virtual void screenshot(const std::string& filename);	
 };
 
 }

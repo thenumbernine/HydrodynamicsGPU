@@ -470,7 +470,7 @@ std::cout << "event " << entry->name << std::endl;
 
 void Solver::screenshot() {
 	for (int i = 0; i < 1000; ++i) {
-		std::string filename = std::string("screenshot") + std::to_string(i) + "layer0.png";
+		std::string filename = std::string("screenshot") + std::to_string(i) + ".png";
 		if (!Common::File::exists(filename)) {
 			app->plot->screenshot(filename);
 			return;

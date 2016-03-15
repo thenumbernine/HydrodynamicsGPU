@@ -19,19 +19,21 @@ __kernel void calcCellTimestep(
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 
-	for (int side = 0; side < DIM; ++side) {
-
-		if (i.x < 2 || i.x >= SIZE_X - 2 
+	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
-			|| i.y < 2 || i.y >= SIZE_Y - 2
+		|| i.y < 2 || i.y >= SIZE_Y - 2
 #endif
 #if DIM > 2
-			|| i.z < 2 || i.z >= SIZE_Z - 2
+		|| i.z < 2 || i.z >= SIZE_Z - 2
 #endif
-		) {
+	) {
+		for (int side = 0; side < DIM; ++side) {
 			dtBuffer[side + DIM * index] = INFINITY;
-			continue;
 		}
+		return;
+	}
+	
+	for (int side = 0; side < DIM; ++side) {
 
 //Toro 16.38
 #if 0

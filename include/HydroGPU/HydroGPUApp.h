@@ -7,10 +7,13 @@
 #include "LuaCxx/GlobalTable.h"
 #include "LuaCxx/Ref.h"
 #include "Tensor/Tensor.h"
+#include "ImGUICommon/ImGUICommon.h"
 
 namespace HydroGPU {
 namespace Plot {
 struct Camera;
+struct CameraOrtho;
+struct CameraFrustum;
 struct Plot;
 struct VectorField;
 struct Graph;
@@ -20,6 +23,7 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	typedef ::GLApp::GLApp Super;
 
 	std::shared_ptr<CLCommon::CLCommon> clCommon;
+	std::shared_ptr<ImGUICommon::ImGUICommon> gui;
 
 	GLuint gradientTex;
 	
@@ -40,7 +44,7 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	bool useFixedDT;
 	real fixedDT;
 	real cfl;
-	bool useHeatMap;
+	bool showHeatMap;
 	int heatMapVariable;	//TODO the enumeration of these values is dependent on the solver equation 
 	float heatMapColorScale;
 	Tensor::Tensor<int, Tensor::Lower<3>, Tensor::Lower<2>> boundaryMethods;
@@ -50,6 +54,8 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	real4 dx;
 	bool showVectorField;
 	float vectorFieldScale;
+	bool createAnimation;
+	bool showTimestep;
 	//input
 	bool leftButtonDown;
 	bool rightButtonDown;
@@ -57,18 +63,18 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	bool rightShiftDown;
 	bool leftGuiDown;
 	bool rightGuiDown;
-	
+
 	//display
 	Tensor::Vector<int,2> screenSize;
 	float aspectRatio;
-
-	bool showTimestep;
 	
 	//construct this after the program has been compiled
 	std::shared_ptr<HydroGPU::Plot::VectorField> vectorField;
 	std::shared_ptr<HydroGPU::Plot::Plot> plot;
 	std::shared_ptr<HydroGPU::Plot::Graph> graph;
 	std::shared_ptr<HydroGPU::Plot::Camera> camera;
+	std::shared_ptr<HydroGPU::Plot::CameraFrustum> cameraFrustum;
+	std::shared_ptr<HydroGPU::Plot::CameraOrtho> cameraOrtho;
 
 	HydroGPUApp();
 

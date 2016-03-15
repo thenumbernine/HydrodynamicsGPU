@@ -80,7 +80,7 @@ size = {16, 16, 16}
 vectorFieldResolution = 16
 --]]
 -- [[ 2D
-size = {2048, 2048}
+size = {512, 512}
 --]]
 --[[ 1D
 size = {1024}
@@ -183,25 +183,6 @@ solverName = 'ADM2DSpherical'	-- not yet
 -- [[ ADM (3D)
 solverName = 'ADM3DRoe'
 		
---[=[
-earth radius = 6.37101e+6 m
-domain: 10x radius = 6.37101e+7 m
-earth mass = 5.9736e+24 kg = 5.9736e+24 * 6.6738480e-11 / 299792458^2 m
-earth mass = Em * G / c^2 in meters
---]=]
-local G = 6.6738480e-11	-- kg m^3/s^2
-local c = 299792458	-- m/s
-local earthRadiusInM = 6.37101e+6
-local earthMassInKg = 5.9736e+24
-local earthMassInM = earthMassInKg * G / c^2
-local earthMassInRadii = earthMassInM / earthRadiusInM	-- on the order of 1e-9.  much more subtle than the default 1e-3 demo
-local sunRadiusInM = 6.960e+8
-local sunMassInKg = 1.9891e+30
-local sunMassInM = sunMassInKg * G / c^2
-local sunMassInRadii = sunMassInM / sunRadiusInM		-- order of 1e-6
-
-local planetRadiusInCoords = .1
-
 --size = {1024} heatMapColorScale = 128
 size = {256, 256} heatMapColorScale = 1
 --size = {16, 16, 16} heatMapColorScale = 1
@@ -209,18 +190,39 @@ size = {256, 256} heatMapColorScale = 1
 --configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
 --configurations['NR Alcubierre Warp Bubble']()	-- ...needs shift vector support
 --configurations['NR Schwarzschild Black Hole']()
---configurations['NR Stellar']()
---configurations['NR Stellar']{{pos = {0,0,0}, radius = .1, mass = earthMassInRadii}}
-local gridUnitsInM = sunRadiusInM / planetRadiusInCoords
+configurations['NR Stellar']()
+
+--[=[
+--[==[
+earth radius = 6.37101e+6 m
+domain: 10x radius = 6.37101e+7 m
+earth mass = 5.9736e+24 kg = 5.9736e+24 * 6.6738480e-11 / 299792458^2 m
+earth mass = Em * G / c^2 in meters
+--]==]
+local G = 6.6738480e-11	-- kg m^3/s^2
+local c = 299792458	-- m/s
+-- massInRadii is the order of 1e-9.  much more subtle than the default 1e-3 demo
+local earth = {radiusInM = 6.37101e+6, massInKg = 5.9736e+24}
+-- massInRadii is on the order of 1e-6
+local sun = {radiusInM = 6.960e+8, massInKg = 1.9891e+30}
+
+local planet = sun
+planet.massInM = planet.massInKg * G / c^2
+planet.massInRadii = planet.massInM / planet.radiusInM
+planet.radiusInCoords = .1
+planet.massInCoords = planet.massInRadii * planet.radiusInCoords
+for k,v in pairs(planet) do print(k,v) end
+
+local gridUnitsInM = planet.radiusInM / planet.radiusInCoords
 speedOfLight = speedOfLightInM / gridUnitsInM
-configurations['NR Stellar']{{pos = {0,0,0}, radius = planetRadiusInCoords, mass = sunMassInRadii}}
+configurations['NR Stellar']{{pos = {0,0,0}, radius = planet.radiusInCoords, mass = planet.massInCoords}}
+--]=]
 
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
---useHeatMap = false
+--showHeatMap = false
 heatMapVariable = 'ALPHA'
 --fixedDT = .125
 --useFixedDT = true
-useGraph = true
 graphVariables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = all.
 graphStep = {1,1,1}
 graphScale = 1
@@ -231,8 +233,8 @@ graphScale = 1
 if #size == 1 then			-- 1D better be ortho
 	camera.mode = 'ortho'
 elseif #size == 2 then		-- 2D can handle either ortho or frustum
-	--camera.mode = 'ortho'
-	camera.mode = 'frustum'
+	camera.mode = 'ortho'
+	--camera.mode = 'frustum'
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end

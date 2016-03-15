@@ -113,26 +113,6 @@ void Plot3D::display() {
 	}
 }
 
-void Plot3D::screenshot(const std::string& filename) {
-	std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(
-		Tensor::Vector<int,2>(app->size.s[0], app->size.s[1]),
-		nullptr, 3);
-	
-	size_t volume = app->solver->getVolume();
-	std::vector<char> buffer(volume);
-	glBindTexture(GL_TEXTURE_3D, tex);
-	glGetTexImage(GL_TEXTURE_3D, 0, GL_RGB, GL_UNSIGNED_BYTE, &buffer[0]);
-	glBindTexture(GL_TEXTURE_3D, 0);
-	std::vector<char>::iterator iter = buffer.begin();
-	size_t sliceSize = app->size.s[0] * app->size.s[1];
-	for (int z = 0; z < app->size.s[2]; ++z) {
-		std::copy(iter, iter + sliceSize, image->getData());
-		iter += sliceSize;
-		std::string layerFilename = filename + "-layer" + std::to_string(z) + ".png";
-		Image::system->write(layerFilename, image);
-	}
-}
-
 }
 }
 

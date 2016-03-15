@@ -28,6 +28,10 @@ Graph::Graph(HydroGPU::HydroGPUApp* app_)
 void Graph::display() {
 if (app->dim == 1) return;	//for now plot1d does the same thing ...
 
+	for (int i = 0; i < 3; ++i) {
+		if (step(i) == 0) step(i) = 1;
+	}
+
 	app->camera->setupModelview();
 
 	static float colors[][3] = {

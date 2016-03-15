@@ -48,35 +48,70 @@ __kernel void convertToTex(
 	real tr_K = K_xx * gammaUxx + K_yy * gammaUyy + K_zz * gammaUzz + 2.f * K_xy * gammaUxy + 2.f * K_yz * gammaUyz + 2.f * K_xz * gammaUxz;
 	
 	float value = 0.f;
-	switch (displayMethod) {
-	case DISPLAY_ALPHA:
+	if (displayMethod == DISPLAY_ALPHA) {
 		value = alpha - 1.;	//bias to zero
-		break;
-	case DISPLAY_VOLUME:
+	} else if (displayMethod == DISPLAY_VOLUME) {
 		value = alpha * gamma - 1.;	//bias to zero 
-		break;
-	case DISPLAY_K:
+	} else if (displayMethod == DISPLAY_K) {
 		value = tr_K;
-		break;
-	case DISPLAY_GAMMA:
+	} else if (displayMethod == DISPLAY_GAMMA) {
 		value = gamma - 1.;	//bias to zero
-		break;
-	
+
 	//V_k = D_km^m - D^m_mk = (D_kmn - D_mnk) gamma^mn
-	case DISPLAY_V_CONSTRAINT_X:
+	} else if (displayMethod == DISPLAY_V_CONSTRAINT_X) {
 		value = ((((((V_x - (gammaUxy * D_xxy)) - (gammaUxz * D_xxz)) - (gammaUyy * D_xyy)) - (2.f * gammaUyz * D_xyz)) - (gammaUzz * D_xzz)) + (gammaUxy * D_yxx) + (gammaUxz * D_zxx) + (gammaUyy * D_yxy) + (gammaUyz * D_zxy) + (gammaUyz * D_yxz) + (gammaUzz * D_zxz));
-		break;
-	case DISPLAY_V_CONSTRAINT_Y:
+	} else if (displayMethod == DISPLAY_V_CONSTRAINT_Y) {
 		value = ((((((V_y - (gammaUxx * D_yxx)) - (gammaUxy * D_yxy)) - (2.f * gammaUxz * D_yxz)) - (gammaUyz * D_yyz)) - (gammaUzz * D_yzz)) + (gammaUxx * D_xxy) + (gammaUxz * D_zxy) + (gammaUxy * D_xyy) + (gammaUyz * D_zyy) + (gammaUxz * D_xyz) + (gammaUzz * D_zyz));
-		break;
-	case DISPLAY_V_CONSTRAINT_Z:
+	} else if (displayMethod == DISPLAY_V_CONSTRAINT_Z) {
 		value = ((((((V_z - (gammaUxx * D_zxx)) - (2.f * gammaUxy * D_zxy)) - (gammaUxz * D_zxz)) - (gammaUyy * D_zyy)) - (gammaUyz * D_zyz)) + (gammaUxx * D_xxz) + (gammaUxy * D_yxz) + (gammaUxy * D_xyz) + (gammaUyy * D_yyz) + (gammaUxz * D_xzz) + (gammaUyz * D_yzz));
-		break;
-	default:
+
+	//all else
+	} else if (displayMethod < NUM_STATES) {
 		value = state[displayMethod];
-		break;
-	}
+
+	//derivative constraints
+	} else  if (i.x < 1 || i.x >= SIZE_X - 1 
+#if DIM > 1
+		|| i.y < 1 || i.y >= SIZE_Y - 1
+#endif
+#if DIM > 2
+		|| i.z < 1 || i.z >= SIZE_Z - 1
+#endif
+	) {
+
+		//these constraints seem to be fulfilled pretty easily
+		//the V constraint ... not so much ... and when I enforce it, I get bad values ... 
+
+		//A_i = (ln alpha),i = alpha,i / alpha
+		//alpha A_i = alpha,i
+		if (displayMethod >= DISPLAY_A_ALPHA_CONSTRAINT_X && displayMethod < DISPLAY_A_ALPHA_CONSTRAINT_Z) {
+			int side = displayMethod - DISPLAY_A_ALPHA_CONSTRAINT_X;
+			
+			int indexL = index - NUM_STATES * stepsize[side];
+			int indexR = index + NUM_STATES * stepsize[side];
+			const __global real* stateL = stateBuffer + NUM_STATES * indexL;
+			const __global real* stateR = stateBuffer + NUM_STATES * indexR;
+			
+			real dalpha_dx = (stateR[STATE_ALPHA] - stateL[STATE_ALPHA]) / (2. * dx[side]);
+			value = alpha * state[STATE_A_X+side] - dalpha_dx;
+
+		//D_kij = 1/2 gamma_ij,k 
+		} else if (displayMethod >= DISPLAY_D_X_GAMMA_CONSTRAINT_XX && displayMethod < DISPLAY_D_Z_GAMMA_CONSTRAINT_ZZ) {
+			int index18 = displayMethod - DISPLAY_D_X_GAMMA_CONSTRAINT_XX;
+			int side = index18 / 6;
+			int ij = index18 - 6 * side;
+
+			int indexL = index - NUM_STATES * stepsize[side];
+			int indexR = index + NUM_STATES * stepsize[side];
+			const __global real* stateL = stateBuffer + NUM_STATES * indexL;
+			const __global real* stateR = stateBuffer + NUM_STATES * indexR;
+
+			real dgamma_dx = (stateR[STATE_GAMMA_XX+ij] - stateL[STATE_GAMMA_XX+ij]) / (2. * dx[side]);
+			value = state[STATE_D_XXX+index18] - .5 * dgamma_dx;
+		}
 	
+	} //TODO else show some kind of garbage pattern
+
 	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0.f, 0.f, 0.f));
 }
 

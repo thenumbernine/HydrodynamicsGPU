@@ -44,20 +44,22 @@ HydroGPUApp::HydroGPUApp()
 , useFixedDT(false)
 , fixedDT(.001f)
 , cfl(.5f)
-, useHeatMap(true)
+, showHeatMap(true)
 , heatMapVariable(0)
 , heatMapColorScale(2.f)
 , useGravity(false)
 , gaussSeidelMaxIter(20)
 , showVectorField(true)
 , vectorFieldScale(.125f)
+, createAnimation(false)
+, showTimestep(false)
 , leftButtonDown(false)
 , rightButtonDown(false)
 , leftShiftDown(false)
 , rightShiftDown(false)
 , leftGuiDown(false)
 , rightGuiDown(false)
-, showTimestep(false)
+, aspectRatio(0.f)
 {
 	for (int i = 0; i < 4; ++i) {
 		size.s[i] = 1;	//default each dimension to a point.  so if lua doesn't define it then the dimension will be ignored
@@ -155,7 +157,9 @@ void HydroGPUApp::init() {
 	std::cout << "dx " << dx << std::endl;
 
 	Super::init();
-	
+
+	gui = std::make_shared<ImGUICommon::ImGUICommon>(window);
+
 	clCommon = std::make_shared<CLCommon::CLCommon>(
 		useGPU,
 		/*verbose=*/true,
@@ -247,15 +251,15 @@ void HydroGPUApp::init() {
 		throw Common::Exception() << "unknown camera";
 	}
 	
+	camera = cameraOrtho = std::make_shared<HydroGPU::Plot::CameraOrtho>(this);
+	cameraFrustum = std::make_shared<HydroGPU::Plot::CameraFrustum>(this);
 	{
 		std::string mode;
 		lua.ref()["camera"]["mode"] >> mode;
 		if (mode == "ortho") {
-			camera = std::make_shared<HydroGPU::Plot::CameraOrtho>(this);
+			camera = cameraOrtho;
 		} else if (mode == "frustum") {
-			camera = std::make_shared<HydroGPU::Plot::CameraFrustum>(this);
-		} else {
-			throw Common::Exception() << "unknown camera mode";
+			camera = cameraFrustum;
 		}
 	}
 	
@@ -273,74 +277,60 @@ void HydroGPUApp::init() {
 	}
 	plot->init();
 
-	{
-		bool useGraph = false;
-		if ((lua.ref()["useGraph"] >> useGraph).good() && useGraph) {
-		
-			std::vector<std::string> graphVariableNames;
-			LuaCxx::Ref graphVariablesRef = lua.ref()["graphVariables"];
-			if (graphVariablesRef.isTable()) {
-				//TODO LuaCxx iterator
-				for (int i = 0; i < graphVariablesRef.len(); ++i) {
-					std::string varName;
-					if ((graphVariablesRef[i+1] >> varName).good()) {
-						graphVariableNames.push_back(varName);
-					}
-				}
-			}
-			
-			//make a mapping from names to indexes
-			std::map<std::string, int> varIndexForName;
-			const std::vector<std::string>& displayVariables = solver->equation->displayVariables;
-			for (std::vector<std::string>::const_iterator i = displayVariables.begin(); i != displayVariables.end(); ++i) {
-				varIndexForName[*i] = i - displayVariables.begin();
-			}
-
-			//if we weren't given any then assign it all vars in the equation 
-			if (graphVariableNames.empty()) {
-				graphVariableNames = displayVariables;
-			}
-			
-			//now verify that the variables are legit, complain otherwise
-			std::vector<int> graphVariables;
-			for (const std::string& graphVarName : graphVariableNames) {
-				std::map<std::string, int>::iterator loc = varIndexForName.find(graphVarName);
-				if (loc == varIndexForName.end()) {
-					throw Common::Exception() << "couldn't find graph variable " << graphVarName << " among display variables";
-				}
-				graphVariables.push_back(loc->second);
-			}
-
-			graph = std::make_shared<HydroGPU::Plot::Graph>(this);
-			graph->variables = graphVariables;
-
-			lua.ref()["graphScale"] >> graph->scale;
-
-			{
-				int i = 0;
-				LuaCxx::Ref graphStepRef = lua.ref()["graphStep"];
-				for (; i < dim; ++i) {
-					graph->step(i) = size.s[i] >> 5;
-					if (!graphStepRef.isTable()) {
-						continue;
-					}
-					if (i >= graphStepRef.len()) {
-						continue;
-					}
-					if (!(graphStepRef[i+1] >> graph->step(i)).good()) {
-						continue;
-					}
-				}
-				for (int i = 0; i < 3; ++i) {
-					if (graph->step(i) == 0) graph->step(i) = 1;
+	graph = std::make_shared<HydroGPU::Plot::Graph>(this);
+	lua.ref()["graphScale"] >> graph->scale;
+	{	
+		std::vector<std::string> graphVariableNames;
+		LuaCxx::Ref graphVariablesRef = lua.ref()["graphVariables"];
+		if (graphVariablesRef.isTable()) {
+			//TODO LuaCxx iterator
+			for (int i = 0; i < graphVariablesRef.len(); ++i) {
+				std::string varName;
+				if ((graphVariablesRef[i+1] >> varName).good()) {
+					graphVariableNames.push_back(varName);
 				}
 			}
 		}
-	}
+		
+		//make a mapping from names to indexes
+		std::map<std::string, int> varIndexForName;
+		const std::vector<std::string>& displayVariables = solver->equation->displayVariables;
+		for (std::vector<std::string>::const_iterator i = displayVariables.begin(); i != displayVariables.end(); ++i) {
+			varIndexForName[*i] = i - displayVariables.begin();
+		}
 
+		//now verify that the variables are legit, complain otherwise
+		std::vector<int> graphVariables;
+		for (const std::string& graphVarName : graphVariableNames) {
+			std::map<std::string, int>::iterator loc = varIndexForName.find(graphVarName);
+			if (loc == varIndexForName.end()) {
+				throw Common::Exception() << "couldn't find graph variable " << graphVarName << " among display variables";
+			}
+			graphVariables.push_back(loc->second);
+		}
+
+		graph->variables = graphVariables;
+	}
+	{
+		int i = 0;
+		LuaCxx::Ref graphStepRef = lua.ref()["graphStep"];
+		for (; i < dim; ++i) {
+			graph->step(i) = size.s[i] >> 5;
+			if (!graphStepRef.isTable()) {
+				continue;
+			}
+			if (i >= graphStepRef.len()) {
+				continue;
+			}
+			if (!(graphStepRef[i+1] >> graph->step(i)).good()) {
+				continue;
+			}
+		}
+	}
+	
 	solver->resetState();
 
-	lua.ref()["useHeatMap"] >> useHeatMap;
+	lua.ref()["showHeatMap"] >> showHeatMap;
 
 	heatMapVariable = std::find(
 		solver->equation->displayVariables.begin(), 
@@ -377,8 +367,10 @@ void HydroGPUApp::init() {
 }
 
 void HydroGPUApp::shutdown() {
+	gui = nullptr;	//dealloc and shutdown before sdl shuts down
 	glDeleteTextures(1, &gradientTex);
 	clCommon.reset();
+	Super::shutdown();
 }
 
 void HydroGPUApp::resize(int width, int height) {
@@ -406,21 +398,101 @@ PROFILE_BEGIN_FRAME()
 		solver->update();
 		if (doUpdate == 2) doUpdate = 0;
 	}
-
+	
 	camera->setupProjection();
 	solver->app->camera->setupModelview();
 	vectorField->display();
-	if (graph) graph->display();
+	
+	//no point in showing the graph in ortho
+	if (camera == cameraFrustum) graph->display();
 	
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-	if (useHeatMap) plot->display();	
+	if (showHeatMap) plot->display();
 	glDisable(GL_BLEND);
+
+	/*
+	What should be customizable?
+	- a Lua interface into everything would be nice ... if we were using LuaJIT 
+	... then *everything* C-callable would be accessible immediately
+	*/
+	float logHeatMapColorScale = log(heatMapColorScale);
+	float logGraphScale = log(graph->scale);
+	float logVectorFieldScale = log(vectorFieldScale);
+	std::vector<int> graphVariables(solver->equation->displayVariables.size());
+	for (int v : graph->variables) graphVariables[v] = 1;
+	gui->update([&](){
+		//how do you change the window title?
+		//ImGui::Begin("Controls");
+	
+		ImGui::Checkbox("heat map", &showHeatMap); // heat map on/off/variable
+		
+		ImGui::Text("heat map log scale");
+		ImGui::SliderFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f); // heat map color scale
+	
+		// graph variables (multiple)
+		if (ImGui::TreeNode("graph variables")) {
+			graph->variables.clear();
+			for (int i = 0; i < graphVariables.size(); ++i) {
+				ImGui::Checkbox(solver->equation->displayVariables[i].c_str(), (bool*)&graphVariables[i]);
+				if (graphVariables[i]) graph->variables.push_back(i);
+			}
+			ImGui::TreePop();
+		}
+
+		ImGui::Text("graph log scale");
+		ImGui::SliderFloat("g.s.", &logGraphScale, -10.f, 10.f); // graph scale
+		// graph spacing
+		
+		ImGui::Checkbox("vector field", &showVectorField); // velocity field on/off
+		// velocity field variable
+		ImGui::Text("vector field log scale");
+		ImGui::SliderFloat("v.f.s.", &logVectorFieldScale, -10.f, 10.f); // velocity field size
+		
+		bool isOrtho = camera == cameraOrtho;
+		if (ImGui::Button(isOrtho ? "frustum" : "ortho")) {	// switching between ortho and frustum views
+			if (!isOrtho) {
+				camera = cameraOrtho;
+			} else {
+				camera = cameraFrustum;
+			}
+		}
+		
+		if (ImGui::Button(doUpdate ? "pause" : "start")) doUpdate = !doUpdate; // start/stop simulation
+		if (ImGui::Button("step")) doUpdate = 2;
+		if (ImGui::Button("reset")) solver->resetState();
+		
+		// used fixed dt vs cfl #
+		
+		// take screenshot 
+		if (ImGui::Button("screenshot")) {
+			solver->screenshot();
+		}
+		
+		// continuous screenshots
+		if (ImGui::Button(createAnimation ? "stop frame dump" : "start frame dump")) {
+			createAnimation = !createAnimation;
+		}
+		
+		if (ImGui::Button("save")) {	// dump state of simulation
+			solver->save();
+		}
+	});
+	heatMapColorScale = exp(logHeatMapColorScale);
+	graph->scale = exp(logGraphScale);
+	vectorFieldScale = exp(logVectorFieldScale);
 
 PROFILE_END_FRAME();
 }
 
 void HydroGPUApp::sdlEvent(SDL_Event& event) {
+	if (gui->sdlEvent(event)) {
+		//hmm... it seems like this always returns true
+		//...even when not going on inside any window ...
+		//how to detect events that fall through?
+		//return;
+	}
+	
 	bool shiftDown = leftShiftDown || rightShiftDown;
 	bool guiDown = leftGuiDown || rightGuiDown;
 
@@ -492,18 +564,12 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 			}
 			std::cout << "heatMapColorScale " << heatMapColorScale << std::endl;
 		} else if (event.key.keysym.sym == SDLK_b) {
-			if (graph) {
-				if (shiftDown) {
-					graph->scale *= .5;
-				} else {
-					graph->scale *= 2.;
-				}
-				std::cout << "graph->scale " << graph->scale << std::endl;
+			if (shiftDown) {
+				graph->scale *= .5;
 			} else {
-				//TODO always instanciate a graph, add controls for picking variables
-				//TODO that gui ...
-				std::cout << "no graph present" << std::endl;
+				graph->scale *= 2.;
 			}
+			std::cout << "graph->scale " << graph->scale << std::endl;
 		} else if (event.key.keysym.sym == SDLK_d) {
 			if (shiftDown) {
 				heatMapVariable = (heatMapVariable + solver->equation->displayVariables.size() - 1) % solver->equation->displayVariables.size();

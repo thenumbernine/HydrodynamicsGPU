@@ -1,6 +1,7 @@
 #include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "Image/System.h"
 
 namespace HydroGPU {
 namespace Plot {
@@ -25,6 +26,22 @@ void Plot::init() {
 
 Plot::~Plot() {
 	glDeleteTextures(1, &tex);
+}
+
+void Plot::screenshot(const std::string& filename) {
+	std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(app->screenSize, nullptr, 3);
+	glReadPixels(0, 0, app->screenSize(0), app->screenSize(1), GL_RGB, GL_UNSIGNED_BYTE, image->getData());
+	
+	//reverse rows
+	std::shared_ptr<Image::Image> flipped = std::make_shared<Image::Image>(app->screenSize, nullptr, 3);
+	for (int y = 0; y < app->screenSize(1); ++y) {
+		memcpy(
+			flipped->getData() + (app->screenSize(1)-y-1) * app->screenSize(0) * 3,
+			image->getData() + y * app->screenSize(0) * 3,
+			app->screenSize(0) * 3);
+	}
+
+	Image::system->write(filename, flipped);
 }
 
 static int npo2(int x) {
