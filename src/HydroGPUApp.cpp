@@ -411,6 +411,9 @@ PROFILE_BEGIN_FRAME()
 	if (showHeatMap) plot->display();
 	glDisable(GL_BLEND);
 
+	//do this before rendering the gui so it stays out of the picture
+	if (createAnimation) solver->screenshot();
+
 	/*
 	What should be customizable?
 	- a Lua interface into everything would be nice ... if we were using LuaJIT 

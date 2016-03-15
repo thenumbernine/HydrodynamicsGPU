@@ -780,7 +780,7 @@ return {
 			mass = .001,
 			radius = .1,
 		}}
-	
+
 		adm_BonaMasso_f = '1. + 1. / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
 		adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
 		
@@ -834,7 +834,7 @@ return {
 					local z_ = z - body.pos[3]
 					local rSq = x_*x_ + y_*y_ + z_*z_
 					if rSq < body.radius * body.radius then
-						density = density + body.mass / (4/3 * math.pi * body.radius * body.radius * body.radius)
+						density = density + (body.density or (body.mass / (4/3 * math.pi * body.radius * body.radius * body.radius)))
 					end
 				end
 				return density
@@ -850,16 +850,16 @@ return {
 					local rSq = x_*x_ + y_*y_ + z_*z_
 					if rSq < body.radius * body.radius then
 						local r = math.sqrt(rSq)
-						local rho0 = body.mass / (4/3 * math.pi * body.radius * body.radius * body.radius)
+						local rho0 = body.pressure or (body.mass / (4/3 * math.pi * body.radius * body.radius * body.radius))
 						-- TOV pressure solution: http://physics.stackexchange.com/questions/69953/solving-the-tolman-oppenheimer-volkoff-tov-equation
 						-- ... solution to constant pressure?  doesn't density decrease with radius? time to find a better source.
-						pressure = pressure + rho0 * (
+						pressure = pressure + (body.pressure or (rho0 * (
 							(
 								math.sqrt(1 - 2 * M / R) - math.sqrt(1 - 2 * M * r * r / (R * R * R))
 							) / (
 								math.sqrt(1 - 2 * M * r * r / (R * R * R)) - 3 * math.sqrt(1 - 2 * M / R)
 							)
-						)
+						)))
 					end
 				end
 				return pressure

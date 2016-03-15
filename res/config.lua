@@ -190,7 +190,8 @@ size = {256, 256} heatMapColorScale = 1
 --configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
 --configurations['NR Alcubierre Warp Bubble']()	-- ...needs shift vector support
 --configurations['NR Schwarzschild Black Hole']()
-configurations['NR Stellar']()
+--configurations['NR Stellar']()
+configurations['NR Stellar']{bodies={{pos = {0,0,0}, radius = .1, mass = .001, density=0, pressure=0}}}	-- planet plucked out of existence
 
 --[=[
 --[==[
@@ -215,7 +216,7 @@ for k,v in pairs(planet) do print(k,v) end
 
 local gridUnitsInM = planet.radiusInM / planet.radiusInCoords
 speedOfLight = speedOfLightInM / gridUnitsInM
-configurations['NR Stellar']{{pos = {0,0,0}, radius = planet.radiusInCoords, mass = planet.massInCoords}}
+configurations['NR Stellar']{bodies={{pos = {0,0,0}, radius = planet.radiusInCoords, mass = planet.massInCoords}}}
 --]=]
 
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
@@ -224,7 +225,7 @@ heatMapVariable = 'ALPHA'
 --fixedDT = .125
 --useFixedDT = true
 graphVariables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = all.
-graphStep = {1,1,1}
+graphStep = {4,4,4}
 graphScale = 1
 --]]
 
