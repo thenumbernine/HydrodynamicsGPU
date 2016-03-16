@@ -48,14 +48,12 @@ __kernel void convertToTex(
 	real tr_K = K_xx * gammaUxx + K_yy * gammaUyy + K_zz * gammaUzz + 2.f * K_xy * gammaUxy + 2.f * K_yz * gammaUyz + 2.f * K_xz * gammaUxz;
 	
 	float value = 0.f;
-	if (displayMethod == DISPLAY_ALPHA) {
-		value = alpha - 1.;	//bias to zero
-	} else if (displayMethod == DISPLAY_VOLUME) {
-		value = alpha * gamma - 1.;	//bias to zero 
+	if (displayMethod == DISPLAY_VOLUME) {
+		value = alpha * sqrt(gamma);
 	} else if (displayMethod == DISPLAY_K) {
 		value = tr_K;
 	} else if (displayMethod == DISPLAY_GAMMA) {
-		value = gamma - 1.;	//bias to zero
+		value = gamma;
 
 	//V_k = D_km^m - D^m_mk = (D_kmn - D_mnk) gamma^mn
 	} else if (displayMethod == DISPLAY_V_CONSTRAINT_X) {
@@ -65,7 +63,7 @@ __kernel void convertToTex(
 	} else if (displayMethod == DISPLAY_V_CONSTRAINT_Z) {
 		value = ((((((V_z - (gammaUxx * D_zxx)) - (2.f * gammaUxy * D_zxy)) - (gammaUxz * D_zxz)) - (gammaUyy * D_zyy)) - (gammaUyz * D_zyz)) + (gammaUxx * D_xxz) + (gammaUxy * D_yxz) + (gammaUxy * D_xyz) + (gammaUyy * D_yyz) + (gammaUxz * D_xzz) + (gammaUyz * D_yzz));
 
-	//all else
+	//states
 	} else if (displayMethod < NUM_STATES) {
 		value = state[displayMethod];
 

@@ -425,33 +425,61 @@ PROFILE_BEGIN_FRAME()
 	std::vector<int> graphVariables(solver->equation->displayVariables.size());
 	for (int v : graph->variables) graphVariables[v] = 1;
 	gui->update([&](){
-		//how do you change the window title?
-		//ImGui::Begin("Controls");
-	
-		ImGui::Checkbox("heat map", &showHeatMap); // heat map on/off/variable
-		
-		ImGui::Text("heat map log scale");
-		ImGui::SliderFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f); // heat map color scale
-	
-		// graph variables (multiple)
-		if (ImGui::TreeNode("graph variables")) {
-			graph->variables.clear();
-			for (int i = 0; i < graphVariables.size(); ++i) {
-				ImGui::Checkbox(solver->equation->displayVariables[i].c_str(), (bool*)&graphVariables[i]);
-				if (graphVariables[i]) graph->variables.push_back(i);
+		//how do you change the window title from "Debug"?
+		//ImGui::Begin("Controls");	//it's not this ...
+
+		if (ImGui::CollapsingHeader("heat map")) {
+			// heat map on/off/variable
+			ImGui::Checkbox("show", &showHeatMap); 
+
+			//heat map variable
+			std::string s;
+			for (const std::string& v : solver->equation->displayVariables) {
+				s.append(v);
+				s.append(1, '\0');
 			}
-			ImGui::TreePop();
+			ImGui::Combo("variable", &heatMapVariable, s.c_str());
+		
+			//heat map color scale
+			ImGui::Text("log scale");
+			ImGui::SliderFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f); 
 		}
 
-		ImGui::Text("graph log scale");
-		ImGui::SliderFloat("g.s.", &logGraphScale, -10.f, 10.f); // graph scale
-		// graph spacing
+		if (ImGui::CollapsingHeader("graph")) {
+			//TODO tree information on the variables.  equation would have to specify this, but it'd be handy.
+			//or it could be inferred from common prefixes?
+			//graph variables (multiple)
+			if (ImGui::TreeNode("variable")) {
+				graph->variables.clear();
+				for (int i = 0; i < graphVariables.size(); ++i) {
+					ImGui::Checkbox(solver->equation->displayVariables[i].c_str(), (bool*)&graphVariables[i]);
+					if (graphVariables[i]) graph->variables.push_back(i);
+				}
+				ImGui::TreePop();
+			}
+			if (ImGui::Button("all variables")) {
+				graph->variables.clear();
+				for (int i= 0; i < solver->equation->displayVariables.size(); ++i) {
+					graph->variables.push_back(i);
+				}
+			}
+			
+			// graph scale
+			ImGui::Text("log scale");
+			ImGui::SliderFloat("g.s.", &logGraphScale, -10.f, 10.f); 
 		
-		ImGui::Checkbox("vector field", &showVectorField); // velocity field on/off
-		// velocity field variable
-		ImGui::Text("vector field log scale");
-		ImGui::SliderFloat("v.f.s.", &logVectorFieldScale, -10.f, 10.f); // velocity field size
-		
+			//graph spacing?
+			ImGui::Text("spacing");
+			ImGui::SliderInt("g.sp.", &graph->step(0), 1, (int)size.s[0]);
+		}
+
+		if (ImGui::CollapsingHeader("vector field")) {
+			ImGui::Checkbox("show", &showVectorField); // velocity field on/off
+			//TODO velocity field variable
+			ImGui::Text("log scale");
+			ImGui::SliderFloat("v.f.s.", &logVectorFieldScale, -10.f, 10.f); // velocity field size
+		}
+
 		bool isOrtho = camera == cameraOrtho;
 		if (ImGui::Button(isOrtho ? "frustum" : "ortho")) {	// switching between ortho and frustum views
 			if (!isOrtho) {
@@ -484,24 +512,24 @@ PROFILE_BEGIN_FRAME()
 	heatMapColorScale = exp(logHeatMapColorScale);
 	graph->scale = exp(logGraphScale);
 	vectorFieldScale = exp(logVectorFieldScale);
+	for (int i = 1; i < 3; ++i) {
+		graph->step(i) = graph->step(0);
+	}
 
 PROFILE_END_FRAME();
 }
 
 void HydroGPUApp::sdlEvent(SDL_Event& event) {
-	if (gui->sdlEvent(event)) {
-		//hmm... it seems like this always returns true
-		//...even when not going on inside any window ...
-		//how to detect events that fall through?
-		//return;
-	}
+	gui->sdlEvent(event);
+	bool canHandleMouse = !ImGui::GetIO().WantCaptureMouse;
+	bool canHandleKeyboard = !ImGui::GetIO().WantCaptureKeyboard;
 	
 	bool shiftDown = leftShiftDown || rightShiftDown;
 	bool guiDown = leftGuiDown || rightGuiDown;
 
 	switch (event.type) {
 	case SDL_MOUSEMOTION:
-		{
+		if (canHandleMouse) {
 			int dx = event.motion.xrel;
 			int dy = event.motion.yrel;
 			if (leftButtonDown && !guiDown) {
@@ -553,58 +581,60 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 			leftGuiDown = false;
 		} else if (event.key.keysym.sym == SDLK_RGUI) {
 			rightGuiDown = false;
-		} else if (event.key.keysym.sym == SDLK_s) {
-			if (shiftDown) {
-				solver->save();
-			} else {
-				solver->screenshot();
-			}
-		} else if (event.key.keysym.sym == SDLK_f) {
-			if (shiftDown) {
-				heatMapColorScale *= .5;
-			} else {
-				heatMapColorScale *= 2.;
-			}
-			std::cout << "heatMapColorScale " << heatMapColorScale << std::endl;
-		} else if (event.key.keysym.sym == SDLK_b) {
-			if (shiftDown) {
-				graph->scale *= .5;
-			} else {
-				graph->scale *= 2.;
-			}
-			std::cout << "graph->scale " << graph->scale << std::endl;
-		} else if (event.key.keysym.sym == SDLK_d) {
-			if (shiftDown) {
-				heatMapVariable = (heatMapVariable + solver->equation->displayVariables.size() - 1) % solver->equation->displayVariables.size();
-			} else {
-				heatMapVariable = (heatMapVariable + 1) % solver->equation->displayVariables.size();
-			}
-			std::cout << "display " << solver->equation->displayVariables[heatMapVariable] << std::endl;
-		} else if (event.key.keysym.sym == SDLK_u) {
-			if (doUpdate) {
-				std::cout << "stopping..." << std::endl;
-				doUpdate = 0;
-			} else {
+		} else if (canHandleKeyboard) {
+			if (event.key.keysym.sym == SDLK_s) {
 				if (shiftDown) {
-					std::cout << "step..." << std::endl;
-					doUpdate = 2;
+					solver->save();
 				} else {
-					std::cout << "starting..." << std::endl;
-					doUpdate = 1;
+					solver->screenshot();
 				}
-			}
-		} else if (event.key.keysym.sym == SDLK_r) {
-			solver->resetState();
-		} else if (event.key.keysym.sym == SDLK_t) {
-			showTimestep = !showTimestep;
-		} else if (event.key.keysym.sym == SDLK_v) {
-			showVectorField = !showVectorField;
-			std::cout << "velocity field " << (showVectorField ? "enabled" : "disabled") << std::endl;
-		} else if (event.key.keysym.sym == SDLK_c) {
-			if (shiftDown) {
-				vectorFieldScale *= .5f;
-			} else {
-				vectorFieldScale *= 2.f;
+			} else if (event.key.keysym.sym == SDLK_f) {
+				if (shiftDown) {
+					heatMapColorScale *= .5;
+				} else {
+					heatMapColorScale *= 2.;
+				}
+				std::cout << "heatMapColorScale " << heatMapColorScale << std::endl;
+			} else if (event.key.keysym.sym == SDLK_b) {
+				if (shiftDown) {
+					graph->scale *= .5;
+				} else {
+					graph->scale *= 2.;
+				}
+				std::cout << "graph->scale " << graph->scale << std::endl;
+			} else if (event.key.keysym.sym == SDLK_d) {
+				if (shiftDown) {
+					heatMapVariable = (heatMapVariable + solver->equation->displayVariables.size() - 1) % solver->equation->displayVariables.size();
+				} else {
+					heatMapVariable = (heatMapVariable + 1) % solver->equation->displayVariables.size();
+				}
+				std::cout << "display " << solver->equation->displayVariables[heatMapVariable] << std::endl;
+			} else if (event.key.keysym.sym == SDLK_u) {
+				if (doUpdate) {
+					std::cout << "stopping..." << std::endl;
+					doUpdate = 0;
+				} else {
+					if (shiftDown) {
+						std::cout << "step..." << std::endl;
+						doUpdate = 2;
+					} else {
+						std::cout << "starting..." << std::endl;
+						doUpdate = 1;
+					}
+				}
+			} else if (event.key.keysym.sym == SDLK_r) {
+				solver->resetState();
+			} else if (event.key.keysym.sym == SDLK_t) {
+				showTimestep = !showTimestep;
+			} else if (event.key.keysym.sym == SDLK_v) {
+				showVectorField = !showVectorField;
+				std::cout << "velocity field " << (showVectorField ? "enabled" : "disabled") << std::endl;
+			} else if (event.key.keysym.sym == SDLK_c) {
+				if (shiftDown) {
+					vectorFieldScale *= .5f;
+				} else {
+					vectorFieldScale *= 2.f;
+				}
 			}
 		}
 		break;

@@ -188,10 +188,10 @@ size = {256, 256} heatMapColorScale = 1
 --size = {16, 16, 16} heatMapColorScale = 1
 --configurations['NR Gauge Shock Waves']{unitDomain=false}
 --configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
---configurations['NR Alcubierre Warp Bubble']()	-- ...needs shift vector support
+configurations['NR Alcubierre Warp Bubble']()	-- ...needs shift vector support
 --configurations['NR Schwarzschild Black Hole']()
 --configurations['NR Stellar']()
-configurations['NR Stellar']{bodies={{pos = {0,0,0}, radius = .1, mass = .001, density=0, pressure=0}}}	-- planet plucked out of existence
+--configurations['NR Stellar']{bodies={{pos = {0,0,0}, radius = .1, mass = .001, density=0, pressure=0}}}	-- planet plucked out of existence
 
 --[=[
 --[==[

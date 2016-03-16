@@ -682,14 +682,14 @@ return {
 		adm_BonaMasso_f = '1.f + 1.f / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
 		adm_BonaMasso_df_dalpha = '-1.f / (alpha * alpha * alpha)'
 		
-		local R = .2	-- warp bubble radius
-		local sigma = .01	-- warp bubble thickness
-		local speed = .1		-- warp bubble speed
+		local R = .25	-- warp bubble radius
+		local sigma = .1	-- warp bubble thickness
+		local speed = .5		-- warp bubble speed
 
 		local symmath = require 'symmath'
 		local t,x,y,z = symmath.vars('t', 'x', 'y', 'z')
 		local x_s = 0 -- speed * t
-		local v_s = speed -- x_s:diff(t):simplify()
+		local v_s = speed -- x_s:diff(t)()
 		local r_s = ((x - x_s)^2 + y^2 + z^2)^.5
 		local f = (symmath.tanh(sigma * (r_s + R)) - symmath.tanh(sigma * (r_s - R))) / (2 * symmath.tanh(sigma * R))
 	
@@ -697,9 +697,9 @@ return {
 
 		local alpha = 1
 
-		local K_xx = betaUx:diff(x):simplify() / alpha
-		local K_xy = betaUx:diff(y):simplify() / (2 * alpha)
-		local K_xz = betaUx:diff(z):simplify() / (2 * alpha)
+		local K_xx = betaUx:diff(x)() / alpha
+		local K_xy = betaUx:diff(y)() / (2 * alpha)
+		local K_xz = betaUx:diff(z)() / (2 * alpha)
 
 		initNumRel{
 			vars = {x,y,z},
@@ -728,13 +728,13 @@ return {
 		adm_BonaMasso_f = '1.f'	-- '1.69f'	-- '.49f'
 		adm_BonaMasso_df_dalpha = '0.f'
 		--]]
-
+		
 		local R = .002	-- Schwarzschild radius
 		
 		local symmath = require 'symmath'	
 		local t,x,y,z = symmath.vars('t','x','y','z')
 		local r = (x^2 + y^2 + z^2)^.5
-
+		
 		initNumRel{
 			vars = {x,y,z},
 			-- 4D metric ADM components:
