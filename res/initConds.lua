@@ -1,5 +1,4 @@
-return {
-	
+initConds = {
 	
 	-- Euler equation initial states
 

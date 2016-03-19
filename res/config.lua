@@ -1,7 +1,7 @@
 package.path = '?.lua;?/?.lua'
 
 require 'util'	--holds helper functions
-local configurations = require 'configurations'	--holds catalog of configurations
+require 'initConds'	--holds catalog of initial conditions
 
 -- solver variables
 
@@ -98,7 +98,7 @@ camera = {}
 solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
---solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the configurations
+--solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
 --solverName = 'SRHDRoe'		-- not yet
 
 -- override solids:
@@ -127,19 +127,19 @@ end
 --solidFilename = 'test-solid.png'
 --]=]
 
-configurations['Sod']()
---configurations['Sphere']()
---configurations['Square Cavity']()
---configurations['Kelvin-Hemholtz']()
---configurations['Rayleigh-Taylor']()
---configurations['Shock Bubble Interaction']()
---configurations['Flow Around Cylinder']()
---configurations['Forward Facing Step']()
---configurations['Double Mach Reflection']()
---configurations['Spiral Implosion']()
---configurations['self-gravitation test 1']()
---configurations['Colella-Woodward']()
---configurations['Configuration 6']()
+initConds['Sod']()
+--initConds['Sphere']()
+--initConds['Square Cavity']()
+--initConds['Kelvin-Hemholtz']()
+--initConds['Rayleigh-Taylor']()
+--initConds['Shock Bubble Interaction']()
+--initConds['Flow Around Cylinder']()
+--initConds['Forward Facing Step']()
+--initConds['Double Mach Reflection']()
+--initConds['Spiral Implosion']()
+--initConds['self-gravitation test 1']()
+--initConds['Colella-Woodward']()
+--initConds['Configuration 6']()
 --]]
 
 --[[ MHD
@@ -148,15 +148,15 @@ configurations['Sod']()
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
 solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
 
---configurations['Sod']()
-configurations['Brio-Wu']()
+--initConds['Sod']()
+initConds['Brio-Wu']()
 --]]
 
 --[[ Maxwell 
 solverName = 'MaxwellRoe'
 heatMapVariable = 'ELECTRIC'
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
-configurations['Maxwell-1']()
+initConds['Maxwell-1']()
 --]]
 
 --[[ ADM (1D)
@@ -167,7 +167,7 @@ solverName = 'ADM1DRoe'
 
 size = {1024}
 heatMapColorScale = 128
-configurations['NR Gauge Shock Waves']{unitDomain=false}
+initConds['NR Gauge Shock Waves']{unitDomain=false}
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
 camera.zoom = 1/300
@@ -186,12 +186,12 @@ solverName = 'ADM3DRoe'
 --size = {1024} heatMapColorScale = 128
 size = {256, 256} heatMapColorScale = 1
 --size = {16, 16, 16} heatMapColorScale = 1
---configurations['NR Gauge Shock Waves']{unitDomain=false}
---configurations['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
-configurations['NR Alcubierre Warp Bubble']()	-- ...needs shift vector support
---configurations['NR Schwarzschild Black Hole']()
---configurations['NR Stellar']()
---configurations['NR Stellar']{bodies={{pos = {0,0,0}, radius = .1, mass = .001, density=0, pressure=0}}}	-- planet plucked out of existence
+--initConds['NR Gauge Shock Waves']{unitDomain=false}
+--initConds['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
+--initConds['NR Alcubierre Warp Bubble']()	-- ...needs shift vector support
+--initConds['NR Schwarzschild Black Hole']()
+initConds['NR Stellar']()
+--initConds['NR Stellar']{bodies={{pos = {0,0,0}, radius = .1, mass = .001, density=0, pressure=0}}}	-- planet plucked out of existence
 
 --[=[
 --[==[
@@ -216,7 +216,7 @@ for k,v in pairs(planet) do print(k,v) end
 
 local gridUnitsInM = planet.radiusInM / planet.radiusInCoords
 speedOfLight = speedOfLightInM / gridUnitsInM
-configurations['NR Stellar']{bodies={{pos = {0,0,0}, radius = planet.radiusInCoords, mass = planet.massInCoords}}}
+initConds['NR Stellar']{bodies={{pos = {0,0,0}, radius = planet.radiusInCoords, mass = planet.massInCoords}}}
 --]=]
 
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}

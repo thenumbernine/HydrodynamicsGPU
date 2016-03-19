@@ -103,6 +103,8 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	virtual void resize(int width, int height);
 	virtual void update();
 	virtual void sdlEvent(SDL_Event &event);
+protected:
+	void createPlot();
 };
 
 inline std::ostream& operator<<(std::ostream& o, real4 v) {

@@ -287,8 +287,9 @@ void HydroGPUApp::init() {
 			throw Common::Exception() << "unknown solver " << solverName;
 		}
 		solver = i->second();
+		solver->init();	//...now that the vtable is in place
+		solver->resetState();
 	}
-	solver->init();	//..now that the vtable is in place
 
 	//find the index of the equation associated with the selected solver (for the combo box)
 	for (equationIndex = 0; equationIndex < equationNames.size(); ++equationIndex) {
@@ -322,18 +323,7 @@ void HydroGPUApp::init() {
 	}
 	
 	//needs solver->program to be created
-	switch(dim) {
-	case 1:
-		plot = std::make_shared<HydroGPU::Plot::Plot1D>(this);
-		break;
-	case 2:
-		plot = std::make_shared<HydroGPU::Plot::Plot2D>(this);
-		break;
-	case 3:
-		plot = std::make_shared<HydroGPU::Plot::Plot3D>(this);
-		break;
-	}
-	plot->init();
+	createPlot();
 
 	graph = std::make_shared<HydroGPU::Plot::Graph>(this);
 	lua.ref()["graphScale"] >> graph->scale;
@@ -386,8 +376,6 @@ void HydroGPUApp::init() {
 		}
 	}
 	
-	solver->resetState();
-
 	lua.ref()["showHeatMap"] >> showHeatMap;
 
 	heatMapVariable = std::find(
@@ -422,6 +410,21 @@ void HydroGPUApp::init() {
 	if (err) throw Common::Exception() << "GL error " << err;
 
 	std::cout << "Success!" << std::endl;
+}
+
+void HydroGPUApp::createPlot() {
+	switch(dim) {
+	case 1:
+		plot = std::make_shared<HydroGPU::Plot::Plot1D>(this);
+		break;
+	case 2:
+		plot = std::make_shared<HydroGPU::Plot::Plot2D>(this);
+		break;
+	case 3:
+		plot = std::make_shared<HydroGPU::Plot::Plot3D>(this);
+		break;
+	}
+	plot->init();
 }
 
 void HydroGPUApp::shutdown() {
@@ -490,14 +493,31 @@ PROFILE_BEGIN_FRAME()
 		ImGui::Combo("equation", &equationIndex, equationNamesSeparated.c_str());
 		if (lastEquationIndex != equationIndex) {
 			solverForEqnIndex = 0;
-			//...and regen the solver *HERE*
+			std::cout << "setting equation to " << solverGensForEqns[equationIndex].first << std::endl;
+			solver = solverGensForEqns[equationIndex].second[solverForEqnIndex].second();
+			solver->init();
+			//now we need an initial condition to match the new equation
+			//but the initial conditions are provided in the script
+			//this means (a) definining initial conditions somewhere in the script that the c++ code can see them
+			// to enumerate and provide here in the gui
+			// or (b) defining them in c++, which means faster constructor, but makes symmath more difficult to use
+			solver->resetState();
+			createPlot();
 		}
 
 		//list solvers of the equation
 		int lastSolverForEqnIndex = solverForEqnIndex;
 		ImGui::Combo("solver", &solverForEqnIndex, solverNamesSeparatedForEqn[equationNames[equationIndex]].c_str());
-		if (lastSolverForEqnIndex == solverForEqnIndex) {
-			//regen solver *HERE*
+		if (lastSolverForEqnIndex != solverForEqnIndex) {
+			std::cout << "setting solver to " << solverGensForEqns[equationIndex].second[solverForEqnIndex].first << std::endl;
+			std::shared_ptr<Solver::Solver> newSolver = solverGensForEqns[equationIndex].second[solverForEqnIndex].second();
+			//TODO copy state memory *here*
+			//but are there any solvers that have different #states for matching eqns?
+			//until then ...
+			solver = newSolver;
+			solver->init();
+			solver->resetState();
+			createPlot();
 		}
 
 		if (ImGui::CollapsingHeader("heat map")) {
