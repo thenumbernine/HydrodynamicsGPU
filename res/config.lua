@@ -127,19 +127,19 @@ end
 --solidFilename = 'test-solid.png'
 --]=]
 
-initConds['Sod']()
---initConds['Sphere']()
---initConds['Square Cavity']()
---initConds['Kelvin-Hemholtz']()
---initConds['Rayleigh-Taylor']()
---initConds['Shock Bubble Interaction']()
---initConds['Flow Around Cylinder']()
---initConds['Forward Facing Step']()
---initConds['Double Mach Reflection']()
---initConds['Spiral Implosion']()
---initConds['self-gravitation test 1']()
---initConds['Colella-Woodward']()
---initConds['Configuration 6']()
+initConds['Sod'].setup()
+--initConds['Sphere'].setup()
+--initConds['Square Cavity'].setup()
+--initConds['Kelvin-Hemholtz'].setup()
+--initConds['Rayleigh-Taylor'].setup()
+--initConds['Shock Bubble Interaction'].setup()
+--initConds['Flow Around Cylinder'].setup()
+--initConds['Forward Facing Step'].setup()
+--initConds['Double Mach Reflection'].setup()
+--initConds['Spiral Implosion'].setup()
+--initConds['self-gravitation test 1'].setup()
+--initConds['Colella-Woodward'].setup()
+--initConds['Configuration 6'].setup()
 --]]
 
 --[[ MHD
@@ -148,15 +148,15 @@ initConds['Sod']()
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
 solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
 
---initConds['Sod']()
-initConds['Brio-Wu']()
+--initConds['Sod'].setup()
+initConds['Brio-Wu'].setup()
 --]]
 
 --[[ Maxwell 
 solverName = 'MaxwellRoe'
 heatMapVariable = 'ELECTRIC'
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
-initConds['Maxwell-1']()
+initConds['Maxwell-1'].setup()
 --]]
 
 --[[ ADM (1D)
@@ -167,7 +167,7 @@ solverName = 'ADM1DRoe'
 
 size = {1024}
 heatMapColorScale = 128
-initConds['NR Gauge Shock Waves']{unitDomain=false}
+initConds['NR Gauge Shock Waves'].setup{unitDomain=false}
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMapVariable = 'ALPHA'
 camera.zoom = 1/300
@@ -186,12 +186,12 @@ solverName = 'ADM3DRoe'
 --size = {1024} heatMapColorScale = 128
 size = {256, 256} heatMapColorScale = 1
 --size = {16, 16, 16} heatMapColorScale = 1
---initConds['NR Gauge Shock Waves']{unitDomain=false}
---initConds['NR Gauge Shock Waves']{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
---initConds['NR Alcubierre Warp Bubble']()	-- ...needs shift vector support
---initConds['NR Schwarzschild Black Hole']()
-initConds['NR Stellar']()
---initConds['NR Stellar']{bodies={{pos = {0,0,0}, radius = .1, mass = .001, density=0, pressure=0}}}	-- planet plucked out of existence
+--initConds['NR Gauge Shock Waves'].setup{unitDomain=false}
+--initConds['NR Gauge Shock Waves'].setup{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
+--initConds['NR Alcubierre Warp Bubble'].setup()	-- ...needs shift vector support
+--initConds['NR Schwarzschild Black Hole'].setup()
+initConds['NR Stellar'].setup()
+--initConds['NR Stellar'].setup{bodies={{pos = {0,0,0}, radius = .1, mass = .001, density=0, pressure=0}}}	-- planet plucked out of existence
 
 --[=[
 --[==[
@@ -216,7 +216,7 @@ for k,v in pairs(planet) do print(k,v) end
 
 local gridUnitsInM = planet.radiusInM / planet.radiusInCoords
 speedOfLight = speedOfLightInM / gridUnitsInM
-initConds['NR Stellar']{bodies={{pos = {0,0,0}, radius = planet.radiusInCoords, mass = planet.massInCoords}}}
+initConds['NR Stellar'].setup{bodies={{pos = {0,0,0}, radius = planet.radiusInCoords, mass = planet.massInCoords}}}
 --]=]
 
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}

@@ -41,7 +41,10 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	std::vector<std::string> equationNames;
 	std::string equationNamesSeparated;
 	int equationIndex;
-	
+
+	std::string initCondNamesSeparated; 
+	int initCondIndex;
+
 	std::vector<std::pair<std::string, std::vector<std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>>>> solverGensForEqns;
 	std::map<std::string, std::string> solverNamesSeparatedForEqn;
 	int solverForEqnIndex;

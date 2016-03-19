@@ -173,7 +173,7 @@ void HydroGPUApp::init() {
 		if (!lua.ref()["xmin"].isNil()) lua.ref()["xmin"][i+1] >> xmin.s[i];
 		if (!lua.ref()["xmax"].isNil()) lua.ref()["xmax"][i+1] >> xmax.s[i];
 	}
-	
+
 	std::vector<std::vector<std::string>> boundaryMethodNames(3);
 	for (int i = 0; i < 3; ++i) {
 		boundaryMethodNames[i].resize(2);
@@ -184,7 +184,17 @@ void HydroGPUApp::init() {
 			}
 		}
 	}
-	
+
+	{
+		std::vector<std::string> initCondNames;
+		for (int i = 0; i < lua.ref()["initConds"].len(); ++i) {
+			std::string initCondName;
+			lua.ref()["initConds"][i+1]["name"] >> initCondName;
+			initCondNames.push_back(initCondName);
+		}
+		initCondNamesSeparated = makeComboStr(initCondNames);
+	}
+
 	lua.ref()["maxFrames"] >> maxFrames;
 	lua.ref()["showTimestep"] >> showTimestep;
 	lua.ref()["useFixedDT"] >> useFixedDT;
@@ -304,14 +314,14 @@ void HydroGPUApp::init() {
 	if (solverForEqnIndex == solverGensForEqns[equationIndex].second.size()) solverForEqnIndex = 0;
 	
 	//needs solver->program to be created
-	vectorField = std::make_shared<HydroGPU::Plot::VectorField>(solver);
+	vectorField = std::make_shared<Plot::VectorField>(solver);
 	
 	if (lua.ref()["camera"].isNil()) {
 		throw Common::Exception() << "unknown camera";
 	}
 	
-	camera = cameraOrtho = std::make_shared<HydroGPU::Plot::CameraOrtho>(this);
-	cameraFrustum = std::make_shared<HydroGPU::Plot::CameraFrustum>(this);
+	camera = cameraOrtho = std::make_shared<Plot::CameraOrtho>(this);
+	cameraFrustum = std::make_shared<Plot::CameraFrustum>(this);
 	{
 		std::string mode;
 		lua.ref()["camera"]["mode"] >> mode;
@@ -325,7 +335,7 @@ void HydroGPUApp::init() {
 	//needs solver->program to be created
 	createPlot();
 
-	graph = std::make_shared<HydroGPU::Plot::Graph>(this);
+	graph = std::make_shared<Plot::Graph>(this);
 	lua.ref()["graphScale"] >> graph->scale;
 	{	
 		std::vector<std::string> graphVariableNames;
@@ -415,13 +425,13 @@ void HydroGPUApp::init() {
 void HydroGPUApp::createPlot() {
 	switch(dim) {
 	case 1:
-		plot = std::make_shared<HydroGPU::Plot::Plot1D>(this);
+		plot = std::make_shared<Plot::Plot1D>(this);
 		break;
 	case 2:
-		plot = std::make_shared<HydroGPU::Plot::Plot2D>(this);
+		plot = std::make_shared<Plot::Plot2D>(this);
 		break;
 	case 3:
-		plot = std::make_shared<HydroGPU::Plot::Plot3D>(this);
+		plot = std::make_shared<Plot::Plot3D>(this);
 		break;
 	}
 	plot->init();
@@ -487,7 +497,7 @@ PROFILE_BEGIN_FRAME()
 	for (int v : graph->variables) graphVariables[v] = 1;
 	gui->update([&](){
 		//how do you change the window title from "Debug"?
-
+		
 		//list equations
 		int lastEquationIndex = equationIndex;
 		ImGui::Combo("equation", &equationIndex, equationNamesSeparated.c_str());
@@ -503,6 +513,11 @@ PROFILE_BEGIN_FRAME()
 			// or (b) defining them in c++, which means faster constructor, but makes symmath more difficult to use
 			solver->resetState();
 			createPlot();
+			std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
+			newGraph->scale = graph->scale;
+			newGraph->step = graph->step;
+			newGraph->variables = graph->variables;
+			graph = newGraph;
 		}
 
 		//list solvers of the equation
@@ -518,21 +533,35 @@ PROFILE_BEGIN_FRAME()
 			solver->init();
 			solver->resetState();
 			createPlot();
+			std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
+			newGraph->scale = graph->scale;
+			newGraph->step = graph->step;
+			newGraph->variables = graph->variables;
+			graph = newGraph;
+		}
+
+		int lastInitCondIndex = initCondIndex;
+		ImGui::Combo("init.cond.", &initCondIndex, initCondNamesSeparated.c_str());
+		if (lastInitCondIndex != initCondIndex) {
+			std::string initCondName;
+			lua.ref()["initConds"][initCondIndex+1]["name"] >> initCondName;
+			std::cout << "setting up initial condition " << initCondName << std::endl;
+			lua.ref()["initConds"][initCondIndex+1]["setup"]();
 		}
 
 		if (ImGui::CollapsingHeader("heat map")) {
 			// heat map on/off/variable
 			ImGui::Checkbox("show", &showHeatMap); 
-
+			
 			//heat map variable
 			std::string s = makeComboStr(solver->equation->displayVariables);
 			ImGui::Combo("variable", &heatMapVariable, s.c_str());
-		
+			
 			//heat map color scale
 			ImGui::Text("log scale");
 			ImGui::SliderFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f); 
 		}
-
+		
 		if (ImGui::CollapsingHeader("graph")) {
 			//TODO tree information on the variables.  equation would have to specify this, but it'd be handy.
 			//or it could be inferred from common prefixes?
