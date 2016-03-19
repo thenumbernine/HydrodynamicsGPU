@@ -17,8 +17,9 @@ protected:
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 	virtual void step(real dt);
+public:
+	virtual std::string name() const { return "EulerRoe"; }
 };
 
 }
 }
-

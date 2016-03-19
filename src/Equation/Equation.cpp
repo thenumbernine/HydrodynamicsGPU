@@ -1,10 +1,10 @@
 #include "HydroGPU/Equation/Equation.h"
-#include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/HydroGPUApp.h"
 
 namespace HydroGPU {
 namespace Equation {
 
-Equation::Equation(HydroGPU::Solver::Solver* solver_) : solver(solver_) {}
+Equation::Equation(HydroGPUApp* app_) : app(app_) {}
 
 std::string Equation::buildEnumCode(const std::string& prefix, const std::vector<std::string>& enumStrs) {
 	std::string str = "enum {\n";
@@ -30,7 +30,7 @@ void Equation::readStateCell(real* state, const real* source) {
 }
 
 int Equation::numReadStateChannels() {
-	return solver->numStates();
+	return states.size();
 }
 
 }

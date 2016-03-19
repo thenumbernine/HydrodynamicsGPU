@@ -5,7 +5,9 @@
 #include "HydroGPU/Plot/VectorField.h"
 #include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/Boundary/Boundary.h"
+#include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "HydroGPU/toNumericString.h"
 #include "Image/System.h"
 #include "Common/File.h"
 

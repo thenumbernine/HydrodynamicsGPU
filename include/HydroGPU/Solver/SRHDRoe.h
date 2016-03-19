@@ -43,8 +43,9 @@ protected:
 	 deduces state variables and stores them.
 	*/
 	virtual void resetState();		//called third
+public:
+	virtual std::string name() const { return "SRHDRoe"; }
 };
 
 }
 }
-

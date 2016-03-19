@@ -24,7 +24,7 @@ void SRHDRoe::setupConvertToTexKernelArgs() {
 }
 	
 void SRHDRoe::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::SRHD>(this);
+	equation = std::make_shared<HydroGPU::Equation::SRHD>(app);
 }
 
 std::vector<std::string> SRHDRoe::getProgramSources() {

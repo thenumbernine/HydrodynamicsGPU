@@ -5,19 +5,16 @@
 #include <string>
 
 namespace HydroGPU {
-namespace Solver {
-struct Solver;
-}
+struct HydroGPUApp;
 namespace Equation {
 
 struct Maxwell : public Equation {
 	typedef Equation Super;
-	Maxwell(HydroGPU::Solver::Solver* solver);
+	Maxwell(HydroGPUApp* app_);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);
+	virtual std::string name() const { return "Maxwell"; } 
 };
 
 }
 }
-
-

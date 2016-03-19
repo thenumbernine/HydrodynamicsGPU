@@ -30,7 +30,7 @@ struct SelfGravitationBehavior : public Parent, public SelfGravitationInterface 
 
 template<typename Parent>
 int SelfGravitationBehavior<Parent>::gravityGetBoundaryKernelForBoundaryMethod(int dim, int minmax) {
-	switch (Super::solver->app->boundaryMethods(dim, minmax)) {
+	switch (Super::app->boundaryMethods(dim, minmax)) {
 	case BOUNDARY_METHOD_NONE:
 		return BOUNDARY_KERNEL_NONE;
 	case BOUNDARY_METHOD_PERIODIC:
@@ -40,9 +40,8 @@ int SelfGravitationBehavior<Parent>::gravityGetBoundaryKernelForBoundaryMethod(i
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << Super::solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << Super::app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }
 
 }
 }
-

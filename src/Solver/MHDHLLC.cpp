@@ -14,7 +14,7 @@ void MHDHLLC::init() {
 }
 
 void MHDHLLC::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::MHD>(this);
+	equation = std::make_shared<HydroGPU::Equation::MHD>(app);
 }
 
 std::string MHDHLLC::getFluxSource() {

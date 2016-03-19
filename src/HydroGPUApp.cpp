@@ -1,4 +1,3 @@
-#include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Solver/EulerHLL.h"
 #include "HydroGPU/Solver/EulerHLLC.h"
 #include "HydroGPU/Solver/EulerBurgers.h"
@@ -11,6 +10,16 @@
 #include "HydroGPU/Solver/ADM1DRoe.h"
 #include "HydroGPU/Solver/ADM3DRoe.h"
 #include "HydroGPU/Solver/BSSNOKRoe.h"
+
+#include "HydroGPU/Equation/Euler.h"
+#include "HydroGPU/Equation/SRHD.h"
+#include "HydroGPU/Equation/MHD.h"
+#include "HydroGPU/Equation/Maxwell.h"
+#include "HydroGPU/Equation/ADM1D.h"
+#include "HydroGPU/Equation/ADM2DSpherical.h"
+#include "HydroGPU/Equation/ADM3D.h"
+#include "HydroGPU/Equation/BSSNOK.h"
+
 #include "HydroGPU/Plot/VectorField.h"
 #include "HydroGPU/Plot/Plot1D.h"
 #include "HydroGPU/Plot/Plot2D.h"
@@ -18,6 +27,10 @@
 #include "HydroGPU/Plot/CameraOrtho.h"
 #include "HydroGPU/Plot/CameraFrustum.h"
 #include "HydroGPU/Plot/Graph.h"
+
+#include "HydroGPU/HydroGPUApp.h"
+
+#include "ImGUICommon/ImGUICommon.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -28,9 +41,15 @@
 #include <OpenGL/OpenGL.h>
 #include <iostream>
 
-namespace HydroGPU {
+static std::string makeComboStr(const std::vector<std::string>& v) {
+	std::string result;
+	for (const std::string& s : v) {
+		result.append(s).append(1, '\0');
+	}
+	return result;
+}
 
-//have to keep these updated with HydroGPU/Shared/Common.h
+namespace HydroGPU {
 
 HydroGPUApp::HydroGPUApp()
 : Super()
@@ -61,6 +80,51 @@ HydroGPUApp::HydroGPUApp()
 , rightGuiDown(false)
 , aspectRatio(0.f)
 {
+#define MAKE_SOLVER(solver) std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>(#solver, [=]()->std::shared_ptr<Solver::Solver>{ return std::make_shared<Solver::solver>(this); })
+	solverGensForEqns = {
+		{"Euler", {
+			MAKE_SOLVER(EulerBurgers),
+			MAKE_SOLVER(EulerHLL),
+			MAKE_SOLVER(EulerHLLC),
+			MAKE_SOLVER(EulerRoe),
+		}},
+		{"SRHD", {
+			MAKE_SOLVER(SRHDRoe),
+		}},
+		{"MHD", {
+			MAKE_SOLVER(MHDBurgers),
+			MAKE_SOLVER(MHDHLLC),
+			MAKE_SOLVER(MHDRoe),
+		}},
+		{"Maxwell", {
+			MAKE_SOLVER(MaxwellRoe),
+		}},
+		{"ADM1D", {
+			MAKE_SOLVER(ADM1DRoe),
+		}},
+		{"ADM3D", {
+			MAKE_SOLVER(ADM3DRoe),
+		}},
+		{"BSSNOK", {
+			MAKE_SOLVER(BSSNOKRoe),
+		}},
+	};
+#undef MAKE_SOLVER
+
+	for (const std::pair<std::string, std::vector<std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>>>& p : solverGensForEqns) {
+		const std::string& equationName = p.first;
+		equationNames.push_back(equationName);
+		std::vector<std::string> solverNamesForEqn;
+		for (const std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>& q : p.second) {
+			const std::string& thisSolverName = q.first;
+			solverNamesForEqn.push_back(thisSolverName);
+			solverGens.push_back(q);
+		}
+		solverNamesSeparatedForEqn[equationName] = makeComboStr(solverNamesForEqn);
+	}
+	equationNamesSeparated = makeComboStr(equationNames);
+	equationIndex = 0;
+
 	for (int i = 0; i < 4; ++i) {
 		size.s[i] = 1;	//default each dimension to a point.  so if lua doesn't define it then the dimension will be ignored
 		xmin.s[i] = -.5f;
@@ -123,7 +187,6 @@ void HydroGPUApp::init() {
 	
 	lua.ref()["maxFrames"] >> maxFrames;
 	lua.ref()["showTimestep"] >> showTimestep;
-	lua.ref()["solverName"] >> solverName;
 	lua.ref()["useFixedDT"] >> useFixedDT;
 	lua.ref()["fixedDT"] >> fixedDT;
 	lua.ref()["cfl"] >> cfl;
@@ -212,41 +275,36 @@ void HydroGPUApp::init() {
 
 	gradientTexMem = cl::ImageGL(clCommon->context, CL_MEM_READ_ONLY, GL_TEXTURE_1D, 0, gradientTex);
 
-	//construct the solver
+	lua.ref()["solverName"] >> solverName;
 	std::cout << "solverName " << solverName << std::endl;
-	if (solverName == "EulerBurgers") {
-		solver = std::make_shared<HydroGPU::Solver::EulerBurgers>(this);
-	} else if (solverName == "EulerHLL") {
-		solver = std::make_shared<HydroGPU::Solver::EulerHLL>(this);
-	} else if (solverName == "EulerHLLC") {
-		solver = std::make_shared<HydroGPU::Solver::EulerHLLC>(this);
-	} else if (solverName == "EulerRoe") {
-		solver = std::make_shared<HydroGPU::Solver::EulerRoe>(this);
-	} else if (solverName == "SRHDRoe") {
-		solver = std::make_shared<HydroGPU::Solver::SRHDRoe>(this);
-	} else if (solverName == "MHDBurgers") {
-		solver = std::make_shared<HydroGPU::Solver::MHDBurgers>(this);
-	} else if (solverName == "MHDHLLC") {
-		solver = std::make_shared<HydroGPU::Solver::MHDHLLC>(this);
-	} else if (solverName == "MHDRoe") {
-		solver = std::make_shared<HydroGPU::Solver::MHDRoe>(this);
-	} else if (solverName == "MaxwellRoe") {
-		solver = std::make_shared<HydroGPU::Solver::MaxwellRoe>(this);
-	} else if (solverName == "ADM1DRoe") {
-		solver = std::make_shared<HydroGPU::Solver::ADM1DRoe>(this);
-	} else if (solverName == "ADM3DRoe") {
-		solver = std::make_shared<HydroGPU::Solver::ADM3DRoe>(this);
-	} else if (solverName == "BSSNOKRoe") {
-		solver = std::make_shared<HydroGPU::Solver::BSSNOKRoe>(this);
-	} else {
-		throw Common::Exception() << "unknown solver " << solverName;
+	{
+		std::vector<std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>>::iterator i
+			= find_if(solverGens.begin(), solverGens.end(),
+				[&](const std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>& p)->bool{
+					return p.first == solverName;
+				});
+		if (i == solverGens.end()) {
+			throw Common::Exception() << "unknown solver " << solverName;
+		}
+		solver = i->second();
 	}
-	
 	solver->init();	//..now that the vtable is in place
 
+	//find the index of the equation associated with the selected solver (for the combo box)
+	for (equationIndex = 0; equationIndex < equationNames.size(); ++equationIndex) {
+		if (solver->equation->name() == equationNames[equationIndex]) break;
+	}
+	if (equationIndex == equationNames.size()) equationIndex = 0;
+	
+	//find the solver in the equations 
+	for (solverForEqnIndex = 0; solverForEqnIndex < solverGensForEqns[equationIndex].second.size(); ++solverForEqnIndex) {
+		if (solver->name() == solverGensForEqns[equationIndex].second[solverForEqnIndex].first) break;
+	}
+	if (solverForEqnIndex == solverGensForEqns[equationIndex].second.size()) solverForEqnIndex = 0;
+	
 	//needs solver->program to be created
 	vectorField = std::make_shared<HydroGPU::Plot::VectorField>(solver);
-
+	
 	if (lua.ref()["camera"].isNil()) {
 		throw Common::Exception() << "unknown camera";
 	}
@@ -426,18 +484,28 @@ PROFILE_BEGIN_FRAME()
 	for (int v : graph->variables) graphVariables[v] = 1;
 	gui->update([&](){
 		//how do you change the window title from "Debug"?
-		//ImGui::Begin("Controls");	//it's not this ...
+
+		//list equations
+		int lastEquationIndex = equationIndex;
+		ImGui::Combo("equation", &equationIndex, equationNamesSeparated.c_str());
+		if (lastEquationIndex != equationIndex) {
+			solverForEqnIndex = 0;
+			//...and regen the solver *HERE*
+		}
+
+		//list solvers of the equation
+		int lastSolverForEqnIndex = solverForEqnIndex;
+		ImGui::Combo("solver", &solverForEqnIndex, solverNamesSeparatedForEqn[equationNames[equationIndex]].c_str());
+		if (lastSolverForEqnIndex == solverForEqnIndex) {
+			//regen solver *HERE*
+		}
 
 		if (ImGui::CollapsingHeader("heat map")) {
 			// heat map on/off/variable
 			ImGui::Checkbox("show", &showHeatMap); 
 
 			//heat map variable
-			std::string s;
-			for (const std::string& v : solver->equation->displayVariables) {
-				s.append(v);
-				s.append(1, '\0');
-			}
+			std::string s = makeComboStr(solver->equation->displayVariables);
 			ImGui::Combo("variable", &heatMapVariable, s.c_str());
 		
 			//heat map color scale
@@ -644,4 +712,3 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 }
 
 GLAPP_MAIN(HydroGPU::HydroGPUApp)
-

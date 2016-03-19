@@ -1,5 +1,4 @@
 #include "HydroGPU/Equation/ADM2DSpherical.h"
-#include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
@@ -16,8 +15,8 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-ADM2DSpherical::ADM2DSpherical(HydroGPU::Solver::Solver* solver_)
-: Super(solver_)
+ADM2DSpherical::ADM2DSpherical(HydroGPUApp* app_)
+: Super(app_)
 {
 	//TODO fixme
 	displayVariables = std::vector<std::string>{
@@ -51,10 +50,10 @@ void ADM2DSpherical::getProgramSources(std::vector<std::string>& sources) {
 	Super::getProgramSources(sources);
 
 	std::string adm_BonaMasso_f = "1.f";
-	solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
+	app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	sources[0] += "#define ADM_BONA_MASSO_F " + adm_BonaMasso_f + "\n";
 	std::string adm_BonaMasso_df_dalpha = "0.f";
-	solver->app->lua.ref()["adm_BonaMasso_df_dalpha"] >> adm_BonaMasso_df_dalpha;
+	app->lua.ref()["adm_BonaMasso_df_dalpha"] >> adm_BonaMasso_df_dalpha;
 	sources[0] += "#define ADM_BONA_MASSO_DF_DALPHA " + adm_BonaMasso_df_dalpha + "\n";
 	
 	sources.push_back(Common::File::read("ADM2DSphericalCommon.cl"));
@@ -68,7 +67,7 @@ void ADM2DSpherical::getProgramSources(std::vector<std::string>& sources) {
 }
 
 int ADM2DSpherical::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {
-	switch (solver->app->boundaryMethods(dim, minmax)) {
+	switch (app->boundaryMethods(dim, minmax)) {
 	case BOUNDARY_METHOD_NONE:
 		return BOUNDARY_KERNEL_NONE;
 	case BOUNDARY_METHOD_PERIODIC:
@@ -78,7 +77,7 @@ int ADM2DSpherical::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, 
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }
 
 }

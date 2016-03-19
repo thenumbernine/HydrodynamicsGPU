@@ -6,20 +6,18 @@
 #include <string>
 
 namespace HydroGPU {
-namespace Solver {
-struct Solver;
-}
+struct HydroGPUApp;
 namespace Equation {
 
 struct Euler : public SelfGravitationBehavior<Equation> {
 	typedef SelfGravitationBehavior<Equation> Super;
-	Euler(HydroGPU::Solver::Solver* solver);
+	Euler(HydroGPUApp* app_);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);
 	virtual void readStateCell(real* state, const real* source);
 	virtual int numReadStateChannels();
+	virtual std::string name() const { return "Euler"; } 
 };
 
 }
 }
-

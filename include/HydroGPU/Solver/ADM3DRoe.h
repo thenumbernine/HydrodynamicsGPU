@@ -24,9 +24,9 @@ protected:
 	virtual int getEigenTransformStructSize();
 	virtual int getEigenSpaceDim();
 	virtual void step(real dt);
+public:
+	virtual std::string name() const { return "ADM3DRoe"; }
 };
 
 }
 }
-
-

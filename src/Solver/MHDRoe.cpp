@@ -28,7 +28,7 @@ void MHDRoe::initKernels() {
 }
 	
 void MHDRoe::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::MHD>(this);
+	equation = std::make_shared<HydroGPU::Equation::MHD>(app);
 }
 
 std::vector<std::string> MHDRoe::getProgramSources() {

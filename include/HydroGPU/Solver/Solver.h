@@ -1,9 +1,8 @@
 #pragma once
 
-#include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/Solver/SelfGravitation.h"
 #include "HydroGPU/Integrator/Integrator.h"
-#include "HydroGPU/Shared/Common.h"	//cl shared header
+#include "HydroGPU/Shared/Common.h"	//real
 #include "Profiler/Stat.h"
 #include "Tensor/Vector.h"
 #include <OpenCL/cl.hpp>
@@ -12,7 +11,13 @@
 #include <memory>
 
 namespace HydroGPU {
+
 struct HydroGPUApp;
+
+namespace Equation {
+struct Equation;
+}
+
 namespace Solver {
 
 struct Solver {
@@ -55,7 +60,7 @@ public:	//protected:
 	int frame;
 
 public:
-	std::shared_ptr<HydroGPU::Equation::Equation> equation;
+	std::shared_ptr<Equation::Equation> equation;
 	
 	Solver(HydroGPUApp* app);
 	virtual ~Solver() {}
@@ -71,7 +76,7 @@ protected:
 	virtual void initBuffers();
 	virtual void initKernels();
 public:
-	int numStates();	//shorthand
+	int numStates();	//shorthand for equation->states.size()
 	virtual int getNumFluxStates();
 	int getVolume();	
 protected:
@@ -144,26 +149,10 @@ public:
 		cl::Kernel zeroKernel;
 		size_t totalAlloc;
 	} cl;
+
+public:
+	virtual std::string name() const = 0;
 };
 
 }
 }
-
-//used by enough folks:
-
-template<typename T> std::string toNumericString(T value);
-
-template<> inline std::string toNumericString<double>(double value) {
-	std::string s = std::to_string(value);
-	if (s.find("e") == std::string::npos) {
-		if (s.find(".") == std::string::npos) {
-			s += ".";
-		}
-	}
-	return s;
-}
-
-template<> inline std::string toNumericString<float>(float value) {
-	return toNumericString<double>(value) + "f";
-}
-

@@ -1,31 +1,29 @@
 #pragma once
 
-#include "HydroGPU/Shared/Common.h"	//cl shared header
+#include "HydroGPU/Shared/Common.h"	//real
 #include <vector>
 #include <string>
 
 namespace HydroGPU {
-namespace Solver {
-struct Solver;
-}
+struct HydroGPUApp;
 namespace Equation {
 
 struct Equation {
 protected:
-	HydroGPU::Solver::Solver* solver;
+	HydroGPUApp* app;
 public:
 	std::vector<std::string> displayVariables;
 	std::vector<std::string> boundaryMethods;
 	std::vector<std::string> states;
 
-	Equation(HydroGPU::Solver::Solver* solver_);	
+	Equation(HydroGPUApp* app_);	
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) = 0;
 	std::string buildEnumCode(const std::string& prefix, const std::vector<std::string>& enumStrs);
 	virtual void readStateCell(real* state, const real* source);
 	virtual int numReadStateChannels();
+	virtual std::string name() const = 0; 
 };
 
 }
 }
-

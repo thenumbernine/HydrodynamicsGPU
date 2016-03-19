@@ -5,18 +5,15 @@
 #include <string>
 
 namespace HydroGPU {
-namespace Solver {
-struct Solver;
-}
+struct HydroGPUApp;
 namespace Equation {
 
 struct ADM2DSpherical : public Equation {
 	typedef Equation Super;
-	ADM2DSpherical(HydroGPU::Solver::Solver* solver);
+	ADM2DSpherical(HydroGPUApp* app_);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);
 };
 
 }
 }
-

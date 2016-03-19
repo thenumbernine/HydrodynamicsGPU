@@ -1,6 +1,6 @@
 #include "HydroGPU/Equation/Maxwell.h"
-#include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/Boundary/Boundary.h"
+#include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
@@ -16,8 +16,8 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-Maxwell::Maxwell(HydroGPU::Solver::Solver* solver_) 
-: Super(solver_)
+Maxwell::Maxwell(HydroGPUApp* app_) 
+: Super(app_)
 {
 	displayVariables = std::vector<std::string>{
 		"ELECTRIC",
@@ -51,17 +51,17 @@ void Maxwell::getProgramSources(std::vector<std::string>& sources) {
 	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
 
 	real permeability = 1.f;
-	solver->app->lua.ref()["permeability"] >> permeability;
+	app->lua.ref()["permeability"] >> permeability;
 	sources[0] += "constant real permeability = " + toNumericString<real>(permeability) + ";\n";
 	sources[0] += "constant real sqrtPermeability = " + toNumericString<real>(sqrt(permeability)) + ";\n";
 	
 	real permittivity = 1.f;
-	solver->app->lua.ref()["permittivity"] >> permittivity;
+	app->lua.ref()["permittivity"] >> permittivity;
 	sources[0] += "constant real permittivity = " + toNumericString<real>(permittivity) + ";\n";
 	sources[0] += "constant real sqrtPermittivity = " + toNumericString<real>(sqrt(permittivity)) + ";\n";
 	
 	real conductivity = 1.f;
-	solver->app->lua.ref()["conductivity"] >> conductivity;
+	app->lua.ref()["conductivity"] >> conductivity;
 	sources[0] += "constant real conductivity = " + toNumericString<real>(conductivity) + ";\n";
 	sources[0] += "constant real sqrtConductivity = " + toNumericString<real>(sqrt(conductivity)) + ";\n";
 
@@ -76,7 +76,7 @@ void Maxwell::getProgramSources(std::vector<std::string>& sources) {
 }
 
 int Maxwell::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {
-	switch (solver->app->boundaryMethods(dim, minmax)) {
+	switch (app->boundaryMethods(dim, minmax)) {
 	case BOUNDARY_METHOD_NONE:
 		return BOUNDARY_KERNEL_NONE;
 	case BOUNDARY_METHOD_PERIODIC:
@@ -86,9 +86,8 @@ int Maxwell::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int min
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }
 
 }
 }
-

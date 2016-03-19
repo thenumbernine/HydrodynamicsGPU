@@ -12,6 +12,8 @@ struct EulerHLLC : public EulerHLL {
 
 protected:
 	virtual std::string getFluxSource();
+public:
+	virtual std::string name() const { return "EulerHLLC"; }
 };
 
 }

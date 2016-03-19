@@ -16,8 +16,9 @@ protected:
 	virtual void createEquation();
 	virtual std::string getFluxSource();
 	virtual void step(real dt);
+public:
+	virtual std::string name() const { return "EulerHLL"; }
 };
 
 }
 }
-

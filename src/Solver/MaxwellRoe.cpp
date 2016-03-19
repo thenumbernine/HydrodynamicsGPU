@@ -13,7 +13,7 @@ void MaxwellRoe::initKernels() {
 }
 	
 void MaxwellRoe::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::Maxwell>(this);
+	equation = std::make_shared<HydroGPU::Equation::Maxwell>(app);
 }
 
 std::vector<std::string> MaxwellRoe::getProgramSources() {

@@ -28,6 +28,8 @@ protected:
 	virtual void calcFlux(real dt);
 	virtual void step(real dt);
 	virtual void initFlux();
+public:
+	virtual std::string name() const { return "MHDRoe"; }
 };
 
 }

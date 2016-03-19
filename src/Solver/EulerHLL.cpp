@@ -14,7 +14,7 @@ void EulerHLL::init() {
 }
 
 void EulerHLL::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::Euler>(this);
+	equation = std::make_shared<HydroGPU::Equation::Euler>(app);
 }
 
 std::string EulerHLL::getFluxSource() {

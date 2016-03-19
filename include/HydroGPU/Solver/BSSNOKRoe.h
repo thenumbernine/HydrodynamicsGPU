@@ -14,9 +14,9 @@ struct BSSNOKRoe : public Roe {
 protected:
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
+public:
+	virtual std::string name() const { return "BSSNOKRoe"; }
 };
 
 }
 }
-
-

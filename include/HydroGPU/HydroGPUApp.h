@@ -1,15 +1,20 @@
 #pragma once
 
-#include "HydroGPU/Solver/Solver.h"
-#include "GLApp/GLApp.h"
-#include "CLCommon/CLCommon.h"
 #include "LuaCxx/State.h"
 #include "LuaCxx/GlobalTable.h"
 #include "LuaCxx/Ref.h"
+#include "GLApp/GLApp.h"
 #include "Tensor/Tensor.h"
-#include "ImGUICommon/ImGUICommon.h"
+#include "CLCommon/CLCommon.h"
+#include "HydroGPU/Shared/Common.h"	//real4
+#include <map>
+
+namespace ImGUICommon {
+struct ImGUICommon;
+}
 
 namespace HydroGPU {
+
 namespace Plot {
 struct Camera;
 struct CameraOrtho;
@@ -17,6 +22,10 @@ struct CameraFrustum;
 struct Plot;
 struct VectorField;
 struct Graph;
+}
+
+namespace Solver {
+struct Solver;
 }
 
 struct HydroGPUApp : public ::GLApp::GLApp {
@@ -29,6 +38,16 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	
 	cl::ImageGL gradientTexMem;	//as it is written, data is read from this for mapping values to colors
 
+	std::vector<std::string> equationNames;
+	std::string equationNamesSeparated;
+	int equationIndex;
+	
+	std::vector<std::pair<std::string, std::vector<std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>>>> solverGensForEqns;
+	std::map<std::string, std::string> solverNamesSeparatedForEqn;
+	int solverForEqnIndex;
+	
+	std::vector<std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>> solverGens;
+	
 	std::shared_ptr<HydroGPU::Solver::Solver> solver;
 
 	//config
@@ -105,4 +124,3 @@ inline std::ostream& operator<<(std::ostream& o, cl::NDRange &range) {
 }
 
 }
-

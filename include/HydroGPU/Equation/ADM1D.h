@@ -5,9 +5,7 @@
 #include <string>
 
 namespace HydroGPU {
-namespace Solver {
-struct Solver;
-}
+struct HydroGPUApp;
 namespace Equation {
 
 /*
@@ -24,11 +22,11 @@ two solutions to this:
 */
 struct ADM1D : public Equation {
 	typedef Equation Super;
-	ADM1D(HydroGPU::Solver::Solver* solver);
+	ADM1D(HydroGPUApp* app_);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);
+	virtual std::string name() const { return "ADM1D"; }
 };
 
 }
 }
-

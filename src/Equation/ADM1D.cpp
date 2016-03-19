@@ -1,6 +1,6 @@
 #include "HydroGPU/Equation/ADM1D.h"
-#include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/Boundary/Boundary.h"
+#include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
@@ -16,8 +16,8 @@ enum {
 	NUM_BOUNDARY_METHODS
 };
 
-ADM1D::ADM1D(HydroGPU::Solver::Solver* solver_) 
-: Super(solver_)
+ADM1D::ADM1D(HydroGPUApp* app_) 
+: Super(app_)
 {
 	displayVariables = std::vector<std::string>{
 		"ALPHA",
@@ -48,11 +48,11 @@ void ADM1D::getProgramSources(std::vector<std::string>& sources) {
 	//TODO detect type, cast number to CL string or use literal string
 	//if type is number ...
 	//real adm_BonaMasso_f = 1.f;
-	//solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
+	//app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	//sources[0] += "#define ADM_BONA_MASSO_F " + toNumericString<real>(adm_BonaMasso_f) + "\n";
 	//else if type is string ...
 	std::string adm_BonaMasso_f = "1.f";
-	solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
+	app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	sources[0] += "#define ADM_BONA_MASSO_F (" + adm_BonaMasso_f + ")\n";
 	sources.push_back("#include \"ADM1DCommon.cl\"\n");
 	
@@ -65,7 +65,7 @@ void ADM1D::getProgramSources(std::vector<std::string>& sources) {
 }
 
 int ADM1D::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {
-	switch (solver->app->boundaryMethods(dim, minmax)) {
+	switch (app->boundaryMethods(dim, minmax)) {
 	case BOUNDARY_METHOD_NONE:
 		return BOUNDARY_KERNEL_NONE;
 	case BOUNDARY_METHOD_PERIODIC:
@@ -75,9 +75,8 @@ int ADM1D::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minma
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }
 
 }
 }
-

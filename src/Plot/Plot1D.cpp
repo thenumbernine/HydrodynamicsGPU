@@ -1,6 +1,7 @@
 #include "HydroGPU/Plot/Plot1D.h"
 #include "HydroGPU/Plot/CameraOrtho.h"
 #include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 #include "Common/Macros.h"

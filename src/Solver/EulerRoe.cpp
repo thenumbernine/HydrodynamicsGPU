@@ -18,7 +18,7 @@ void EulerRoe::initKernels() {
 }
 
 void EulerRoe::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::Euler>(this);
+	equation = std::make_shared<HydroGPU::Equation::Euler>(app);
 }
 
 std::vector<std::string> EulerRoe::getProgramSources() {

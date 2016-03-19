@@ -1,6 +1,7 @@
 #include "HydroGPU/Equation/SelfGravitationBehavior.h"
 #include "HydroGPU/Solver/SelfGravitation.h"
 #include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"

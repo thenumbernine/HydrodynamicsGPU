@@ -1,6 +1,7 @@
 #include "HydroGPU/Equation/SelfGravitationBehavior.h"
 #include "HydroGPU/Solver/MHDRemoveDivergence.h"
 #include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/HydroGPUApp.h"
 
@@ -10,7 +11,6 @@ namespace Solver {
 MHDRemoveDivergence::MHDRemoveDivergence(Solver* solver_) : solver(solver_) {}
 
 void MHDRemoveDivergence::init() {
-	cl::Context context = solver->app->clCommon->context;
 	cl::Program program = solver->program;
 	
 	int volume = solver->getVolume();

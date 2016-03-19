@@ -91,7 +91,8 @@ heatMapColorScale = .25
 camera = {}
 
 
---[[ Euler
+
+-- [[ Euler
 
 -- uncomment one:
 solverName = 'EulerBurgers'
@@ -145,9 +146,8 @@ configurations['Sod']()
 
 --solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
---solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
+solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
 
-solverName = 'MHDRoe'
 --configurations['Sod']()
 configurations['Brio-Wu']()
 --]]
@@ -180,7 +180,7 @@ solverName = 'ADM2DSpherical'	-- not yet
 -- I want to get rid of this one.  and the 1D ADM as well -- just one Bona-Masso ADM implementation is enough (I think) unless I should have separate ones for shift/less and mass/less
 --]]
 
--- [[ ADM (3D)
+--[[ ADM (3D)
 solverName = 'ADM3DRoe'
 		
 --size = {1024} heatMapColorScale = 128

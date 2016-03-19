@@ -43,8 +43,9 @@ protected:
 	virtual void advectMagneticField(real dt);
 	virtual void diffusePressure(real dt);
 	virtual void diffuseWork(real dt);
+public:
+	virtual std::string name() const { return "MHDBurgers"; }
 };
 
 }
 }
-

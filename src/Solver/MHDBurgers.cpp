@@ -48,7 +48,7 @@ void MHDBurgers::initKernels() {
 }
 
 void MHDBurgers::createEquation() {
-	equation = std::make_shared<HydroGPU::Equation::MHD>(this);
+	equation = std::make_shared<HydroGPU::Equation::MHD>(app);
 }
 
 std::vector<std::string> MHDBurgers::getProgramSources() {

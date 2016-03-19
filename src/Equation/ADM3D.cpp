@@ -1,6 +1,6 @@
 #include "HydroGPU/Equation/ADM3D.h"
-#include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/Boundary/Boundary.h"
+#include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/Exception.h"
 
@@ -26,8 +26,8 @@ static std::vector<std::string> sym33Suffixes {
 	"ZZ",
 };
 
-ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
-: Super(solver_)
+ADM3D::ADM3D(HydroGPUApp* app_)
+: Super(app_)
 {
 	std::function<void(std::vector<std::string>&, const std::string&, const std::vector<std::string>&)> addSuffixes = [&](
 		std::vector<std::string>& strs,
@@ -61,6 +61,34 @@ ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 	addSuffixes(states, "VELOCITY_", spaceSuffixes);
 	states.push_back("PRESSURE");
 
+	/*
+	it'd be nice to have trees on the display variables:
+	states
+		alpha
+		gamma_ij
+			... x6
+		k_ij
+			... x6
+		a_i
+			... x3
+		d_ijk
+			... x18 (maybe break these down too?)
+		v_i
+			... x3
+	aux values
+		k
+		gamma
+		volume
+	constraints
+		a_i vs alpha
+			... x3
+		d_ijk vs gamma_ij
+			... x18
+		v_i vs d_ijk gamma^jk
+			... x3
+	
+	...but how to specify nodes?
+	*/
 	displayVariables = states;
 	displayVariables.push_back("K");
 	displayVariables.push_back("GAMMA");
@@ -70,35 +98,34 @@ ADM3D::ADM3D(HydroGPU::Solver::Solver* solver_)
 	addSuffixes(displayVariables, "D_Y_GAMMA_CONSTRAINT_", sym33Suffixes);	//D_kij = 1/2 partial_k gamma_ij
 	addSuffixes(displayVariables, "D_Z_GAMMA_CONSTRAINT_", sym33Suffixes);	//D_kij = 1/2 partial_k gamma_ij
 	addSuffixes(displayVariables, "V_CONSTRAINT_", spaceSuffixes);	//V^i = D^im_m - D_m^mi
-
+	
 	//TODO more constraints:
 	//displayVariables.push_back("CONSTRAINT_HAMILTONIAN");
 	//addSuffixes(displayVariables, "CONSTRAINT_MOMENTUM_", spaceSuffixes);
 	//addSuffixes(displayVariables, "CONSTRAINT_EFE_", sym33Suffixes);
-
 }
 
 void ADM3D::getProgramSources(std::vector<std::string>& sources) {
 	Super::getProgramSources(sources);
-
+	
 	//TODO detect type, cast number to CL string or use literal string
 	//if type is number ...
 	//real adm_BonaMasso_f = 1.f;
-	//solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
+	//app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	//sources[0] += "#define ADM_BONA_MASSO_F " + toNumericString<real>(adm_BonaMasso_f) + "\n";
 	//else if type is string ...
 	std::string adm_BonaMasso_f = "1.f";
-	solver->app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
+	app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	sources[0] += "#define ADM_BONA_MASSO_F " + adm_BonaMasso_f + "\n";
 	
 	std::string adm_BonaMasso_df_dalpha = "0.f";
-	solver->app->lua.ref()["adm_BonaMasso_df_dalpha"] >> adm_BonaMasso_df_dalpha;
+	app->lua.ref()["adm_BonaMasso_df_dalpha"] >> adm_BonaMasso_df_dalpha;
 	sources[0] += "#define ADM_BONA_MASSO_DF_DALPHA " + adm_BonaMasso_df_dalpha + "\n";
 
 	//speed of light is used for coordinate transform from 3-vel to 4-vel with the stress-energy tensor
 	//for the R4_ij and G_ij components
 	real speedOfLight = 299792458;	//default in m/s
-	solver->app->lua.ref()["speedOfLight"] >> speedOfLight;
+	app->lua.ref()["speedOfLight"] >> speedOfLight;
 	sources[0] += "#define SPEED_OF_LIGHT " + toNumericString<real>(speedOfLight) + "\n";
 	
 	{
@@ -130,7 +157,7 @@ void ADM3D::getProgramSources(std::vector<std::string>& sources) {
 }
 
 int ADM3D::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {
-	switch (solver->app->boundaryMethods(dim, minmax)) {
+	switch (app->boundaryMethods(dim, minmax)) {
 	case BOUNDARY_METHOD_NONE:
 		return BOUNDARY_KERNEL_NONE;
 	case BOUNDARY_METHOD_PERIODIC:
@@ -140,10 +167,8 @@ int ADM3D::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minma
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }
 
 }
 }
-
-

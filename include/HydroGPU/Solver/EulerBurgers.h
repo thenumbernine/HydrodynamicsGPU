@@ -30,8 +30,9 @@ protected:
 	virtual std::vector<std::string> getProgramSources();
 	virtual real calcTimestep();
 	virtual void step(real dt);
+public:
+	virtual std::string name() const { return "EulerBurgers"; }
 };
 
 }
 }
-

@@ -21,8 +21,9 @@ protected:
 	virtual int getEigenTransformStructSize();
 	virtual std::vector<std::string> getEigenProgramSources();
 	virtual void step(real dt);
+public:
+	virtual std::string name() const { return "ADM1DRoe"; }
 };
 
 }
 }
-

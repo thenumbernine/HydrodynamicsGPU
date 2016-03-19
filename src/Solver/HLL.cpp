@@ -7,8 +7,6 @@ namespace Solver {
 void HLL::init() {
 	Super::init();
 
-	cl::Context context = app->clCommon->context;
-
 	//memory
 
 	int volume = getVolume();

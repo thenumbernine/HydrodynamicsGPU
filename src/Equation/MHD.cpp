@@ -1,14 +1,14 @@
 #include "HydroGPU/Equation/MHD.h"
+#include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "HydroGPU/Solver/Solver.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
 
 namespace HydroGPU {
 namespace Equation {
 
-MHD::MHD(HydroGPU::Solver::Solver* solver_)
-: Super(solver_)
+MHD::MHD(HydroGPUApp* app_)
+: Super(app_)
 {
 	displayVariables = std::vector<std::string>{
 		"DENSITY",
@@ -44,11 +44,11 @@ void MHD::getProgramSources(std::vector<std::string>& sources) {
 	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
 	
 	real gamma = 1.4f;
-	solver->app->lua.ref()["gamma"] >> gamma;
+	app->lua.ref()["gamma"] >> gamma;
 	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
 
 	real vaccuumPermeability = 1.f;
-	solver->app->lua.ref()["vaccuumPermeability"] >> vaccuumPermeability;
+	app->lua.ref()["vaccuumPermeability"] >> vaccuumPermeability;
 	sources[0] += "constant real vaccuumPermeability = " + toNumericString<real>(vaccuumPermeability) + ";\n";
 	sources[0] += "constant real sqrtVaccuumPermeability = " + toNumericString<real>(sqrt(vaccuumPermeability)) + ";\n";
 
@@ -60,7 +60,7 @@ void MHD::getProgramSources(std::vector<std::string>& sources) {
 }
 
 int MHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int stateIndex, int minmax) {
-	switch (solver->app->boundaryMethods(dim, minmax)) {
+	switch (app->boundaryMethods(dim, minmax)) {
 	case BOUNDARY_METHOD_NONE:
 		return BOUNDARY_KERNEL_NONE;
 	case BOUNDARY_METHOD_PERIODIC:
@@ -70,9 +70,8 @@ int MHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int stateIndex, int mi
 	case BOUNDARY_METHOD_FREEFLOW:
 		return BOUNDARY_KERNEL_FREEFLOW;
 	}
-	throw Common::Exception() << "got an unknown boundary method " << solver->app->boundaryMethods(dim, minmax) << " for dim " << dim;
+	throw Common::Exception() << "got an unknown boundary method " << app->boundaryMethods(dim, minmax) << " for dim " << dim;
 }
 
 }
 }
-
