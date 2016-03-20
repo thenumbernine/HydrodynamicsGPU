@@ -498,55 +498,71 @@ PROFILE_BEGIN_FRAME()
 	gui->update([&](){
 		//how do you change the window title from "Debug"?
 		
-		//list equations
-		int lastEquationIndex = equationIndex;
-		ImGui::Combo("equation", &equationIndex, equationNamesSeparated.c_str());
-		if (lastEquationIndex != equationIndex) {
-			solverForEqnIndex = 0;
-			std::cout << "setting equation to " << solverGensForEqns[equationIndex].first << std::endl;
-			solver = solverGensForEqns[equationIndex].second[solverForEqnIndex].second();
-			solver->init();
-			//now we need an initial condition to match the new equation
-			//but the initial conditions are provided in the script
-			//this means (a) definining initial conditions somewhere in the script that the c++ code can see them
-			// to enumerate and provide here in the gui
-			// or (b) defining them in c++, which means faster constructor, but makes symmath more difficult to use
-			solver->resetState();
-			createPlot();
-			std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
-			newGraph->scale = graph->scale;
-			newGraph->step = graph->step;
-			newGraph->variables = graph->variables;
-			graph = newGraph;
-		}
+		if (ImGui::CollapsingHeader("setup")) {
+			//list equations
+			int lastEquationIndex = equationIndex;
+			ImGui::Combo("equation", &equationIndex, equationNamesSeparated.c_str());
+			if (lastEquationIndex != equationIndex) {
+				solverForEqnIndex = 0;
+				std::cout << "setting equation to " << solverGensForEqns[equationIndex].first << std::endl;
+				solver = solverGensForEqns[equationIndex].second[solverForEqnIndex].second();
+				solver->init();
+				//now we need an initial condition to match the new equation
+				//but the initial conditions are provided in the script
+				//this means (a) definining initial conditions somewhere in the script that the c++ code can see them
+				// to enumerate and provide here in the gui
+				// or (b) defining them in c++, which means faster constructor, but makes symmath more difficult to use
+				solver->resetState();
+				createPlot();
+				std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
+				newGraph->scale = graph->scale;
+				newGraph->step = graph->step;
+				newGraph->variables = graph->variables;
+				graph = newGraph;
+			}
 
-		//list solvers of the equation
-		int lastSolverForEqnIndex = solverForEqnIndex;
-		ImGui::Combo("solver", &solverForEqnIndex, solverNamesSeparatedForEqn[equationNames[equationIndex]].c_str());
-		if (lastSolverForEqnIndex != solverForEqnIndex) {
-			std::cout << "setting solver to " << solverGensForEqns[equationIndex].second[solverForEqnIndex].first << std::endl;
-			std::shared_ptr<Solver::Solver> newSolver = solverGensForEqns[equationIndex].second[solverForEqnIndex].second();
-			//TODO copy state memory *here*
-			//but are there any solvers that have different #states for matching eqns?
-			//until then ...
-			solver = newSolver;
-			solver->init();
-			solver->resetState();
-			createPlot();
-			std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
-			newGraph->scale = graph->scale;
-			newGraph->step = graph->step;
-			newGraph->variables = graph->variables;
-			graph = newGraph;
-		}
+			//list solvers of the equation
+			int lastSolverForEqnIndex = solverForEqnIndex;
+			ImGui::Combo("solver", &solverForEqnIndex, solverNamesSeparatedForEqn[equationNames[equationIndex]].c_str());
+			if (lastSolverForEqnIndex != solverForEqnIndex) {
+				std::cout << "setting solver to " << solverGensForEqns[equationIndex].second[solverForEqnIndex].first << std::endl;
+				std::shared_ptr<Solver::Solver> newSolver = solverGensForEqns[equationIndex].second[solverForEqnIndex].second();
+				//but are there any solvers that have different #states for matching eqns?
+				//until then ...
+				
+				solver = newSolver;
+				solver->init();
+				
+				//TODO copy state memory *here*
+				//TODO if the states don't match then create a mapping according to the equations or something ...
+#if 0
+				if (solver->numStates() == newSolver->numStates()) {
+					size_t length = solver->numStates() * solver->getVolume();
+					size_t bufferSize = sizeof(real) * length;
+					cl::NDRange globalSize1d(length);
+					clCommon->commands.enqueueCopyBuffer(newSolver->stateBuffer, solver->stateBuffer, 0, 0, bufferSize);		
+				} else 
+#endif			
+				{
+					solver->resetState();
+				}
+				
+				createPlot();
+				std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
+				newGraph->scale = graph->scale;
+				newGraph->step = graph->step;
+				newGraph->variables = graph->variables;
+				graph = newGraph;
+			}
 
-		int lastInitCondIndex = initCondIndex;
-		ImGui::Combo("init.cond.", &initCondIndex, initCondNamesSeparated.c_str());
-		if (lastInitCondIndex != initCondIndex) {
-			std::string initCondName;
-			lua.ref()["initConds"][initCondIndex+1]["name"] >> initCondName;
-			std::cout << "setting up initial condition " << initCondName << std::endl;
-			lua.ref()["initConds"][initCondIndex+1]["setup"]();
+			int lastInitCondIndex = initCondIndex;
+			ImGui::Combo("init.cond.", &initCondIndex, initCondNamesSeparated.c_str());
+			if (lastInitCondIndex != initCondIndex) {
+				std::string initCondName;
+				lua.ref()["initConds"][initCondIndex+1]["name"] >> initCondName;
+				std::cout << "setting up initial condition " << initCondName << std::endl;
+				lua.ref()["initConds"][initCondIndex+1]["setup"]();
+			}
 		}
 
 		if (ImGui::CollapsingHeader("heat map")) {
@@ -596,34 +612,37 @@ PROFILE_BEGIN_FRAME()
 			ImGui::Text("log scale");
 			ImGui::SliderFloat("v.f.s.", &logVectorFieldScale, -10.f, 10.f); // velocity field size
 		}
+		
+		if (ImGui::CollapsingHeader("controls")) {
 
-		bool isOrtho = camera == cameraOrtho;
-		if (ImGui::Button(isOrtho ? "frustum" : "ortho")) {	// switching between ortho and frustum views
-			if (!isOrtho) {
-				camera = cameraOrtho;
-			} else {
-				camera = cameraFrustum;
+			bool isOrtho = camera == cameraOrtho;
+			if (ImGui::Button(isOrtho ? "frustum" : "ortho")) {	// switching between ortho and frustum views
+				if (!isOrtho) {
+					camera = cameraOrtho;
+				} else {
+					camera = cameraFrustum;
+				}
 			}
-		}
-		
-		if (ImGui::Button(doUpdate ? "pause" : "start")) doUpdate = !doUpdate; // start/stop simulation
-		if (ImGui::Button("step")) doUpdate = 2;
-		if (ImGui::Button("reset")) solver->resetState();
-		
-		// used fixed dt vs cfl #
-		
-		// take screenshot 
-		if (ImGui::Button("screenshot")) {
-			solver->screenshot();
-		}
-		
-		// continuous screenshots
-		if (ImGui::Button(createAnimation ? "stop frame dump" : "start frame dump")) {
-			createAnimation = !createAnimation;
-		}
-		
-		if (ImGui::Button("save")) {	// dump state of simulation
-			solver->save();
+			
+			if (ImGui::Button(doUpdate ? "pause" : "start")) doUpdate = !doUpdate; // start/stop simulation
+			if (ImGui::Button("step")) doUpdate = 2;
+			if (ImGui::Button("reset")) solver->resetState();
+			
+			// used fixed dt vs cfl #
+			
+			// take screenshot 
+			if (ImGui::Button("screenshot")) {
+				solver->screenshot();
+			}
+			
+			// continuous screenshots
+			if (ImGui::Button(createAnimation ? "stop frame dump" : "start frame dump")) {
+				createAnimation = !createAnimation;
+			}
+			
+			if (ImGui::Button("save")) {	// dump state of simulation
+				solver->save();
+			}
 		}
 	});
 	heatMapColorScale = exp(logHeatMapColorScale);

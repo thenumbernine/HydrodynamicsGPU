@@ -10,6 +10,7 @@
 #include "HydroGPU/toNumericString.h"
 #include "Image/System.h"
 #include "Common/File.h"
+#include <iomanip>
 
 namespace HydroGPU {
 namespace Solver {
@@ -471,8 +472,10 @@ std::cout << "event " << entry->name << std::endl;
 }
 
 void Solver::screenshot() {
-	for (int i = 0; i < 1000; ++i) {
-		std::string filename = std::string("screenshot") + std::to_string(i) + ".png";
+	for (int i = 0; i < 10000; ++i) {
+		std::stringstream ss;
+		ss << "screenshot" << std::setw(5) << i << ".png";
+		std::string filename = ss.str();
 		if (!Common::File::exists(filename)) {
 			app->plot->screenshot(filename);
 			return;

@@ -31,7 +31,7 @@ integratorName = 'ForwardEuler'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
-maxFrames = nil			-- enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+maxFrames = 0			-- enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	-- whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -95,10 +95,10 @@ camera = {}
 -- [[ Euler
 
 -- uncomment one:
-solverName = 'EulerBurgers'
+--solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
---solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
 --solverName = 'SRHDRoe'		-- not yet
 
 -- override solids:
@@ -127,19 +127,20 @@ end
 --solidFilename = 'test-solid.png'
 --]=]
 
-initConds['Sod'].setup()
---initConds['Sphere'].setup()
---initConds['Square Cavity'].setup()
---initConds['Kelvin-Hemholtz'].setup()
---initConds['Rayleigh-Taylor'].setup()
---initConds['Shock Bubble Interaction'].setup()
---initConds['Flow Around Cylinder'].setup()
---initConds['Forward Facing Step'].setup()
---initConds['Double Mach Reflection'].setup()
---initConds['Spiral Implosion'].setup()
---initConds['self-gravitation test 1'].setup()
---initConds['Colella-Woodward'].setup()
---initConds['Configuration 6'].setup()
+initCondName = 'Sod'
+initCondName = 'Sphere'
+initCondName = 'Square Cavity'
+initCondName = 'Kelvin-Hemholtz'
+initCondName = 'Rayleigh-Taylor'
+initCondName = 'Shock Bubble Interaction'
+initCondName = 'Flow Around Cylinder'
+initCondName = 'Forward Facing Step'
+initCondName = 'Double Mach Reflection'
+initCondName = 'Spiral Implosion'
+initCondName = 'self-gravitation test 1'
+initCondName = 'Colella-Woodward'
+initCondName = 'Configuration 6'
+initConds[initCondName].setup()
 --]]
 
 --[[ MHD
@@ -148,15 +149,17 @@ initConds['Sod'].setup()
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
 solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
 
---initConds['Sod'].setup()
-initConds['Brio-Wu'].setup()
+initCondName = 'Sod'
+--initCondName = 'Brio-Wu'
+initConds[initCondName].setup()
 --]]
 
 --[[ Maxwell 
 solverName = 'MaxwellRoe'
 heatMapVariable = 'ELECTRIC'
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
-initConds['Maxwell-1'].setup()
+initCondName = 'Maxwell-1'
+initConds[initCondName].setup()
 --]]
 
 --[[ ADM (1D)
@@ -188,9 +191,9 @@ size = {256, 256} heatMapColorScale = 1
 --size = {16, 16, 16} heatMapColorScale = 1
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=false}
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
---initConds['NR Alcubierre Warp Bubble'].setup()	-- ...needs shift vector support
+initConds['NR Alcubierre Warp Bubble'].setup()	-- ...needs shift vector support
 --initConds['NR Schwarzschild Black Hole'].setup()
-initConds['NR Stellar'].setup()
+--initConds['NR Stellar'].setup()
 --initConds['NR Stellar'].setup{bodies={{pos = {0,0,0}, radius = .1, mass = .001, density=0, pressure=0}}}	-- planet plucked out of existence
 
 --[=[
@@ -221,11 +224,11 @@ initConds['NR Stellar'].setup{bodies={{pos = {0,0,0}, radius = planet.radiusInCo
 
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 --showHeatMap = false
-heatMapVariable = 'ALPHA'
+heatMapVariable = 'K'
 --fixedDT = .125
 --useFixedDT = true
 graphVariables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = all.
-graphStep = {4,4,4}
+graphStep = {1,1,1}
 graphScale = 1
 --]]
 
@@ -234,8 +237,8 @@ graphScale = 1
 if #size == 1 then			-- 1D better be ortho
 	camera.mode = 'ortho'
 elseif #size == 2 then		-- 2D can handle either ortho or frustum
-	camera.mode = 'ortho'
-	--camera.mode = 'frustum'
+	--camera.mode = 'ortho'
+	camera.mode = 'frustum'
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end
