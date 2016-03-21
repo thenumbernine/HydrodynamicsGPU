@@ -11,7 +11,7 @@ __kernel void convertToTex(
 
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
-	real value = .5f;
+	real value = .5;
 	switch (displayMethod) {
 	case DISPLAY_ALPHA: value = state[STATE_ALPHA]; break;
 	case DISPLAY_G: value = state[STATE_G]; break;
@@ -21,44 +21,43 @@ __kernel void convertToTex(
 	case DISPLAY_K: value = state[STATE_K_TILDE] / sqrt(state[STATE_G]); break;
 	}
 
-	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0.f, 0.f, 0.f));
+	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0., 0., 0.));
 }
 
 constant float2 offset[6] = {
-	(float2)(-.5f, 0.f),
-	(float2)(.5f, 0.f),
-	(float2)(.2f, .3f),
-	(float2)(.5f, 0.f),
-	(float2)(.2f, -.3f),
-	(float2)(.5f, 0.f),
+	(float2)(-.5, 0.),
+	(float2)(.5, 0.),
+	(float2)(.2, .3),
+	(float2)(.5, 0.),
+	(float2)(.2, -.3),
+	(float2)(.5, 0.),
 };
 
 __kernel void updateVectorField(
-	__global real* vectorFieldVertexBuffer,
+	__global float* vectorFieldVertexBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
 	float scale)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
 	int vertexIndex = i.x + size.x * (i.y + size.y * i.z);
-	__global real* vertex = vectorFieldVertexBuffer + 6 * 3 * vertexIndex;
+	__global float* vertex = vectorFieldVertexBuffer + 6 * 3 * vertexIndex;
 	
 	float4 f = (float4)(
-		((float)i.x + .5f) / (float)size.x,
-		((float)i.y + .5f) / (float)size.y,
-		((float)i.z + .5f) / (float)size.z,
-		0.f);
+		((float)i.x + .5) / (float)size.x,
+		((float)i.y + .5) / (float)size.y,
+		((float)i.z + .5) / (float)size.z,
+		0.);
 
 	//times grid size divided by velocity field size
-	float4 sf = (float4)(f.x * SIZE_X, f.y * SIZE_Y, f.z * SIZE_Z, 0.f);
+	float4 sf = (float4)(f.x * SIZE_X, f.y * SIZE_Y, f.z * SIZE_Z, 0.);
 	int4 si = (int4)(sf.x, sf.y, sf.z, 0);
-	//float4 fp = (float4)(sf.x - (float)si.x, sf.y - (float)si.y, sf.z - (float)si.z, 0.f);
+	//float4 fp = (float4)(sf.x - (float)si.x, sf.y - (float)si.y, sf.z - (float)si.z, 0.);
 	
 #if 1	//plotting velocity 
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
-	float4 velocity = (float4)(state[4], 0.f, 0.f, 0.f);	//extrinsic curvature?  what's velocity?
+	float4 velocity = (float4)(state[4], 0., 0., 0.);	//extrinsic curvature?  what's velocity?
 #endif
 #if 0	//plotting gravity
 	int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
@@ -69,18 +68,18 @@ __kernel void updateVectorField(
 	float4 velocity = (float4)(
 		gravityPotentialBuffer[INDEXV(ixL)] - gravityPotentialBuffer[INDEXV(ixR)],
 		gravityPotentialBuffer[INDEXV(iyL)] - gravityPotentialBuffer[INDEXV(iyR)],
-		0.f,
-		0.f);
+		0.,
+		0.);
 #endif
 
 	//velocity is the first axis of the basis to draw the arrows
 	//the second should be perpendicular to velocity
 #if DIM < 3
-	real4 tv = (real4)(-velocity.y, velocity.x, 0.f, 0.f);
+	real4 tv = (real4)(-velocity.y, velocity.x, 0., 0.);
 #elif DIM == 3
-	real4 vx = (real4)(0.f, -velocity.z, velocity.y, 0.f);
-	real4 vy = (real4)(velocity.z, 0.f, -velocity.x, 0.f);
-	real4 vz = (real4)(-velocity.y, velocity.x, 0.f, 0.f);
+	real4 vx = (real4)(0., -velocity.z, velocity.y, 0.);
+	real4 vy = (real4)(velocity.z, 0., -velocity.x, 0.);
+	real4 vz = (real4)(-velocity.y, velocity.x, 0., 0.f);
 	real lxsq = dot(vx,vx);
 	real lysq = dot(vy,vy);
 	real lzsq = dot(vz,vz);

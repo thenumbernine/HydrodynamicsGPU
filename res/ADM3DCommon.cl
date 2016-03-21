@@ -18,7 +18,7 @@ real8 inv3x3sym(real xx, real xy, real xz, real yy, real yz, real zz, real det) 
 		(xx * zz - xz * xz) / det,		// yy
 		(xz * xy - xx * yz) / det,	// yz
 		(xx * yy - xy * xy) / det,		// zz
-		0.f, 0.f);
+		0., 0.);
 }
 
 //specific to Euler equations
@@ -45,23 +45,27 @@ __kernel void convertToTex(
 	real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
 	real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
 	
-	real tr_K = K_xx * gammaUxx + K_yy * gammaUyy + K_zz * gammaUzz + 2.f * K_xy * gammaUxy + 2.f * K_yz * gammaUyz + 2.f * K_xz * gammaUxz;
+	real tr_K = K_xx * gammaUxx + K_yy * gammaUyy + K_zz * gammaUzz + 2. * K_xy * gammaUxy + 2. * K_yz * gammaUyz + 2. * K_xz * gammaUxz;
 	
-	float value = 0.f;
+	float value = 0.;
 	if (displayMethod == DISPLAY_VOLUME) {
 		value = alpha * sqrt(gamma);
 	} else if (displayMethod == DISPLAY_K) {
 		value = tr_K;
+	//if (displayMethod == DISPLAY_EXPANSION) {
+	//	value = -alpha * tr_K;
+	//if (displayMethod == DISPLAY_GAUSSIAN_CURVATURE) {
+	//	value = ... 
 	} else if (displayMethod == DISPLAY_GAMMA) {
 		value = gamma;
 
 	//V_k = D_km^m - D^m_mk = (D_kmn - D_mnk) gamma^mn
 	} else if (displayMethod == DISPLAY_V_CONSTRAINT_X) {
-		value = ((((((V_x - (gammaUxy * D_xxy)) - (gammaUxz * D_xxz)) - (gammaUyy * D_xyy)) - (2.f * gammaUyz * D_xyz)) - (gammaUzz * D_xzz)) + (gammaUxy * D_yxx) + (gammaUxz * D_zxx) + (gammaUyy * D_yxy) + (gammaUyz * D_zxy) + (gammaUyz * D_yxz) + (gammaUzz * D_zxz));
+		value = ((((((V_x - (gammaUxy * D_xxy)) - (gammaUxz * D_xxz)) - (gammaUyy * D_xyy)) - (2. * gammaUyz * D_xyz)) - (gammaUzz * D_xzz)) + (gammaUxy * D_yxx) + (gammaUxz * D_zxx) + (gammaUyy * D_yxy) + (gammaUyz * D_zxy) + (gammaUyz * D_yxz) + (gammaUzz * D_zxz));
 	} else if (displayMethod == DISPLAY_V_CONSTRAINT_Y) {
-		value = ((((((V_y - (gammaUxx * D_yxx)) - (gammaUxy * D_yxy)) - (2.f * gammaUxz * D_yxz)) - (gammaUyz * D_yyz)) - (gammaUzz * D_yzz)) + (gammaUxx * D_xxy) + (gammaUxz * D_zxy) + (gammaUxy * D_xyy) + (gammaUyz * D_zyy) + (gammaUxz * D_xyz) + (gammaUzz * D_zyz));
+		value = ((((((V_y - (gammaUxx * D_yxx)) - (gammaUxy * D_yxy)) - (2. * gammaUxz * D_yxz)) - (gammaUyz * D_yyz)) - (gammaUzz * D_yzz)) + (gammaUxx * D_xxy) + (gammaUxz * D_zxy) + (gammaUxy * D_xyy) + (gammaUyz * D_zyy) + (gammaUxz * D_xyz) + (gammaUzz * D_zyz));
 	} else if (displayMethod == DISPLAY_V_CONSTRAINT_Z) {
-		value = ((((((V_z - (gammaUxx * D_zxx)) - (2.f * gammaUxy * D_zxy)) - (gammaUxz * D_zxz)) - (gammaUyy * D_zyy)) - (gammaUyz * D_zyz)) + (gammaUxx * D_xxz) + (gammaUxy * D_yxz) + (gammaUxy * D_xyz) + (gammaUyy * D_yyz) + (gammaUxz * D_xzz) + (gammaUyz * D_yzz));
+		value = ((((((V_z - (gammaUxx * D_zxx)) - (2. * gammaUxy * D_zxy)) - (gammaUxz * D_zxz)) - (gammaUyy * D_zyy)) - (gammaUyz * D_zyz)) + (gammaUxx * D_xxz) + (gammaUxy * D_yxz) + (gammaUxy * D_xyz) + (gammaUyy * D_yyz) + (gammaUxz * D_xzz) + (gammaUyz * D_yzz));
 
 	//states
 	} else if (displayMethod < NUM_STATES) {
@@ -110,54 +114,53 @@ __kernel void convertToTex(
 	
 	} //TODO else show some kind of garbage pattern
 
-	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0.f, 0.f, 0.f));
+	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0., 0., 0.));
 }
 
 constant float2 offset[6] = {
-	(float2)(-.5f, 0.f),
-	(float2)(.5f, 0.f),
-	(float2)(.2f, .3f),
-	(float2)(.5f, 0.f),
-	(float2)(.2f, -.3f),
-	(float2)(.5f, 0.f),
+	(float2)(-.5, 0.),
+	(float2)(.5, 0.),
+	(float2)(.2, .3),
+	(float2)(.5, 0.),
+	(float2)(.2, -.3),
+	(float2)(.5, 0.),
 };
 
 __kernel void updateVectorField(
-	__global real* vectorFieldVertexBuffer,
+	__global float* vectorFieldVertexBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
 	float scale)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
 	int vertexIndex = i.x + size.x * (i.y + size.y * i.z);
-	__global real* vertex = vectorFieldVertexBuffer + 6 * 3 * vertexIndex;
+	__global float* vertex = vectorFieldVertexBuffer + 6 * 3 * vertexIndex;
 	
 	float4 f = (float4)(
-		((float)i.x + .5f) / (float)size.x,
-		((float)i.y + .5f) / (float)size.y,
-		((float)i.z + .5f) / (float)size.z,
-		0.f);
+		((float)i.x + .5) / (float)size.x,
+		((float)i.y + .5) / (float)size.y,
+		((float)i.z + .5) / (float)size.z,
+		0.);
 
 	//times grid size divided by velocity field size
-	float4 sf = (float4)(f.x * SIZE_X, f.y * SIZE_Y, f.z * SIZE_Z, 0.f);
+	float4 sf = (float4)(f.x * SIZE_X, f.y * SIZE_Y, f.z * SIZE_Z, 0.);
 	int4 si = (int4)(sf.x, sf.y, sf.z, 0);
-	//float4 fp = (float4)(sf.x - (float)si.x, sf.y - (float)si.y, sf.z - (float)si.z, 0.f);
+	//float4 fp = (float4)(sf.x - (float)si.x, sf.y - (float)si.y, sf.z - (float)si.z, 0.);
 	
 #if 1	//plotting velocity 
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
-	float4 velocity = (float4)(state[0], 0.f, 0.f, 0.f);	//extrinsic curvature?  what's velocity?
+	float4 velocity = (float4)(state[0], 0., 0., 0.);	//extrinsic curvature?  what's velocity?
 #endif
 
 	//velocity is the first axis of the basis to draw the arrows
 	//the second should be perpendicular to velocity
 #if DIM < 3
-	real4 tv = (real4)(-velocity.y, velocity.x, 0.f, 0.f);
+	real4 tv = (real4)(-velocity.y, velocity.x, 0., 0.);
 #elif DIM == 3
-	real4 vx = (real4)(0.f, -velocity.z, velocity.y, 0.f);
-	real4 vy = (real4)(velocity.z, 0.f, -velocity.x, 0.f);
-	real4 vz = (real4)(-velocity.y, velocity.x, 0.f, 0.f);
+	real4 vx = (real4)(0., -velocity.z, velocity.y, 0.);
+	real4 vy = (real4)(velocity.z, 0., -velocity.x, 0.);
+	real4 vz = (real4)(-velocity.y, velocity.x, 0., 0.);
 	real lxsq = dot(vx,vx);
 	real lysq = dot(vy,vy);
 	real lzsq = dot(vz,vz);

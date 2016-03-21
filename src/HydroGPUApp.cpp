@@ -660,6 +660,26 @@ PROFILE_BEGIN_FRAME()
 	
 		/*
 		TODO
+		
+		vector field variable:
+			Euler, MHD, SRHD:
+				velocity
+				momentum
+				vorticity (curl of velocity)
+			Maxwell:
+				electric
+				magnetic
+				poynting (electric cross magnetic)
+			ADM3D:
+				A (alpha * grad alpha)
+				V (D's constraint variable)
+				V & D's constraint
+				momentum constraint
+				... 3 vectors / cube per spatial metric
+				... 3 vectors / cube per extrinsic metric
+				... 9 for the partials of the spatial metric, or just 3 per x- y- z- partial
+				geodesics in basis vector directions?  x, y, and z?
+
 		slope limiter
 		boundary condition
 		integrator

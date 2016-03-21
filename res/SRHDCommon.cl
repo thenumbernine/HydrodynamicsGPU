@@ -136,15 +136,14 @@ constant float2 offset[6] = {
 };
 
 __kernel void updateVectorField(
-	__global real* vectorFieldVertexBuffer,
+	__global float* vectorFieldVertexBuffer,
 	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer,
 	float scale)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
 	int vertexIndex = i.x + size.x * (i.y + size.y * i.z);
-	__global real* vertex = vectorFieldVertexBuffer + 6 * 3 * vertexIndex;
+	__global float* vertex = vectorFieldVertexBuffer + 6 * 3 * vertexIndex;
 	
 	float4 f = (float4)(
 		((float)i.x + .5f) / (float)size.x,
