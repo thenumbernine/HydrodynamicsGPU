@@ -22,14 +22,14 @@ VectorField::VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_)
 		vectorFieldVolume *= vectorFieldResolution;
 	}
 	vectorFieldVertexCount = 3 * 6 * vectorFieldVolume;
-	glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(real) * vectorFieldVertexCount, nullptr, GL_DYNAMIC_DRAW_ARB);
-	solver->cl.totalAlloc += sizeof(real) * vectorFieldVertexCount;
+	glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(float) * vectorFieldVertexCount, nullptr, GL_DYNAMIC_DRAW_ARB);
+	solver->cl.totalAlloc += sizeof(float) * vectorFieldVertexCount;
 	glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
 	//create CL interop
 	vectorFieldVertexBuffer = cl::BufferGL(solver->app->clCommon->context, CL_MEM_READ_WRITE, vectorFieldGLBuffer);
 	//create transfer kernel
 	updateVectorFieldKernel = cl::Kernel(solver->program, "updateVectorField");
-	CLCommon::setArgs(updateVectorFieldKernel, vectorFieldVertexBuffer, solver->stateBuffer, /*solver->selfgrav->potentialBuffer TODO FIXME*/solver->stateBuffer, solver->app->vectorFieldScale);
+	CLCommon::setArgs(updateVectorFieldKernel, vectorFieldVertexBuffer, solver->stateBuffer, solver->app->vectorFieldScale);
 }
 
 VectorField::~VectorField() {
@@ -52,7 +52,7 @@ void VectorField::display() {
 		global = cl::NDRange(vectorFieldResolution, vectorFieldResolution, vectorFieldResolution);
 		break;
 	}
-	updateVectorFieldKernel.setArg(3, solver->app->vectorFieldScale);
+	updateVectorFieldKernel.setArg(2, (real)solver->app->vectorFieldScale);
 	solver->app->clCommon->commands.enqueueNDRangeKernel(updateVectorFieldKernel, solver->offsetNd, global, solver->localSize);
 	solver->app->clCommon->commands.finish();
 
@@ -71,4 +71,3 @@ void VectorField::display() {
 
 }
 }
-

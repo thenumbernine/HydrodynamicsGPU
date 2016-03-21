@@ -185,14 +185,23 @@ void HydroGPUApp::init() {
 		}
 	}
 
-	{
+	for (const std::string& eqnName : equationNames) {
 		std::vector<std::string> initCondNames;
-		for (int i = 0; i < lua.ref()["initConds"].len(); ++i) {
+		for (int i = 1; i <= lua.ref()["initConds"].len(); ++i) {
 			std::string initCondName;
-			lua.ref()["initConds"][i+1]["name"] >> initCondName;
-			initCondNames.push_back(initCondName);
+			lua.ref()["initConds"][i]["name"] >> initCondName;
+			for (int j = 1; j <= lua.ref()["initConds"][i]["equations"].len(); ++j) {
+				std::string initCondEqnName;
+				if ((lua.ref()["initConds"][i]["equations"][j] >> initCondEqnName).good() &&
+					initCondEqnName == eqnName)
+				{
+					initCondNames.push_back(initCondName);
+					break;
+				}
+			}
 		}
-		initCondNamesSeparated = makeComboStr(initCondNames);
+		initCondNamesForEqns[eqnName] = initCondNames;
+		initCondNamesSeparatedForEqns[eqnName] = makeComboStr(initCondNames);
 	}
 
 	lua.ref()["maxFrames"] >> maxFrames;
@@ -513,7 +522,10 @@ PROFILE_BEGIN_FRAME()
 				// to enumerate and provide here in the gui
 				// or (b) defining them in c++, which means faster constructor, but makes symmath more difficult to use
 				solver->resetState();
+				
+				//regen aux things that depend on the solver
 				createPlot();
+				vectorField = std::make_shared<Plot::VectorField>(solver);
 				std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
 				newGraph->scale = graph->scale;
 				newGraph->step = graph->step;
@@ -547,7 +559,9 @@ PROFILE_BEGIN_FRAME()
 					solver->resetState();
 				}
 				
+				//regen aux things that depend on the solver
 				createPlot();
+				vectorField = std::make_shared<Plot::VectorField>(solver);
 				std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
 				newGraph->scale = graph->scale;
 				newGraph->step = graph->step;
@@ -556,12 +570,11 @@ PROFILE_BEGIN_FRAME()
 			}
 
 			int lastInitCondIndex = initCondIndex;
-			ImGui::Combo("init.cond.", &initCondIndex, initCondNamesSeparated.c_str());
+			ImGui::Combo("init.cond.", &initCondIndex, initCondNamesSeparatedForEqns[equationNames[equationIndex]].c_str());
 			if (lastInitCondIndex != initCondIndex) {
-				std::string initCondName;
-				lua.ref()["initConds"][initCondIndex+1]["name"] >> initCondName;
+				std::string initCondName = initCondNamesForEqns[equationNames[equationIndex]][initCondIndex];
 				std::cout << "setting up initial condition " << initCondName << std::endl;
-				lua.ref()["initConds"][initCondIndex+1]["setup"]();
+				lua.ref()["initConds"][initCondName]["setup"]();
 			}
 		}
 
@@ -644,6 +657,29 @@ PROFILE_BEGIN_FRAME()
 				solver->save();
 			}
 		}
+	
+		/*
+		TODO
+		slope limiter
+		boundary condition
+		integrator
+		fixed dt
+		cfl #
+		equation constants:
+			NR:
+				adm_BonaMasso_f
+				adm_BonaMasso_df_dalpha
+				speedOfLight
+			Euler & MHD:
+				gamma
+			MHD:
+				vaccuumPermeability
+			Maxwell:
+				permeability
+				permittivity
+				conductivity
+		
+		*/
 	});
 	heatMapColorScale = exp(logHeatMapColorScale);
 	graph->scale = exp(logGraphScale);
@@ -764,13 +800,14 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				showTimestep = !showTimestep;
 			} else if (event.key.keysym.sym == SDLK_v) {
 				showVectorField = !showVectorField;
-				std::cout << "velocity field " << (showVectorField ? "enabled" : "disabled") << std::endl;
+				std::cout << "vector field " << (showVectorField ? "enabled" : "disabled") << std::endl;
 			} else if (event.key.keysym.sym == SDLK_c) {
 				if (shiftDown) {
 					vectorFieldScale *= .5f;
 				} else {
 					vectorFieldScale *= 2.f;
 				}
+				std::cout << "vector field scale " << vectorFieldScale << std::endl;
 			}
 		}
 		break;
