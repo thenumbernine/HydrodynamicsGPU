@@ -52,8 +52,8 @@ __kernel void convertToTex(
 		value = alpha * sqrt(gamma);
 	} else if (displayMethod == DISPLAY_K) {
 		value = tr_K;
-	//if (displayMethod == DISPLAY_EXPANSION) {
-	//	value = -alpha * tr_K;
+	if (displayMethod == DISPLAY_EXPANSION) {
+		value = -alpha * tr_K;
 	//if (displayMethod == DISPLAY_GAUSSIAN_CURVATURE) {
 	//	value = ... 
 	} else if (displayMethod == DISPLAY_GAMMA) {

@@ -93,6 +93,7 @@ ADM3D::ADM3D(HydroGPUApp* app_)
 	displayVariables.push_back("K");
 	displayVariables.push_back("GAMMA");
 	displayVariables.push_back("VOLUME");
+	displayVariables.push_back("EXPANSION");
 	addSuffixes(displayVariables, "A_ALPHA_CONSTRAINT_", spaceSuffixes);	//A_i = partial_i ln alpha
 	addSuffixes(displayVariables, "D_X_GAMMA_CONSTRAINT_", sym33Suffixes);	//D_kij = 1/2 partial_k gamma_ij
 	addSuffixes(displayVariables, "D_Y_GAMMA_CONSTRAINT_", sym33Suffixes);	//D_kij = 1/2 partial_k gamma_ij
