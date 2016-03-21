@@ -92,7 +92,7 @@ camera = {}
 
 
 
--- [[ Euler
+--[[ Euler
 
 -- uncomment one:
 --solverName = 'EulerBurgers'
@@ -183,7 +183,7 @@ solverName = 'ADM2DSpherical'	-- not yet
 -- I want to get rid of this one.  and the 1D ADM as well -- just one Bona-Masso ADM implementation is enough (I think) unless I should have separate ones for shift/less and mass/less
 --]]
 
---[[ ADM (3D)
+-- [[ ADM (3D)
 solverName = 'ADM3DRoe'
 		
 --size = {1024} heatMapColorScale = 128
