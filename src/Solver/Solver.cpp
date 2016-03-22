@@ -474,7 +474,7 @@ std::cout << "event " << entry->name << std::endl;
 void Solver::screenshot() {
 	for (int i = 0; i < 10000; ++i) {
 		std::stringstream ss;
-		ss << "screenshot" << std::setw(5) << i << ".png";
+		ss << "screenshot" << std::setw(5) << std::setfill('0') << i << ".png";
 		std::string filename = ss.str();
 		if (!Common::File::exists(filename)) {
 			app->plot->screenshot(filename);

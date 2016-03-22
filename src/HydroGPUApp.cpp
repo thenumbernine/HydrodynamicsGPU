@@ -512,6 +512,15 @@ PROFILE_BEGIN_FRAME()
 			int lastEquationIndex = equationIndex;
 			ImGui::Combo("equation", &equationIndex, equationNamesSeparated.c_str());
 			if (lastEquationIndex != equationIndex) {
+				
+				//if we are changing equations then (most likely) our initial conditions will be invalid
+				//(except cases where they belong to the same groups, I think, unless the resetState conversion works diferently,
+				// either way, to be safe...)
+				//we will have to reset the initial condition to something that certainly belongs to this equation
+				initCondIndex = 0;
+				std::string initCondName = initCondNamesForEqns[equationNames[equationIndex]][initCondIndex];
+				lua.ref()["initConds"][initCondName]["setup"]();
+				
 				solverForEqnIndex = 0;
 				std::cout << "setting equation to " << solverGensForEqns[equationIndex].first << std::endl;
 				solver = solverGensForEqns[equationIndex].second[solverForEqnIndex].second();
@@ -588,7 +597,7 @@ PROFILE_BEGIN_FRAME()
 			
 			//heat map color scale
 			ImGui::Text("log scale");
-			ImGui::SliderFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f); 
+			ImGui::DragFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f); 
 		}
 		
 		if (ImGui::CollapsingHeader("graph")) {
@@ -612,7 +621,7 @@ PROFILE_BEGIN_FRAME()
 			
 			// graph scale
 			ImGui::Text("log scale");
-			ImGui::SliderFloat("g.s.", &logGraphScale, -10.f, 10.f); 
+			ImGui::DragFloat("g.s.", &logGraphScale, -10.f, 10.f); 
 		
 			//graph spacing?
 			ImGui::Text("spacing");
@@ -623,7 +632,7 @@ PROFILE_BEGIN_FRAME()
 			ImGui::Checkbox("show", &showVectorField); // velocity field on/off
 			//TODO velocity field variable
 			ImGui::Text("log scale");
-			ImGui::SliderFloat("v.f.s.", &logVectorFieldScale, -10.f, 10.f); // velocity field size
+			ImGui::DragFloat("v.f.s.", &logVectorFieldScale, -10.f, 10.f); // velocity field size
 		}
 		
 		if (ImGui::CollapsingHeader("controls")) {
@@ -657,6 +666,30 @@ PROFILE_BEGIN_FRAME()
 				solver->save();
 			}
 		}
+
+		{
+			//TODO redirect stdout to here ...
+			//or just override print() and io.write() ... anything else?
+			//static char output[16384] = {'\0'};
+			//ImGui::InputTextMultiline("##output", output, sizeof(output), ImVec2(), ImGuiInputTextFlags_ReadOnly);
+			
+			static char scriptInputBuffer[512] = {'\0'};
+			if (ImGui::InputTextMultiline("##scriptInputBuffer", scriptInputBuffer, sizeof(scriptInputBuffer), ImVec2(),
+				ImGuiInputTextFlags_AllowTabInput |
+				ImGuiInputTextFlags_EnterReturnsTrue | 
+				ImGuiInputTextFlags_CtrlEnterForNewLine)
+			) {
+				//for redirection, check out freopen on stdout/stderr
+				std::cout << "script input buffer was " << scriptInputBuffer << std::endl;
+				try {
+					lua.loadString(scriptInputBuffer);
+				} catch (const Common::Exception& e) {
+					std::cout << "failed with exception " << e.what() << std::endl;
+				}
+				//looks like setting the 'enter returns true' flag makes buffer clearing work as well
+				memset(scriptInputBuffer, 0, sizeof(scriptInputBuffer));
+			}
+		}
 	
 		/*
 		TODO
@@ -665,7 +698,7 @@ PROFILE_BEGIN_FRAME()
 			Euler, MHD, SRHD:
 				velocity
 				momentum
-				vorticity (curl of velocity)
+				vorticity (curl of velocity) ... for 3D only
 			Maxwell:
 				electric
 				magnetic
@@ -678,7 +711,8 @@ PROFILE_BEGIN_FRAME()
 				... 3 vectors / cube per spatial metric
 				... 3 vectors / cube per extrinsic metric
 				... 9 for the partials of the spatial metric, or just 3 per x- y- z- partial
-				geodesics in basis vector directions?  x, y, and z?
+				gravitation (spatial geodesic)
+				tidal (riemann twice-contracted with time, and once with the delta vector)
 
 		slope limiter
 		boundary condition

@@ -29,12 +29,11 @@ __kernel void convertToTex(
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
-
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
 	real alpha = state[0];
 	real gamma_xx = state[1], gamma_xy = state[2], gamma_xz = state[3], gamma_yy = state[4], gamma_yz = state[5], gamma_zz = state[6];
-	//real A_x = state[7], A_y = state[8], A_z = state[9];
+	real A_x = state[7], A_y = state[8], A_z = state[9];
 	real /*D_xxx = state[10], */D_xxy = state[11], D_xxz = state[12], D_xyy = state[13], D_xyz = state[14], D_xzz = state[15];
 	real D_yxx = state[16], D_yxy = state[17], D_yxz = state[18]/*, D_yyy = state[19]*/, D_yyz = state[20], D_yzz = state[21];
 	real D_zxx = state[22], D_zxy = state[23], D_zxz = state[24], D_zyy = state[25], D_zyz = state[26]/*, D_zzz = state[27]*/;
@@ -46,12 +45,21 @@ __kernel void convertToTex(
 	real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
 	
 	real tr_K = K_xx * gammaUxx + K_yy * gammaUyy + K_zz * gammaUzz + 2. * K_xy * gammaUxy + 2. * K_yz * gammaUyz + 2. * K_xz * gammaUxz;
-	
+
 	float value = 0.;
 	if (displayMethod == DISPLAY_VOLUME) {
 		value = alpha * sqrt(gamma);
 	} else if (displayMethod == DISPLAY_K) {
 		value = tr_K;
+	} else if (displayMethod == DISPLAY_GRAVITY_MAGN) {
+		{
+			real4 AU = (real4)(
+				A_x * gammaUxx + A_y * gammaUxy + A_z * gammaUxz,
+				A_x * gammaUxy + A_y * gammaUyy + A_z * gammaUyz,
+				A_x * gammaUxz + A_y * gammaUyz + A_z * gammaUzz,
+				0.);
+			value = alpha * alpha * length(AU);
+		}
 	} else if (displayMethod == DISPLAY_EXPANSION) {
 		value = -alpha * tr_K;
 	//} else if (displayMethod == DISPLAY_GAUSSIAN_CURVATURE) {
@@ -129,13 +137,13 @@ constant float2 offset[6] = {
 __kernel void updateVectorField(
 	__global float* vectorFieldVertexBuffer,
 	const __global real* stateBuffer,
-	float scale)
+	real scale)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
 	int vertexIndex = i.x + size.x * (i.y + size.y * i.z);
 	__global float* vertex = vectorFieldVertexBuffer + 6 * 3 * vertexIndex;
-	
+		
 	float4 f = (float4)(
 		((float)i.x + .5) / (float)size.x,
 		((float)i.y + .5) / (float)size.y,
@@ -147,20 +155,35 @@ __kernel void updateVectorField(
 	int4 si = (int4)(sf.x, sf.y, sf.z, 0);
 	//float4 fp = (float4)(sf.x - (float)si.x, sf.y - (float)si.y, sf.z - (float)si.z, 0.);
 	
-#if 1	//plotting velocity 
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
-	float4 velocity = (float4)(state[0], 0., 0., 0.);	//extrinsic curvature?  what's velocity?
+
+	real alpha = state[0];
+	real gamma_xx = state[1], gamma_xy = state[2], gamma_xz = state[3], gamma_yy = state[4], gamma_yz = state[5], gamma_zz = state[6];
+	real A_x = state[7], A_y = state[8], A_z = state[9];
+	
+	real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
+	real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
+	real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
+
+#if 1	//plotting rest-frame gravity 
+	real4 AU = (real4)(
+		A_x * gammaUxx + A_y * gammaUxy + A_z * gammaUxz,
+		A_x * gammaUxy + A_y * gammaUyy + A_z * gammaUyz,
+		A_x * gammaUxz + A_y * gammaUyz + A_z * gammaUzz,
+		0.);
+	real4 gravity = -alpha * alpha * AU;
+	float4 field = convert_float4(gravity);
 #endif
 
-	//velocity is the first axis of the basis to draw the arrows
-	//the second should be perpendicular to velocity
+	//field is the first axis of the basis to draw the arrows
+	//the second should be perpendicular to field
 #if DIM < 3
-	real4 tv = (real4)(-velocity.y, velocity.x, 0., 0.);
+	real4 tv = (real4)(-field.y, field.x, 0., 0.);
 #elif DIM == 3
-	real4 vx = (real4)(0., -velocity.z, velocity.y, 0.);
-	real4 vy = (real4)(velocity.z, 0., -velocity.x, 0.);
-	real4 vz = (real4)(-velocity.y, velocity.x, 0., 0.);
+	real4 vx = (real4)(0., -field.z, field.y, 0.);
+	real4 vy = (real4)(field.z, 0., -field.x, 0.);
+	real4 vz = (real4)(-field.y, field.x, 0., 0.);
 	real lxsq = dot(vx,vx);
 	real lysq = dot(vy,vy);
 	real lzsq = dot(vz,vz);
@@ -181,9 +204,9 @@ __kernel void updateVectorField(
 #endif
 
 	for (int i = 0; i < 6; ++i) {
-		vertex[0 + 3 * i] = f.x * (XMAX - XMIN) + XMIN + scale * (offset[i].x * velocity.x + offset[i].y * tv.x);
-		vertex[1 + 3 * i] = f.y * (YMAX - YMIN) + YMIN + scale * (offset[i].x * velocity.y + offset[i].y * tv.y);
-		vertex[2 + 3 * i] = f.z * (ZMAX - ZMIN) + ZMIN + scale * (offset[i].x * velocity.z + offset[i].y * tv.z);
+		vertex[0 + 3 * i] = f.x * (XMAX - XMIN) + XMIN + scale * (offset[i].x * field.x + offset[i].y * tv.x);
+		vertex[1 + 3 * i] = f.y * (YMAX - YMIN) + YMIN + scale * (offset[i].x * field.y + offset[i].y * tv.y);
+		vertex[2 + 3 * i] = f.z * (ZMAX - ZMIN) + ZMIN + scale * (offset[i].x * field.z + offset[i].y * tv.z);
 	}
 }
 
