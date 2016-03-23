@@ -96,6 +96,7 @@ ADM3D::ADM3D(HydroGPUApp* app_)
 	displayVariables.push_back("VOLUME");
 	displayVariables.push_back("EXPANSION");
 	displayVariables.push_back("GRAVITY_MAGN");
+//	displayVariables.push_back("GAUSSIAN_CURVATURE");
 	//constraints
 	addSuffixes(displayVariables, "A_ALPHA_CONSTRAINT_", spaceSuffixes);	//A_i = partial_i ln alpha
 	addSuffixes(displayVariables, "D_X_GAMMA_CONSTRAINT_", sym33Suffixes);	//D_kij = 1/2 partial_k gamma_ij

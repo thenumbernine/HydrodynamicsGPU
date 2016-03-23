@@ -51,19 +51,38 @@ __kernel void convertToTex(
 		value = alpha * sqrt(gamma);
 	} else if (displayMethod == DISPLAY_K) {
 		value = tr_K;
+	//TODO incorporate beta into the gravity equation.
+	//-Gamma^k_tt = (-alpha alpha,j - beta_j,t + beta^i beta_i,j) gamma^jk + (beta^k alpha,t + beta^k beta^j alpha,j) / alpha - (beta^i beta^j beta^k beta_i,j) / alpha^2
 	} else if (displayMethod == DISPLAY_GRAVITY_MAGN) {
-		{
-			real4 AU = (real4)(
-				A_x * gammaUxx + A_y * gammaUxy + A_z * gammaUxz,
-				A_x * gammaUxy + A_y * gammaUyy + A_z * gammaUyz,
-				A_x * gammaUxz + A_y * gammaUyz + A_z * gammaUzz,
-				0.);
-			value = alpha * alpha * length(AU);
-		}
+		real4 AU = (real4)(
+			A_x * gammaUxx + A_y * gammaUxy + A_z * gammaUxz,
+			A_x * gammaUxy + A_y * gammaUyy + A_z * gammaUyz,
+			A_x * gammaUxz + A_y * gammaUyz + A_z * gammaUzz,
+			0.);
+		value = alpha * alpha * length(AU);
 	} else if (displayMethod == DISPLAY_EXPANSION) {
 		value = -alpha * tr_K;
-	//} else if (displayMethod == DISPLAY_GAUSSIAN_CURVATURE) {
-	//	value = ... 
+/*	} else if (displayMethod == DISPLAY_GAUSSIAN_CURVATURE) {
+		//R4 = R3 + K_ij K^ij - K^2
+		// = R3 + tr(K^i_k K^k_j) - tr(K^i_j)^2
+		real KUL[3][3] = {
+			{gammaUxx * K_xx + gammaUxy * K_xy + gammaUxz * K_xz,
+			gammaUxx * K_xy + gammaUxy * K_yy + gammaUxz * K_yz,
+			gammaUxx * K_xz + gammaUxy * K_yz + gammaUxz * K_zz},
+			{gammaUxy * K_xx + gammaUyy * K_xy + gammaUyz * K_xz,
+			gammaUxy * K_xy + gammaUyy * K_yy + gammaUyz * K_yz,
+			gammaUxy * K_xz + gammaUyy * K_yz + gammaUyz * K_zz},
+			{gammaUxz * K_xx + gammaUyz * K_xy + gammaUzz * K_xz,
+			gammaUxz * K_xy + gammaUyz * K_yy + gammaUzz * K_yz,
+			gammaUxz * K_xz + gammaUyz * K_yz + gammaUzz * K_zz}};
+		real tr_KSq = 0;
+		for (int i = 0; i < 3; ++j) {
+			for (int j = 0; j < 3; ++k) {
+				tr_KSq += KUL[i][j] * KUL[j][i];
+			}
+		}
+		value = R + tr_KSq - tr_K * tr_K;
+*/
 	} else if (displayMethod == DISPLAY_GAMMA) {
 		value = gamma;
 
@@ -172,6 +191,7 @@ __kernel void updateVectorField(
 		A_x * gammaUxy + A_y * gammaUyy + A_z * gammaUyz,
 		A_x * gammaUxz + A_y * gammaUyz + A_z * gammaUzz,
 		0.);
+	//TODO incorporate betas ...
 	real4 gravity = -alpha * alpha * AU;
 	float4 field = convert_float4(gravity);
 #endif
