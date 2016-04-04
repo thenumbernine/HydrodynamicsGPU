@@ -9,9 +9,16 @@ void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
-	int side,
 	const __global real* primitiveBuffer,
-	const __global real* potentialBuffer)
+	int side);
+
+//From Marti & Muller 2008
+void calcEigenBasisSide(
+	__global real* eigenvaluesBuffer,
+	__global real* eigenvectorsBuffer,
+	const __global real* stateBuffer,	//not used atm. TODO add Roe averaging, and use this.
+	const __global real* primitiveBuffer,
+	int side)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
@@ -27,270 +34,239 @@ void calcEigenBasisSide(
 	int indexPrev = index - stepsize[side];
 	int interfaceIndex = side + DIM * index;
 
-	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
-	const __global real* stateR = stateBuffer + NUM_STATES * index;
+//	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
+//	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	
 	const __global real* primitiveL = primitiveBuffer + NUM_PRIMITIVE * indexPrev;
 	const __global real* primitiveR = primitiveBuffer + NUM_PRIMITIVE * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
-	__global real* eigenvectorsInverse = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
-	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
+	__global real* evl = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	__global real* evr = evl + NUM_STATES * NUM_STATES;
 
-	real properRestMassDensityL = primitiveL[PRIMITIVE_DENSITY];	//rho
-	real restMassDensityL = stateL[STATE_REST_MASS_DENSITY];	//D
-	real lorentzFactorL = restMassDensityL / properRestMassDensityL;	//W = u0
-	real lorentzFactorSqL = lorentzFactorL * lorentzFactorL;
-	real4 newtonianVelocityL = (real4)(0.f, 0.f, 0.f, 0.f);
-	newtonianVelocityL.x = primitiveL[PRIMITIVE_VELOCITY_X];	//vi
+	real rhoL = primitiveL[PRIMITIVE_DENSITY];
+	real4 vL = (real4)(0., 0., 0., 0.);
+	vL.x = primitiveL[PRIMITIVE_VELOCITY_X];
 #if DIM > 1
-	newtonianVelocityL.y = primitiveL[PRIMITIVE_VELOCITY_Y];
+	vL.y = primitiveL[PRIMITIVE_VELOCITY_Y];
 #if DIM > 2
-	newtonianVelocityL.z = primitiveL[PRIMITIVE_VELOCITY_Z];
+	vL.z = primitiveL[PRIMITIVE_VELOCITY_Z];
 #endif
 #endif
-	real pressureL = primitiveL[PRIMITIVE_PRESSURE];					//rho
-	real4 relativisticVelocityL = newtonianVelocityL * lorentzFactorL;	//ui = vi * u0 = vi * W
-	real totalEnergyDensityL = stateL[STATE_TOTAL_ENERGY_DENSITY];		//tau
-	real internalSpecificEnthalpyL = (totalEnergyDensityL + pressureL + restMassDensityL) / (properRestMassDensityL * lorentzFactorSqL);	//h
-	real pressureOverProperDensityEnthalpyL = pressureL / (properRestMassDensityL * internalSpecificEnthalpyL);	//P / (rho h)
-	const real sqrtMetricL = 1.f;
-	real roeWeightL = sqrt(sqrtMetricL * properRestMassDensityL * internalSpecificEnthalpyL);
-
-	real properRestMassDensityR = primitiveR[PRIMITIVE_DENSITY];	//rho
-	real restMassDensityR = stateR[STATE_REST_MASS_DENSITY];	//D
-	real lorentzFactorR = restMassDensityR / properRestMassDensityR;	//W = u0
-	real lorentzFactorSqR = lorentzFactorR * lorentzFactorR;
-	real4 newtonianVelocityR = (real4)(0.f, 0.f, 0.f, 0.f);
-	newtonianVelocityR.x = primitiveR[PRIMITIVE_VELOCITY_X];	//vi
+	real eIntL = primitiveL[PRIMITIVE_SPECIFIC_INTERNAL_ENERGY];
+	
+	real rhoR = primitiveR[PRIMITIVE_DENSITY];
+	real4 vR = (real4)(0., 0., 0., 0.);
+	vR.x = primitiveR[PRIMITIVE_VELOCITY_X];
 #if DIM > 1
-	newtonianVelocityR.y = primitiveR[PRIMITIVE_VELOCITY_Y];
+	vR.y = primitiveR[PRIMITIVE_VELOCITY_Y];
 #if DIM > 2
-	newtonianVelocityR.z = primitiveR[PRIMITIVE_VELOCITY_Z];
+	vR.z = primitiveR[PRIMITIVE_VELOCITY_Z];
 #endif
 #endif
-	real pressureR = primitiveR[PRIMITIVE_PRESSURE];
-	real4 relativisticVelocityR = newtonianVelocityR * lorentzFactorR;	//ui = vi * u0
-	real totalEnergyDensityR = stateR[STATE_TOTAL_ENERGY_DENSITY];
-	real internalSpecificEnthalpyR = (totalEnergyDensityR + pressureR + restMassDensityR) / (properRestMassDensityR * lorentzFactorSqR);
-	real pressureOverProperDensityEnthalpyR = pressureR / (properRestMassDensityR * internalSpecificEnthalpyR);
-	const real sqrtMetricR = 1.f;
-	real roeWeightR = sqrt(sqrtMetricR * properRestMassDensityR * internalSpecificEnthalpyR);
+	real eIntR = primitiveR[PRIMITIVE_SPECIFIC_INTERNAL_ENERGY];
 
-	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
-	real lorentzFactor = (roeWeightL * lorentzFactorL + roeWeightR * lorentzFactorR) * roeWeightNormalization;	//W = u0
-	real lorentzFactorSq = lorentzFactor * lorentzFactor;
-	real4 relativisticVelocity = (roeWeightL * relativisticVelocityL + roeWeightR * relativisticVelocityR) * roeWeightNormalization;	//ui
-	real pressureOverProperDensityEnthalpy = (roeWeightL * pressureOverProperDensityEnthalpyL + roeWeightR * pressureOverProperDensityEnthalpyR) * roeWeightNormalization;	//p / (rho h)
-	real internalSpecificEnthalpy = (internalSpecificEnthalpyL * roeWeightL + internalSpecificEnthalpyR * roeWeightR) * roeWeightNormalization; 
-	real internalSpecificEnthalpySq = internalSpecificEnthalpy * internalSpecificEnthalpy;
-	real speedOfSoundSq = gamma * pressureOverProperDensityEnthalpy;
-	real speedOfSound = sqrt(speedOfSoundSq);
-	//how do we get 'h' from the Roe-weighted variables?
-
-	//...now to calculate eigenvalues and vectors by the roe averaged variables	
-
-	//calculate flux in x-axis and rotate into normal
-	//works a bit more accurately than calculating by normal 
+	real rho = .5 * (rhoL + rhoR);
+	real eInt = .5 * (eIntL + eIntR);
+	real4 v = .5 * (vL + vR);
+	real vSq = dot(v,v);
+	real oneOverW2 = 1 - vSq;
+	real oneOverW = sqrt(oneOverW2);
+	real W = 1. / oneOverW;
+	real W2 = 1. / oneOverW2;
+	real P = (gamma - 1.) * rho * eInt;
+	real h = 1. + eInt + P / rho;
+	real P_over_rho_h = P / (rho * h);
 
 #if DIM > 1
 	if (side == 1) {
-		relativisticVelocity = (real4)(relativisticVelocity.y, -velocity.x, relativisticVelocity.z, 0.f);	// -90' rotation to put the y axis contents into the x axis
+		v = (real4)(v.y, -v.x, v.z, 0.);	// -90' rotation to put the y axis contents into the x axis
 	} 
 #if DIM > 2
 	else if (side == 2) {
-		relativisticVelocity = (real4)(relativisticVelocity.z, relativisticVelocity.y, -velocity.x, 0.f);	//-90' rotation to put the z axis in the x axis
+		v = (real4)(v.z, v.y, -v.x, 0.);	//-90' rotation to put the z axis in the x axis
 	}
 #endif
 #endif
 
-	real4 newtonianVelocity = relativisticVelocity / lorentzFactor;	//vi = ui / u0
-	real newtonianVelocityXSq = newtonianVelocity.x * newtonianVelocity.x;
-	real newtonianVelocitySq = dot(newtonianVelocity, newtonianVelocity);
-	real denom = 1.f - newtonianVelocitySq * speedOfSoundSq;
-	real a = newtonianVelocity.x * (1.f - speedOfSoundSq) / denom;
-	real discr = (1.f - newtonianVelocitySq) * (1 - newtonianVelocityXSq - (newtonianVelocitySq - newtonianVelocityXSq) * speedOfSoundSq);
-	real b = speedOfSound * sqrt(discr) / denom;
-	//eigenvalues
+	real hW = h * W;
+	real hSq = h * h;
 
-	eigenvalues[0] = a - b;
-	eigenvalues[1] = newtonianVelocity.x;
+	real vxSq = v.x * v.x;
+	real csSq = gamma * P_over_rho_h;
+	real cs = sqrt(csSq);
+
+	real discr = sqrt((1. - vSq) * ((1. - vSq * csSq) - vxSq * (1. - csSq)));
+	real lambdaMin = (v.x * (1. - csSq) - cs * discr) / (1. - vSq * csSq);
+	real lambdaMax = (v.x * (1. - csSq) + cs * discr) / (1. - vSq * csSq);
+
+	eigenvalues[0] = lambdaMin;
+	eigenvalues[1] = v.x;
 #if DIM > 1
-	eigenvalues[2] = newtonianVelocity.x;
+	eigenvalues[2] = v.x;
 #if DIM > 2
-	eigenvalues[3] = newtonianVelocity.x;
+	eigenvalues[3] = v.x;
 #endif
 #endif
-	eigenvalues[DIM+1] = a + b;
+	eigenvalues[DIM+1] = lambdaMax;
 
 	//eigenvectors
 
-	real Aminus = (1.f - newtonianVelocity.x * newtonianVelocity.x) / (1.f * newtonianVelocity.x * eigenvalues[0]);
-	real Aplus = (1.f - newtonianVelocity.x * newtonianVelocity.x) / (1.f * newtonianVelocity.x * eigenvalues[DIM+1]);
-
-	//TOOD how do you get h from P / (rho h) ?
-	real K = internalSpecificEnthalpy;
+	real Kappa = h;	//true for ideal gas. otherwise the general equation for Kappa gets instable at high Lorentz factors 
+	real AMinus = (1. - vxSq) / (1. * v.x * lambdaMin);
+	real APlus  = (1. - vxSq) / (1. * v.x * lambdaMax);
 
 	//min col 
-	eigenvectors[0 + NUM_STATES * 0] = 1.f;
-	eigenvectors[1 + NUM_STATES * 0] = internalSpecificEnthalpy * lorentzFactor * Aminus * eigenvalues[0];
+	evr[0 + NUM_STATES * 0] = 1.;
+	evr[1 + NUM_STATES * 0] = hW * AMinus * lambdaMin;
 #if DIM > 1
-	eigenvectors[2 + NUM_STATES * 0] = internalSpecificEnthalpy * lorentzFactor * newtonianVelocity.y;
+	evr[2 + NUM_STATES * 0] = hW * v.y;
 #if DIM > 2
-	eigenvectors[3 + NUM_STATES * 0] = internalSpecificEnthalpy * lorentzFactor * newtonianVelocity.z;
+	evr[3 + NUM_STATES * 0] = hW * v.z;
 #endif
 #endif
-	eigenvectors[(DIM+1) + NUM_STATES * 0] = internalSpecificEnthalpy * lorentzFactor * Aminus - 1.f;
+	evr[(DIM+1) + NUM_STATES * 0] = hW * AMinus - 1.;
 	//mid col (normal)
-	eigenvectors[0 + NUM_STATES * 1] = K / (internalSpecificEnthalpy * lorentzFactor);
-	eigenvectors[1 + NUM_STATES * 1] = newtonianVelocity.x;
+	evr[0 + NUM_STATES * 1] = oneOverW;	// = Kappa / hW
+	evr[1 + NUM_STATES * 1] = v.x;
 #if DIM > 1
-	eigenvectors[2 + NUM_STATES * 1] = newtonianVelocity.y;
+	evr[2 + NUM_STATES * 1] = v.y;
 #if DIM > 2
-	eigenvectors[3 + NUM_STATES * 1] = newtonianVelocity.z;
+	evr[3 + NUM_STATES * 1] = v.z;
 #endif
 #endif
-	eigenvectors[(DIM+1) + NUM_STATES * 1] = 1.f - K / (internalSpecificEnthalpy * lorentzFactor);
+	evr[(DIM+1) + NUM_STATES * 1] = 1. - oneOverW;	// = 1. - Kappa / hW;
 	//mid col (tangent A)
 #if DIM > 1
-	eigenvectors[0 + NUM_STATES * 2] = lorentzFactor * newtonianVelocity.y;
-	eigenvectors[1 + NUM_STATES * 2] = 2.f * internalSpecificEnthalpy * lorentzFactorSq * newtonianVelocity.x * newtonianVelocity.y;
-	eigenvectors[2 + NUM_STATES * 2] = internalSpecificEnthalpy * (1.f + 2.f * lorentzFactorSq * newtonianVelocity.y * newtonianVelocity.y);
+	evr[0 + NUM_STATES * 2] = W * v.y;
+	evr[1 + NUM_STATES * 2] = 2. * h * W2 * v.x * v.y;
+	evr[2 + NUM_STATES * 2] = h * (1. + 2. * W2 * v.y * v.y);
 #if DIM > 2
-	eigenvectors[3 + NUM_STATES * 2] = 2.f * internalSpecificEnthalpy * lorentzFactorSq * newtonianVelocity.y * newtonianVelocity.z;
+	evr[3 + NUM_STATES * 2] = 2. * h * W2 * v.y * v.z;
 #endif
-	eigenvectors[(DIM+1) + NUM_STATES * 2] = (2.f * internalSpecificEnthalpy * lorentzFactorSq - lorentzFactor) * newtonianVelocity.y;
+	evr[(DIM+1) + NUM_STATES * 2] = (2. * hW - 1.) * W * v.y;
 #endif
 	//mid col (tangent B)
 #if DIM > 2
-	eigenvectors[0 + NUM_STATES * 3] = lorentzFactor * newtonianVelocity.z;
-	eigenvectors[1 + NUM_STATES * 3] = 2.f * internalSpecificEnthalpy * lorentzFactorSq * newtonianVelocity.x * newtonianVelocity.z;
-	eigenvectors[2 + NUM_STATES * 3] = 2.f * internalSpecificEnthalpy * lorentzFactorSq * newtonianVelocity.y * newtonianVelocity.z;
-	eigenvectors[3 + NUM_STATES * 3] = internalSpecificEnthalpy * (1.f + 2.f * lorentzFactorSq * newtonianVelocity.z * newtonianVelocity.z);
-	eigenvectors[(DIM+1) + NUM_STATES * 3] = (2.f * internalSpecificEnthalpy * lorentzFactorSq - lorentzFactor) * newtonianVelocity.z;
+	evr[0 + NUM_STATES * 3] = W * v.z;
+	evr[1 + NUM_STATES * 3] = 2. * h * W2 * v.x * v.z;
+	evr[2 + NUM_STATES * 3] = 2. * h * W2 * v.y * v.z;
+	evr[3 + NUM_STATES * 3] = h * (1. + 2. * W2 * v.z * v.z);
+	evr[(DIM+1) + NUM_STATES * 3] = (2. * hW - 1.) * W * v.z;
 #endif
 	//max col 
-	eigenvectors[0 + NUM_STATES * (DIM+1)] = 1.f;
-	eigenvectors[1 + NUM_STATES * (DIM+1)] = internalSpecificEnthalpy * lorentzFactor * Aplus * eigenvalues[DIM+1];
+	evr[0 + NUM_STATES * (DIM+1)] = 1.;
+	evr[1 + NUM_STATES * (DIM+1)] = hW * APlus * lambdaMax;
 #if DIM > 1
-	eigenvectors[2 + NUM_STATES * (DIM+1)] = internalSpecificEnthalpy * lorentzFactor * newtonianVelocity.y;
+	evr[2 + NUM_STATES * (DIM+1)] = hW * v.y;
 #if DIM > 2
-	eigenvectors[3 + NUM_STATES * (DIM+1)] = internalSpecificEnthalpy * lorentzFactor * newtonianVelocity.z;
+	evr[3 + NUM_STATES * (DIM+1)] = hW * v.z;
 #endif
 #endif
-	eigenvectors[(DIM+1) + NUM_STATES * (DIM+1)] = internalSpecificEnthalpy * lorentzFactor * Aplus - 1.f;
+	evr[(DIM+1) + NUM_STATES * (DIM+1)] = hW * APlus - 1.;
 
 	
 	//calculate eigenvector inverses ... 
-	real determinant = internalSpecificEnthalpySq * internalSpecificEnthalpy * lorentzFactor * (K - 1.f) * (1.f - newtonianVelocityXSq) * (Aplus * eigenvalues[DIM+1] - Aminus * eigenvalues[0]);
+	real Delta = hSq * hW * (Kappa - 1.) * (1. - vxSq) * (APlus * lambdaMax - AMinus * lambdaMin);
 	
 	//min row
-	real minMaxRowScale = internalSpecificEnthalpySq / determinant;
-	eigenvectorsInverse[0 + NUM_STATES * 0] = 
-		-minMaxRowScale * (internalSpecificEnthalpy * lorentzFactor * Aminus * (newtonianVelocity.x - eigenvalues[0]) 
-		- newtonianVelocity.x 
-		- lorentzFactorSq * (newtonianVelocitySq - newtonianVelocityXSq) * (2.f * K - 1.f) * (newtonianVelocity.x - Aminus * eigenvalues[0]) 
-		+ K * Aminus * eigenvalues[0]);
-	eigenvectorsInverse[0 + NUM_STATES * 1] = -minMaxRowScale * (1.f + lorentzFactorSq * (newtonianVelocitySq - newtonianVelocityXSq) * (2.f * K - 1.f) * (1.f - Aminus) - K * Aminus);
+	real scale;
+	scale = hSq / Delta;
+	evl[0 + NUM_STATES * 0] = scale * (hW * APlus * (v.x - lambdaMax) - v.x - W2 * (vSq - vxSq) * (2. * Kappa - 1.) * (v.x - APlus * lambdaMax) + Kappa * APlus * lambdaMax);
+	evl[0 + NUM_STATES * 1] = scale * (1. + W2 * (vSq - vxSq) * (2. * Kappa - 1.) * (1. - APlus) - Kappa * APlus);
 #if DIM > 1
-	eigenvectorsInverse[0 + NUM_STATES * 2] = -minMaxRowScale * (lorentzFactorSq * newtonianVelocity.y * (2.f * K - 1.f) * Aminus * (newtonianVelocity.x - eigenvalues[0]));
+	evl[0 + NUM_STATES * 2] = scale * (W2 * v.y * (2. * Kappa - 1.) * APlus * (v.x - lambdaMax));
 #if DIM > 2
-	eigenvectorsInverse[0 + NUM_STATES * 3] = -minMaxRowScale * (lorentzFactorSq * newtonianVelocity.z * (2.f * K - 1.f) * Aminus * (newtonianVelocity.x - eigenvalues[0]));
+	evl[0 + NUM_STATES * 3] = scale * (W2 * v.z * (2. * Kappa - 1.) * APlus * (v.x - lambdaMax));
 #endif
 #endif
-	eigenvectorsInverse[0 + NUM_STATES * (DIM+1)] = -minMaxRowScale * (-newtonianVelocity.x - lorentzFactorSq * (newtonianVelocitySq - newtonianVelocityXSq) * (2.f * K - 1.f) * (newtonianVelocity.x - Aminus * eigenvalues[0]) + K * Aminus * eigenvalues[0]);
+	evl[0 + NUM_STATES * (DIM+1)] = scale * (-v.x - W2 * (vSq - vxSq) * (2. * Kappa - 1.) * (v.x - APlus * lambdaMax) + Kappa * APlus * lambdaMax);
 	//mid normal row
-	real midNormalRowScale = lorentzFactor * (K - 1.f);
-	eigenvectorsInverse[1 + NUM_STATES * 0] = midNormalRowScale * (internalSpecificEnthalpy - lorentzFactor);
-	eigenvectorsInverse[1 + NUM_STATES * 1] = midNormalRowScale * (lorentzFactor * newtonianVelocity.x);
+	scale = W / (Kappa - 1.);
+	evl[1 + NUM_STATES * 0] = scale * (h - W);
+	evl[1 + NUM_STATES * 1] = scale * (W * v.x);
 #if DIM > 1
-	eigenvectorsInverse[1 + NUM_STATES * 2] = midNormalRowScale * (lorentzFactor * newtonianVelocity.y);
+	evl[1 + NUM_STATES * 2] = scale * (W * v.y);
 #if DIM > 2
-	eigenvectorsInverse[1 + NUM_STATES * 3] = midNormalRowScale * (lorentzFactor * newtonianVelocity.z);
+	evl[1 + NUM_STATES * 3] = scale * (W * v.z);
 #endif
 #endif
-	eigenvectorsInverse[1 + NUM_STATES * (DIM+1)] = midNormalRowScale * (-lorentzFactor);
+	evl[1 + NUM_STATES * (DIM+1)] = scale * (-W);
 	//mid tangent A row
 #if DIM > 1
-	real midTangentRowScale = 1.f / (internalSpecificEnthalpy * (1.f - newtonianVelocityXSq));
-	eigenvectorsInverse[2 + NUM_STATES * 0] = midTangentRowScale * (-newtonianVelocity.y);
-	eigenvectorsInverse[2 + NUM_STATES * 1] = midTangentRowScale * (newtonianVelocity.x * newtonianVelocity.y);
-	eigenvectorsInverse[2 + NUM_STATES * 2] = midTangentRowScale * (1.f - newtonianVelocityXSq);
+	scale = 1. / (h * (1. - vxSq));
+	evl[2 + NUM_STATES * 0] = scale * (-v.y);
+	evl[2 + NUM_STATES * 1] = scale * (v.x * v.y);
+	evl[2 + NUM_STATES * 2] = scale * (1. - vxSq);
 #if DIM > 2
-	eigenvectorsInverse[2 + NUM_STATES * 3] = 0.f;
+	evl[2 + NUM_STATES * 3] = 0.;
 #endif
-	eigenvectorsInverse[2 + NUM_STATES * (DIM+1)] = midTangentRowScale * (-newtonianVelocity.y);
+	evl[2 + NUM_STATES * (DIM+1)] = scale * (-v.y);
 #endif
 	//mid tangent B row
 #if DIM > 2
-	eigenvectorsInverse[3 + NUM_STATES * 0] = midTangentRowScale * (-newtonianVelocity.z);
-	eigenvectorsInverse[3 + NUM_STATES * 1] = midTangentRowScale * (newtonianVelocity.x * newtonianVelocity.z);
-	eigenvectorsInverse[3 + NUM_STATES * 2] = 0.f;
-	eigenvectorsInverse[3 + NUM_STATES * 3] = midTangentRowScale * (1.f - newtonianVelocityXSq);
-	eigenvectorsInverse[3 + NUM_STATES * (DIM+1)] = midTangentRowScale * (-newtonianVelocity.z);
+	evl[3 + NUM_STATES * 0] = scale * (-v.z);
+	evl[3 + NUM_STATES * 1] = scale * (v.x * v.z);
+	evl[3 + NUM_STATES * 2] = 0.;
+	evl[3 + NUM_STATES * 3] = scale * (1. - vxSq);
+	evl[3 + NUM_STATES * (DIM+1)] = scale * (-v.z);
 #endif
 	//max row
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 0] =
-		minMaxRowScale * (internalSpecificEnthalpy * lorentzFactor * Aplus * (newtonianVelocity.x - eigenvalues[DIM+1]) 
-		- newtonianVelocity.x 
-		- lorentzFactorSq * (newtonianVelocitySq - newtonianVelocityXSq) * (2.f * K - 1.f) * (newtonianVelocity.x - Aplus * eigenvalues[DIM+1]) 
-		+ K * Aplus * eigenvalues[DIM+1]);
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 1] = minMaxRowScale * (1.f + lorentzFactorSq * (newtonianVelocitySq - newtonianVelocityXSq) * (2.f * K - 1.f) * (1.f - Aplus) - K * Aplus);
+	scale = -hSq / Delta;
+	evl[(DIM+1) + NUM_STATES * 0] = scale * (hW * AMinus * (v.x - lambdaMin) - v.x - W2 * (vSq - vxSq) * (2. * Kappa - 1.) * (v.x - AMinus * lambdaMin) + Kappa * AMinus * lambdaMin);
+	evl[(DIM+1) + NUM_STATES * 1] = scale * (1. + W2 * (vSq - vxSq) * (2. * Kappa - 1.) * (1. - AMinus) - Kappa * AMinus);
 #if DIM > 1
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 2] = minMaxRowScale * (lorentzFactorSq * newtonianVelocity.y * (2.f * K - 1.f) * Aplus * (newtonianVelocity.x - eigenvalues[DIM+1]));
+	evl[(DIM+1) + NUM_STATES * 2] = scale * (W2 * v.y * (2. * Kappa - 1.) * AMinus * (v.x - lambdaMin));
 #if DIM > 2
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 3] = minMaxRowScale * (lorentzFactorSq * newtonianVelocity.z * (2.f * K - 1.f) * Aplus * (newtonianVelocity.x - eigenvalues[DIM+1]));
+	evl[(DIM+1) + NUM_STATES * 3] = scale * (W2 * v.z * (2. * Kappa - 1.) * AMinus * (v.x - lambdaMin));
 #endif
 #endif
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * (DIM+1)] = minMaxRowScale * (-newtonianVelocity.x - lorentzFactorSq * (newtonianVelocitySq - newtonianVelocityXSq) * (2.f * K - 1.f) * (newtonianVelocity.x - Aplus * eigenvalues[DIM+1]) + K * Aplus * eigenvalues[DIM+1]);
+	evl[(DIM+1) + NUM_STATES * (DIM+1)] = scale * (-v.x - W2 * (vSq - vxSq) * (2. * Kappa - 1.) * (v.x - AMinus * lambdaMin) + Kappa * AMinus * lambdaMin);
 
 #if DIM > 1
 	if (side == 1) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			real tmp;
-
 			//-90' rotation applied to the LHS of incoming velocity vectors, to move their y axis into the x axis
 			// is equivalent of a -90' rotation applied to the RHS of the flux jacobian A
 			// and A = Q V Q-1 for Q = the right eigenvectors and Q-1 the left eigenvectors
 			// so a -90' rotation applied to the RHS of A is a +90' rotation applied to the RHS of Q-1 the left eigenvectors
 			//and while a rotation applied to the LHS of a vector rotates the elements of its column vectors, a rotation applied to the RHS rotates the elements of its row vectors 
 			//each row's y <- x, x <- -y
-			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y] = tmp;
+			tmp = evl[i + NUM_STATES * STATE_MOMENTUM_DENSITY_X];
+			evl[i + NUM_STATES * STATE_MOMENTUM_DENSITY_X] = -evl[i + NUM_STATES * STATE_MOMENTUM_DENSITY_Y];
+			evl[i + NUM_STATES * STATE_MOMENTUM_DENSITY_Y] = tmp;
 			//a -90' rotation applied to the RHS of A must be corrected with a 90' rotation on the LHS of A
 			//this rotates the elements of the column vectors by 90'
 			//each column's x <- y, y <- -x
-			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = -eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i] = tmp;
+			tmp = evr[STATE_MOMENTUM_DENSITY_X + NUM_STATES * i];
+			evr[STATE_MOMENTUM_DENSITY_X + NUM_STATES * i] = -evr[STATE_MOMENTUM_DENSITY_Y + NUM_STATES * i];
+			evr[STATE_MOMENTUM_DENSITY_Y + NUM_STATES * i] = tmp;
 		}
 	}
 #if DIM > 2
 	else if (side == 2) {
 		for (int i = 0; i < NUM_STATES; ++i) {
 			real tmp;
-			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = -eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z] = tmp;
-			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = -eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i] = tmp;
+			tmp = evl[i + NUM_STATES * STATE_MOMENTUM_DENSITY_X];
+			evl[i + NUM_STATES * STATE_MOMENTUM_DENSITY_X] = -evl[i + NUM_STATES * STATE_MOMENTUM_DENSITY_Z];
+			evl[i + NUM_STATES * STATE_MOMENTUM_DENSITY_Z] = tmp;
+			tmp = evr[STATE_MOMENTUM_DENSITY_X + NUM_STATES * i];
+			evr[STATE_MOMENTUM_DENSITY_X + NUM_STATES * i] = -evr[STATE_MOMENTUM_DENSITY_Z + NUM_STATES * i];
+			evr[STATE_MOMENTUM_DENSITY_Z + NUM_STATES * i] = tmp;
 		}
 	}
 #endif
 #endif
-
 }
 
 __kernel void calcEigenBasis(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
-	const __global real* primitiveBuffer,
-	const __global real* potentialBuffer)
+	const __global real* primitiveBuffer)
 {
 	for (int side = 0; side < DIM; ++side) {
-		calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, primitiveBuffer, potentialBuffer);
+		calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, primitiveBuffer, side);
 	}
 }

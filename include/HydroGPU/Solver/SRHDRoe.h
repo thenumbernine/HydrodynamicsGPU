@@ -27,6 +27,12 @@ protected:
 	*/
 	cl::Kernel initVariablesKernel;
 
+	/*
+	Performs the Newton root-finding on the pressure variable to update primtivies each iteration
+	...or in the case of multi-stage, multiple times per iteration ...
+	*/
+	cl::Kernel updatePrimitivesKernel;
+
 public:
 	using Super::Super;
 
@@ -34,7 +40,8 @@ protected:
 	virtual void createEquation();
 	virtual std::vector<std::string> getProgramSources();
 
-	virtual void init();			//called last 
+	virtual void initBuffers();
+	virtual void initKernels();
 	virtual void setupConvertToTexKernelArgs();
 
 	/*
@@ -43,6 +50,8 @@ protected:
 	 deduces state variables and stores them.
 	*/
 	virtual void resetState();		//called third
+
+	virtual void calcDeriv(cl::Buffer derivBuffer, real dt);
 public:
 	virtual std::string name() const { return "SRHDRoe"; }
 };

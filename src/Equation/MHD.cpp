@@ -1,7 +1,6 @@
 #include "HydroGPU/Equation/MHD.h"
 #include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 #include "Common/Exception.h"
 
 namespace HydroGPU {
@@ -55,8 +54,8 @@ void MHD::getProgramSources(std::vector<std::string>& sources) {
 	//for EulerMHDCommon.cl
 	sources[0] += "#define MHD 1\n";
 
-	sources.push_back(Common::File::read("MHDCommon.cl"));
-	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
+	sources.push_back("#include \"MHDCommon.cl\"\n");
+	sources.push_back("#include \"EulerMHDCommon.cl\"\n");
 }
 
 int MHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int stateIndex, int minmax) {

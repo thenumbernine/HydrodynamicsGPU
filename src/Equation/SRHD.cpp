@@ -2,7 +2,6 @@
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 #include "Common/Exception.h"
 
 namespace HydroGPU {
@@ -40,7 +39,7 @@ void SRHD::getProgramSources(std::vector<std::string>& sources) {
 	primitives.push_back("VELOCITY_X");
 	if (app->dim > 1) primitives.push_back("VELOCITY_Y");
 	if (app->dim > 2) primitives.push_back("VELOCITY_Z");
-	primitives.push_back("PRESSURE");
+	primitives.push_back("SPECIFIC_INTERNAL_ENERGY");
 	sources[0] += buildEnumCode("PRIMITIVE", primitives);
 	
 	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
@@ -49,7 +48,7 @@ void SRHD::getProgramSources(std::vector<std::string>& sources) {
 	app->lua.ref()["gamma"] >> gamma;
 	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
 	
-	sources.push_back(Common::File::read("SRHDCommon.cl"));
+	sources.push_back("#include \"SRHDCommon.cl\"\n");
 }
 
 int SRHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {

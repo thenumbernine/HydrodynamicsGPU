@@ -2,7 +2,6 @@
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 #include "Common/Exception.h"
 
 namespace HydroGPU {
@@ -65,7 +64,7 @@ void Maxwell::getProgramSources(std::vector<std::string>& sources) {
 	sources[0] += "constant real conductivity = " + toNumericString<real>(conductivity) + ";\n";
 	sources[0] += "constant real sqrtConductivity = " + toNumericString<real>(sqrt(conductivity)) + ";\n";
 
-	sources.push_back(Common::File::read("MaxwellCommon.cl"));
+	sources.push_back("#include \"MaxwellCommon.cl\"\n");
 	
 	//tell the Roe solver to calculate left & right separately
 	// this is slower for dense small matrices (like the Euler equations)

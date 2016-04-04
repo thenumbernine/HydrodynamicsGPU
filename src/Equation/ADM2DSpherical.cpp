@@ -1,7 +1,6 @@
 #include "HydroGPU/Equation/ADM2DSpherical.h"
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 #include "Common/Exception.h"
 
 namespace HydroGPU {
@@ -56,7 +55,7 @@ void ADM2DSpherical::getProgramSources(std::vector<std::string>& sources) {
 	app->lua.ref()["adm_BonaMasso_df_dalpha"] >> adm_BonaMasso_df_dalpha;
 	sources[0] += "#define ADM_BONA_MASSO_DF_DALPHA " + adm_BonaMasso_df_dalpha + "\n";
 	
-	sources.push_back(Common::File::read("ADM2DSphericalCommon.cl"));
+	sources.push_back("#include \"ADM2DSphericalCommon.cl\"\n");
 
 	//tell the Roe solver to calculate left & right separately
 	// this is slower for dense small matrices (like the Euler equations)

@@ -2,7 +2,6 @@
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 #include "Common/Exception.h"
 
 namespace HydroGPU {
@@ -104,7 +103,7 @@ void BSSNOK::getProgramSources(std::vector<std::string>& sources) {
 	app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	sources[0] += "#define BSSNOK_BONA_MASSO_F " + toNumericString<real>(adm_BonaMasso_f) + "\n";
 	
-	sources.push_back(Common::File::read("BSSNOKCommon.cl"));
+	sources.push_back("#include \"BSSNOKCommon.cl\"\n");
 }
 
 int BSSNOK::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {

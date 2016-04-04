@@ -9,8 +9,8 @@ namespace HydroGPU {
 struct HydroGPUApp;
 namespace Equation {
 
-struct SRHD : public SelfGravitationBehavior<Equation> {
-	typedef SelfGravitationBehavior<Equation> Super;
+struct SRHD : public Equation/*SelfGravitationBehavior<Equation>*/ {
+	typedef Equation/*SelfGravitationBehavior<Equation>*/ Super;
 	SRHD(HydroGPUApp* app_);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);

@@ -79,10 +79,10 @@ speedOfLight = speedOfLightInM
 size = {16, 16, 16}
 vectorFieldResolution = 16
 --]]
--- [[ 2D
+--[[ 2D
 size = {512, 512}
 --]]
---[[ 1D
+-- [[ 1D
 size = {1024}
 heatMapColorScale = .25
 --]]
@@ -92,14 +92,14 @@ camera = {}
 
 
 
---[[ Euler
+-- [[ Euler
 
 -- uncomment one:
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
-solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
---solverName = 'SRHDRoe'		-- not yet
+--solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+solverName = 'SRHDRoe'			-- 
 
 -- override solids:
 
@@ -128,18 +128,18 @@ end
 --]=]
 
 initCondName = 'Sod'
-initCondName = 'Sphere'
-initCondName = 'Square Cavity'
-initCondName = 'Kelvin-Hemholtz'
-initCondName = 'Rayleigh-Taylor'
-initCondName = 'Shock Bubble Interaction'
-initCondName = 'Flow Around Cylinder'
-initCondName = 'Forward Facing Step'
-initCondName = 'Double Mach Reflection'
-initCondName = 'Spiral Implosion'
-initCondName = 'self-gravitation test 1'
-initCondName = 'Colella-Woodward'
-initCondName = 'Configuration 6'
+--initCondName = 'Sphere'
+--initCondName = 'Square Cavity'
+--initCondName = 'Kelvin-Hemholtz'
+--initCondName = 'Rayleigh-Taylor'
+--initCondName = 'Shock Bubble Interaction'
+--initCondName = 'Flow Around Cylinder'
+--initCondName = 'Forward Facing Step'
+--initCondName = 'Double Mach Reflection'
+--initCondName = 'Spiral Implosion'
+--initCondName = 'self-gravitation test 1'
+--initCondName = 'Colella-Woodward'
+--initCondName = 'Configuration 6'
 initConds[initCondName].setup()
 --]]
 
@@ -183,7 +183,7 @@ solverName = 'ADM2DSpherical'	-- not yet
 -- I want to get rid of this one.  and the 1D ADM as well -- just one Bona-Masso ADM implementation is enough (I think) unless I should have separate ones for shift/less and mass/less
 --]]
 
--- [[ ADM (3D)
+--[[ ADM (3D)
 solverName = 'ADM3DRoe'
 		
 --size = {1024} heatMapColorScale = 128

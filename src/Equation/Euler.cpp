@@ -2,7 +2,6 @@
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/File.h"
 #include "Common/Exception.h"
 
 namespace HydroGPU {
@@ -41,7 +40,7 @@ void Euler::getProgramSources(std::vector<std::string>& sources) {
 	app->lua.ref()["gamma"] >> gamma;
 	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
 
-	sources.push_back(Common::File::read("EulerMHDCommon.cl"));
+	sources.push_back("#include \"EulerMHDCommon.cl\"\n");
 }
 
 int Euler::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {
