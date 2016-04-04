@@ -26,7 +26,7 @@ void SRHDRoe::initKernels() {
 
 //TODO make sure this runs when the plot or solver changes from the gui
 void SRHDRoe::setupConvertToTexKernelArgs() {
-	app->plot->convertToTexKernel.setArg(2, primitiveBuffer);
+	app->plot->convertToTexKernel.setArg(3, primitiveBuffer);
 }
 	
 void SRHDRoe::createEquation() {

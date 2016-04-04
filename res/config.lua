@@ -70,6 +70,8 @@ permeability = 1
 conductivity = 1
 
 -- numerical relativity, speed of light, in grid units
+-- TODO umm, the NR solver uses normalized coordinates ...
+-- so shouldn't this always be 1? 
 speedOfLightInM = 299792458
 speedOfLight = speedOfLightInM
 

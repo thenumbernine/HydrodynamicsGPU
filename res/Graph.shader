@@ -11,9 +11,9 @@ uniform float scale;
 
 vec3 func(vec3 src) {
 	vec3 vertex = src.xyz;
-	vertex[axis] = texture2D(tex, vertex.xy).r * scale;
 	vertex.x = vertex.x * (xmax.x - xmin.x) + xmin.x;
 	vertex.y = vertex.y * (xmax.y - xmin.y) + xmin.y;
+	vertex[axis] = texture2D(tex, src.xy).r * scale;
 	return vertex;
 }
 
@@ -36,14 +36,14 @@ void main() {
 
 #ifdef FRAGMENT_SHADER
 
+uniform float ambient;
+
 void main() {
 	vec3 light = normalize(vec3(.5, .5, 1.));
 	float lum = dot(normal, light);
 	//lum = max(lum, -lum);	//two-sided
-	lum = max(lum, .1);	//ambient
+	lum = max(lum, ambient);
 	gl_FragColor = vec4(color * lum, 1.);
 }
 
 #endif	//FRAGMENT_SHADER
-
-

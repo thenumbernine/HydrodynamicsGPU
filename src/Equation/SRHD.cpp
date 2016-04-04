@@ -12,9 +12,19 @@ SRHD::SRHD(HydroGPUApp* app_)
 {
 	displayVariables = std::vector<std::string>{
 		"DENSITY",
-		"VELOCITY",
-		"PRESSURE",
-		"POTENTIAL"
+		"VELOCITY_X",
+		"VELOCITY_Y",
+		"VELOCITY_Z",
+		"VELOCITY_MAGN",
+		"E_INTERNAL",
+		"P",
+		"H",
+		"D",
+		"S_X",
+		"S_Y",
+		"S_Z",
+		"S_MAGN",
+		"TAU",
 	};
 
 	//matches Equations/SelfGravitationBehavior 

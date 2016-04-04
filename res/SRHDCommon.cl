@@ -162,6 +162,7 @@ __kernel void updatePrimitives(
 __kernel void convertToTex(
 	__write_only image3d_t destTex,
 	int displayMethod,
+	const __global real* stateBuffer,
 	const __global real* primitiveBuffer)
 //const __global real* potentialBuffer		
 //TODO get SRHD equation working with selfgrav by renaming STATE_REST_MASS_DENSITY to STATE_DENSITY
@@ -169,37 +170,64 @@ __kernel void convertToTex(
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 
+	const __global real* state = stateBuffer + NUM_STATES * index;
 	const __global real* primitive = primitiveBuffer + NUM_STATES * index;
 
 	real rho = primitive[PRIMITIVE_DENSITY];
-	real vSq = primitive[PRIMITIVE_VELOCITY_X] * primitive[PRIMITIVE_VELOCITY_X];
-#if DIM > 1
-	vSq += primitive[PRIMITIVE_VELOCITY_Y] * primitive[PRIMITIVE_VELOCITY_Y];
-#endif
-#if DIM > 2
-	vSq += primitive[PRIMITIVE_VELOCITY_Z] * primitive[PRIMITIVE_VELOCITY_Z];
-#endif
-	real vLen = sqrt(vSq);
 	real eInt = primitive[PRIMITIVE_SPECIFIC_INTERNAL_ENERGY];
-	real P = (gamma - 1.) * rho * eInt;
 
 	real value;
-	switch (displayMethod) {
-	case DISPLAY_DENSITY:	//density
+	if (displayMethod == DISPLAY_DENSITY) {
 		value = rho;
-		break;
-	case DISPLAY_VELOCITY:	//velocity
-		value = vLen;
-		break;
-	case DISPLAY_PRESSURE:	//pressure
-		value = P;
-		break;
-	case DISPLAY_POTENTIAL:
-		value = 0.;//potentialBuffer[index];	//TODO get SRHD equation working with selfgrav by renaming STATE_REST_MASS_DENSITY to STATE_DENSITY
-		break;
-	default:
-		value = .5;
-		break;
+	} else if (displayMethod == DISPLAY_VELOCITY_X) {
+		value = primitive[PRIMITIVE_VELOCITY_X];
+#if DIM > 1
+	} else if (displayMethod == DISPLAY_VELOCITY_Y) {
+		value = primitive[PRIMITIVE_VELOCITY_Y];
+#endif
+#if DIM > 2
+	} else if (displayMethod == DISPLAY_VELOCITY_Z) {
+		value = primitive[PRIMITIVE_VELOCITY_Z];
+#endif
+	} else if (displayMethod == DISPLAY_VELOCITY_MAGN) {
+		real vSq = primitive[PRIMITIVE_VELOCITY_X] * primitive[PRIMITIVE_VELOCITY_X];
+#if DIM > 1
+		vSq += primitive[PRIMITIVE_VELOCITY_Y] * primitive[PRIMITIVE_VELOCITY_Y];
+#endif
+#if DIM > 2
+		vSq += primitive[PRIMITIVE_VELOCITY_Z] * primitive[PRIMITIVE_VELOCITY_Z];
+#endif
+		value = sqrt(vSq);
+	} else if (displayMethod == DISPLAY_E_INTERNAL) {
+		value = eInt;
+	} else if (displayMethod == DISPLAY_P) {
+		value = (gamma - 1.) * rho * eInt;
+	} else if (displayMethod == DISPLAY_H) {
+		real P = (gamma - 1.) * rho * eInt;
+		value = 1. + eInt + P/gamma;
+	} else if (displayMethod == DISPLAY_D) {
+		value = state[STATE_REST_MASS_DENSITY];
+	} else if (displayMethod == DISPLAY_S_X) {
+		value = state[STATE_MOMENTUM_DENSITY_X];
+#if DIM > 1
+	} else if (displayMethod == DISPLAY_S_Y) {
+		value = state[STATE_MOMENTUM_DENSITY_Y];
+#endif
+#if DIM > 2
+	} else if (displayMethod == DISPLAY_S_Z) {
+		value = state[STATE_MOMENTUM_DENSITY_Z];
+#endif
+	} else if (displayMethod == DISPLAY_S_MAGN) {
+		real SSq = state[STATE_MOMENTUM_DENSITY_X] * state[STATE_MOMENTUM_DENSITY_X];
+#if DIM > 1
+		SSq += state[STATE_MOMENTUM_DENSITY_Y] * state[STATE_MOMENTUM_DENSITY_Y];
+#endif
+#if DIM > 2
+		SSq += state[STATE_MOMENTUM_DENSITY_Z] * state[STATE_MOMENTUM_DENSITY_Z];
+#endif
+		value = sqrt(SSq);
+	} else if (displayMethod == DISPLAY_TAU) {
+		value = state[STATE_TOTAL_ENERGY_DENSITY];
 	}
 
 	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0., 0., 0.));

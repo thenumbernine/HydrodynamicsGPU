@@ -24,4 +24,3 @@ void main() {
 }
 
 #endif	//FRAGMENT_SHADER
-

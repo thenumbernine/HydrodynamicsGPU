@@ -27,6 +27,8 @@ Plot1D::Plot1D(HydroGPU::HydroGPUApp* app_)
 }
 
 void Plot1D::display() {
+//graph does the same thing
+if (app->dim == 1) return;
 
 	static float colors[][3] = {
 		{1,0,0},

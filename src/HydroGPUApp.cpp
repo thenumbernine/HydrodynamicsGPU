@@ -359,6 +359,10 @@ void HydroGPUApp::init() {
 			}
 		}
 		
+		if (graphVariableNames.empty()) {
+			graphVariableNames = solver->equation->displayVariables;
+		}
+
 		//make a mapping from names to indexes
 		std::map<std::string, int> varIndexForName;
 		const std::vector<std::string>& displayVariables = solver->equation->displayVariables;
@@ -478,13 +482,13 @@ PROFILE_BEGIN_FRAME()
 		solver->update();
 		if (doUpdate == 2) doUpdate = 0;
 	}
-	
+
 	camera->setupProjection();
 	solver->app->camera->setupModelview();
 	vectorField->display();
 	
 	//no point in showing the graph in ortho
-	if (camera == cameraFrustum) graph->display();
+	graph->display();
 	
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -637,13 +641,17 @@ PROFILE_BEGIN_FRAME()
 		
 		if (ImGui::CollapsingHeader("controls")) {
 
-			bool isOrtho = camera == cameraOrtho;
-			if (ImGui::Button(isOrtho ? "frustum" : "ortho")) {	// switching between ortho and frustum views
-				if (!isOrtho) {
-					camera = cameraOrtho;
-				} else {
-					camera = cameraFrustum;
+			if (dim > 1) {
+				bool isOrtho = camera == cameraOrtho;
+				if (ImGui::Button(isOrtho ? "frustum" : "ortho")) {	// switching between ortho and frustum views
+					if (!isOrtho) {
+						camera = cameraOrtho;
+					} else {
+						camera = cameraFrustum;
+					}
 				}
+			} else {
+				camera = cameraOrtho;
 			}
 			
 			if (ImGui::Button(doUpdate ? "pause" : "start")) doUpdate = !doUpdate; // start/stop simulation
