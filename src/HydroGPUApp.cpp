@@ -30,7 +30,7 @@
 
 #include "HydroGPU/HydroGPUApp.h"
 
-#include "ImGUICommon/ImGUICommon.h"
+#include "ImGuiCommon/ImGuiCommon.h"
 #include "Profiler/Profiler.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
@@ -240,7 +240,7 @@ void HydroGPUApp::init() {
 
 	Super::init();
 
-	gui = std::make_shared<ImGUICommon::ImGUICommon>(window);
+	gui = std::make_shared<ImGuiCommon::ImGuiCommon>(window);
 
 	clCommon = std::make_shared<CLCommon::CLCommon>(
 		useGPU,

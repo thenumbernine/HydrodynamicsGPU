@@ -81,12 +81,11 @@ speedOfLight = speedOfLightInM
 size = {16, 16, 16}
 vectorFieldResolution = 16
 --]]
---[[ 2D
+-- [[ 2D
 size = {512, 512}
 --]]
--- [[ 1D
-size = {1024}
-heatMapColorScale = .25
+--[[ 1D
+size = {2048}
 --]]
 
 
@@ -129,7 +128,7 @@ end
 --solidFilename = 'test-solid.png'
 --]=]
 
-initCondName = 'Sod'
+--initCondName = 'Sod'
 --initCondName = 'Sphere'
 --initCondName = 'Square Cavity'
 --initCondName = 'Kelvin-Hemholtz'
@@ -142,6 +141,10 @@ initCondName = 'Sod'
 --initCondName = 'self-gravitation test 1'
 --initCondName = 'Colella-Woodward'
 --initCondName = 'Configuration 6'
+--initCondName = 'SRHD Schneider et al'
+initCondName = 'Relativistic Blast Wave Interaction'
+--initCondName = 'Marti & Muller 2008 Problem #1'
+--initCondName = 'Marti & Muller 2008 Problem #2'
 initConds[initCondName].setup()
 --]]
 

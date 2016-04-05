@@ -10,22 +10,20 @@ namespace Equation {
 SRHD::SRHD(HydroGPUApp* app_)
 : Super(app_)
 {
-	displayVariables = std::vector<std::string>{
-		"DENSITY",
-		"VELOCITY_X",
-		"VELOCITY_Y",
-		"VELOCITY_Z",
-		"VELOCITY_MAGN",
-		"E_INTERNAL",
-		"P",
-		"H",
-		"D",
-		"S_X",
-		"S_Y",
-		"S_Z",
-		"S_MAGN",
-		"TAU",
-	};
+	displayVariables.push_back("DENSITY");
+	displayVariables.push_back("VELOCITY_X");
+	if (app->dim > 1) displayVariables.push_back("VELOCITY_Y");
+	if (app->dim > 2) displayVariables.push_back("VELOCITY_Z");
+	displayVariables.push_back("VELOCITY_MAGN");
+	displayVariables.push_back("E_INTERNAL");
+	displayVariables.push_back("P");
+	displayVariables.push_back("H");
+	displayVariables.push_back("D");
+	displayVariables.push_back("S_X");
+	if (app->dim > 1) displayVariables.push_back("S_Y");
+	if (app->dim > 2) displayVariables.push_back("S_Z");
+	displayVariables.push_back("S_MAGN");
+	displayVariables.push_back("TAU");
 
 	//matches Equations/SelfGravitationBehavior 
 	boundaryMethods = std::vector<std::string>{
@@ -73,6 +71,25 @@ int SRHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax
 		return BOUNDARY_KERNEL_FREEFLOW;
 	}
 	throw Common::Exception() << "got an unknown boundary method " << app->boundaryMethods(dim, minmax) << " for dim " << dim;
+}
+
+//same as Euler...
+void SRHD::readStateCell(real* state, const real* source) {
+	state[0] = source[0];
+	state[1] = source[1];
+	if (app->dim > 1) {
+		state[2] = source[2];
+	}
+	if (app->dim > 2) {
+		state[3] = source[3];
+	}
+	if (states.size() == 8) {
+		state[4] = source[4];
+		state[5] = source[5];
+		state[6] = source[6];
+	}
+	state[states.size()-1] = source[7];
+
 }
 
 int SRHD::numReadStateChannels() {

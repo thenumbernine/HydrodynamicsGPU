@@ -24,6 +24,9 @@ Graph::Graph(HydroGPU::HydroGPUApp* app_)
 }
 
 void Graph::display() {
+	//if we're in ortho mode and we're not 1D then cut out
+	if (app->dim > 1 && std::dynamic_pointer_cast<CameraOrtho>(app->camera)) return;
+	
 	for (int i = 0; i < 3; ++i) {
 		if (step(i) < 1) step(i) = 1;
 	}
@@ -81,6 +84,7 @@ void Graph::display() {
 		glBindTexture(GL_TEXTURE_2D, 0);	
 	}
 
+	//for 1-D graphs
 	//draw background grid and axii
 	if (app->dim == 1) {
 		Tensor::Vector<double,2> viewxmax(app->aspectRatio * .5, .5);

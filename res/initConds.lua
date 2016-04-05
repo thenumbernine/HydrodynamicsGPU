@@ -12,6 +12,7 @@ initConds = {
 		setup=function()
 			initState = function(x,y,z)
 				return buildStateEuler{
+					x=x, y=y, z=z,
 					density = 1,
 					pressure = 1,
 					velocityX = 1,
@@ -32,6 +33,7 @@ initConds = {
 			initState = function(x,y,z)
 				local rSq = x * x + y * y + z * z
 				return buildStateEuler{
+					x=x, y=y, z=z,
 					velocityX = 1,
 					density = math.exp(-100*rSq) + 1,
 					pressure = 1,
@@ -49,6 +51,7 @@ initConds = {
 				local rSq = x * x + y * y + z * z
 				local inside = rSq <= .2*.2
 				return buildStateEuler{
+					x=x, y=y, z=z,
 					density = inside and 1 or .1,
 					pressure = inside and 1 or .1,	--1 : .1 works for 2d but not 3d
 				}
@@ -61,12 +64,13 @@ initConds = {
 		equations={'Euler', 'MHD', 'SRHD'},
 		setup=function()
 			--boundaryMethods = {{min='MIRROR', max='MIRROR'}, {min='MIRROR', max='MIRROR'}, {min='MIRROR', max='MIRROR'}}
+			gamma = 7/5
 			initState = function(x,y,z)
 				local inside = x <= 0 and y <= 0 and z <= 0	
 				return buildStateEuler{
 					x=x, y=y, z=z,
-					density = inside and 1 or .1,
-					specificEnergyInternal = 1,
+					density = inside and 1 or .125,
+					pressure = inside and 1 or .1,
 				}
 			end
 		end,
@@ -207,11 +211,13 @@ initConds = {
 				and math.abs(z) < 1.5 * dx[3]
 				then
 					return buildStateEuler{
+						x=x, y=y, z=z,
 						density = 1,
 						pressure = 1e+5,
 					}
 				else
 					return buildStateEuler{
+						x=x, y=y, z=z,
 						density = 1,
 						pressure = 1e-5,
 					}
@@ -230,6 +236,7 @@ initConds = {
 			initState = function(x,y,z)
 				local lhs = x <= 0 and y <= 0 and z <= 0
 				return buildStateEuler{
+					x=x, y=y, z=z,
 					density = lhs and 1 or .125,
 					pressure = lhs and 1 or .1,
 					magneticFieldX = .75,
@@ -251,6 +258,7 @@ initConds = {
 			-- assumes coordinate space to be [-.5,.5]^2
 			initState = function(x,y,z)
 				return buildStateEuler{
+					x=x, y=y, z=z,
 					density = 25/(36*math.pi),
 					velocityX = -math.sin(2*math.pi*(y+.5)),
 					velocityY = math.sin(2*math.pi*(x+.5)),
@@ -280,6 +288,7 @@ initConds = {
 					pressure = 100
 				end
 				return buildStateEuler{
+					x=x, y=y, z=z,
 					density = 1,
 					velocityX = 0, velocityY = 0, velocityZ = 0,
 					pressure = pressure,
@@ -305,6 +314,7 @@ initConds = {
 				end
 				local noise = size[1] * 2e-5
 				return buildStateEuler{
+					x=x, y=y, z=z,
 					density = inside and 2 or 1,
 					velocityX = math.cos(theta) * noise + (inside and -.5 or .5),
 					velocityY = math.sin(theta) * noise,
@@ -331,6 +341,7 @@ initConds = {
 			initState = function(x,y,z)
 				local lhs = x < x0 + y * (1/3)^(1/2)
 				return buildStateEuler{
+					x=x, y=y, z=z,
 					density = lhs and 8 or 1.4,
 					velocityX = lhs and 8.25 * math.cos(math.rad(30)) or 0,
 					velocityY = lhs and -8.25 * math.cos(math.rad(30)) or 0,
@@ -591,6 +602,7 @@ initConds = {
 							radius = .2,
 							inside = function(dx,dy,dz)
 								return buildStateEuler{
+									x=x, y=y, z=z,
 									velocityX = -10 * dy,
 									velocityY = 10 * dx,
 									pressure = 1,
@@ -617,6 +629,7 @@ initConds = {
 							radius = .1,
 							inside = function(dx,dy,dz)
 								return buildStateEuler{
+									x=x, y=y, z=z,
 									pressure = 1,
 									density = 1,
 								}
@@ -627,6 +640,7 @@ initConds = {
 							radius = .1,
 							inside = function(dx,dy,dz)
 								return buildStateEuler{
+									x=x, y=y, z=z,
 									pressure = 1,
 									density = 1,
 								}
@@ -656,6 +670,72 @@ initConds = {
 						{center={-.25, -.25, 0}, radius = .1},
 					},
 				})
+			end
+		end,
+	},
+
+	{	-- Marti & Muller 2008 
+		name='Relativistic Blast Wave Interaction',
+		equations={'Euler', 'MHD', 'SRHD'},
+		setup=function()
+			gamma = 7/5
+			initState = function(x,y,z)
+				local xs = {x,y,z}
+				local xlhs = {
+					.9 * xmin[1] + .1 * xmax[1],
+					.9 * xmin[2] + .1 * xmax[2],
+					.9 * xmin[3] + .1 * xmax[3],
+				}
+				local xrhs = {
+					.1 * xmin[1] + .9 * xmax[1],
+					.1 * xmin[2] + .9 * xmax[2],
+					.1 * xmin[3] + .9 * xmax[3],
+				}
+		
+				-- how should I do this for higher dimensions?  corners?
+				local lhs = true
+				local rhs = true
+				for i=1,#size do
+					lhs = lhs and xs[i] <= xlhs[i]
+					rhs = rhs and xs[i] >= xrhs[i]
+				end
+				return buildStateEuler{
+					x=x, y=y, z=z,
+					density = 1,
+					pressure = lhs and 1e+3 or (rhs and 1e+2 or 1e-2),
+				}
+			end
+		end,
+	},
+
+	{
+		name='Marti & Muller 2008 Problem #1',
+		--name = 'SRHD Schneider et al',	-- aka
+		equations={'Euler', 'MHD', 'SRHD'},
+		setup=function()
+			gamma=5/3
+			initState = function(x,y,z)
+				return buildStateEuler{
+					x=x, y=y, z=z,
+					density = x < 0 and 10 or 1,
+					specificEnergyInternal = x < 0 and 2 or 1e-6,
+				}
+			end
+		end,
+	},
+	
+	{
+		name='Marti & Muller 2008 Problem #2',
+		equations={'Euler', 'MHD', 'SRHD'},
+		setup=function()
+			gamma = 5/3
+			initState = function(x,y,z)
+				local lhs = x <= 0 and y <= 0 and z <= 0
+				return buildStateEuler{
+					x=x, y=y, z=z,
+					density = 1,
+					pressure = lhs and 1e+3 or 1e-2,
+				}
 			end
 		end,
 	},

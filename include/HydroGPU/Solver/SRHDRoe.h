@@ -28,10 +28,15 @@ protected:
 	cl::Kernel initVariablesKernel;
 
 	/*
+	State Update:
+	make sure D (relativistic density) and tau (relativistic total energy) don't go negative
+	
+	Primitive Update:
 	Performs the Newton root-finding on the pressure variable to update primtivies each iteration
 	...or in the case of multi-stage, multiple times per iteration ...
 	*/
 	cl::Kernel updatePrimitivesKernel;
+	cl::Kernel constrainStateKernel;
 
 public:
 	using Super::Super;
@@ -51,7 +56,7 @@ protected:
 	*/
 	virtual void resetState();		//called third
 
-	virtual void calcDeriv(cl::Buffer derivBuffer, real dt);
+	virtual void step(real dt);
 public:
 	virtual std::string name() const { return "SRHDRoe"; }
 };

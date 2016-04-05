@@ -3,6 +3,9 @@ The components of the Roe solver specific to the Euler equations
 paritcularly the spectral decomposition
 */
 
+//#ifdef AMD_SUCKS...
+//#pragma OPENCL EXTENSION cl_amd_printf : enable
+
 #include "HydroGPU/Shared/Common.h"
 
 void calcEigenBasisSide(
@@ -32,13 +35,13 @@ void calcEigenBasisSide(
 
 	int index = INDEXV(i);
 	int indexPrev = index - stepsize[side];
-	int interfaceIndex = side + DIM * index;
 
 //	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
 //	const __global real* stateR = stateBuffer + NUM_STATES * index;
-	
 	const __global real* primitiveL = primitiveBuffer + NUM_PRIMITIVE * indexPrev;
 	const __global real* primitiveR = primitiveBuffer + NUM_PRIMITIVE * index;
+	
+	int interfaceIndex = side + DIM * index;
 	
 	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
 	__global real* evl = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
@@ -66,11 +69,13 @@ void calcEigenBasisSide(
 #endif
 	real eIntR = primitiveR[PRIMITIVE_SPECIFIC_INTERNAL_ENERGY];
 
+//printf("cell %d prims L=%f %f %f R=%f %f %f\n", index, rhoL, vL.x, eIntL, rhoR, vR.x, eIntR);
+
 	real rho = .5 * (rhoL + rhoR);
 	real eInt = .5 * (eIntL + eIntR);
 	real4 v = .5 * (vL + vR);
 	real vSq = dot(v,v);
-	real oneOverW2 = 1 - vSq;
+	real oneOverW2 = 1. - vSq;
 	real oneOverW = sqrt(oneOverW2);
 	real W = 1. / oneOverW;
 	real W2 = 1. / oneOverW2;
@@ -110,15 +115,18 @@ void calcEigenBasisSide(
 #endif
 	eigenvalues[DIM+1] = lambdaMax;
 
+//printf("cell %d eigenvalues %f %f %f\n", index, eigenvalues[0], eigenvalues[1], eigenvalues[DIM+1]);
+
 	//eigenvectors
 
 	real Kappa = h;	//true for ideal gas. otherwise the general equation for Kappa gets instable at high Lorentz factors 
-	real AMinus = (1. - vxSq) / (1. * v.x * lambdaMin);
-	real APlus  = (1. - vxSq) / (1. * v.x * lambdaMax);
-
+	real AMinus = (1. - vxSq) / (1. - v.x * lambdaMin);
+	real APlus  = (1. - vxSq) / (1. - v.x * lambdaMax);
+//printf("cell %d A+ %f A- %f\n", index, APlus, AMinus);
+//printf("cell %d h %f W %f hW %f\n", index, h, W, hW);
 	//min col 
 	evr[0 + NUM_STATES * 0] = 1.;
-	evr[1 + NUM_STATES * 0] = hW * AMinus * lambdaMin;
+	evr[1 + NUM_STATES * 0] = hW * AMinus * lambdaMin;	//inf
 #if DIM > 1
 	evr[2 + NUM_STATES * 0] = hW * v.y;
 #if DIM > 2
@@ -156,7 +164,7 @@ void calcEigenBasisSide(
 #endif
 	//max col 
 	evr[0 + NUM_STATES * (DIM+1)] = 1.;
-	evr[1 + NUM_STATES * (DIM+1)] = hW * APlus * lambdaMax;
+	evr[1 + NUM_STATES * (DIM+1)] = hW * APlus * lambdaMax;	//inf
 #if DIM > 1
 	evr[2 + NUM_STATES * (DIM+1)] = hW * v.y;
 #if DIM > 2
@@ -165,7 +173,13 @@ void calcEigenBasisSide(
 #endif
 	evr[(DIM+1) + NUM_STATES * (DIM+1)] = hW * APlus - 1.;
 
-	
+//for (int j = 0; j < DIM+2; ++j) {
+//	for (int k = 0; k < DIM+2; ++k) {
+//		printf("cell %d right eigenvectors %d %d = %f\n", index, j, k, evr[j + NUM_STATES * k]);
+//	}
+//}
+
+#if 1 || DIM != 1
 	//calculate eigenvector inverses ... 
 	real Delta = hSq * hW * (Kappa - 1.) * (1. - vxSq) * (APlus * lambdaMax - AMinus * lambdaMin);
 	
@@ -222,6 +236,30 @@ void calcEigenBasisSide(
 #endif
 #endif
 	evl[(DIM+1) + NUM_STATES * (DIM+1)] = scale * (-v.x - W2 * (vSq - vxSq) * (2. * Kappa - 1.) * (v.x - AMinus * lambdaMin) + Kappa * AMinus * lambdaMin);
+#else	//numeric inverse
+	real det = evr[0 + 3 * 0] * evr[1 + 3 * 1] * evr[2 + 3 * 2]
+			+ evr[1 + 3 * 0] * evr[2 + 3 * 1] * evr[0 + 3 * 2]
+			+ evr[2 + 3 * 0] * evr[0 + 3 * 1] * evr[1 + 3 * 2]
+			- evr[2 + 3 * 0] * evr[1 + 3 * 1] * evr[0 + 3 * 2]
+			- evr[1 + 3 * 0] * evr[0 + 3 * 1] * evr[2 + 3 * 2]
+			- evr[0 + 3 * 0] * evr[2 + 3 * 1] * evr[1 + 3 * 2];
+	real invDet = 1. / det;
+	for (int j = 0; j < 3; ++j) {                                                     
+		int j1 = j % 3;
+		int j2 = j1 % 3;
+		for (int k = 0; k < 3; ++k) {                                                  
+			int k1 = k % 3;
+			int k2 = k1 % 3;
+			evl[k + 3 * j] = invDet * (evr[j1 + 3 * k1] * evr[j2 + 3 * k2] - evr[j1 + 3 * k2] * evr[j2 + 3 * k1]);
+		}
+	}
+#endif
+
+//for (int j = 0; j < DIM+2; ++j) {
+//	for (int k = 0; k < DIM+2; ++k) {
+//		printf("cell %d left eigenvectors %d %d = %f\n", index, j, k, evl[j + NUM_STATES * k]);
+//	}
+//}
 
 #if DIM > 1
 	if (side == 1) {

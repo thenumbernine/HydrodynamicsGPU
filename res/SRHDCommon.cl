@@ -9,6 +9,9 @@
 #define VELOCITY(ptr)	((real4)((ptr)[PRIMITIVE_VELOCITY_X], (ptr)[PRIMITIVE_VELOCITY_Y], (ptr)[PRIMITIVE_VELOCITY_Z], 0.))
 #endif
 
+//#ifdef AMD_SUCKS...
+//#pragma OPENCL EXTENSION cl_amd_printf : enable
+
 /*
 Incoming is Newtonian Euler equation state variables: density, momentum, newtonian total energy density
 Outgoing is the SRHD primitives associated with it: density, velocity?, and pressure
@@ -53,7 +56,8 @@ and try to keep up
 	real eKinClassic = .5 * vSq;
 	real eTotalClassic = ETotalClassic / rho;
 	real eInt = eTotalClassic - eKinClassic;
-	// recast them as SR state variables 
+	// recast them as SR state variables
+	//TODO this whooole process can be implemented in Equation::SRHD::readStateCell
 	real P = (gamma - 1.) * rho * eInt;
 	real h = 1. + eInt + P / rho; 
 	real WSq = 1. / (1. - vSq);
@@ -83,6 +87,24 @@ and try to keep up
 	state[STATE_TOTAL_ENERGY_DENSITY] = tau;
 }
 
+__kernel void constrainState(
+	__global real* stateBuffer)
+{
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	int index = INDEXV(i);
+	__global real* state = stateBuffer + NUM_STATES * index;
+	state[STATE_REST_MASS_DENSITY] = max(state[STATE_REST_MASS_DENSITY], 1e-15);
+	state[STATE_TOTAL_ENERGY_DENSITY] = max(state[STATE_TOTAL_ENERGY_DENSITY], 1e-15);
+}
+
+//these epsilons work for the shock wave interaction problem in 1D ... 
+//... but 2D is crashing ...
+#define SOLVE_PRIM_MAX_ITER 1000
+#define SOLVE_PRIM_STOP_EPSILON	1e-7
+#define SOLVE_PRIM_VEL_EPSILON 1e-15
+#define SOLVE_PRIM_P_MIN_EPSILON 1e-16
+#define SOLVE_PRIM_RHO_MIN_EPSILON 1e-15
+
 // convert conservative to primitive using root-finding
 //From Marti & Muller 2008
 __kernel void updatePrimitives(
@@ -90,42 +112,50 @@ __kernel void updatePrimitives(
 	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	if (i.x < 2 || i.x >= SIZE_X - 1 
+#if DIM > 1
+		|| i.y < 2 || i.y >= SIZE_Y - 1
+#endif
+#if DIM > 2
+		|| i.z < 2 || i.z >= SIZE_Z - 1
+#endif
+	) return;
+	
 	int index = INDEXV(i);
 
 	const __global real* state = stateBuffer + NUM_STATES * index;
 	real D = state[STATE_REST_MASS_DENSITY];
-#if DIM == 1
-	real4 S = (real4)(state[STATE_MOMENTUM_DENSITY_X], 0., 0., 0.);
-#elif DIM == 2
-	real4 S = (real4)(state[STATE_MOMENTUM_DENSITY_X], state[STATE_MOMENTUM_DENSITY_Y], 0., 0.);
-#elif DIM == 3
-	real4 S = (real4)(state[STATE_MOMENTUM_DENSITY_X], state[STATE_MOMENTUM_DENSITY_Y], state[STATE_MOMENTUM_DENSITY_Z], 0.);
+	real4 S = (real4)(0., 0., 0., 0.);
+	S.x = state[STATE_MOMENTUM_DENSITY_X];
+#if DIM > 1
+	S.y = state[STATE_MOMENTUM_DENSITY_Y];
+#endif
+#if DIM > 2
+	S.z = state[STATE_MOMENTUM_DENSITY_Z];
 #endif
 	real tau = state[STATE_TOTAL_ENERGY_DENSITY];
 
+//printf("cell %d cons= %f %f %f\n", index, D, S.x, tau);
+
 	__global real* primitive = primitiveBuffer + NUM_STATES * index;
 	//real rho = primitive[PRIMITIVE_DENSITY];
-#if DIM == 1
-	real4 v = (real4)(primitive[PRIMITIVE_VELOCITY_X], 0., 0., 0.);
-#elif DIM == 2
-	real4 v = (real4)(primitive[PRIMITIVE_VELOCITY_X], primitive[PRIMITIVE_VELOCITY_Y], 0., 0.);
-#elif DIM == 3
-	real4 v = (real4)(primitive[PRIMITIVE_VELOCITY_X], primitive[PRIMITIVE_VELOCITY_Y], primitive[PRIMITIVE_VELOCITY_Z], 0.);
+	real4 v = (real4)(0., 0., 0., 0.);
+	v.x = primitive[PRIMITIVE_VELOCITY_X];
+#if DIM > 1
+	v.y = primitive[PRIMITIVE_VELOCITY_Y];
+#endif
+#if DIM > 2
+	v.z = primitive[PRIMITIVE_VELOCITY_Z];
 #endif
 	//real eInt = primitive[PRIMITIVE_SPECIFIC_INTERNAL_ENERGY];
 
-	D = max(D, 1e-10);
-	tau = max(tau, 1e-10);
-
 	real SLen = length(S);
-	const real velocityEpsilon = 1e-16;
-	real PMin = max(SLen - tau - D + SLen * velocityEpsilon, 1e-16);
+	real PMin = max(SLen - tau - D + SLen * SOLVE_PRIM_VEL_EPSILON, SOLVE_PRIM_P_MIN_EPSILON);
 	real PMax = (gamma - 1.) * tau;
 	PMax = max(PMax, PMin);
 	real P = .5 * (PMin + PMax);
 
-#define PRESSURE_MAX_ITERATIONS 100
-	for (int iter = 0; iter < PRESSURE_MAX_ITERATIONS; ++iter) {
+	for (int iter = 0; iter < SOLVE_PRIM_MAX_ITER; ++iter) {
 		real vLen = SLen / (tau + D + P);
 		real vSq = vLen * vLen;
 		real W = 1. / sqrt(1. - vSq);
@@ -138,11 +168,11 @@ __kernel void updatePrimitives(
 		newP = max(newP, PMin);
 		real PError = fabs(1. - newP / P);
 		P = newP;
-#define SOLVE_PRIM_STOP_EPSILON	1e-7
 		if (PError < SOLVE_PRIM_STOP_EPSILON) {
-			v = S * (1. / (tau + D + P));
+			v = S / (tau + D + P);
 			W = 1. / sqrt(1. - dot(v,v));
 			rho = D / W;
+			rho = max(rho, SOLVE_PRIM_RHO_MIN_EPSILON);
 			eInt = P / (rho * (gamma - 1.));
 			primitive[PRIMITIVE_DENSITY] = rho;
 			primitive[PRIMITIVE_VELOCITY_X] = v.x;
@@ -153,9 +183,11 @@ __kernel void updatePrimitives(
 #endif
 #endif
 			primitive[PRIMITIVE_SPECIFIC_INTERNAL_ENERGY] = eInt;
-			break;
+//printf("cell %d finished with prims = %f %f %f\n", index, rho, v.x, eInt);
+			return;
 		}
 	}
+//printf("cell %d didn't finish\n", index);
 }
 
 //specific to Euler equations
@@ -203,8 +235,7 @@ __kernel void convertToTex(
 	} else if (displayMethod == DISPLAY_P) {
 		value = (gamma - 1.) * rho * eInt;
 	} else if (displayMethod == DISPLAY_H) {
-		real P = (gamma - 1.) * rho * eInt;
-		value = 1. + eInt + P/gamma;
+		value = 1 + gamma * eInt;
 	} else if (displayMethod == DISPLAY_D) {
 		value = state[STATE_REST_MASS_DENSITY];
 	} else if (displayMethod == DISPLAY_S_X) {

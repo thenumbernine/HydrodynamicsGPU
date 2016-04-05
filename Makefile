@@ -11,7 +11,7 @@ include ../Profiler/Include.mk
 include ../Image/Include.mk
 include ../Shader/Include.mk
 include ../LuaCxx/Include.mk
-include ../ImGUICommon/Include.mk
+include ../ImGuiCommon/Include.mk
 
 MACROS+= AMD_SUCKS
 LUA_EXT_PATH=$(HYDROGPU_PATH)/../lua/ext

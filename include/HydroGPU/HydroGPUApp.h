@@ -9,8 +9,8 @@
 #include "HydroGPU/Shared/Common.h"	//real4
 #include <map>
 
-namespace ImGUICommon {
-struct ImGUICommon;
+namespace ImGuiCommon {
+struct ImGuiCommon;
 }
 
 namespace HydroGPU {
@@ -32,7 +32,7 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	typedef ::GLApp::GLApp Super;
 
 	std::shared_ptr<CLCommon::CLCommon> clCommon;
-	std::shared_ptr<ImGUICommon::ImGUICommon> gui;
+	std::shared_ptr<ImGuiCommon::ImGuiCommon> gui;
 
 	GLuint gradientTex;
 	
