@@ -100,7 +100,7 @@ camera = {}
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
 --solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
-solverName = 'SRHDRoe'			-- 
+solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
 
@@ -233,8 +233,6 @@ heatMapVariable = 'K'
 --fixedDT = .125
 --useFixedDT = true
 graphVariables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = all.
-graphStep = {1,1,1}
-graphScale = 1
 --]]
 
 -- camera setup:
@@ -242,8 +240,8 @@ graphScale = 1
 if #size == 1 then			-- 1D better be ortho
 	camera.mode = 'ortho'
 elseif #size == 2 then		-- 2D can handle either ortho or frustum
-	--camera.mode = 'ortho'
-	camera.mode = 'frustum'
+	camera.mode = 'ortho'
+	--camera.mode = 'frustum'
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end

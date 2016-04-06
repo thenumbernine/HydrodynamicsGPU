@@ -345,7 +345,6 @@ void HydroGPUApp::init() {
 	createPlot();
 
 	graph = std::make_shared<Plot::Graph>(this);
-	lua.ref()["graphScale"] >> graph->scale;
 	{	
 		std::vector<std::string> graphVariableNames;
 		LuaCxx::Ref graphVariablesRef = lua.ref()["graphVariables"];
@@ -364,37 +363,11 @@ void HydroGPUApp::init() {
 		}
 
 		//make a mapping from names to indexes
-		std::map<std::string, int> varIndexForName;
 		const std::vector<std::string>& displayVariables = solver->equation->displayVariables;
 		for (std::vector<std::string>::const_iterator i = displayVariables.begin(); i != displayVariables.end(); ++i) {
-			varIndexForName[*i] = i - displayVariables.begin();
-		}
-
-		//now verify that the variables are legit, complain otherwise
-		std::vector<int> graphVariables;
-		for (const std::string& graphVarName : graphVariableNames) {
-			std::map<std::string, int>::iterator loc = varIndexForName.find(graphVarName);
-			if (loc == varIndexForName.end()) {
-				throw Common::Exception() << "couldn't find graph variable " << graphVarName << " among display variables";
-			}
-			graphVariables.push_back(loc->second);
-		}
-
-		graph->variables = graphVariables;
-	}
-	{
-		int i = 0;
-		LuaCxx::Ref graphStepRef = lua.ref()["graphStep"];
-		for (; i < dim; ++i) {
-			graph->step(i) = size.s[i] >> 5;
-			if (!graphStepRef.isTable()) {
-				continue;
-			}
-			if (i >= graphStepRef.len()) {
-				continue;
-			}
-			if (!(graphStepRef[i+1] >> graph->step(i)).good()) {
-				continue;
+			int displayVarIndex = i - displayVariables.begin();
+			if (displayVarIndex >= 0 && displayVarIndex < displayVariables.size()) {
+				graph->variables[displayVarIndex].enabled = true;
 			}
 		}
 	}
@@ -504,10 +477,7 @@ PROFILE_BEGIN_FRAME()
 	... then *everything* C-callable would be accessible immediately
 	*/
 	float logHeatMapColorScale = log(heatMapColorScale);
-	float logGraphScale = log(graph->scale);
 	float logVectorFieldScale = log(vectorFieldScale);
-	std::vector<int> graphVariables(solver->equation->displayVariables.size());
-	for (int v : graph->variables) graphVariables[v] = 1;
 	gui->update([&](){
 		//how do you change the window title from "Debug"?
 		
@@ -540,8 +510,6 @@ PROFILE_BEGIN_FRAME()
 				createPlot();
 				vectorField = std::make_shared<Plot::VectorField>(solver);
 				std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
-				newGraph->scale = graph->scale;
-				newGraph->step = graph->step;
 				newGraph->variables = graph->variables;
 				graph = newGraph;
 			}
@@ -576,8 +544,6 @@ PROFILE_BEGIN_FRAME()
 				createPlot();
 				vectorField = std::make_shared<Plot::VectorField>(solver);
 				std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
-				newGraph->scale = graph->scale;
-				newGraph->step = graph->step;
 				newGraph->variables = graph->variables;
 				graph = newGraph;
 			}
@@ -588,6 +554,21 @@ PROFILE_BEGIN_FRAME()
 				std::string initCondName = initCondNamesForEqns[equationNames[equationIndex]][initCondIndex];
 				std::cout << "setting up initial condition " << initCondName << std::endl;
 				lua.ref()["initConds"][initCondName]["setup"]();
+			}
+		}
+		
+		if (ImGui::CollapsingHeader("boundaries")) {
+			std::vector<std::string> methods = solver->equation->boundaryMethods;
+			methods.insert(methods.begin(), "NONE");
+			std::string s = makeComboStr(methods);
+			for (int i = 0; i < dim; ++i) {
+				for (int minmax = 0; minmax < 2; ++minmax) {
+					std::stringstream comboTitle;
+					comboTitle << (char)('x'+i) << " " << (minmax ? "max" : "min");
+					++boundaryMethods(i,minmax);
+					ImGui::Combo(comboTitle.str().c_str(), &boundaryMethods(i,minmax), s.c_str());
+					--boundaryMethods(i,minmax);
+				}
 			}
 		}
 
@@ -601,7 +582,7 @@ PROFILE_BEGIN_FRAME()
 			
 			//heat map color scale
 			ImGui::Text("log scale");
-			ImGui::DragFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f); 
+			ImGui::SliderFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f); 
 		}
 		
 		if (ImGui::CollapsingHeader("graph")) {
@@ -609,34 +590,32 @@ PROFILE_BEGIN_FRAME()
 			//or it could be inferred from common prefixes?
 			//graph variables (multiple)
 			if (ImGui::TreeNode("variable")) {
-				graph->variables.clear();
-				for (int i = 0; i < graphVariables.size(); ++i) {
-					ImGui::Checkbox(solver->equation->displayVariables[i].c_str(), (bool*)&graphVariables[i]);
-					if (graphVariables[i]) graph->variables.push_back(i);
+				for (Plot::Graph::Variable& var : graph->variables) {
+					std::string name = var.name;
+					
+					ImGui::Checkbox((name + std::string(" enabled")).c_str(), &var.enabled);
+					ImGui::Checkbox((std::string("log ") + name).c_str(), &var.log);
+					
+					float logScale = log(var.scale) / log(10);
+					ImGui::SliderFloat((std::string("scale ") + name).c_str(), &logScale, -10, 10);
+					var.scale = pow(10, logScale);
+					
+					ImGui::SliderInt((std::string("spacing ") + name).c_str(), &var.step, 1, (int)size.s[0]);
 				}
 				ImGui::TreePop();
 			}
 			if (ImGui::Button("all variables")) {
-				graph->variables.clear();
-				for (int i= 0; i < solver->equation->displayVariables.size(); ++i) {
-					graph->variables.push_back(i);
+				for (Plot::Graph::Variable& var : graph->variables) {
+					var.enabled = true;
 				}
 			}
-			
-			// graph scale
-			ImGui::Text("log scale");
-			ImGui::DragFloat("g.s.", &logGraphScale, -10.f, 10.f); 
-		
-			//graph spacing?
-			ImGui::Text("spacing");
-			ImGui::SliderInt("g.sp.", &graph->step(0), 1, (int)size.s[0]);
 		}
 
 		if (ImGui::CollapsingHeader("vector field")) {
 			ImGui::Checkbox("show", &showVectorField); // velocity field on/off
 			//TODO velocity field variable
 			ImGui::Text("log scale");
-			ImGui::DragFloat("v.f.s.", &logVectorFieldScale, -10.f, 10.f); // velocity field size
+			ImGui::SliderFloat("v.f.s.", &logVectorFieldScale, -10.f, 10.f); // velocity field size
 		}
 		
 		if (ImGui::CollapsingHeader("controls")) {
@@ -744,11 +723,7 @@ PROFILE_BEGIN_FRAME()
 		*/
 	});
 	heatMapColorScale = exp(logHeatMapColorScale);
-	graph->scale = exp(logGraphScale);
 	vectorFieldScale = exp(logVectorFieldScale);
-	for (int i = 1; i < 3; ++i) {
-		graph->step(i) = graph->step(0);
-	}
 
 PROFILE_END_FRAME();
 }
@@ -830,12 +805,14 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				}
 				std::cout << "heatMapColorScale " << heatMapColorScale << std::endl;
 			} else if (event.key.keysym.sym == SDLK_b) {
-				if (shiftDown) {
-					graph->scale *= .5;
-				} else {
-					graph->scale *= 2.;
+				for (Plot::Graph::Variable& var : graph->variables) {
+					if (shiftDown) {
+						var.scale *= .5;
+					} else {
+						var.scale *= 2.;
+					}
+					std::cout << "var " << var.name << " scale " << var.scale << std::endl;
 				}
-				std::cout << "graph->scale " << graph->scale << std::endl;
 			} else if (event.key.keysym.sym == SDLK_d) {
 				if (shiftDown) {
 					heatMapVariable = (heatMapVariable + solver->equation->displayVariables.size() - 1) % solver->equation->displayVariables.size();

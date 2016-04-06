@@ -97,6 +97,7 @@ __kernel void constrainState(
 	state[STATE_TOTAL_ENERGY_DENSITY] = max(state[STATE_TOTAL_ENERGY_DENSITY], 1e-15);
 }
 
+#if 1
 //these epsilons work for the shock wave interaction problem in 1D ... 
 //... but 2D is crashing ...
 #define SOLVE_PRIM_MAX_ITER 1000
@@ -104,6 +105,18 @@ __kernel void constrainState(
 #define SOLVE_PRIM_VEL_EPSILON 1e-15
 #define SOLVE_PRIM_P_MIN_EPSILON 1e-16
 #define SOLVE_PRIM_RHO_MIN_EPSILON 1e-15
+#endif
+
+//so I'll try loosening the constraints...
+//the two-shockwave interaction problem crashes in 2D, but only near certain boundaries (which are broken)
+//try fixing that first ...
+#if 0
+#define SOLVE_PRIM_MAX_ITER 1000
+#define SOLVE_PRIM_STOP_EPSILON	1e-7
+#define SOLVE_PRIM_VEL_EPSILON 1e-7
+#define SOLVE_PRIM_P_MIN_EPSILON 1e-7
+#define SOLVE_PRIM_RHO_MIN_EPSILON 1e-7
+#endif
 
 // convert conservative to primitive using root-finding
 //From Marti & Muller 2008

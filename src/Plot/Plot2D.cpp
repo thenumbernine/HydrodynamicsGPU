@@ -1,3 +1,9 @@
+/*
+TODO
+rename Plot2D to HeatMap
+...and then Plot3D to isobar
+*/
+
 #include "HydroGPU/Plot/Plot2D.h"
 #include "HydroGPU/Plot/Camera.h"
 #include "HydroGPU/Solver/Solver.h"
@@ -30,6 +36,8 @@ void Plot2D::display() {
 	heatShader->setUniform<float>("scale", app->heatMapColorScale);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, tex);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_1D, app->gradientTex);
 	glBegin(GL_QUADS);
@@ -49,4 +57,3 @@ void Plot2D::display() {
 
 }
 }
-

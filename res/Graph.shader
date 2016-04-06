@@ -8,12 +8,14 @@ uniform int axis;
 uniform vec2 xmin;
 uniform vec2 xmax;
 uniform float scale;
+uniform bool useLog;
 
 vec3 func(vec3 src) {
 	vec3 vertex = src.xyz;
 	vertex.x = vertex.x * (xmax.x - xmin.x) + xmin.x;
 	vertex.y = vertex.y * (xmax.y - xmin.y) + xmin.y;
 	vertex[axis] = texture2D(tex, src.xy).r * scale;
+	if (useLog) vertex[axis] = log(1. + abs(vertex[axis]));
 	return vertex;
 }
 

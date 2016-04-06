@@ -1,7 +1,9 @@
+#include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/Plot/Graph.h"
 #include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/Plot/CameraOrtho.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "Common/Macros.h"
 #include "Common/File.h"
 
@@ -10,7 +12,6 @@ namespace Plot {
 
 Graph::Graph(HydroGPU::HydroGPUApp* app_)
 : app(app_)
-, scale(1.f)
 {
 	std::string shaderCode = Common::File::read("Graph.shader");
 	std::vector<Shader::Shader> shaders = {
@@ -21,40 +22,51 @@ Graph::Graph(HydroGPU::HydroGPUApp* app_)
 	graphShader->link();
 	graphShader->setUniform<int>("tex", 0);
 	graphShader->done();
+
+	variables.clear();
+	for (const std::string& name : app->solver->equation->displayVariables) {
+		variables.push_back(Variable(name));
+	}
 }
 
 void Graph::display() {
-	//if we're in ortho mode and we're not 1D then cut out
-	if (app->dim > 1 && std::dynamic_pointer_cast<CameraOrtho>(app->camera)) return;
 	
-	for (int i = 0; i < 3; ++i) {
-		if (step(i) < 1) step(i) = 1;
-	}
-
+	//if we're in ortho mode and we're 2D then cut out
+	if (app->dim == 2 && std::dynamic_pointer_cast<CameraOrtho>(app->camera)) return;
+	
 	static float colors[][3] = {
 		{1,0,0},
+		{1,1,0},
 		{0,1,0},
-		{0,.5,1},
-		{1,.5,0}
+		{0,1,1},
+		{0,0,1},
+		{1,0,1},
 	};
 
 	// TODO only select variables? 
-	for (int var : variables) {
-		app->plot->convertVariableToTex(var);
+	for (int i = 0; i < variables.size(); ++i) {
+		const Variable& var = variables[i];
+		if (!var.enabled) continue;
+		
+		int step = var.step;
+		if (step < 1) step = 1;
+	
+		app->plot->convertVariableToTex(i);
 		
 		graphShader->use();
-		graphShader->setUniform<float>("scale", scale)
+		graphShader->setUniform<float>("scale", var.scale)
 					.setUniform<int>("axis", app->dim)
-					.setUniform<float>("ambient", app->dim == 1 ? 1 : .1);
+					.setUniform<float>("ambient", app->dim == 1 ? 1 : .1)
+					.setUniform<bool>("useLog", var.log);
 		graphShader->setUniform<float>("xmin", app->xmin.s[0], app->xmin.s[1]);
 		graphShader->setUniform<float>("xmax", app->xmax.s[0], app->xmax.s[1]);
 		glBindTexture(GL_TEXTURE_2D, app->plot->tex);
-		glColor3fv(colors[var % numberof(colors)]);
+		glColor3fv(colors[i % numberof(colors)]);
 		
 		switch (app->dim) {
 		case 1:
 			glBegin(GL_LINE_STRIP);
-			for (int i = 2; i < app->size.s[0]-2; ++i) {
+			for (int i = 2; i < app->size.s[0]-2; i += step) {
 				real x = ((real)(i) + .5f) / (real)app->size.s[0];
 				glVertex2f(x, 0.f);
 			}
@@ -64,7 +76,7 @@ void Graph::display() {
 			{
 				Tensor::Vector<float,2> pt;
 				for (int k = 0; k < app->dim; ++k) {
-					for (int j = 2; j < app->size.s[!k]-2; j += step(k)) {
+					for (int j = 2; j < app->size.s[!k]-2; j += step) {
 						pt(!k) = ((real)(j) + .5f) / (real)app->size.s[!k];
 						glBegin(GL_LINE_STRIP);
 						for (int i = 2; i < app->size.s[k]-2; ++i) {

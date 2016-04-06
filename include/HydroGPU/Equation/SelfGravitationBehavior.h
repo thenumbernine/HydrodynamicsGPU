@@ -6,17 +6,6 @@
 namespace HydroGPU {
 namespace Equation {
 
-//TODO organize this
-//it's in each equation as well as here
-//probably put back in Solver.h along with BOUNDARY_KERNEL_* enum
-enum {
-	BOUNDARY_METHOD_NONE = -1,
-	BOUNDARY_METHOD_PERIODIC,
-	BOUNDARY_METHOD_MIRROR,
-	BOUNDARY_METHOD_FREEFLOW,
-	NUM_BOUNDARY_METHODS
-};
-
 struct SelfGravitationInterface {
 	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim, int minmax) = 0;
 };

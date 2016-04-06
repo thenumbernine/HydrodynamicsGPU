@@ -1,3 +1,9 @@
+/*
+TODO
+get rid of Plot1D
+now that Graph is the same thing, but for any dim
+*/
+
 #include "HydroGPU/Plot/Plot1D.h"
 #include "HydroGPU/Plot/CameraOrtho.h"
 #include "HydroGPU/Solver/Solver.h"
@@ -9,7 +15,7 @@
 
 namespace HydroGPU {
 namespace Plot {
-	
+
 Plot1D::Plot1D(HydroGPU::HydroGPUApp* app_) 
 : Super(app_)
 {
