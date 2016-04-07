@@ -50,7 +50,7 @@ void MHDRemoveDivergence::update() {
 	boundary(magneticFieldDivergenceBuffer);	//boundary to magnetic field potential buffer
 
 	//poisson relax divergence into potential buffer
-	solver->cl.zero(magneticFieldPotentialBuffer, volume);
+	solver->cl.zero(magneticFieldPotentialBuffer, volume * sizeof(real));
 	for (int i = 0; i < solver->app->gaussSeidelMaxIter; ++i) {
 		magneticPotentialPoissonRelaxKernel.setArg(0, magneticFieldPotential2Buffer);
 		magneticPotentialPoissonRelaxKernel.setArg(1, magneticFieldPotentialBuffer);

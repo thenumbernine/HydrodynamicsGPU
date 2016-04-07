@@ -58,7 +58,7 @@ void SelfGravitation::resetState(
 
 	//HACK: if the Lua state has a solid filename then load that and use it for the solid channel ...
 	std::string solidFilename;
-	if ((solver->app->lua.ref()["solidFilename"] >> solidFilename).good()) {
+	if ((solver->app->lua["solidFilename"] >> solidFilename).good()) {
 		std::shared_ptr<Image::IImage> image_ = Image::system->read(solidFilename);
 		std::shared_ptr<Image::Image> image = std::dynamic_pointer_cast<Image::Image>(image_);
 		for (int z = 0; z < solver->app->size.s[2]; ++z) {

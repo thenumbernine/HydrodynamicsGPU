@@ -23,7 +23,7 @@ void ForwardEuler::integrate(real dt, std::function<void(cl::Buffer)> callback) 
 	//TODO store globalSize1d in Solver?
 	cl::NDRange globalSize1d(length);
 
-	solver->cl.zero(derivBuffer, length);
+	solver->cl.zero(derivBuffer, length * sizeof(real));
 
 	callback(derivBuffer);
 

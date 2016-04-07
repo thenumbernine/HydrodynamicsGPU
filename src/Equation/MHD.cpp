@@ -43,11 +43,11 @@ void MHD::getProgramSources(std::vector<std::string>& sources) {
 	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
 	
 	real gamma = 1.4f;
-	app->lua.ref()["gamma"] >> gamma;
+	app->lua["gamma"] >> gamma;
 	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
 
 	real vaccuumPermeability = 1.f;
-	app->lua.ref()["vaccuumPermeability"] >> vaccuumPermeability;
+	app->lua["vaccuumPermeability"] >> vaccuumPermeability;
 	sources[0] += "constant real vaccuumPermeability = " + toNumericString<real>(vaccuumPermeability) + ";\n";
 	sources[0] += "constant real sqrtVaccuumPermeability = " + toNumericString<real>(sqrt(vaccuumPermeability)) + ";\n";
 

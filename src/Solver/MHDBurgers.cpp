@@ -14,8 +14,8 @@ void MHDBurgers::initBuffers() {
 	interfaceMagneticFieldBuffer = cl.alloc(sizeof(real) * volume * app->dim);
 	pressureBuffer = cl.alloc(sizeof(real) * volume);
 
-	cl.zero(interfaceVelocityBuffer, volume * app->dim);
-	cl.zero(interfaceMagneticFieldBuffer, volume * app->dim);
+	cl.zero(interfaceVelocityBuffer, volume * app->dim * sizeof(real));
+	cl.zero(interfaceMagneticFieldBuffer, volume * app->dim * sizeof(real));
 }
 
 void MHDBurgers::initKernels() {

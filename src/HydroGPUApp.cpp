@@ -167,32 +167,32 @@ void HydroGPUApp::init() {
 	std::cout << "...loaded config file" << std::endl;
 
 	bool useGPU = true;
-	lua.ref()["useGPU"] >> useGPU;
+	lua["useGPU"] >> useGPU;
 	for (int i = 0; i < 3; ++i) {
-		if (!lua.ref()["size"].isNil()) lua.ref()["size"][i+1] >> size.s[i];
-		if (!lua.ref()["xmin"].isNil()) lua.ref()["xmin"][i+1] >> xmin.s[i];
-		if (!lua.ref()["xmax"].isNil()) lua.ref()["xmax"][i+1] >> xmax.s[i];
+		if (!lua["size"].isNil()) lua["size"][i+1] >> size.s[i];
+		if (!lua["xmin"].isNil()) lua["xmin"][i+1] >> xmin.s[i];
+		if (!lua["xmax"].isNil()) lua["xmax"][i+1] >> xmax.s[i];
 	}
 
 	std::vector<std::vector<std::string>> boundaryMethodNames(3);
 	for (int i = 0; i < 3; ++i) {
 		boundaryMethodNames[i].resize(2);
-		if (!lua.ref()["boundaryMethods"].isNil()) {
-			if (lua.ref()["boundaryMethods"][i+1].isTable()) {
-				lua.ref()["boundaryMethods"][i+1]["min"] >> boundaryMethodNames[i][0];
-				lua.ref()["boundaryMethods"][i+1]["max"] >> boundaryMethodNames[i][1];
+		if (!lua["boundaryMethods"].isNil()) {
+			if (lua["boundaryMethods"][i+1].isTable()) {
+				lua["boundaryMethods"][i+1]["min"] >> boundaryMethodNames[i][0];
+				lua["boundaryMethods"][i+1]["max"] >> boundaryMethodNames[i][1];
 			}
 		}
 	}
 
 	for (const std::string& eqnName : equationNames) {
 		std::vector<std::string> initCondNames;
-		for (int i = 1; i <= lua.ref()["initConds"].len(); ++i) {
+		for (int i = 1; i <= lua["initConds"].len(); ++i) {
 			std::string initCondName;
-			lua.ref()["initConds"][i]["name"] >> initCondName;
-			for (int j = 1; j <= lua.ref()["initConds"][i]["equations"].len(); ++j) {
+			lua["initConds"][i]["name"] >> initCondName;
+			for (int j = 1; j <= lua["initConds"][i]["equations"].len(); ++j) {
 				std::string initCondEqnName;
-				if ((lua.ref()["initConds"][i]["equations"][j] >> initCondEqnName).good() &&
+				if ((lua["initConds"][i]["equations"][j] >> initCondEqnName).good() &&
 					initCondEqnName == eqnName)
 				{
 					initCondNames.push_back(initCondName);
@@ -204,20 +204,20 @@ void HydroGPUApp::init() {
 		initCondNamesSeparatedForEqns[eqnName] = makeComboStr(initCondNames);
 	}
 
-	lua.ref()["maxFrames"] >> maxFrames;
-	lua.ref()["showTimestep"] >> showTimestep;
-	lua.ref()["useFixedDT"] >> useFixedDT;
-	lua.ref()["fixedDT"] >> fixedDT;
-	lua.ref()["cfl"] >> cfl;
-	lua.ref()["heatMapColorScale"] >> heatMapColorScale;
-	lua.ref()["useGravity"] >> useGravity;
-	lua.ref()["gaussSeidelMaxIter"] >> gaussSeidelMaxIter;
+	lua["maxFrames"] >> maxFrames;
+	lua["showTimestep"] >> showTimestep;
+	lua["useFixedDT"] >> useFixedDT;
+	lua["fixedDT"] >> fixedDT;
+	lua["cfl"] >> cfl;
+	lua["heatMapColorScale"] >> heatMapColorScale;
+	lua["useGravity"] >> useGravity;
+	lua["gaussSeidelMaxIter"] >> gaussSeidelMaxIter;
 
 	std::string heatMapVariableName;
-	lua.ref()["heatMapVariable"] >> heatMapVariableName;
+	lua["heatMapVariable"] >> heatMapVariableName;
 
-	lua.ref()["showVectorField"] >> showVectorField;
-	lua.ref()["vectorFieldScale"] >> vectorFieldScale;
+	lua["showVectorField"] >> showVectorField;
+	lua["vectorFieldScale"] >> vectorFieldScale;
 
 	//store dimension as last non-1 size
 	for (dim = 3; dim > 0; --dim) {
@@ -294,7 +294,7 @@ void HydroGPUApp::init() {
 
 	gradientTexMem = cl::ImageGL(clCommon->context, CL_MEM_READ_ONLY, GL_TEXTURE_1D, 0, gradientTex);
 
-	lua.ref()["solverName"] >> solverName;
+	lua["solverName"] >> solverName;
 	std::cout << "solverName " << solverName << std::endl;
 	{
 		std::vector<std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>>::iterator i
@@ -325,7 +325,7 @@ void HydroGPUApp::init() {
 	//needs solver->program to be created
 	vectorField = std::make_shared<Plot::VectorField>(solver);
 	
-	if (lua.ref()["camera"].isNil()) {
+	if (lua["camera"].isNil()) {
 		throw Common::Exception() << "unknown camera";
 	}
 	
@@ -333,7 +333,7 @@ void HydroGPUApp::init() {
 	cameraFrustum = std::make_shared<Plot::CameraFrustum>(this);
 	{
 		std::string mode;
-		lua.ref()["camera"]["mode"] >> mode;
+		lua["camera"]["mode"] >> mode;
 		if (mode == "ortho") {
 			camera = cameraOrtho;
 		} else if (mode == "frustum") {
@@ -347,7 +347,7 @@ void HydroGPUApp::init() {
 	graph = std::make_shared<Plot::Graph>(this);
 	{	
 		std::vector<std::string> graphVariableNames;
-		LuaCxx::Ref graphVariablesRef = lua.ref()["graphVariables"];
+		LuaCxx::Ref graphVariablesRef = lua["graphVariables"];
 		if (graphVariablesRef.isTable()) {
 			//TODO LuaCxx iterator
 			for (int i = 0; i < graphVariablesRef.len(); ++i) {
@@ -372,7 +372,7 @@ void HydroGPUApp::init() {
 		}
 	}
 	
-	lua.ref()["showHeatMap"] >> showHeatMap;
+	lua["showHeatMap"] >> showHeatMap;
 
 	heatMapVariable = std::find(
 		solver->equation->displayVariables.begin(), 
@@ -493,7 +493,7 @@ PROFILE_BEGIN_FRAME()
 				//we will have to reset the initial condition to something that certainly belongs to this equation
 				initCondIndex = 0;
 				std::string initCondName = initCondNamesForEqns[equationNames[equationIndex]][initCondIndex];
-				lua.ref()["initConds"][initCondName]["setup"]();
+				lua["initConds"][initCondName]["setup"]();
 				
 				solverForEqnIndex = 0;
 				std::cout << "setting equation to " << solverGensForEqns[equationIndex].first << std::endl;
@@ -553,7 +553,7 @@ PROFILE_BEGIN_FRAME()
 			if (lastInitCondIndex != initCondIndex) {
 				std::string initCondName = initCondNamesForEqns[equationNames[equationIndex]][initCondIndex];
 				std::cout << "setting up initial condition " << initCondName << std::endl;
-				lua.ref()["initConds"][initCondName]["setup"]();
+				lua["initConds"][initCondName]["setup"]();
 			}
 		}
 		

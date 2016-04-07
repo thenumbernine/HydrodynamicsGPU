@@ -9,12 +9,12 @@ CameraFrustum::CameraFrustum(HydroGPU::HydroGPUApp* app_)
 : Super(app_)
 , dist(1.f)
 {
-	if (!app->lua.ref()["camera"]["pos"].isNil()) {
-		app->lua.ref()["camera"]["pos"][1] >> pos(0);
-		app->lua.ref()["camera"]["pos"][2] >> pos(1);
-		app->lua.ref()["camera"]["pos"][3] >> pos(2);
+	if (!app->lua["camera"]["pos"].isNil()) {
+		app->lua["camera"]["pos"][1] >> pos(0);
+		app->lua["camera"]["pos"][2] >> pos(1);
+		app->lua["camera"]["pos"][3] >> pos(2);
 	}
-	app->lua.ref()["camera"]["dist"] >> dist;
+	app->lua["camera"]["dist"] >> dist;
 }
 
 void CameraFrustum::setupProjection() {

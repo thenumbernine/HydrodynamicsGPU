@@ -116,21 +116,21 @@ void ADM3D::getProgramSources(std::vector<std::string>& sources) {
 	//TODO detect type, cast number to CL string or use literal string
 	//if type is number ...
 	//real adm_BonaMasso_f = 1.f;
-	//app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
+	//app->lua["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	//sources[0] += "#define ADM_BONA_MASSO_F " + toNumericString<real>(adm_BonaMasso_f) + "\n";
 	//else if type is string ...
 	std::string adm_BonaMasso_f = "1.f";
-	app->lua.ref()["adm_BonaMasso_f"] >> adm_BonaMasso_f;
+	app->lua["adm_BonaMasso_f"] >> adm_BonaMasso_f;
 	sources[0] += "#define ADM_BONA_MASSO_F " + adm_BonaMasso_f + "\n";
 	
 	std::string adm_BonaMasso_df_dalpha = "0.f";
-	app->lua.ref()["adm_BonaMasso_df_dalpha"] >> adm_BonaMasso_df_dalpha;
+	app->lua["adm_BonaMasso_df_dalpha"] >> adm_BonaMasso_df_dalpha;
 	sources[0] += "#define ADM_BONA_MASSO_DF_DALPHA " + adm_BonaMasso_df_dalpha + "\n";
 
 	//speed of light is used for coordinate transform from 3-vel to 4-vel with the stress-energy tensor
 	//for the R4_ij and G_ij components
 	real speedOfLight = 299792458;	//default in m/s
-	app->lua.ref()["speedOfLight"] >> speedOfLight;
+	app->lua["speedOfLight"] >> speedOfLight;
 	sources[0] += "#define SPEED_OF_LIGHT " + toNumericString<real>(speedOfLight) + "\n";
 	
 	{

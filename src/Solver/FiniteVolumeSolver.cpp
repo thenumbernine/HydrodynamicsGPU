@@ -11,7 +11,7 @@ void FiniteVolumeSolver::initBuffers() {
 	Super::initBuffers();
 	
 	fluxBuffer = cl.alloc(sizeof(real) * getNumFluxStates() * getVolume() * app->dim, "FiniteVolumeSolver::fluxBuffer");
-	cl.zero(fluxBuffer, getNumFluxStates() * getVolume() * app->dim);
+	cl.zero(fluxBuffer, getNumFluxStates() * getVolume() * app->dim * sizeof(real));
 }
 
 void FiniteVolumeSolver::initKernels() {

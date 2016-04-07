@@ -12,7 +12,7 @@ VectorField::VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_)
 , vectorFieldVertexCount(0)
 {
 	vectorFieldResolution = 16;
-	solver->app->lua.ref()["vectorFieldResolution"] >> vectorFieldResolution;
+	solver->app->lua["vectorFieldResolution"] >> vectorFieldResolution;
 	
 	//create GL buffer
 	glGenBuffers(1, &vectorFieldGLBuffer);

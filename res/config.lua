@@ -82,7 +82,7 @@ size = {16, 16, 16}
 vectorFieldResolution = 16
 --]]
 -- [[ 2D
-size = {256, 256}
+size = {512, 512}
 --]]
 --[[ 1D
 size = {2048}

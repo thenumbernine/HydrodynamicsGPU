@@ -22,7 +22,7 @@ void EulerBurgers::initBuffers() {
 	interfaceVelocityBuffer = cl.alloc(sizeof(real) * volume * app->dim, "EulerBurgers::interfaceVelocityBuffer");
 	pressureBuffer = cl.alloc(sizeof(real) * volume, "EulerBurgers::pressureBuffer");
 
-	cl.zero(interfaceVelocityBuffer, volume * app->dim);
+	cl.zero(interfaceVelocityBuffer, volume * app->dim * sizeof(real));
 }
 
 void EulerBurgers::initKernels() {

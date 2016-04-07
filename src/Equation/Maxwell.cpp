@@ -50,17 +50,17 @@ void Maxwell::getProgramSources(std::vector<std::string>& sources) {
 	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
 
 	real permeability = 1.f;
-	app->lua.ref()["permeability"] >> permeability;
+	app->lua["permeability"] >> permeability;
 	sources[0] += "constant real permeability = " + toNumericString<real>(permeability) + ";\n";
 	sources[0] += "constant real sqrtPermeability = " + toNumericString<real>(sqrt(permeability)) + ";\n";
 	
 	real permittivity = 1.f;
-	app->lua.ref()["permittivity"] >> permittivity;
+	app->lua["permittivity"] >> permittivity;
 	sources[0] += "constant real permittivity = " + toNumericString<real>(permittivity) + ";\n";
 	sources[0] += "constant real sqrtPermittivity = " + toNumericString<real>(sqrt(permittivity)) + ";\n";
 	
 	real conductivity = 1.f;
-	app->lua.ref()["conductivity"] >> conductivity;
+	app->lua["conductivity"] >> conductivity;
 	sources[0] += "constant real conductivity = " + toNumericString<real>(conductivity) + ";\n";
 	sources[0] += "constant real sqrtConductivity = " + toNumericString<real>(sqrt(conductivity)) + ";\n";
 

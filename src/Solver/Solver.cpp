@@ -29,7 +29,7 @@ CL_DEVICE_VERSION:	OpenCL 1.2
 CL_DRIVER_VERSION:	1.2 (Jan 11 2016 18:56:15)
 */
 	cl::Event event;
-	solver->commands.enqueueFillBuffer(buffer, 0.f, 0, sizeInReals, NULL, &event);
+	solver->commands.enqueueFillBuffer(buffer, 0.f, 0, size, NULL, &event);
 }
 
 cl::Buffer Solver::CL::alloc(size_t size, const std::string& name) {
@@ -171,7 +171,7 @@ OR I could just have the debug printfs also output their thread ID and filter al
 
 	//create integrator
 	std::string integratorName = "ForwardEuler";
-	app->lua.ref()["integratorName"] >> integratorName;
+	app->lua["integratorName"] >> integratorName;
 	if (integratorName == "ForwardEuler") {
 		integrator = std::make_shared<HydroGPU::Integrator::ForwardEuler>(this);
 	} else if (integratorName == "RungeKutta4") {
@@ -263,11 +263,11 @@ std::vector<std::string> Solver::getProgramSources() {
 	};
 
 	std::string slopeLimiterName = "Superbee";
-	app->lua.ref()["slopeLimiter"] >> slopeLimiterName;
+	app->lua["slopeLimiter"] >> slopeLimiterName;
 	sourceStrs[0] += "#define SLOPE_LIMITER_" + slopeLimiterName + "\n";
 
 	real gravitationalConstant = 1.f;
-	app->lua.ref()["gravitationalConstant"] >> gravitationalConstant;
+	app->lua["gravitationalConstant"] >> gravitationalConstant;
 	sourceStrs[0] += "#define GRAVITATIONAL_CONSTANT " + toNumericString<real>(gravitationalConstant) + "\n";
 
 	sourceStrs.push_back("#include \"SlopeLimiter.cl\"\n");
@@ -310,7 +310,7 @@ real Solver::Converter::getValue(int index, int channel) {
 }
 
 void Solver::resetState() {
-	if (!app->lua.ref()["initState"].isFunction()) throw Common::Exception() << "expected initState to be defined in config file";
+	if (!app->lua["initState"].isFunction()) throw Common::Exception() << "expected initState to be defined in config file";
 	std::cout << "initializing..." << std::endl;
 	
 	std::shared_ptr<Converter> converter = createConverter();

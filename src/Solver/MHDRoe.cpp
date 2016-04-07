@@ -42,7 +42,7 @@ void MHDRoe::initFlux() {
 	//(in the case of negative fluxes)
 	// so for that, I'm going to fill the flux kernel to some flag beforehand.
 	// zero is a safe flag, right?  no ... not for steady states ...
-	cl.zero(fluxFlagBuffer, getVolume() * app->dim / sizeof(real));
+	cl.zero(fluxFlagBuffer, getVolume() * app->dim);
 
 	Super::initFlux();
 }
