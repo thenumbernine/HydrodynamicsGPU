@@ -156,7 +156,7 @@ void HydroGPUApp::init() {
 		}
 		std::cout << std::endl;
 	}
-	
+
 	//config before Super::init so we can provide it 'useGPU'
 	std::cout << "loading config file " << configFilename << " ..." << std::endl;
 	lua.loadFile(configFilename);
@@ -209,12 +209,8 @@ void HydroGPUApp::init() {
 	lua["useFixedDT"] >> useFixedDT;
 	lua["fixedDT"] >> fixedDT;
 	lua["cfl"] >> cfl;
-	lua["heatMapColorScale"] >> heatMapColorScale;
 	lua["useGravity"] >> useGravity;
 	lua["gaussSeidelMaxIter"] >> gaussSeidelMaxIter;
-
-	std::string heatMapVariableName;
-	lua["heatMapVariable"] >> heatMapVariableName;
 
 	lua["showVectorField"] >> showVectorField;
 	lua["vectorFieldScale"] >> vectorFieldScale;
@@ -261,6 +257,10 @@ void HydroGPUApp::init() {
 		glGenTextures(1, &gradientTex);
 		glBindTexture(GL_TEXTURE_1D, gradientTex);
 
+		const int width = 256;
+		unsigned char data[width*3];
+//TODO texture options for heat map vs isobar display
+#if 1	//color gradient
 		float colors[][3] = {
 			{0, 0, 0},
 			{0, 0, 1},
@@ -269,8 +269,6 @@ void HydroGPUApp::init() {
 			{1, 0, 0}
 		};
 
-		const int width = 256;
-		unsigned char data[width*3];
 		for (int i = 0; i < width; ++i) {
 			float f = (float)i / (float)width * (float)numberof(colors);
 			int ci = (int)f;
@@ -285,10 +283,15 @@ void HydroGPUApp::init() {
 				data[3 * i + j] = (unsigned char)(255. * (colors[ci][j] * (1.f - s) + colors[ci2][j] * s));
 			}
 		}
-
+#endif
+#if 0	//isobars
+		memset(data, 0, sizeof(data));
+		memset(data, -1, sizeof(data)/8);
+#endif
 		glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, width, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_1D);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		glBindTexture(GL_TEXTURE_1D, 0);
 	}
 
@@ -315,20 +318,20 @@ void HydroGPUApp::init() {
 		if (solver->equation->name() == equationNames[equationIndex]) break;
 	}
 	if (equationIndex == equationNames.size()) equationIndex = 0;
-	
-	//find the solver in the equations 
+
+	//find the solver in the equations
 	for (solverForEqnIndex = 0; solverForEqnIndex < solverGensForEqns[equationIndex].second.size(); ++solverForEqnIndex) {
 		if (solver->name() == solverGensForEqns[equationIndex].second[solverForEqnIndex].first) break;
 	}
 	if (solverForEqnIndex == solverGensForEqns[equationIndex].second.size()) solverForEqnIndex = 0;
-	
+
 	//needs solver->program to be created
 	vectorField = std::make_shared<Plot::VectorField>(solver);
-	
+
 	if (lua["camera"].isNil()) {
 		throw Common::Exception() << "unknown camera";
 	}
-	
+
 	camera = cameraOrtho = std::make_shared<Plot::CameraOrtho>(this);
 	cameraFrustum = std::make_shared<Plot::CameraFrustum>(this);
 	{
@@ -340,12 +343,12 @@ void HydroGPUApp::init() {
 			camera = cameraFrustum;
 		}
 	}
-	
+
 	//needs solver->program to be created
 	createPlot();
 
 	graph = std::make_shared<Plot::Graph>(this);
-	{	
+	{
 		std::vector<std::string> graphVariableNames;
 		LuaCxx::Ref graphVariablesRef = lua["graphVariables"];
 		if (graphVariablesRef.isTable()) {
@@ -357,7 +360,7 @@ void HydroGPUApp::init() {
 				}
 			}
 		}
-		
+
 		if (graphVariableNames.empty()) {
 			graphVariableNames = solver->equation->displayVariables;
 		}
@@ -371,25 +374,31 @@ void HydroGPUApp::init() {
 			}
 		}
 	}
-	
-	lua["showHeatMap"] >> showHeatMap;
 
-	heatMapVariable = std::find(
-		solver->equation->displayVariables.begin(), 
-		solver->equation->displayVariables.end(),
-		heatMapVariableName) 
-		- solver->equation->displayVariables.begin();
-	if (heatMapVariable == solver->equation->displayVariables.size()) {
-		throw Common::Exception() << "couldn't interpret display method " << heatMapVariableName;
+	if (!lua["heatMap"].isNil()) {
+		lua["heatMap"]["enabled"] >> showHeatMap;
+		lua["heatMap"]["colorScale"] >> heatMapColorScale;
+
+		std::string heatMapVariableName;
+		if ((lua["heatMap"]["variable"] >> heatMapVariableName).good()) {
+			heatMapVariable = std::find(
+				solver->equation->displayVariables.begin(),
+				solver->equation->displayVariables.end(),
+				heatMapVariableName)
+				- solver->equation->displayVariables.begin();
+			if (heatMapVariable == solver->equation->displayVariables.size()) {
+				throw Common::Exception() << "couldn't interpret display method " << heatMapVariableName;
+			}
+		}
 	}
 
 	for (int i = 0; i < 3; ++i) {
 		for (int minmax = 0; minmax < 2; ++minmax) {
 			if (boundaryMethodNames[i][minmax].empty()) continue;
 			boundaryMethods(i,minmax) = std::find(
-				solver->equation->boundaryMethods.begin(), 
-				solver->equation->boundaryMethods.end(), 
-				boundaryMethodNames[i][minmax]) 
+				solver->equation->boundaryMethods.begin(),
+				solver->equation->boundaryMethods.end(),
+				boundaryMethodNames[i][minmax])
 				- solver->equation->boundaryMethods.begin();
 			if (boundaryMethods(i,minmax) == solver->equation->boundaryMethods.size()) {
 				//special case
@@ -444,13 +453,13 @@ PROFILE_BEGIN_FRAME()
 		doUpdate = 0;
 	}
 
-	Super::update();	//glclear 
-	
+	Super::update();	//glclear
+
 	bool guiDown = leftGuiDown || rightGuiDown;
 	if (rightButtonDown || (leftButtonDown && guiDown)) {
 		//TODO - direct edit of the field ... solver->addDrop();
 	}
-	
+
 	if (doUpdate) {
 		solver->update();
 		if (doUpdate == 2) doUpdate = 0;
@@ -459,10 +468,10 @@ PROFILE_BEGIN_FRAME()
 	camera->setupProjection();
 	solver->app->camera->setupModelview();
 	vectorField->display();
-	
+
 	//no point in showing the graph in ortho
 	graph->display();
-	
+
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 	if (showHeatMap) plot->display();
@@ -473,20 +482,19 @@ PROFILE_BEGIN_FRAME()
 
 	/*
 	What should be customizable?
-	- a Lua interface into everything would be nice ... if we were using LuaJIT 
+	- a Lua interface into everything would be nice ... if we were using LuaJIT
 	... then *everything* C-callable would be accessible immediately
 	*/
-	float logHeatMapColorScale = log(heatMapColorScale);
 	float logVectorFieldScale = log(vectorFieldScale);
 	gui->update([&](){
 		//how do you change the window title from "Debug"?
-		
+
 		if (ImGui::CollapsingHeader("setup")) {
 			//list equations
 			int lastEquationIndex = equationIndex;
 			ImGui::Combo("equation", &equationIndex, equationNamesSeparated.c_str());
 			if (lastEquationIndex != equationIndex) {
-				
+
 				//if we are changing equations then (most likely) our initial conditions will be invalid
 				//(except cases where they belong to the same groups, I think, unless the resetState conversion works diferently,
 				// either way, to be safe...)
@@ -494,7 +502,7 @@ PROFILE_BEGIN_FRAME()
 				initCondIndex = 0;
 				std::string initCondName = initCondNamesForEqns[equationNames[equationIndex]][initCondIndex];
 				lua["initConds"][initCondName]["setup"]();
-				
+
 				solverForEqnIndex = 0;
 				std::cout << "setting equation to " << solverGensForEqns[equationIndex].first << std::endl;
 				solver = solverGensForEqns[equationIndex].second[solverForEqnIndex].second();
@@ -505,7 +513,7 @@ PROFILE_BEGIN_FRAME()
 				// to enumerate and provide here in the gui
 				// or (b) defining them in c++, which means faster constructor, but makes symmath more difficult to use
 				solver->resetState();
-				
+
 				//regen aux things that depend on the solver
 				createPlot();
 				vectorField = std::make_shared<Plot::VectorField>(solver);
@@ -522,10 +530,10 @@ PROFILE_BEGIN_FRAME()
 				std::shared_ptr<Solver::Solver> newSolver = solverGensForEqns[equationIndex].second[solverForEqnIndex].second();
 				//but are there any solvers that have different #states for matching eqns?
 				//until then ...
-				
+
 				solver = newSolver;
 				solver->init();
-				
+
 				//TODO copy state memory *here*
 				//TODO if the states don't match then create a mapping according to the equations or something ...
 #if 0
@@ -533,13 +541,13 @@ PROFILE_BEGIN_FRAME()
 					size_t length = solver->numStates() * solver->getVolume();
 					size_t bufferSize = sizeof(real) * length;
 					cl::NDRange globalSize1d(length);
-					clCommon->commands.enqueueCopyBuffer(newSolver->stateBuffer, solver->stateBuffer, 0, 0, bufferSize);		
-				} else 
-#endif			
+					clCommon->commands.enqueueCopyBuffer(newSolver->stateBuffer, solver->stateBuffer, 0, 0, bufferSize);
+				} else
+#endif
 				{
 					solver->resetState();
 				}
-				
+
 				//regen aux things that depend on the solver
 				createPlot();
 				vectorField = std::make_shared<Plot::VectorField>(solver);
@@ -556,7 +564,7 @@ PROFILE_BEGIN_FRAME()
 				lua["initConds"][initCondName]["setup"]();
 			}
 		}
-		
+
 		if (ImGui::CollapsingHeader("boundaries")) {
 			std::vector<std::string> methods = solver->equation->boundaryMethods;
 			methods.insert(methods.begin(), "NONE");
@@ -574,47 +582,73 @@ PROFILE_BEGIN_FRAME()
 
 		if (ImGui::CollapsingHeader("heat map")) {
 			// heat map on/off/variable
-			ImGui::Checkbox("show", &showHeatMap); 
-			
+			ImGui::Checkbox("show", &showHeatMap);
+
 			//heat map variable
 			std::string s = makeComboStr(solver->equation->displayVariables);
 			ImGui::Combo("variable", &heatMapVariable, s.c_str());
-			
+
 			//heat map color scale
 			ImGui::Text("log scale");
-			ImGui::SliderFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f); 
+			float logHeatMapColorScale = log(heatMapColorScale);
+			ImGui::SliderFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f);
+			heatMapColorScale = exp(logHeatMapColorScale);
 		}
-		
+
 		if (ImGui::CollapsingHeader("graph")) {
-			//TODO tree information on the variables.  equation would have to specify this, but it'd be handy.
-			//or it could be inferred from common prefixes?
-			//graph variables (multiple)
-		
-			bool enableAll = false;
-			for (Plot::Graph::Variable& var : graph->variables) {
-				if (!var.enabled) {
-					enableAll = true;
-					break;
-				}
-			}
 			
-			if (ImGui::Button(!enableAll ? "disable all" : "enable all")) {
-				for (Plot::Graph::Variable& var : graph->variables) {
-					var.enabled = enableAll;
-				}
-			}
-		
-			for (Plot::Graph::Variable& var : graph->variables) {
-				std::string name = var.name;
-				
+			std::function<void(Plot::Graph::Variable&)> addVarControls = [&](Plot::Graph::Variable& var){
+				const std::string& name = var.name;
 				ImGui::Checkbox((name + std::string(" enabled")).c_str(), &var.enabled);
-				ImGui::Checkbox((std::string("log ") + name).c_str(), &var.log);
+				ImGui::SameLine();
+				if (ImGui::TreeNode((name + std::string(" tree")).c_str())) {
+					
+					ImGui::Checkbox((std::string("log ") + name).c_str(), &var.log);
 				
-				float logScale = log(var.scale) / log(10);
-				ImGui::SliderFloat((std::string("scale ") + name).c_str(), &logScale, -10, 10);
-				var.scale = pow(10, logScale);
-				
-				ImGui::SliderInt((std::string("spacing ") + name).c_str(), &var.step, 1, (int)size.s[0]);
+					ImGui::Combo((std::string("polyMode ") + name).c_str(), &var.polyMode, makeComboStr({"point", "line", "fill"}).c_str());
+					
+					ImGui::SliderFloat((std::string("alpha ") + name).c_str(), &var.alpha, 0.f, 1.f);
+
+					float logScale = log(var.scale) / log(10);
+					ImGui::SliderFloat((std::string("scale ") + name).c_str(), &logScale, -10, 10);
+					var.scale = pow(10, logScale);
+
+					ImGui::SliderInt((std::string("spacing ") + name).c_str(), &var.step, 1, (int)size.s[0]);
+					
+					ImGui::TreePop();
+				}
+			};
+
+			Plot::Graph::Variable all = graph->variables[0];
+			all.name = "all";
+			Plot::Graph::Variable prevAll = all;
+			addVarControls(all);
+	
+			auto applyFields = [&](auto fields) {
+				for (auto field : fields) {
+					if (prevAll.*field != all.*field) {
+						for (Plot::Graph::Variable& var : graph->variables) {
+							var.*field = all.*field;
+						}
+					}
+				}
+			};
+
+			applyFields(std::vector<bool Plot::Graph::Variable::*>{
+				&Plot::Graph::Variable::enabled,
+				&Plot::Graph::Variable::log,
+			});
+			applyFields(std::vector<int Plot::Graph::Variable::*>{
+				&Plot::Graph::Variable::polyMode,
+				&Plot::Graph::Variable::step,
+			});
+			applyFields(std::vector<float Plot::Graph::Variable::*>{
+				&Plot::Graph::Variable::alpha,
+				&Plot::Graph::Variable::scale,
+			});
+			
+			for (Plot::Graph::Variable& var : graph->variables) {
+				addVarControls(var);
 			}
 		}
 
@@ -624,7 +658,7 @@ PROFILE_BEGIN_FRAME()
 			ImGui::Text("log scale");
 			ImGui::SliderFloat("v.f.s.", &logVectorFieldScale, -10.f, 10.f); // velocity field size
 		}
-		
+
 		if (ImGui::CollapsingHeader("controls")) {
 
 			if (dim > 1) {
@@ -639,23 +673,23 @@ PROFILE_BEGIN_FRAME()
 			} else {
 				camera = cameraOrtho;
 			}
-			
+
 			if (ImGui::Button(doUpdate ? "pause" : "start")) doUpdate = !doUpdate; // start/stop simulation
 			if (ImGui::Button("step")) doUpdate = 2;
 			if (ImGui::Button("reset")) solver->resetState();
-			
+
 			// used fixed dt vs cfl #
-			
-			// take screenshot 
+
+			// take screenshot
 			if (ImGui::Button("screenshot")) {
 				solver->screenshot();
 			}
-			
+
 			// continuous screenshots
 			if (ImGui::Button(createAnimation ? "stop frame dump" : "start frame dump")) {
 				createAnimation = !createAnimation;
 			}
-			
+
 			if (ImGui::Button("save")) {	// dump state of simulation
 				solver->save();
 			}
@@ -666,11 +700,11 @@ PROFILE_BEGIN_FRAME()
 			//or just override print() and io.write() ... anything else?
 			//static char output[16384] = {'\0'};
 			//ImGui::InputTextMultiline("##output", output, sizeof(output), ImVec2(), ImGuiInputTextFlags_ReadOnly);
-			
+
 			static char scriptInputBuffer[512] = {'\0'};
 			if (ImGui::InputTextMultiline("##scriptInputBuffer", scriptInputBuffer, sizeof(scriptInputBuffer), ImVec2(),
 				ImGuiInputTextFlags_AllowTabInput |
-				ImGuiInputTextFlags_EnterReturnsTrue | 
+				ImGuiInputTextFlags_EnterReturnsTrue |
 				ImGuiInputTextFlags_CtrlEnterForNewLine)
 			) {
 				//for redirection, check out freopen on stdout/stderr
@@ -684,10 +718,10 @@ PROFILE_BEGIN_FRAME()
 				memset(scriptInputBuffer, 0, sizeof(scriptInputBuffer));
 			}
 		}
-	
+
 		/*
 		TODO
-		
+
 		vector field variable:
 			Euler, MHD, SRHD:
 				velocity
@@ -726,10 +760,9 @@ PROFILE_BEGIN_FRAME()
 				permeability
 				permittivity
 				conductivity
-		
+
 		*/
 	});
-	heatMapColorScale = exp(logHeatMapColorScale);
 	vectorFieldScale = exp(logVectorFieldScale);
 
 PROFILE_END_FRAME();
@@ -739,7 +772,7 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 	gui->sdlEvent(event);
 	bool canHandleMouse = !ImGui::GetIO().WantCaptureMouse;
 	bool canHandleKeyboard = !ImGui::GetIO().WantCaptureKeyboard;
-	
+
 	bool shiftDown = leftShiftDown || rightShiftDown;
 	bool guiDown = leftGuiDown || rightGuiDown;
 
@@ -752,7 +785,7 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				if (shiftDown) {
 					if (dy) {
 						camera->mouseZoom(dy);
-					} 
+					}
 				} else {
 					if (dx || dy) {
 						camera->mousePan(dx, dy);

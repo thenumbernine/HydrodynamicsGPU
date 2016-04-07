@@ -42,58 +42,80 @@ void Graph::display() {
 		{0,0,1},
 		{1,0,1},
 	};
-
-	// TODO only select variables? 
-	for (int i = 0; i < variables.size(); ++i) {
-		const Variable& var = variables[i];
-		if (!var.enabled) continue;
-		
-		int step = var.step;
-		if (step < 1) step = 1;
 	
-		app->plot->convertVariableToTex(i);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+	for (int drawAlpha = 0; drawAlpha <= 1; ++drawAlpha) {
+		if (drawAlpha) {
+			glEnable(GL_BLEND);
+			glDepthMask(GL_FALSE);
+		}
+	
+		for (int i = 0; i < variables.size(); ++i) {
+			const Variable& var = variables[i];
+			if (!var.enabled) continue;
+			if (var.alpha < 1 != drawAlpha) continue;
 		
-		graphShader->use();
-		graphShader->setUniform<float>("scale", var.scale)
-					.setUniform<int>("axis", app->dim)
-					.setUniform<float>("ambient", app->dim == 1 ? 1 : .1)
-					.setUniform<bool>("useLog", var.log);
-		graphShader->setUniform<float>("xmin", app->xmin.s[0], app->xmin.s[1]);
-		graphShader->setUniform<float>("xmax", app->xmax.s[0], app->xmax.s[1]);
-		glBindTexture(GL_TEXTURE_2D, app->plot->tex);
-		glColor3fv(colors[i % numberof(colors)]);
+			int step = var.step;
+			if (step < 1) step = 1;
 		
-		switch (app->dim) {
-		case 1:
-			glBegin(GL_LINE_STRIP);
-			for (int i = 2; i < app->size.s[0]-2; i += step) {
-				real x = ((real)(i) + .5f) / (real)app->size.s[0];
-				glVertex2f(x, 0.f);
-			}
-			glEnd();
-			break;
-		case 2:
-			{
-				Tensor::Vector<float,2> pt;
-				for (int k = 0; k < app->dim; ++k) {
-					for (int j = 2; j < app->size.s[!k]-2; j += step) {
-						pt(!k) = ((real)(j) + .5f) / (real)app->size.s[!k];
-						glBegin(GL_LINE_STRIP);
-						for (int i = 2; i < app->size.s[k]-2; ++i) {
-							pt(k) = ((real)(i) + .5f) / (real)app->size.s[k];
-							glVertex2f(pt(0), pt(1));
+			app->plot->convertVariableToTex(i);
+			
+			graphShader->use();
+			graphShader->setUniform<float>("scale", var.scale)
+						.setUniform<int>("axis", app->dim)
+						.setUniform<float>("ambient", app->dim == 1 ? 1 : .1)
+						.setUniform<bool>("useLog", var.log);
+			graphShader->setUniform<float>("xmin", app->xmin.s[0], app->xmin.s[1]);
+			graphShader->setUniform<float>("xmax", app->xmax.s[0], app->xmax.s[1]);
+			glBindTexture(GL_TEXTURE_2D, app->plot->tex);
+			const float* c = colors[i % numberof(colors)];
+			glColor4f(c[0], c[1], c[2], var.alpha);
+			
+			switch (app->dim) {
+			case 1:
+				glBegin(GL_LINE_STRIP);
+				for (int i = 2; i < app->size.s[0]-2; i += step) {
+					real x = ((real)(i) + .5f) / (real)app->size.s[0];
+					glVertex2f(x, 0.f);
+				}
+				glEnd();
+				break;
+			case 2:
+				{
+					switch (var.polyMode) {
+					case Variable::PolyMode::Point: glPolygonMode(GL_FRONT_AND_BACK, GL_POINT); break;
+					case Variable::PolyMode::Line: glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); break;
+					case Variable::PolyMode::Fill: default: glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); break;
+					}
+
+					Tensor::Vector<float,2> pt;
+					for (int j = 2; j < app->size.s[1]-2-step; j += step) {
+						glBegin(GL_TRIANGLE_STRIP);
+						for (int i = 2; i < app->size.s[0]-2; i += step) {
+							pt(0) = ((real)(i) + .5f) / (real)app->size.s[0];
+							for (int jofs = step; jofs >= 0; jofs -= step) {
+								pt(1) = ((real)(j + jofs) + .5f) / (real)app->size.s[1];
+								glVertex2f(pt(0), pt(1));
+							}
 						}
 						glEnd();
 					}
+				
+					glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 				}
+				break;
+			case 3:
+				break;
 			}
-			break;
-		case 3:
-			break;
+			
+			graphShader->done();
+			glBindTexture(GL_TEXTURE_2D, 0);	
 		}
-		
-		graphShader->done();
-		glBindTexture(GL_TEXTURE_2D, 0);	
+		if (drawAlpha) {
+			glDisable(GL_BLEND);
+			glDepthMask(GL_TRUE);
+		}
 	}
 
 	//for 1-D graphs

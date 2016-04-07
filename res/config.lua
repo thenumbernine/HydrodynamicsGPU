@@ -26,8 +26,8 @@ require 'initConds'	--holds catalog of initial conditions
 slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
---integratorName = 'ForwardEuler'
-integratorName = 'RungeKutta4'
+integratorName = 'ForwardEuler'
+--integratorName = 'RungeKutta4'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
@@ -38,8 +38,11 @@ xmax = {.5, .5, .5}
 useFixedDT = false
 fixedDT = .001
 
-heatMapVariable = 'DENSITY'
-heatMapColorScale = 2
+heatMap = {
+	enabled = true,
+	variable = 'DENSITY',
+	scale = 2,
+}
 
 -- TODO AMD card has trouble with mirror and periodic boundaries ... probably all boundaries
 boundaryMethods = {
@@ -161,7 +164,7 @@ initConds[initCondName].setup()
 
 --[[ Maxwell 
 solverName = 'MaxwellRoe'
-heatMapVariable = 'ELECTRIC'
+heatMap.variable = 'ELECTRIC'
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 initCondName = 'Maxwell-1'
 initConds[initCondName].setup()
@@ -174,10 +177,10 @@ solverName = 'ADM1DRoe'
 --solverName = 'BSSNOKFiniteDifference'	-- doing the bare minimum to consider this a solver.  I could use this to make a coefficient matrix (application function) and, from there, make the implicit solver.
 
 size = {1024}
-heatMapColorScale = 128
+heatMap.colorScale = 128
 initConds['NR Gauge Shock Waves'].setup{unitDomain=false}
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
-heatMapVariable = 'ALPHA'
+heatMap.variable = 'ALPHA'
 camera.zoom = 1/300
 camera.pos = {150,150}
 --]]
@@ -191,9 +194,9 @@ solverName = 'ADM2DSpherical'	-- not yet
 --[[ ADM (3D)
 solverName = 'ADM3DRoe'
 		
---size = {1024} heatMapColorScale = 128
-size = {256, 256} heatMapColorScale = 1
---size = {16, 16, 16} heatMapColorScale = 1
+--size = {1024} heatMap.colorScale = 128
+size = {256, 256} heatMap.colorScale = 1
+--size = {16, 16, 16} heatMap.colorScale = 1
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=false}
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
 initConds['NR Alcubierre Warp Bubble'].setup()	-- ...needs shift vector support
@@ -228,8 +231,7 @@ initConds['NR Stellar'].setup{bodies={{pos = {0,0,0}, radius = planet.radiusInCo
 --]=]
 
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
---showHeatMap = false
-heatMapVariable = 'K'
+heatMap.variable = 'K'
 --fixedDT = .125
 --useFixedDT = true
 graphVariables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = all.
@@ -240,8 +242,8 @@ graphVariables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = al
 if #size == 1 then			-- 1D better be ortho
 	camera.mode = 'ortho'
 elseif #size == 2 then		-- 2D can handle either ortho or frustum
-	camera.mode = 'ortho'
-	--camera.mode = 'frustum'
+	--camera.mode = 'ortho'
+	camera.mode = 'frustum'
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end

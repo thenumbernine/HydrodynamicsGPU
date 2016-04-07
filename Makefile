@@ -13,6 +13,9 @@ include ../Shader/Include.mk
 include ../LuaCxx/Include.mk
 include ../ImGuiCommon/Include.mk
 
+#override the original -std=c++11 that I have baked in my Base.mk
+CFLAGS+= -std=c++14
+
 MACROS+= AMD_SUCKS
 LUA_EXT_PATH=$(HYDROGPU_PATH)/../lua/ext
 LUA_SYMMATH_PATH=$(HYDROGPU_PATH)/../lua/symmath

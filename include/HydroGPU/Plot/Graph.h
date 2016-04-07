@@ -19,12 +19,29 @@ struct Graph {
 	how to display variables ...
 	*/
 	struct Variable {
+		typedef enum {
+			Point,
+			Line,
+			Fill,
+		} PolyMode;
+		
+		std::string name;
 		bool enabled;
+		bool log;
+		int polyMode;	//0=point, 1=line, 2=fill
+		float alpha;
 		float scale;
 		int step;
-		bool log;
-		std::string name;
-		Variable(const std::string& name_) : enabled(false), scale(1.f), step(1), log(false), name(name_) {}
+		
+		Variable(const std::string& name_)
+		: name(name_)
+		, enabled(false)
+		, log(false)
+		, polyMode(PolyMode::Fill)
+		, alpha(1.f)
+		, scale(1.f)
+		, step(1)
+		{}
 	};
 	std::vector<Variable> variables;
 

@@ -1,4 +1,4 @@
-varying vec3 color;
+varying vec4 color;
 varying vec3 normal;
 
 #ifdef VERTEX_SHADER
@@ -30,7 +30,7 @@ void main() {
 
 	normal = normalize(cross(xp - xm, yp - ym));
 
-	color = gl_Color.rgb;
+	color = gl_Color.rgba;
 	gl_Position = gl_ModelViewProjectionMatrix * vec4(vertex, 1.);
 }
 
@@ -45,7 +45,7 @@ void main() {
 	float lum = dot(normal, light);
 	//lum = max(lum, -lum);	//two-sided
 	lum = max(lum, ambient);
-	gl_FragColor = vec4(color * lum, 1.);
+	gl_FragColor = vec4(color.rgb * lum, color.a);
 }
 
 #endif	//FRAGMENT_SHADER
