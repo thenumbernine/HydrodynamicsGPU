@@ -26,8 +26,8 @@ require 'initConds'	--holds catalog of initial conditions
 slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
-integratorName = 'ForwardEuler'
---integratorName = 'RungeKutta4'
+--integratorName = 'ForwardEuler'
+integratorName = 'RungeKutta4'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
@@ -82,7 +82,7 @@ size = {16, 16, 16}
 vectorFieldResolution = 16
 --]]
 -- [[ 2D
-size = {512, 512}
+size = {256, 256}
 --]]
 --[[ 1D
 size = {2048}
@@ -99,8 +99,8 @@ camera = {}
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
---solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
-solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
+solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+--solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
 
@@ -128,7 +128,7 @@ end
 --solidFilename = 'test-solid.png'
 --]=]
 
---initCondName = 'Sod'
+initCondName = 'Sod'
 --initCondName = 'Sphere'
 --initCondName = 'Square Cavity'
 --initCondName = 'Kelvin-Hemholtz'
@@ -142,7 +142,7 @@ end
 --initCondName = 'Colella-Woodward'
 --initCondName = 'Configuration 6'
 --initCondName = 'SRHD Schneider et al'
-initCondName = 'Relativistic Blast Wave Interaction'
+--initCondName = 'Relativistic Blast Wave Interaction'
 --initCondName = 'Marti & Muller 2008 Problem #1'
 --initCondName = 'Marti & Muller 2008 Problem #2'
 initConds[initCondName].setup()

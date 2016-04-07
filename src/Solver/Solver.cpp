@@ -20,17 +20,16 @@ Solver::CL::CL(Solver* solver_)
 , totalAlloc(0)
 {}
 
-void Solver::CL::initKernels() {
-	zeroKernel = cl::Kernel(solver->program, "zero");
-}
-
-void Solver::CL::zero(cl::Buffer buffer, size_t sizeInReals) {
-#ifndef AMD_SUCKS
-	solver->commands.enqueueFillBuffer(buffer, 0.f, 0, sizeof(real) * sizeInReals);
-#else	//because 'enqueueFillBuffer' is not working ... ???!!!!
-	zeroKernel.setArg(0, buffer);
-	solver->commands.enqueueNDRangeKernel(zeroKernel, solver->offset1d, cl::NDRange(sizeInReals), solver->localSize1d);
-#endif
+void Solver::CL::zero(cl::Buffer buffer, size_t size) {
+/*
+if you don't pass that &event pointer on my AMD Radeon then it writes garbage
+CL_DEVICE_NAME:	AMD Radeon R9 M370X Compute Engine
+CL_DEVICE_VENDOR:	AMD
+CL_DEVICE_VERSION:	OpenCL 1.2 
+CL_DRIVER_VERSION:	1.2 (Jan 11 2016 18:56:15)
+*/
+	cl::Event event;
+	solver->commands.enqueueFillBuffer(buffer, 0.f, 0, sizeInReals, NULL, &event);
 }
 
 cl::Buffer Solver::CL::alloc(size_t size, const std::string& name) {
@@ -166,8 +165,6 @@ OR I could just have the debug printfs also output their thread ID and filter al
 
 		Common::File::write("program.cl.bin", std::string(&binary[0], binary.size()));
 	}
-	
-	cl.initKernels();
 
 	initBuffers();
 	initKernels();
@@ -411,7 +408,7 @@ void Solver::getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &g
 //on AMD, 2D problem boundaries <512 work fine (once variables are manually inlined in the kernels).
 // beyond 512 gets mysery errors.
 void Solver::boundary() {
-#if 1	//OpenCL
+	cl::Event event;
 	cl::NDRange offset, global, local;
 	for (int i = 0; i < app->dim; ++i) {
 		getBoundaryRanges(i, offset, global, local);
@@ -421,69 +418,10 @@ void Solver::boundary() {
 				if (boundaryKernelIndex < 0 || boundaryKernelIndex >= boundaryKernels.size()) continue;
 				cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i][minmax];
 				kernel.setArg(2, j);
-				commands.enqueueNDRangeKernel(kernel, offset, global, local);
+				commands.enqueueNDRangeKernel(kernel, offset, global, local, NULL, &event);
 			}
 		}
 	}
-#else	//CPU debugging on AMD ...
-		//behaves exactly the same -- with the same errors on the read cells than the GPU version
-		// this makes me think the errors are coming from somewhere beforehond
-		//only works for 2D, only handles NONE & PERIODIC
-	assert(app->dim == 2);
-	
-	std::vector<real> state(getVolume() * numStates());
-	commands.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * getVolume() * numStates(), state.data());
-
-	int SIZE_X = app->size.s[0];
-	int SIZE_Y = app->size.s[1];
-	int spacing = numStates();
-	for (int i = 0; i < SIZE_Y; ++i) {
-		switch (app->boundaryMethods(0,0)) {	//x min
-		case BOUNDARY_METHOD_NONE:
-			break;
-		case BOUNDARY_METHOD_PERIODIC:
-			for (int offset = 0; offset < numStates(); ++offset) {
-				state[offset + spacing * INDEX(0, i, 0)] = state[offset + spacing * INDEX(SIZE_X - 4, i, 0)];
-				state[offset + spacing * INDEX(1, i, 0)] = state[offset + spacing * INDEX(SIZE_X - 3, i, 0)];
-			}
-			break;
-		}
-		switch (app->boundaryMethods(0,1)) {	//x max
-		case BOUNDARY_METHOD_NONE:
-			break;
-		case BOUNDARY_METHOD_PERIODIC:
-			for (int offset = 0; offset < numStates(); ++offset) {
-				state[offset + spacing * INDEX(SIZE_X - 2, i, 0)] = state[offset + spacing * INDEX(2, i, 0)];
-				state[offset + spacing * INDEX(SIZE_X - 1, i, 0)] = state[offset + spacing * INDEX(3, i, 0)];
-			}
-			break;
-		}
-	}
-	for (int i = 0; i < SIZE_X; ++i) {
-		switch (app->boundaryMethods(1,0)) {	//y min
-		case BOUNDARY_METHOD_NONE:
-			break;
-		case BOUNDARY_METHOD_PERIODIC:
-			for (int offset = 0; offset < numStates(); ++offset) {
-				state[offset + spacing * INDEX(i, 0, 0)] = state[offset + spacing * INDEX(i, SIZE_Y - 4, 0)];
-				state[offset + spacing * INDEX(i, 1, 0)] = state[offset + spacing * INDEX(i, SIZE_Y - 3, 0)];
-			}
-			break;
-		}
-		switch (app->boundaryMethods(1,1)) {	//y max
-		case BOUNDARY_METHOD_NONE:
-			break;
-		case BOUNDARY_METHOD_PERIODIC:
-			for (int offset = 0; offset < numStates(); ++offset) {
-				state[offset + spacing * INDEX(i, SIZE_Y - 2, 0)] = state[offset + spacing * INDEX(i, 2, 0)];
-				state[offset + spacing * INDEX(i, SIZE_Y - 1, 0)] = state[offset + spacing * INDEX(i, 3, 0)];
-			}
-			break;
-		}
-	}
-	
-	commands.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(real) * getVolume() * numStates(), state.data());
-#endif
 }
 
 real Solver::findMinTimestep() {

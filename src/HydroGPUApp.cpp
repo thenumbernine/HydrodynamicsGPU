@@ -589,25 +589,32 @@ PROFILE_BEGIN_FRAME()
 			//TODO tree information on the variables.  equation would have to specify this, but it'd be handy.
 			//or it could be inferred from common prefixes?
 			//graph variables (multiple)
-			if (ImGui::TreeNode("variable")) {
-				for (Plot::Graph::Variable& var : graph->variables) {
-					std::string name = var.name;
-					
-					ImGui::Checkbox((name + std::string(" enabled")).c_str(), &var.enabled);
-					ImGui::Checkbox((std::string("log ") + name).c_str(), &var.log);
-					
-					float logScale = log(var.scale) / log(10);
-					ImGui::SliderFloat((std::string("scale ") + name).c_str(), &logScale, -10, 10);
-					var.scale = pow(10, logScale);
-					
-					ImGui::SliderInt((std::string("spacing ") + name).c_str(), &var.step, 1, (int)size.s[0]);
+		
+			bool enableAll = false;
+			for (Plot::Graph::Variable& var : graph->variables) {
+				if (!var.enabled) {
+					enableAll = true;
+					break;
 				}
-				ImGui::TreePop();
 			}
-			if (ImGui::Button("all variables")) {
+			
+			if (ImGui::Button(!enableAll ? "disable all" : "enable all")) {
 				for (Plot::Graph::Variable& var : graph->variables) {
-					var.enabled = true;
+					var.enabled = enableAll;
 				}
+			}
+		
+			for (Plot::Graph::Variable& var : graph->variables) {
+				std::string name = var.name;
+				
+				ImGui::Checkbox((name + std::string(" enabled")).c_str(), &var.enabled);
+				ImGui::Checkbox((std::string("log ") + name).c_str(), &var.log);
+				
+				float logScale = log(var.scale) / log(10);
+				ImGui::SliderFloat((std::string("scale ") + name).c_str(), &logScale, -10, 10);
+				var.scale = pow(10, logScale);
+				
+				ImGui::SliderInt((std::string("spacing ") + name).c_str(), &var.step, 1, (int)size.s[0]);
 			}
 		}
 

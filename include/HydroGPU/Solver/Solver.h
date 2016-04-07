@@ -141,12 +141,10 @@ public:
 	//On a separate note, maybe put the offset1d and localSize1d ranges in a separate object, along with this function?
 	struct CL {
 		CL(Solver* solver_);
-		void initKernels();
-		void zero(cl::Buffer buffer, size_t sizeInReals);
+		void zero(cl::Buffer buffer, size_t size);
 		cl::Buffer alloc(size_t size, const std::string& name = std::string());
 	//protected:	
 		Solver* solver;
-		cl::Kernel zeroKernel;
 		size_t totalAlloc;
 	} cl;
 
