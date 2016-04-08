@@ -31,7 +31,7 @@ integratorName = 'ForwardEuler'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
-maxFrames = 0			-- enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+--maxFrames = 0			-- enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	-- whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -46,20 +46,26 @@ heatMap = {
 
 -- TODO AMD card has trouble with mirror and periodic boundaries ... probably all boundaries
 boundaryMethods = {
-	{min='FREEFLOW', max='FREEFLOW'},
-	{min='FREEFLOW', max='FREEFLOW'},
-	{min='FREEFLOW', max='FREEFLOW'},
+	{min='PERIODIC', max='PERIODIC'},
+	{min='PERIODIC', max='PERIODIC'},
+	{min='PERIODIC', max='PERIODIC'},
 }
+
+vectorField = {
+	enabled = false,
+	resolution = 64,
+	scale = 1/8,
+}
+
+-- TODO organize solver/equation variables:
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false
+
+
 gravitationalConstant = 1	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful units please
 -- used for gravitation Poisson solver
 gaussSeidelMaxIter = 20
-
-showVectorField = false
-vectorFieldResolution = 64
-vectorFieldScale = .125
 
 -- Euler equations' constants:
 gamma = 1.4
@@ -82,10 +88,10 @@ speedOfLight = speedOfLightInM
 --  (if an element is not provided or nil then it defaults to 1)
 --[[ 3D
 size = {16, 16, 16}
-vectorFieldResolution = 16
+vectorField.resolution = 16
 --]]
 -- [[ 2D
-size = {512, 512}
+size = {1024, 1024}
 --]]
 --[[ 1D
 size = {2048}
@@ -99,10 +105,10 @@ camera = {}
 -- [[ Euler
 
 -- uncomment one:
---solverName = 'EulerBurgers'
+solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
-solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+--solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
 --solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
@@ -242,8 +248,8 @@ graphVariables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = al
 if #size == 1 then			-- 1D better be ortho
 	camera.mode = 'ortho'
 elseif #size == 2 then		-- 2D can handle either ortho or frustum
-	--camera.mode = 'ortho'
-	camera.mode = 'frustum'
+	camera.mode = 'ortho'
+	--camera.mode = 'frustum'
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end

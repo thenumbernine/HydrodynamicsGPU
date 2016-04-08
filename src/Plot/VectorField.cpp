@@ -5,35 +5,33 @@
 namespace HydroGPU {
 namespace Plot {
 
-VectorField::VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_)
+VectorField::VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_, int resolution_)
 : solver(solver_)
-, vectorFieldGLBuffer(0)
-, vectorFieldResolution(0)
-, vectorFieldVertexCount(0)
+, glBuffer(0)
+, resolution(resolution_)
+, vertexCount(0)
+, scale(.125f)
 {
-	vectorFieldResolution = 16;
-	solver->app->lua["vectorFieldResolution"] >> vectorFieldResolution;
-	
 	//create GL buffer
-	glGenBuffers(1, &vectorFieldGLBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER_ARB, vectorFieldGLBuffer);
-	int vectorFieldVolume = 1;
+	glGenBuffers(1, &glBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER_ARB, glBuffer);
+	int volume = 1;
 	for (int i = 0; i < solver->app->dim; ++i) {
-		vectorFieldVolume *= vectorFieldResolution;
+		volume *= resolution;
 	}
-	vectorFieldVertexCount = 3 * 6 * vectorFieldVolume;
-	glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(float) * vectorFieldVertexCount, nullptr, GL_DYNAMIC_DRAW_ARB);
-	solver->cl.totalAlloc += sizeof(float) * vectorFieldVertexCount;
+	vertexCount = 3 * 6 * volume;
+	glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(float) * vertexCount, nullptr, GL_DYNAMIC_DRAW_ARB);
+	solver->cl.totalAlloc += sizeof(float) * vertexCount;
 	glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
 	//create CL interop
-	vectorFieldVertexBuffer = cl::BufferGL(solver->app->clCommon->context, CL_MEM_READ_WRITE, vectorFieldGLBuffer);
+	vertexBuffer = cl::BufferGL(solver->app->clCommon->context, CL_MEM_READ_WRITE, glBuffer);
 	//create transfer kernel
 	updateVectorFieldKernel = cl::Kernel(solver->program, "updateVectorField");
-	CLCommon::setArgs(updateVectorFieldKernel, vectorFieldVertexBuffer, solver->stateBuffer, solver->app->vectorFieldScale);
+	CLCommon::setArgs(updateVectorFieldKernel, vertexBuffer, solver->stateBuffer, scale);
 }
 
 VectorField::~VectorField() {
-	glDeleteBuffers(1, &vectorFieldGLBuffer);	
+	glDeleteBuffers(1, &glBuffer);	
 }
 
 void VectorField::display() {
@@ -43,26 +41,26 @@ void VectorField::display() {
 	cl::NDRange global;
 	switch (solver->app->dim) {
 	case 1:
-		global = cl::NDRange(vectorFieldResolution);
+		global = cl::NDRange(resolution);
 		break;
 	case 2:
-		global = cl::NDRange(vectorFieldResolution, vectorFieldResolution);
+		global = cl::NDRange(resolution, resolution);
 		break;
 	case 3:
-		global = cl::NDRange(vectorFieldResolution, vectorFieldResolution, vectorFieldResolution);
+		global = cl::NDRange(resolution, resolution, resolution);
 		break;
 	}
-	updateVectorFieldKernel.setArg(2, (real)solver->app->vectorFieldScale);
+	updateVectorFieldKernel.setArg(2, (real)scale);
 	solver->app->clCommon->commands.enqueueNDRangeKernel(updateVectorFieldKernel, solver->offsetNd, global, solver->localSize);
 	solver->app->clCommon->commands.finish();
 
 	glDisable(GL_DEPTH_TEST);
 
-	glBindBuffer(GL_ARRAY_BUFFER_ARB, vectorFieldGLBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER_ARB, glBuffer);
 	glColor3d(1,1,1);
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glVertexPointer(3, GL_FLOAT, 0, 0);
-	glDrawArrays(GL_LINES, 0, vectorFieldVertexCount);
+	glDrawArrays(GL_LINES, 0, vertexCount);
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
 	

@@ -69,7 +69,6 @@ HydroGPUApp::HydroGPUApp()
 , useGravity(false)
 , gaussSeidelMaxIter(20)
 , showVectorField(true)
-, vectorFieldScale(.125f)
 , createAnimation(false)
 , showTimestep(false)
 , leftButtonDown(false)
@@ -212,8 +211,13 @@ void HydroGPUApp::init() {
 	lua["useGravity"] >> useGravity;
 	lua["gaussSeidelMaxIter"] >> gaussSeidelMaxIter;
 
-	lua["showVectorField"] >> showVectorField;
-	lua["vectorFieldScale"] >> vectorFieldScale;
+	int vectorFieldResolution = 16;
+	float vectorFieldScale = .125f;
+	if (!lua["vectorField"].isNil()) {
+		lua["vectorField"]["enabled"] >> showVectorField;
+		lua["vectorField"]["scale"] >> vectorFieldScale;
+		lua["vectorField"]["resolution"] >> vectorFieldResolution;
+	}
 
 	//store dimension as last non-1 size
 	for (dim = 3; dim > 0; --dim) {
@@ -326,7 +330,8 @@ void HydroGPUApp::init() {
 	if (solverForEqnIndex == solverGensForEqns[equationIndex].second.size()) solverForEqnIndex = 0;
 
 	//needs solver->program to be created
-	vectorField = std::make_shared<Plot::VectorField>(solver);
+	vectorField = std::make_shared<Plot::VectorField>(solver, vectorFieldResolution);
+	vectorField->scale = vectorFieldScale;
 
 	if (lua["camera"].isNil()) {
 		throw Common::Exception() << "unknown camera";
@@ -485,7 +490,6 @@ PROFILE_BEGIN_FRAME()
 	- a Lua interface into everything would be nice ... if we were using LuaJIT
 	... then *everything* C-callable would be accessible immediately
 	*/
-	float logVectorFieldScale = log(vectorFieldScale);
 	gui->update([&](){
 		//how do you change the window title from "Debug"?
 
@@ -516,7 +520,11 @@ PROFILE_BEGIN_FRAME()
 
 				//regen aux things that depend on the solver
 				createPlot();
-				vectorField = std::make_shared<Plot::VectorField>(solver);
+				
+				std::shared_ptr<Plot::VectorField> newVectorField = std::make_shared<Plot::VectorField>(solver, vectorField->getResolution());
+				newVectorField->scale = vectorField->scale;
+				vectorField = newVectorField;
+				
 				std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
 				newGraph->variables = graph->variables;
 				graph = newGraph;
@@ -531,26 +539,28 @@ PROFILE_BEGIN_FRAME()
 				//but are there any solvers that have different #states for matching eqns?
 				//until then ...
 
-				solver = newSolver;
-				solver->init();
+				newSolver->init();
+				newSolver->resetState();
 
-				//TODO copy state memory *here*
-				//TODO if the states don't match then create a mapping according to the equations or something ...
-#if 0
+				//copy state memory *here*
+				//if the states don't match then create a mapping according to the equations or something ...
+				//TODO what about aux variables that need to be updated too?  like SRHD?
+				//this is the same question that falls in line with the rk4 integrator push/pop modularity
 				if (solver->numStates() == newSolver->numStates()) {
 					size_t length = solver->numStates() * solver->getVolume();
 					size_t bufferSize = sizeof(real) * length;
-					cl::NDRange globalSize1d(length);
-					clCommon->commands.enqueueCopyBuffer(newSolver->stateBuffer, solver->stateBuffer, 0, 0, bufferSize);
-				} else
-#endif
-				{
-					solver->resetState();
+					clCommon->commands.enqueueCopyBuffer(solver->stateBuffer, newSolver->stateBuffer, 0, 0, bufferSize);
 				}
+				
+				solver = newSolver;
 
 				//regen aux things that depend on the solver
 				createPlot();
-				vectorField = std::make_shared<Plot::VectorField>(solver);
+				
+				std::shared_ptr<Plot::VectorField> newVectorField = std::make_shared<Plot::VectorField>(solver, vectorField->getResolution());
+				newVectorField->scale = vectorField->scale;
+				vectorField = newVectorField;
+
 				std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
 				newGraph->variables = graph->variables;
 				graph = newGraph;
@@ -582,7 +592,7 @@ PROFILE_BEGIN_FRAME()
 
 		if (ImGui::CollapsingHeader("heat map")) {
 			// heat map on/off/variable
-			ImGui::Checkbox("show", &showHeatMap);
+			ImGui::Checkbox("show heatMap", &showHeatMap);
 
 			//heat map variable
 			std::string s = makeComboStr(solver->equation->displayVariables);
@@ -653,10 +663,12 @@ PROFILE_BEGIN_FRAME()
 		}
 
 		if (ImGui::CollapsingHeader("vector field")) {
-			ImGui::Checkbox("show", &showVectorField); // velocity field on/off
+			ImGui::Checkbox("show vectorField", &showVectorField); // velocity field on/off
 			//TODO velocity field variable
 			ImGui::Text("log scale");
+			float logVectorFieldScale = log(vectorField->scale);
 			ImGui::SliderFloat("v.f.s.", &logVectorFieldScale, -10.f, 10.f); // velocity field size
+			vectorField->scale = exp(logVectorFieldScale);
 		}
 
 		if (ImGui::CollapsingHeader("controls")) {
@@ -763,7 +775,6 @@ PROFILE_BEGIN_FRAME()
 
 		*/
 	});
-	vectorFieldScale = exp(logVectorFieldScale);
 
 PROFILE_END_FRAME();
 }
@@ -882,11 +893,11 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				std::cout << "vector field " << (showVectorField ? "enabled" : "disabled") << std::endl;
 			} else if (event.key.keysym.sym == SDLK_c) {
 				if (shiftDown) {
-					vectorFieldScale *= .5f;
+					vectorField->scale *= .5f;
 				} else {
-					vectorFieldScale *= 2.f;
+					vectorField->scale *= 2.f;
 				}
-				std::cout << "vector field scale " << vectorFieldScale << std::endl;
+				std::cout << "vector field scale " << vectorField->scale << std::endl;
 			}
 		}
 		break;

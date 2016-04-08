@@ -13,15 +13,17 @@ namespace Plot {
 struct VectorField {
 protected:
 	std::shared_ptr<HydroGPU::Solver::Solver> solver;
-	GLuint vectorFieldGLBuffer;
-	cl::BufferGL vectorFieldVertexBuffer;
+	GLuint glBuffer;
+	cl::BufferGL vertexBuffer;
 	cl::Kernel updateVectorFieldKernel;
-	int vectorFieldResolution;
-	int vectorFieldVertexCount;
+	int resolution;
+	int vertexCount;
 public:
-	VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_);
+	VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_, int resolution_);
 	virtual ~VectorField();
 	virtual void display();
+	float scale;
+	int getResolution() const { return resolution; }
 };
 
 }

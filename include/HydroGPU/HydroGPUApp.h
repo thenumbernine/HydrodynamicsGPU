@@ -67,8 +67,11 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	bool useFixedDT;
 	real fixedDT;
 	real cfl;
+	//TODO the enumeration of these values is dependent on the solver equation 
+	//TODO as well, (1) get rid of Plot1D (2) rename Plot2D to HeatMap/Isobar2D (3) rename Plot3D to Isobar3D
+	// ... then move these into there
 	bool showHeatMap;
-	int heatMapVariable;	//TODO the enumeration of these values is dependent on the solver equation 
+	int heatMapVariable;	
 	float heatMapColorScale;
 	Tensor::Tensor<int, Tensor::Lower<3>, Tensor::Lower<2>> boundaryMethods;
 	bool useGravity;
@@ -76,7 +79,6 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	LuaCxx::State lua;
 	real4 dx;
 	bool showVectorField;
-	float vectorFieldScale;
 	bool createAnimation;
 	bool showTimestep;
 	//input

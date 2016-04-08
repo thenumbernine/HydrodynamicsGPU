@@ -227,8 +227,6 @@ void Solver::initKernels() {
 			for (int minmaxIndex = 0; minmaxIndex < 2; ++minmaxIndex) {
 				std::string name = "stateBoundary" + boundaryKernelNames[boundaryIndex] + dimNames[dimIndex] + minmaxNames[minmaxIndex];
 				cl::Kernel kernel = cl::Kernel(program, name.c_str());
-				kernel.setArg(0, stateBuffer);
-				kernel.setArg(1, numStates());
 				boundaryKernels[boundaryIndex][dimIndex][minmaxIndex] = kernel;
 			}
 		}
@@ -408,7 +406,6 @@ void Solver::getBoundaryRanges(int dimIndex, cl::NDRange &offset, cl::NDRange &g
 //on AMD, 2D problem boundaries <512 work fine (once variables are manually inlined in the kernels).
 // beyond 512 gets mysery errors.
 void Solver::boundary() {
-	cl::Event event;
 	cl::NDRange offset, global, local;
 	for (int i = 0; i < app->dim; ++i) {
 		getBoundaryRanges(i, offset, global, local);
@@ -417,8 +414,10 @@ void Solver::boundary() {
 				int boundaryKernelIndex = equation->stateGetBoundaryKernelForBoundaryMethod(i, j, minmax);
 				if (boundaryKernelIndex < 0 || boundaryKernelIndex >= boundaryKernels.size()) continue;
 				cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i][minmax];
+				kernel.setArg(0, stateBuffer);
+				kernel.setArg(1, numStates());
 				kernel.setArg(2, j);
-				commands.enqueueNDRangeKernel(kernel, offset, global, local, NULL, &event);
+				commands.enqueueNDRangeKernel(kernel, offset, global, local);
 			}
 		}
 	}
