@@ -79,9 +79,6 @@ defs = {
 	maxwell_permeability = 1,	-- mu, or mu_0 for vacuum permeability
 	maxwell_conductivity = 1,	-- sigma
 
---[[ tightly tuned, works in Lua in 1D for two-shock problem, but breaks for this ...
--- these epsilons work for the shock wave interaction problem in 1D CPU implemntation ... 
--- .. but in 1D GPU and in 2D it is crashing ...
 	srhd_solvePrimMaxIter = 1000,
 	srhd_solvePrimStopEpsilon = 1e-7,
 	srhd_solvePrimVelEpsilon = 1e-15,
@@ -89,19 +86,6 @@ defs = {
 	srhd_solvePrimRhoMinEpsilon = 1e-15,
 	srhd_DMinEpsilon = 1e-15,
 	srhd_tauMinEpsilon = 1e-15,
---]]
--- [[ looser tuning for two-shock problem in 1D, but 2D is still breaking ...
---so I'll try loosening the constraints...
---the two-shockwave interaction problem crashes in 2D, but only near certain boundaries (which are broken)
---try fixing that first ...
-	srhd_solvePrimMaxIter = 1000,
-	srhd_solvePrimStopEpsilon = 1e-7,
-	srhd_solvePrimVelEpsilon = 1e-7,
-	srhd_solvePrimPMinEpsilon = 1e-7,
-	srhd_solvePrimRhoMinEpsilon = 1e-7,
-	srhd_DMinEpsilon = 1e-7,
-	srhd_tauMinEpsilon = 1e-7,
---]]
 }
 
 
@@ -111,10 +95,10 @@ defs = {
 size = {16, 16, 16}
 vectorField.resolution = 16
 --]]
---[[ 2D
+-- [[ 2D
 size = {512, 512}
 --]]
--- [[ 1D
+--[[ 1D
 size = {2048}
 --]]
 
