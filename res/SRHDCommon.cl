@@ -93,30 +93,9 @@ __kernel void constrainState(
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	__global real* state = stateBuffer + NUM_STATES * index;
-	state[STATE_REST_MASS_DENSITY] = max(state[STATE_REST_MASS_DENSITY], 1e-15);
-	state[STATE_TOTAL_ENERGY_DENSITY] = max(state[STATE_TOTAL_ENERGY_DENSITY], 1e-15);
+	state[STATE_REST_MASS_DENSITY] = max(state[STATE_REST_MASS_DENSITY], SRHDDMinEpsilon);
+	state[STATE_TOTAL_ENERGY_DENSITY] = max(state[STATE_TOTAL_ENERGY_DENSITY], SRHDTauMinEpsilon);
 }
-
-#if 1
-//these epsilons work for the shock wave interaction problem in 1D ... 
-//... but 2D is crashing ...
-#define SOLVE_PRIM_MAX_ITER 1000
-#define SOLVE_PRIM_STOP_EPSILON	1e-7
-#define SOLVE_PRIM_VEL_EPSILON 1e-15
-#define SOLVE_PRIM_P_MIN_EPSILON 1e-16
-#define SOLVE_PRIM_RHO_MIN_EPSILON 1e-15
-#endif
-
-//so I'll try loosening the constraints...
-//the two-shockwave interaction problem crashes in 2D, but only near certain boundaries (which are broken)
-//try fixing that first ...
-#if 0
-#define SOLVE_PRIM_MAX_ITER 1000
-#define SOLVE_PRIM_STOP_EPSILON	1e-7
-#define SOLVE_PRIM_VEL_EPSILON 1e-7
-#define SOLVE_PRIM_P_MIN_EPSILON 1e-7
-#define SOLVE_PRIM_RHO_MIN_EPSILON 1e-7
-#endif
 
 // convert conservative to primitive using root-finding
 //From Marti & Muller 2008
@@ -163,12 +142,12 @@ __kernel void updatePrimitives(
 	//real eInt = primitive[PRIMITIVE_SPECIFIC_INTERNAL_ENERGY];
 
 	real SLen = length(S);
-	real PMin = max(SLen - tau - D + SLen * SOLVE_PRIM_VEL_EPSILON, SOLVE_PRIM_P_MIN_EPSILON);
+	real PMin = max(SLen - tau - D + SLen * SRHDSolvePrimVelEpsilon, SRHDSolvePrimPMinEpsilon);
 	real PMax = (gamma - 1.) * tau;
 	PMax = max(PMax, PMin);
 	real P = .5 * (PMin + PMax);
 
-	for (int iter = 0; iter < SOLVE_PRIM_MAX_ITER; ++iter) {
+	for (int iter = 0; iter < SRHDSolvePrimMaxIter; ++iter) {
 		real vLen = SLen / (tau + D + P);
 		real vSq = vLen * vLen;
 		real W = 1. / sqrt(1. - vSq);
@@ -181,11 +160,11 @@ __kernel void updatePrimitives(
 		newP = max(newP, PMin);
 		real PError = fabs(1. - newP / P);
 		P = newP;
-		if (PError < SOLVE_PRIM_STOP_EPSILON) {
+		if (PError < SRHDSolvePrimStopEpsilon) {
 			v = S / (tau + D + P);
 			W = 1. / sqrt(1. - dot(v,v));
 			rho = D / W;
-			rho = max(rho, SOLVE_PRIM_RHO_MIN_EPSILON);
+			rho = max(rho, SRHDSolvePrimRhoMinEpsilon);
 			eInt = P / (rho * (gamma - 1.));
 			primitive[PRIMITIVE_DENSITY] = rho;
 			primitive[PRIMITIVE_VELOCITY_X] = v.x;

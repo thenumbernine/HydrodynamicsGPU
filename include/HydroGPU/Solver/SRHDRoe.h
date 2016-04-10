@@ -58,6 +58,7 @@ protected:
 
 	virtual void step(real dt);
 public:
+	virtual void boundary();
 	virtual std::string name() const { return "SRHDRoe"; }
 };
 

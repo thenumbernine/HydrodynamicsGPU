@@ -77,5 +77,28 @@ void SRHDRoe::step(real dt) {
 	commands.enqueueNDRangeKernel(updatePrimitivesKernel, offsetNd, globalSize, localSize);
 }
 
+/*
+the primitive buffer components line up with the conservative buffer components,
+so just use the same kernels on them
+*/
+void SRHDRoe::boundary() {
+	Super::boundary();
+	cl::NDRange offset, global, local;
+	for (int i = 0; i < app->dim; ++i) {
+		getBoundaryRanges(i, offset, global, local);
+		for (int j = 0; j < numStates(); ++j) {
+			for (int minmax = 0; minmax < 2; ++minmax) {
+				int boundaryKernelIndex = equation->stateGetBoundaryKernelForBoundaryMethod(i, j, minmax);
+				if (boundaryKernelIndex < 0 || boundaryKernelIndex >= boundaryKernels.size()) continue;
+				cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i][minmax];
+				kernel.setArg(0, primitiveBuffer);
+				kernel.setArg(1, numStates());
+				kernel.setArg(2, j);
+				commands.enqueueNDRangeKernel(kernel, offset, global, local);
+			}
+		}
+	}
+}
+
 }
 }

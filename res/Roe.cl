@@ -34,52 +34,30 @@ __kernel void calcCellTimestep(
 	}
 	
 	for (int side = 0; side < DIM; ++side) {
-
-//Toro 16.38
-#if 0
-		const __global real* state = stateBuffer + index;
-		
-		real density = state[STATE_DENSITY];
-		real invDensity = 1. / density;
-		real4 velocity = VELOCITY(state);
-		real energyTotal = state[STATE_ENERGY_TOTAL] * invDensity;
-		real energyKinetic = .5 * dot(velocity, velocity);
-		//real energyPotential = potentialBuffer[index];	//TODO ... if we want to use this method ...
-		real energyInternal = energyTotal - energyKinetic;	// - energyPotential;
-		real pressure = (gamma - 1.) * density * energyInternal;
-		real speedOfSound = sqrt(gamma * pressure * invDensity); 
-#endif
-
 		int indexL = index;
 		int indexR = index + stepsize[side];
 
 #ifdef SOLID
-//Hydrodynamics ii
-#if 1
 		if (solidBuffer[indexL] || solidBuffer[indexR]) {
 			dtBuffer[side + DIM * index] = INFINITY; 
 			continue;
 		}
-#endif
-//Toro 16.38
-#if 0
-		if (solidBuffer[index]) continue;
-#endif
 #endif	//SOLID
 
-//Hydrodynamics ii
-#if 1
 		const __global real* eigenvaluesL = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexL);
 		const __global real* eigenvaluesR = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexR);
 		
 		//NOTICE assumes eigenvalues are sorted from min to max
 		real maxLambda = max(0., eigenvaluesL[EIGEN_SPACE_DIM-1]);
 		real minLambda = min(0., eigenvaluesR[0]);
-		real dum = dx[side] / (fabs(maxLambda - minLambda) + 1e-9f);
+		
+//Hydrodynamics ii
+#if 1
+		real dum = dx[side] / (fabs(maxLambda - minLambda) + 1e-9);
 #endif
 //Toro 16.38
 #if 0
-		real dum = dx[side] / (max(fabs(velocity[side] - speedOfSound), fabs(velocity[side] + speedOfSound)) + 1e-9f);
+		real dum = dx[side] / (max(fabs(minLambda), fabs(maxLambda)) + 1e-9);
 #endif
 		dtBuffer[side + DIM * index] = dum;
 	}

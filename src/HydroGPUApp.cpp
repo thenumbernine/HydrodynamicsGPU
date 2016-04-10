@@ -293,9 +293,13 @@ void HydroGPUApp::init() {
 		memset(data, -1, sizeof(data)/8);
 #endif
 		glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, width, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_1D);
+		
+		//glGenerateMipmap(GL_TEXTURE_1D);
+		//glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);	//isobars look good with mipmapping
+		
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);	//heatmaps do not
+		
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		glBindTexture(GL_TEXTURE_1D, 0);
 	}
 
@@ -472,7 +476,7 @@ PROFILE_BEGIN_FRAME()
 
 	camera->setupProjection();
 	solver->app->camera->setupModelview();
-	vectorField->display();
+	if (showVectorField) vectorField->display();
 
 	//no point in showing the graph in ortho
 	graph->display();
@@ -691,6 +695,8 @@ PROFILE_BEGIN_FRAME()
 			if (ImGui::Button("reset")) solver->resetState();
 
 			// used fixed dt vs cfl #
+			//TODO fixed dt means writing to the dtBuffer
+			ImGui::InputFloat("cfl", &cfl);
 
 			// take screenshot
 			if (ImGui::Button("screenshot")) {

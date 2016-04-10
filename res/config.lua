@@ -46,9 +46,9 @@ heatMap = {
 
 -- TODO AMD card has trouble with mirror and periodic boundaries ... probably all boundaries
 boundaryMethods = {
-	{min='PERIODIC', max='PERIODIC'},
-	{min='PERIODIC', max='PERIODIC'},
-	{min='PERIODIC', max='PERIODIC'},
+	{min='FREEFLOW', max='FREEFLOW'},
+	{min='FREEFLOW', max='FREEFLOW'},
+	{min='FREEFLOW', max='FREEFLOW'},
 }
 
 vectorField = {
@@ -84,6 +84,45 @@ conductivity = 1
 speedOfLightInM = 299792458
 speedOfLight = speedOfLightInM
 
+-- defs to forward on to OpenCL code 
+defs = {
+	HeatCapacityRatio = 1.4,
+	
+	SelfGravitationConstant = 1,	-- works for any solver with 'self-gravity', i.e. Euler, MHD, SRHD, etc
+	SelfGravitationGaussSeidelMaxIters = 20,	-- max iters for inverse solver
+	
+	MHDVacuumPermeability = 1,	-- is this the same as the maxwell permeability?
+	
+	MaxwellPermittivity = 1,	-- epsilon, or epsilon_0 for vacuum permittivity
+	MaxwellPermeability = 1,	-- mu, or mu_0 for vacuum permeability
+	MaxwellConductivity = 1,	-- sigma
+
+-- [[ tightly tuned, works in Lua in 1D for two-shock problem, but breaks for this ...
+-- these epsilons work for the shock wave interaction problem in 1D CPU implemntation ... 
+-- .. but in 1D GPU and in 2D it is crashing ...
+	SRHDSolvePrimMaxIter = 1000,
+	SRHDSolvePrimStopEpsilon = 1e-7,
+	SRHDSolvePrimVelEpsilon = 1e-15,
+	SRHDSolvePrimPMinEpsilon = 1e-16,
+	SRHDSolvePrimRhoMinEpsilon = 1e-15,
+	SRHDDMinEpsilon = 1e-15,
+	SRHDTauMinEpsilon = 1e-15,
+--]]
+--[[ looser tuning for two-shock problem in 1D, but 2D is still breaking ...
+--so I'll try loosening the constraints...
+--the two-shockwave interaction problem crashes in 2D, but only near certain boundaries (which are broken)
+--try fixing that first ...
+	SRHDSolvePrimMaxIter = 1000,
+	SRHDSolvePrimStopEpsilon = 1e-7,
+	SRHDSolvePrimVelEpsilon = 1e-7,
+	SRHDSolvePrimPMinEpsilon = 1e-7,
+	SRHDSolvePrimRhoMinEpsilon = 1e-7,
+	SRHDDMinEpsilon = 1e-7,
+	SRHDTauMinEpsilon = 1e-7,
+--]]
+}
+
+
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
 --[[ 3D
@@ -91,7 +130,7 @@ size = {16, 16, 16}
 vectorField.resolution = 16
 --]]
 -- [[ 2D
-size = {1024, 1024}
+size = {512, 512}
 --]]
 --[[ 1D
 size = {2048}
@@ -105,11 +144,11 @@ camera = {}
 -- [[ Euler
 
 -- uncomment one:
-solverName = 'EulerBurgers'
+--solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
 --solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
---solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
+solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
 
@@ -137,7 +176,7 @@ end
 --solidFilename = 'test-solid.png'
 --]=]
 
-initCondName = 'Sod'
+--initCondName = 'Sod'
 --initCondName = 'Sphere'
 --initCondName = 'Square Cavity'
 --initCondName = 'Kelvin-Hemholtz'
@@ -151,7 +190,7 @@ initCondName = 'Sod'
 --initCondName = 'Colella-Woodward'
 --initCondName = 'Configuration 6'
 --initCondName = 'SRHD Schneider et al'
---initCondName = 'Relativistic Blast Wave Interaction'
+initCondName = 'Relativistic Blast Wave Interaction'
 --initCondName = 'Marti & Muller 2008 Problem #1'
 --initCondName = 'Marti & Muller 2008 Problem #2'
 initConds[initCondName].setup()
@@ -254,4 +293,4 @@ else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end
 
-cfl = cfl or 1/#size
+cfl = cfl or .5/#size

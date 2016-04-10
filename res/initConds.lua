@@ -776,7 +776,7 @@ initConds = {
 			local Tensor = symmath.Tensor
 			
 			local H, sigma
-			if not args.unitDomain then
+			if not (args and args.unitDomain) then
 			-- [[ problem's original domain
 				H = 5
 				sigma = 10

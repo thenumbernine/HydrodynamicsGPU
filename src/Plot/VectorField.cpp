@@ -35,8 +35,6 @@ VectorField::~VectorField() {
 }
 
 void VectorField::display() {
-	if (!solver->app->showVectorField) return;
-	
 	//glFlush();
 	cl::NDRange global;
 	switch (solver->app->dim) {

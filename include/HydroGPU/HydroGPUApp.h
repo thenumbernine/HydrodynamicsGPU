@@ -66,7 +66,7 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	int currentFrame;
 	bool useFixedDT;
 	real fixedDT;
-	real cfl;
+	float cfl;
 	//TODO the enumeration of these values is dependent on the solver equation 
 	//TODO as well, (1) get rid of Plot1D (2) rename Plot2D to HeatMap/Isobar2D (3) rename Plot3D to Isobar3D
 	// ... then move these into there

@@ -55,7 +55,13 @@ void SRHD::getProgramSources(std::vector<std::string>& sources) {
 	real gamma = 1.4f;
 	app->lua["gamma"] >> gamma;
 	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
-	
+
+//TODO: add iterator to LuaCxx::Ref with key() and value(), and make sure the implicit lua_tostring on the numbers is a good idea ...
+	LuaCxx::Ref defs = app->lua["defs"];
+	for (LuaCxx::Ref::iterator i = defs.begin(); i != defs.end(); ++i) {	//pairs() kv iterator
+		sources[0] += std::string("#define ") + i.key.operator std::string() + std::string(" ") + i.value.operator std::string() + "\n";
+	}
+
 	sources.push_back("#include \"SRHDCommon.cl\"\n");
 }
 
