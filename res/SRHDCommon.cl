@@ -95,8 +95,15 @@ __kernel void constrainState(
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	__global real* state = stateBuffer + NUM_STATES * index;
-	state[STATE_REST_MASS_DENSITY] = max(state[STATE_REST_MASS_DENSITY], srhd_DMinEpsilon);
-	state[STATE_TOTAL_ENERGY_DENSITY] = max(state[STATE_TOTAL_ENERGY_DENSITY], srhd_tauMinEpsilon);
+	
+	//constraining conservative values directly doesn't seem to be physical
+	//seems it's a better idea to constrain fluxes to ensure they don't cause conservative values to be violated
+	
+	state[STATE_REST_MASS_DENSITY] = max(state[STATE_REST_MASS_DENSITY], srhd_DMin);
+	state[STATE_TOTAL_ENERGY_DENSITY] = max(state[STATE_TOTAL_ENERGY_DENSITY], srhd_tauMin);
+	
+	state[STATE_REST_MASS_DENSITY] = min(state[STATE_REST_MASS_DENSITY], srhd_DMax);
+	state[STATE_TOTAL_ENERGY_DENSITY] = min(state[STATE_TOTAL_ENERGY_DENSITY], srhd_tauMax);
 }
 
 // convert conservative to primitive using root-finding
@@ -166,8 +173,10 @@ __kernel void updatePrimitives(
 			v = S / (tau + D + P);
 			W = 1. / sqrt(1. - dot(v,v));
 			rho = D / W;
-			rho = max(rho, srhd_solvePrimRhoMinEpsilon);
+			rho = max(rho, srhd_rhoMin);
+			rho = min(rho, srhd_rhoMax);
 			eInt = P / (rho * (gamma - 1.));
+			eInt = min(eInt, srhd_eIntMax);
 			primitive[PRIMITIVE_DENSITY] = rho;
 			primitive[PRIMITIVE_VELOCITY_X] = v.x;
 #if DIM > 1

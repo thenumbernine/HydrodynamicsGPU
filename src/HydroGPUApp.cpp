@@ -21,7 +21,6 @@
 #include "HydroGPU/Equation/BSSNOK.h"
 
 #include "HydroGPU/Plot/VectorField.h"
-#include "HydroGPU/Plot/Plot1D.h"
 #include "HydroGPU/Plot/Plot2D.h"
 #include "HydroGPU/Plot/Plot3D.h"
 #include "HydroGPU/Plot/CameraOrtho.h"
@@ -66,6 +65,7 @@ HydroGPUApp::HydroGPUApp()
 , showHeatMap(true)
 , heatMapVariable(0)
 , heatMapColorScale(2.f)
+, heatMapUseLog(false)
 , useGravity(false)
 , gaussSeidelMaxIter(20)
 , showVectorField(true)
@@ -333,6 +333,15 @@ void HydroGPUApp::init() {
 	}
 	if (solverForEqnIndex == solverGensForEqns[equationIndex].second.size()) solverForEqnIndex = 0;
 
+	{
+		std::string initCondName;
+		if ((lua["initCondName"] >> initCondName).good()) {
+			std::string equationName = equationNames[equationIndex];
+			std::vector<std::string>& initCondNames = initCondNamesForEqns[equationName];
+			initCondIndex = std::find(initCondNames.begin(), initCondNames.end(), initCondName) - initCondNames.begin();
+		}
+	}
+
 	//needs solver->program to be created
 	vectorField = std::make_shared<Plot::VectorField>(solver, vectorFieldResolution);
 	vectorField->scale = vectorFieldScale;
@@ -387,6 +396,7 @@ void HydroGPUApp::init() {
 	if (!lua["heatMap"].isNil()) {
 		lua["heatMap"]["enabled"] >> showHeatMap;
 		lua["heatMap"]["colorScale"] >> heatMapColorScale;
+		lua["heatMap"]["useLog"] >> heatMapUseLog;
 
 		std::string heatMapVariableName;
 		if ((lua["heatMap"]["variable"] >> heatMapVariableName).good()) {
@@ -429,7 +439,7 @@ void HydroGPUApp::init() {
 void HydroGPUApp::createPlot() {
 	switch(dim) {
 	case 1:
-		plot = std::make_shared<Plot::Plot1D>(this);
+		plot = nullptr;
 		break;
 	case 2:
 		plot = std::make_shared<Plot::Plot2D>(this);
@@ -438,7 +448,7 @@ void HydroGPUApp::createPlot() {
 		plot = std::make_shared<Plot::Plot3D>(this);
 		break;
 	}
-	plot->init();
+	if (plot) plot->init();
 }
 
 void HydroGPUApp::shutdown() {
@@ -483,7 +493,7 @@ PROFILE_BEGIN_FRAME()
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-	if (showHeatMap) plot->display();
+	if (plot && showHeatMap) plot->display();
 	glDisable(GL_BLEND);
 
 	//do this before rendering the gui so it stays out of the picture
@@ -607,6 +617,8 @@ PROFILE_BEGIN_FRAME()
 			float logHeatMapColorScale = log(heatMapColorScale);
 			ImGui::SliderFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f);
 			heatMapColorScale = exp(logHeatMapColorScale);
+		
+			ImGui::Checkbox("heat map log scale", &heatMapUseLog);
 		}
 
 		if (ImGui::CollapsingHeader("graph")) {

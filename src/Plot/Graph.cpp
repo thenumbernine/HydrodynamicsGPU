@@ -65,7 +65,8 @@ void Graph::display() {
 			graphShader->setUniform<float>("scale", var.scale)
 						.setUniform<int>("axis", app->dim)
 						.setUniform<float>("ambient", app->dim == 1 ? 1 : .1)
-						.setUniform<bool>("useLog", var.log);
+						.setUniform<bool>("useLog", var.log)
+						.setUniform<float>("size", app->size.s[0], app->size.s[1]);
 			graphShader->setUniform<float>("xmin", app->xmin.s[0], app->xmin.s[1]);
 			graphShader->setUniform<float>("xmax", app->xmax.s[0], app->xmax.s[1]);
 			glBindTexture(GL_TEXTURE_2D, app->plot->tex);

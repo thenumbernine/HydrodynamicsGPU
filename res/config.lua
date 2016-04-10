@@ -42,6 +42,7 @@ heatMap = {
 	enabled = true,
 	variable = 'DENSITY',
 	scale = 2,
+	useLog = false,
 }
 
 -- TODO AMD card has trouble with mirror and periodic boundaries ... probably all boundaries
@@ -83,9 +84,14 @@ defs = {
 	srhd_solvePrimStopEpsilon = 1e-7,
 	srhd_solvePrimVelEpsilon = 1e-15,
 	srhd_solvePrimPMinEpsilon = 1e-16,
-	srhd_solvePrimRhoMinEpsilon = 1e-15,
-	srhd_DMinEpsilon = 1e-15,
-	srhd_tauMinEpsilon = 1e-15,
+	
+	srhd_rhoMin = 1e-15,
+	srhd_rhoMax = 1e+20,
+	srhd_eIntMax = 1e+20,
+	srhd_DMin = 1e-15,
+	srhd_DMax = 1e+20,
+	srhd_tauMin = 1e-15,
+	srhd_tauMax = 1e+20,
 }
 
 
@@ -161,6 +167,14 @@ initCondName = 'Relativistic Blast Wave Interaction'
 --initCondName = 'Marti & Muller 2008 Problem #2'
 initConds[initCondName].setup()
 --]]
+
+-- for 2D Relativistic Blast Wave problem, cfl=.1 is needed
+if solverName == 'SRHDRoe'
+and #size == 2
+and initCondName == 'Relativistic Blast Wave Interaction'
+then
+	cfl = .1
+end
 
 --[[ MHD
 

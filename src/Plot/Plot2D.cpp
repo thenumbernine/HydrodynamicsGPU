@@ -33,7 +33,9 @@ void Plot2D::display() {
 	convertVariableToTex(app->heatMapVariable);
 
 	heatShader->use();
-	heatShader->setUniform<float>("scale", app->heatMapColorScale);
+	heatShader->setUniform<float>("scale", app->heatMapColorScale)
+				.setUniform<bool>("useLog", app->heatMapUseLog);
+	
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, tex);
 //TODO heat map flag for texture mag filtering

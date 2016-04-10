@@ -11,14 +11,19 @@ void main() {
 
 #ifdef FRAGMENT_SHADER
 
+uniform bool useLog;
+//1/log(10)
+#define _1_LN_10 0.4342944819032517611567811854911269620060920715332
+
 uniform float scale;
 uniform sampler2D tex;
 uniform sampler1D gradient;
 
 void main() {
 	float value = texture2D(tex, texCoord).r;
-	gl_FragColor = texture1D(gradient, value * scale);
+	if (useLog) value = log(1. + abs(value)) * _1_LN_10;
+	value *= scale;
+	gl_FragColor = texture1D(gradient, value);
 }
 
 #endif	//FRAGMENT_SHADER
-

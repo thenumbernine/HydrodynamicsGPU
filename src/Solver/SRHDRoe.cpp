@@ -9,7 +9,7 @@ namespace Solver {
 void SRHDRoe::initBuffers() {
 	Super::initBuffers();
 	
-	primitiveBuffer = cl.alloc(sizeof(real) * numStates() * getVolume());
+	primitiveBuffer = cl.alloc(sizeof(real) * numStates() * getVolume(), "SRHDRoe::initBuffers");
 }
 
 void SRHDRoe::initKernels() {

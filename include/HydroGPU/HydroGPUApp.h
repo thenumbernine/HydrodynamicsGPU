@@ -73,6 +73,7 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	bool showHeatMap;
 	int heatMapVariable;	
 	float heatMapColorScale;
+	bool heatMapUseLog;
 	Tensor::Tensor<int, Tensor::Lower<3>, Tensor::Lower<2>> boundaryMethods;
 	bool useGravity;
 	int gaussSeidelMaxIter;	//max iterations for Gauss-Seidel max iterations
