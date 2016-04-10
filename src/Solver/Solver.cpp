@@ -127,7 +127,6 @@ OR I could just have the debug printfs also output their thread ID and filter al
 		break;
 	}
 
-
 	std::cout << "global_size\t" << globalSize << std::endl;
 	std::cout << "local_size\t" << localSize << std::endl;
 	
@@ -135,6 +134,7 @@ OR I could just have the debug printfs also output their thread ID and filter al
 		std::vector<std::string> sourceStrs = getProgramSources();
 		std::vector<std::pair<const char *, size_t>> sources;
 		for (const std::string &s : sourceStrs) {
+std::cout << s;
 			sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));
 		}
 		program = cl::Program(app->clCommon->context, sources);
@@ -147,10 +147,10 @@ OR I could just have the debug printfs also output their thread ID and filter al
 			<< "failed to build program executable!\n"
 			<< program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
 	}
-
+	
 	//warnings?
 	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
-
+	
 	//for curiousity's sake
 	if (app->clCommon->useGPU) {
 		cl_int err;
@@ -239,6 +239,7 @@ void Solver::initKernels() {
 std::vector<std::string> Solver::getProgramSources() {
 	std::vector<std::string> sourceStrs = std::vector<std::string>{
 		std::string() +
+		"#include \"HydroGPU/Shared/Common.h\"\n" +
 		"#define DIM " + std::to_string(app->dim) + "\n" +
 		"#define SIZE_X " + std::to_string(app->size.s[0]) + "\n" +
 		"#define SIZE_Y " + std::to_string(app->size.s[1]) + "\n" +
@@ -264,13 +265,21 @@ std::vector<std::string> Solver::getProgramSources() {
 	app->lua["slopeLimiter"] >> slopeLimiterName;
 	sourceStrs[0] += "#define SLOPE_LIMITER_" + slopeLimiterName + "\n";
 
-	real gravitationalConstant = 1.f;
-	app->lua["gravitationalConstant"] >> gravitationalConstant;
-	sourceStrs[0] += "#define GRAVITATIONAL_CONSTANT " + toNumericString<real>(gravitationalConstant) + "\n";
+	LuaCxx::Ref defs = app->lua["defs"];
+	for (LuaCxx::Ref::iterator i = defs.begin(); i != defs.end(); ++i) {
+		std::string keyStr = (std::string)i.key;
+		//TODO 'toNumericString' should be 'toOpenCLNumber' ?
+		//NOTICE - I'm wrapping all strings with ()'s, incase they are expressions
+		// is there any situation where that's a bad idea?
+		std::string valueStr = std::string("(") + (std::string)i.value + std::string(")");
+		sourceStrs[0] += std::string("#define ") + keyStr + std::string(" ") + valueStr + "\n";
+	}
 
 	sourceStrs.push_back("#include \"SlopeLimiter.cl\"\n");
 	sourceStrs.push_back("#include \"Common.cl\"\n");
+	
 	equation->getProgramSources(sourceStrs);
+	
 	return sourceStrs;
 }
 

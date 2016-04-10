@@ -27,11 +27,7 @@ int ADM1DRoe::getEigenTransformStructSize() {
 }
 
 std::vector<std::string> ADM1DRoe::getEigenProgramSources() {
-	return {
-		"enum {\n"
-		"	EIGENFIELD_F\n"
-		"};\n"
-	};
+	return {"#define EIGENFIELD_F 0\n"};
 }
 
 void ADM1DRoe::step(real dt) {
@@ -48,4 +44,3 @@ void ADM1DRoe::step(real dt) {
 
 }
 }
-

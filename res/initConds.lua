@@ -64,7 +64,7 @@ initConds = {
 		equations={'Euler', 'MHD', 'SRHD'},
 		setup=function()
 			--boundaryMethods = {{min='MIRROR', max='MIRROR'}, {min='MIRROR', max='MIRROR'}, {min='MIRROR', max='MIRROR'}}
-			gamma = 7/5
+			defs.idealGas_heatCapacityRatio = 7/5
 			initState = function(x,y,z)
 				local inside = x <= 0 and y <= 0 and z <= 0	
 				return buildStateEuler{
@@ -232,7 +232,7 @@ initConds = {
 		name='Brio-Wu',
 		equations={'Euler', 'MHD', 'SRHD'},
 		setup=function()
-			gamma = 2
+			defs.idealGas_heatCapacityRatio = 2
 			initState = function(x,y,z)
 				local lhs = x <= 0 and y <= 0 and z <= 0
 				return buildStateEuler{
@@ -253,7 +253,7 @@ initConds = {
 		name='Orszag-Tang',
 		equations={'Euler', 'MHD', 'SRHD'},
 		setup=function()
-			gamma = 5/3
+			defs.idealGas_heatCapacityRatio = 5/3
 			local B0 = 1/math.sqrt(4 * math.pi)
 			-- assumes coordinate space to be [-.5,.5]^2
 			initState = function(x,y,z)
@@ -366,7 +366,7 @@ initConds = {
 			xmax = {4,1,1}
 			size[1] = size[1] * 2
 			size[2] = size[2] / 2
-			gamma = 1.4
+			defs.idealGas_heatCapacityRatio = 1.4
 			local sqrt1_3 = math.sqrt(1/3)
 			initState = function(x,y,z)
 				local inside = x < y * sqrt1_3
@@ -678,7 +678,7 @@ initConds = {
 		name='Relativistic Blast Wave Interaction',
 		equations={'Euler', 'MHD', 'SRHD'},
 		setup=function()
-			gamma = 7/5
+			defs.idealGas_heatCapacityRatio = 7/5
 			initState = function(x,y,z)
 				local xs = {x,y,z}
 				local xlhs = {
@@ -713,7 +713,7 @@ initConds = {
 		--name = 'SRHD Schneider et al',	-- aka
 		equations={'Euler', 'MHD', 'SRHD'},
 		setup=function()
-			gamma=5/3
+			defs.idealGas_heatCapacityRatio=5/3
 			initState = function(x,y,z)
 				return buildStateEuler{
 					x=x, y=y, z=z,
@@ -728,7 +728,7 @@ initConds = {
 		name='Marti & Muller 2008 Problem #2',
 		equations={'Euler', 'MHD', 'SRHD'},
 		setup=function()
-			gamma = 5/3
+			defs.idealGas_heatCapacityRatio = 5/3
 			initState = function(x,y,z)
 				local lhs = x <= 0 and y <= 0 and z <= 0
 				return buildStateEuler{
@@ -748,6 +748,7 @@ initConds = {
 		name='Maxwell-1',
 		equations={'Maxwell'},
 		setup=function()
+			local epsilon = defs.maxwell_permittivity
 			initState = function(x,y,z)
 				local inside = x <= 0 and y <= 0 and z <= 0
 				local ex = 0 
@@ -756,7 +757,7 @@ initConds = {
 				local bx = 0
 				local by = 0
 				local bz = inside and 1 or -1
-				return ex * permittivity, ey * permittivity, ez * permittivity, bx, by, bz
+				return ex * epsilon, ey * epsilon, ez * epsilon, bx, by, bz
 			end
 		end,
 	},
@@ -769,8 +770,8 @@ initConds = {
 		name='NR Gauge Shock Waves',
 		equations={'ADM1D', 'ADM3D', 'BSSNOK'},
 		setup=function(args)
-			adm_BonaMasso_f = '1. + 1. / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
-			adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
+			defs.adm_BonaMasso_f = '1. + 1. / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
+			defs.adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
 			print('deriving and compiling...')
 			local symmath = require 'symmath'	-- this is failing ...
 			local Tensor = symmath.Tensor
@@ -881,12 +882,12 @@ initConds = {
 		equations={'ADM1D', 'ADM3D', 'BSSNOK'},
 		setup=function()
 			-- [[
-			adm_BonaMasso_f = '1. + 1. / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
-			adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
+			defs.adm_BonaMasso_f = '1. + 1. / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
+			defs.adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
 			--]]
 			--[[ constant
-			adm_BonaMasso_f = '1.'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
-			adm_BonaMasso_df_dalpha = '0.'
+			defs.adm_BonaMasso_f = '1.'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
+			defs.adm_BonaMasso_df_dalpha = '0.'
 			--]]
 
 			xmin = {-2,-2,-2}
@@ -935,12 +936,12 @@ initConds = {
 		equations={'ADM1D', 'ADM3D', 'BSSNOK'},
 		setup=function()
 			-- [[
-			adm_BonaMasso_f = '1. + 1. / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
-			adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
+			defs.adm_BonaMasso_f = '1. + 1. / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
+			defs.adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
 			--]]
 			--[[ constant
-			adm_BonaMasso_f = '1.'	-- '1.69'	-- '.49'
-			adm_BonaMasso_df_dalpha = '0.'
+			defs.adm_BonaMasso_f = '1.'	-- '1.69'	-- '.49'
+			defs.adm_BonaMasso_df_dalpha = '0.'
 			--]]
 			
 			local R = .002	-- Schwarzschild radius
@@ -999,8 +1000,8 @@ initConds = {
 				radius = .1,
 			}}
 
-			adm_BonaMasso_f = '1. + 1. / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
-			adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
+			defs.adm_BonaMasso_f = '1. + 1. / (alpha * alpha)'	-- TODO C/OpenCL exporter with lua symmath (only real difference is number formatting, with option for floating point)
+			defs.adm_BonaMasso_df_dalpha = '-1. / (alpha * alpha * alpha)'
 			
 			local t,x,y,z = symmath.vars('t','x','y','z')
 			

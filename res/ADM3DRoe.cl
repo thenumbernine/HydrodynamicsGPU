@@ -63,7 +63,7 @@ void calcEigenBasisSide(
 	real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
 	real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
 	real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
-	real f = ADM_BONA_MASSO_F;	//could be based on alpha...
+	real f = adm_BonaMasso_f;	//could be based on alpha...
 	
 	//store only what information is needed for the function of applying the eigenvectors/inverses 
 	eigenvector[37] = gammaUxx;
@@ -462,15 +462,15 @@ __kernel void addSource(
 	real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
 	real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
 	real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
-	real f = ADM_BONA_MASSO_F;	//could be based on alpha...
+	real f = adm_BonaMasso_f;	//could be based on alpha...
 
 real density = state[STATE_DENSITY];
 real pressure = state[STATE_PRESSURE];
 real4 vel3 = (real4)(state[STATE_VELOCITY_X], state[STATE_VELOCITY_Y], state[STATE_VELOCITY_Z], 0.);
 real vel3Sq = dot(vel3, vel3);
-real velGamma = 1. / sqrt(1. - vel3Sq / (SPEED_OF_LIGHT * SPEED_OF_LIGHT));
-real4 vel4_ = vel3 * (velGamma / SPEED_OF_LIGHT);
-vel4_.w = velGamma;
+real LorentzFactor = 1. / sqrt(1. - vel3Sq);
+real4 vel4_ = vel3 * LorentzFactor;
+vel4_.w = LorentzFactor;
 
 real4 beta_ = (real4)(0., 0., 0., 0.);
 

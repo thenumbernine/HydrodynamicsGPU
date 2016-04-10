@@ -18,6 +18,10 @@ have dug through
 
 #include "HydroGPU/Shared/Common.h"
 
+#define gamma idealGas_heatCapacityRatio	//laziness
+#define mu0 mhd_vacuumPermeability
+#define sqrt_mu0 mhd_sqrt_vacuumPermeability
+
 #define M_SQRT_1_2	0.7071067811865475727373109293694142252206802368164f
 #define M_SQRT_2	(2.f * M_SQRT_1_2)
 
@@ -64,7 +68,7 @@ void calcEigenBasisSide(
 	real invDensityL = 1.f / densityL;
 	real4 velocityL = VELOCITY(stateL);
 	real4 magneticFieldL = (real4)(stateL[STATE_MAGNETIC_FIELD_X], stateL[STATE_MAGNETIC_FIELD_Y], stateL[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / vaccuumPermeability;
+	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / mu0;
 	real totalPlasmaEnergyDensityL = stateL[STATE_ENERGY_TOTAL];
 	real totalHydroEnergyDensityL = totalPlasmaEnergyDensityL - magneticEnergyDensityL;
 	real kineticEnergyDensityL = .5f * densityL * dot(velocityL, velocityL);
@@ -80,7 +84,7 @@ internalEnergyDensityL = max(0.f, internalEnergyDensityL);	//magnetic energy is 
 	real invDensityR = 1.f / densityR;
 	real4 velocityR = VELOCITY(stateR);
 	real4 magneticFieldR = (real4)(stateR[STATE_MAGNETIC_FIELD_X], stateR[STATE_MAGNETIC_FIELD_Y], stateR[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / vaccuumPermeability;
+	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / mu0;
 	real totalPlasmaEnergyDensityR = stateR[STATE_ENERGY_TOTAL];
 	real totalHydroEnergyDensityR = totalPlasmaEnergyDensityR - magneticEnergyDensityR;
 	real kineticEnergyDensityR = .5f * densityR * dot(velocityR, velocityR);
@@ -154,23 +158,23 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		//for the HLL MHD not sure if I should use the original flux or the symmetrized flux ...
 		real fluxL[NUM_STATES];
 		fluxL[STATE_DENSITY] = densityL * velocityL.x;
-		fluxL[STATE_MOMENTUM_X] = densityL * velocityL.x * velocityL.x +  pressureL - magneticFieldL.x * magneticFieldL.x / vaccuumPermeability;
-		fluxL[STATE_MOMENTUM_Y] = densityL * velocityL.y * velocityL.x - magneticFieldL.x * magneticFieldL.y / vaccuumPermeability;
-		fluxL[STATE_MOMENTUM_Z] = densityL * velocityL.z * velocityL.x - magneticFieldL.x * magneticFieldL.z / vaccuumPermeability;
+		fluxL[STATE_MOMENTUM_X] = densityL * velocityL.x * velocityL.x +  pressureL - magneticFieldL.x * magneticFieldL.x / mu0;
+		fluxL[STATE_MOMENTUM_Y] = densityL * velocityL.y * velocityL.x - magneticFieldL.x * magneticFieldL.y / mu0;
+		fluxL[STATE_MOMENTUM_Z] = densityL * velocityL.z * velocityL.x - magneticFieldL.x * magneticFieldL.z / mu0;
 		fluxL[STATE_MAGNETIC_FIELD_X] = 0.f; 
 		fluxL[STATE_MAGNETIC_FIELD_Y] = velocityL.x * magneticFieldL.y - magneticFieldL.x * velocityL.y;
 		fluxL[STATE_MAGNETIC_FIELD_Z] = velocityL.x * magneticFieldL.z - magneticFieldL.x * velocityL.z;
-		fluxL[STATE_ENERGY_TOTAL] = (totalPlasmaEnergyDensityL + pressureL) * velocityL.x + dot(velocityL, magneticFieldL) * magneticFieldL.x / vaccuumPermeability;
+		fluxL[STATE_ENERGY_TOTAL] = (totalPlasmaEnergyDensityL + pressureL) * velocityL.x + dot(velocityL, magneticFieldL) * magneticFieldL.x / mu0;
 	
 		real fluxR[NUM_STATES];
 		fluxR[STATE_DENSITY] = densityR * velocityR.x;
-		fluxR[STATE_MOMENTUM_X] = densityR * velocityR.x * velocityR.x + pressureR - magneticFieldR.x * magneticFieldR.x / vaccuumPermeability;
-		fluxR[STATE_MOMENTUM_Y] = densityR * velocityR.y * velocityR.x - magneticFieldR.x * magneticFieldR.y / vaccuumPermeability;
-		fluxR[STATE_MOMENTUM_Z] = densityR * velocityR.z * velocityR.x - magneticFieldR.x * magneticFieldR.z / vaccuumPermeability;
+		fluxR[STATE_MOMENTUM_X] = densityR * velocityR.x * velocityR.x + pressureR - magneticFieldR.x * magneticFieldR.x / mu0;
+		fluxR[STATE_MOMENTUM_Y] = densityR * velocityR.y * velocityR.x - magneticFieldR.x * magneticFieldR.y / mu0;
+		fluxR[STATE_MOMENTUM_Z] = densityR * velocityR.z * velocityR.x - magneticFieldR.x * magneticFieldR.z / mu0;
 		fluxR[STATE_MAGNETIC_FIELD_X] = 0.f; 
 		fluxR[STATE_MAGNETIC_FIELD_Y] = velocityR.x * magneticFieldR.y - magneticFieldR.x * velocityR.y;
 		fluxR[STATE_MAGNETIC_FIELD_Z] = velocityR.x * magneticFieldR.z - magneticFieldR.x * velocityR.z;
-		fluxR[STATE_ENERGY_TOTAL] = (totalPlasmaEnergyDensityR + pressureR) * velocityR.x + dot(velocityR, magneticFieldR) * magneticFieldR.x / vaccuumPermeability;
+		fluxR[STATE_ENERGY_TOTAL] = (totalPlasmaEnergyDensityR + pressureR) * velocityR.x + dot(velocityR, magneticFieldR) * magneticFieldR.x / mu0;
 
 		//HLL-specific
 		__global real* flux = fluxBuffer + NUM_FLUX_STATES * interfaceIndex;
@@ -221,14 +225,14 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		real velocitySq = dot(velocity, velocity);
 		real enthalpyTotal = speedOfSoundSq / gammaMinusOne + .5f * velocitySq;
 
-		real AlfvenSpeed = fabs(magneticField.x) / (sqrtDensity * sqrtVaccuumPermeability);
+		real AlfvenSpeed = fabs(magneticField.x) / (sqrtDensity * sqrt_mu0);
 		real AlfvenSpeedSq = AlfvenSpeed * AlfvenSpeed;
 		//Alfven speed is the absolute of the magnetic field in the normal direction -- to ensure ordering of eigenvalues (which might not be a necessary constraint)
 		// however all my calculated results leave the eigenvalue as Bx, not |Bx|.  what to do?  enter sign(Bx).
 		// if the eigenvalue was Bx and is now |Bx| then the corresponding eigenvector should be scaled by sign(Bx) ... (if it makes a difference at all)
 		real sgnBx = magneticField.x >= 0.f ? 1.f : -1.f;
 		
-		real starSpeedSq = .5f * (speedOfSoundSq + magneticFieldSq / (density * vaccuumPermeability));
+		real starSpeedSq = .5f * (speedOfSoundSq + magneticFieldSq / (density * mu0));
 		real discr = starSpeedSq * starSpeedSq - speedOfSoundSq * AlfvenSpeedSq;
 		real discrSqrt = sqrt(discr);
 		real fastSpeedSq = starSpeedSq + discrSqrt;
@@ -275,7 +279,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 			eigenvalues[6] = velocity.x;
 			eigenvalues[7] = velocity.x + fastSpeed;
 
-			real4 BBar = magneticField * (1.f / (sqrtDensity * sqrtVaccuumPermeability));
+			real4 BBar = magneticField * (1.f / (sqrtDensity * sqrt_mu0));
 
 			//normalize components separately
 			real4 v0 = normalize((real4)(speedOfSound, fastSpeed, BBar.y, BBar.z));
@@ -381,11 +385,11 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 			kf = (real2)(speedOfSound, -fastSpeed) * (fastSpeedSq - AlfvenSpeedSq);
 			ks = (real2)(speedOfSound, -slowSpeed) * (AlfvenSpeedSq - slowSpeedSq);
 			
-			lf = magneticField.x * fastSpeed / (density * vaccuumPermeability) * magneticField.yz;
-			ls = magneticField.x * slowSpeed / (density * vaccuumPermeability) * magneticField.yz;
+			lf = magneticField.x * fastSpeed / (density * mu0) * magneticField.yz;
+			ls = magneticField.x * slowSpeed / (density * mu0) * magneticField.yz;
 
-			mf = (fastSpeedSq / (sqrtDensity * sqrtVaccuumPermeability)) * magneticFieldT.yz;
-			ms = (slowSpeedSq / (sqrtDensity * sqrtVaccuumPermeability)) * magneticFieldT.yz;
+			mf = (fastSpeedSq / (sqrtDensity * sqrt_mu0)) * magneticFieldT.yz;
+			ms = (slowSpeedSq / (sqrtDensity * sqrt_mu0)) * magneticFieldT.yz;
 
 			//normalizing scalars for the fast and slow eigenvectors
 			//no need to do so for the Alfven wave since it is only composed of the 'la' vector, which only itself needs to be normalized (and scaled by sqrt(1/2) since it appears twice)
@@ -442,8 +446,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		real8 dCons_dSym8[8];	//column-major (represented transposed)
 		real* dCons_dSym = (real*)dCons_dSym8;
 		{
-			real ctmp = speedOfSound * sqrtVaccuumPermeability / sqrtDensity; 
-			real4 BBar = magneticField * (1.f / (sqrtDensity * sqrtVaccuumPermeability));
+			real ctmp = speedOfSound * sqrt_mu0 / sqrtDensity; 
+			real4 BBar = magneticField * (1.f / (sqrtDensity * sqrt_mu0));
 			dCons_dSym8[0] = (real8)(1.f,  velocity.x,  	velocity.y,  	velocity.z,  	0.f,	0.f,    0.f,    enthalpyTotal);
 			dCons_dSym8[1] = (real8)(0.f,  speedOfSound,	0.f,            0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.x);
 			dCons_dSym8[2] = (real8)(0.f,  0.f,            	speedOfSound,	0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.y);
@@ -460,9 +464,9 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		{
 			real gammaBar = gammaMinusOne / speedOfSoundSq;
 			real4 negVGammaBar = -gammaBar * velocity;
-			real4 Btmp = magneticField * (-gammaBar / vaccuumPermeability);
+			real4 Btmp = magneticField * (-gammaBar / mu0);
 			real oneOverC = 1.f / speedOfSound;
-			real tmpc = sqrtDensity / (sqrtVaccuumPermeability * speedOfSound);
+			real tmpc = sqrtDensity / (sqrt_mu0 * speedOfSound);
 			dSym_dCons8[0] = (real8)(.5f * gammaBar * velocitySq,	-velocity.x * oneOverC,	-velocity.y * oneOverC,	-velocity.z * oneOverC, 0.f, 	0.f,	0.f,	gammaBar * (velocitySq - enthalpyTotal));
 			dSym_dCons8[1] = (real8)(negVGammaBar.x,				oneOverC,				0.f,					0.f, 					0.f,	0.f,	0.f,	negVGammaBar.x);
 			dSym_dCons8[2] = (real8)(negVGammaBar.y,				0.f,					oneOverC,				0.f,					0.f,	0.f,	0.f,	negVGammaBar.y);
@@ -497,7 +501,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 #ifdef DEBUG_OUTPUT
 		if (index == DEBUG_INDEX) {
 			printf("gamma %f\n", gamma);
-			printf("vaccuum permeability %f\n", vaccuumPermeability);
+			printf("vacuum permeability %f\n", mu0);
 			printf("side %d\n", side);
 			printf("i %d\n", index);
 			//heart of current problem: magnetic energy density is exceeding our total energy density

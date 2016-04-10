@@ -5,6 +5,8 @@ paritcularly the spectral decomposition
 
 #include "HydroGPU/Shared/Common.h"
 
+#define gamma idealGas_heatCapacityRatio	//laziness
+
 void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
 	__global real* eigenvectorsBuffer,

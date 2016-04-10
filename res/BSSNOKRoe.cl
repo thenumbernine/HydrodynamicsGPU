@@ -294,7 +294,7 @@ __kernel void calcEigenBasis(
 		real alpha = (alphaL * weightL + alphaR * weightR) * invDenom;
 		real g = (gL * weightL + gR * weightR) * invDenom;
 
-		const real f = ADM_BONA_MASSO_F;
+		const real f = adm_BonaMasso_f;
 		
 		real sqrtF = sqrt(f);
 		real oneOverF = 1.f / f;
@@ -341,5 +341,3 @@ __kernel void calcEigenBasis(
 		eigenvectorsInverse[2 + NUM_STATES * 2] = .5f * oneOverSqrtF;
 	}
 }
-
-

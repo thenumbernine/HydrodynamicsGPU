@@ -64,7 +64,7 @@ __kernel void calcEigenBasis(
 		//real D = .5f * (stateL[STATE_D] + stateR[STATE_D]);
 		real K = .5f * (stateL[STATE_K] + stateR[STATE_K]);
 		
-		const real f = ADM_BONA_MASSO_F;
+		const real f = adm_BonaMasso_f;
 		
 		//eigenvalues
 
@@ -167,7 +167,7 @@ __kernel void addSource(
 	real A = state[2];
 	real D = state[3];
 	real K = state[4];
-	real f = ADM_BONA_MASSO_F;
+	real f = adm_BonaMasso_f;
 	deriv[STATE_ALPHA] += -alpha * alpha * f * K / g;
 	deriv[STATE_G] += -2.f * alpha * K;
 	deriv[STATE_K] += + alpha * (A * D - K * K) / g;

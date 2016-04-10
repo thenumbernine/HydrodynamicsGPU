@@ -12,11 +12,11 @@ local function getSpecificEnergyKinetic(velocityX, velocityY, velocityZ)
 end
 
 local function getSpecificEnergyInternalForPressure(pressure, density)
-	return pressure / ((gamma - 1) * density)
+	return pressure / ((defs.idealGas_heatCapacityRatio - 1) * density)
 end
 
 local function getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFieldZ)
-	return .5 * (magneticFieldX * magneticFieldX + magneticFieldY * magneticFieldY + magneticFieldZ * magneticFieldZ) / vaccuumPermeability
+	return .5 * (magneticFieldX * magneticFieldX + magneticFieldY * magneticFieldY + magneticFieldZ * magneticFieldZ) / defs.mhd_vacuumPermeability
 end
 
 --[=[

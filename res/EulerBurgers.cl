@@ -1,6 +1,8 @@
 #include "HydroGPU/Shared/Common.h"
 #include "HydroGPU/Euler.h"
 
+#define gamma idealGas_heatCapacityRatio	//laziness
+
 /*
 Euler Burgers:
  

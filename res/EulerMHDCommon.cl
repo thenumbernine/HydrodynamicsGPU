@@ -1,5 +1,7 @@
 #include "HydroGPU/Euler.h"
 
+#define gamma idealGas_heatCapacityRatio	//laziness
+
 //specific to Euler equations
 __kernel void convertToTex(
 	__write_only image3d_t destTex,

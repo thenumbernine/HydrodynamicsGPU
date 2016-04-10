@@ -1,5 +1,7 @@
 #include "HydroGPU/Shared/Common.h"
 
+#define gamma idealGas_heatCapacityRatio	//laziness
+
 /*
 MHD Burgers:
 

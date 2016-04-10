@@ -9,6 +9,8 @@
 #define VELOCITY(ptr)	((real4)((ptr)[PRIMITIVE_VELOCITY_X], (ptr)[PRIMITIVE_VELOCITY_Y], (ptr)[PRIMITIVE_VELOCITY_Z], 0.))
 #endif
 
+#define gamma idealGas_heatCapacityRatio	//laziness
+
 //#ifdef AMD_SUCKS...
 //#pragma OPENCL EXTENSION cl_amd_printf : enable
 
@@ -93,8 +95,8 @@ __kernel void constrainState(
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
 	__global real* state = stateBuffer + NUM_STATES * index;
-	state[STATE_REST_MASS_DENSITY] = max(state[STATE_REST_MASS_DENSITY], SRHDDMinEpsilon);
-	state[STATE_TOTAL_ENERGY_DENSITY] = max(state[STATE_TOTAL_ENERGY_DENSITY], SRHDTauMinEpsilon);
+	state[STATE_REST_MASS_DENSITY] = max(state[STATE_REST_MASS_DENSITY], srhd_DMinEpsilon);
+	state[STATE_TOTAL_ENERGY_DENSITY] = max(state[STATE_TOTAL_ENERGY_DENSITY], srhd_tauMinEpsilon);
 }
 
 // convert conservative to primitive using root-finding
@@ -142,12 +144,12 @@ __kernel void updatePrimitives(
 	//real eInt = primitive[PRIMITIVE_SPECIFIC_INTERNAL_ENERGY];
 
 	real SLen = length(S);
-	real PMin = max(SLen - tau - D + SLen * SRHDSolvePrimVelEpsilon, SRHDSolvePrimPMinEpsilon);
+	real PMin = max(SLen - tau - D + SLen * srhd_solvePrimVelEpsilon, srhd_solvePrimPMinEpsilon);
 	real PMax = (gamma - 1.) * tau;
 	PMax = max(PMax, PMin);
 	real P = .5 * (PMin + PMax);
 
-	for (int iter = 0; iter < SRHDSolvePrimMaxIter; ++iter) {
+	for (int iter = 0; iter < srhd_solvePrimMaxIter; ++iter) {
 		real vLen = SLen / (tau + D + P);
 		real vSq = vLen * vLen;
 		real W = 1. / sqrt(1. - vSq);
@@ -160,11 +162,11 @@ __kernel void updatePrimitives(
 		newP = max(newP, PMin);
 		real PError = fabs(1. - newP / P);
 		P = newP;
-		if (PError < SRHDSolvePrimStopEpsilon) {
+		if (PError < srhd_solvePrimStopEpsilon) {
 			v = S / (tau + D + P);
 			W = 1. / sqrt(1. - dot(v,v));
 			rho = D / W;
-			rho = max(rho, SRHDSolvePrimRhoMinEpsilon);
+			rho = max(rho, srhd_solvePrimRhoMinEpsilon);
 			eInt = P / (rho * (gamma - 1.));
 			primitive[PRIMITIVE_DENSITY] = rho;
 			primitive[PRIMITIVE_VELOCITY_X] = v.x;
@@ -336,79 +338,5 @@ __kernel void updateVectorField(
 		vertex[0 + 3 * i] = f.x * (XMAX - XMIN) + XMIN + scale * (offset[i].x * velocity.x + offset[i].y * tv.x);
 		vertex[1 + 3 * i] = f.y * (YMAX - YMIN) + YMIN + scale * (offset[i].x * velocity.y + offset[i].y * tv.y);
 		vertex[2 + 3 * i] = f.z * (ZMAX - ZMIN) + ZMIN + scale * (offset[i].x * velocity.z + offset[i].y * tv.z);
-	}
-}
-
-__kernel void poissonRelax(
-	__global real* potentialBuffer,
-	const __global real* stateBuffer,
-	int4 repeat)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	int index = INDEXV(i);
-
-	real sum = 0.;
-	for (int side = 0; side < DIM; ++side) {
-		int4 iprev = i;
-		int4 inext = i;
-		if (repeat[side]) {
-			iprev[side] = (iprev[side] + size[side] - 1) % size[side];
-			inext[side] = (inext[side] + 1) % size[side];
-		} else {
-			iprev[side] = max(iprev[side] - 1, 0);
-			inext[side] = min(inext[side] + 1, size[side] - 1);
-		}
-		int indexPrev = INDEXV(iprev);
-		int indexNext = INDEXV(inext);
-		sum += potentialBuffer[indexPrev] + potentialBuffer[indexNext];
-	}
-	
-	real scale = M_PI * GRAVITATIONAL_CONSTANT * DX;
-#if DIM > 1
-	scale *= DY; 
-#endif
-#if DIM > 2
-	scale *= DZ; 
-#endif
-	real density = stateBuffer[STATE_REST_MASS_DENSITY + NUM_STATES * index];
-	potentialBuffer[index] = sum / (2. * (float)DIM) + scale * density;
-}
-
-__kernel void calcGravityDeriv(
-	__global real* derivBuffer,
-	const __global real* stateBuffer,
-	const __global real* gravityPotentialBuffer)
-{
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	if (i.x < 2 || i.x >= SIZE_X - 2
-#if DIM > 1
-		|| i.y < 2 || i.y >= SIZE_Y - 2
-#endif
-#if DIM > 2
-		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
-	) {
-		return;
-	}
-	int index = INDEXV(i);
-
-	__global real* deriv = derivBuffer + NUM_STATES * index;
-	const __global real* state = stateBuffer + NUM_STATES * index;
-
-	for (int j = 0; j < NUM_STATES; ++j) {
-		deriv[j] = 0.;
-	}
-
-	real density = state[STATE_REST_MASS_DENSITY];
-
-	for (int side = 0; side < DIM; ++side) {
-		int indexPrev = index - stepsize[side];
-		int indexNext = index + stepsize[side];
-	
-		real gravityPotentialGradient = .5 * (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]);
-	
-		//gravitational force = -gradient of gravitational potential
-		deriv[side + STATE_MOMENTUM_DENSITY_X] -= density * gravityPotentialGradient / dx[side];
-		deriv[STATE_TOTAL_ENERGY_DENSITY] -= density * gravityPotentialGradient * state[side + STATE_MOMENTUM_DENSITY_X];
 	}
 }

@@ -28,8 +28,8 @@ void leftEigenvectorTransform(
 		magnetic.xz = magnetic.zx;
 	}
 	
-	const float se = sqrtPermittivity * sqrt_1_2;
-	const float su = sqrtPermeability * sqrt_1_2;
+	const float se = maxwell_sqrt_permittivity * sqrt_1_2;
+	const float su = maxwell_sqrt_permeability * sqrt_1_2;
 	const float ise = 1.f / se;
 	const float isu = 1.f / su;
 
@@ -79,8 +79,8 @@ void rightEigenvectorTransform(
 		magnetic.xz = magnetic.zx;
 	}
 */	
-	const float se = sqrtPermittivity * sqrt_1_2;
-	const float su = sqrtPermeability * sqrt_1_2;
+	const float se = maxwell_sqrt_permittivity * sqrt_1_2;
+	const float su = maxwell_sqrt_permeability * sqrt_1_2;
 
 	results[0] = electric.z * -se + magnetic.x * se;
 	results[1] = electric.y * -se + magnetic.y * se;
@@ -137,7 +137,7 @@ void calcEigenBasisSide(
 
 	//eigenvalues
 
-	real eigenvalue = 1.f / (sqrtPermittivity * sqrtPermeability); 
+	real eigenvalue = 1.f / (maxwell_sqrt_permittivity * maxwell_sqrt_permeability); 
 	eigenvalues[0] = -eigenvalue;
 	eigenvalues[1] = -eigenvalue;
 	eigenvalues[2] = 0.f;
@@ -180,7 +180,7 @@ return;
 	const __global real* state = stateBuffer + NUM_STATES * index;
 	__global real* deriv = derivBuffer + NUM_STATES * index;
 	
-	real4 conductiveElectric = (real4)(state[STATE_ELECTRIC_X], state[STATE_ELECTRIC_Y], state[STATE_ELECTRIC_Z], 0.f) * (conductivity / permittivity);
+	real4 conductiveElectric = (real4)(state[STATE_ELECTRIC_X], state[STATE_ELECTRIC_Y], state[STATE_ELECTRIC_Z], 0.f) * (maxwell_conductivity / maxwell_permittivity);
 	
 	deriv[STATE_ELECTRIC_X] -= conductiveElectric.x;
 	deriv[STATE_ELECTRIC_Y] -= conductiveElectric.y;

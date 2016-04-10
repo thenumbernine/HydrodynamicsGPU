@@ -46,7 +46,7 @@ __kernel void calcEigenBasisSide(
 	// I should make that a special case of the base Roe solver
 	// and merge eigenvectorsBuffer and eigenvectorsInverse buffer into one eigenvectorsBuffer
 	real alpha = .5f * (stateL[STATE_ALPHA] + stateR[STATE_ALPHA]);
-	real f = ADM_BONA_MASSO_F;
+	real f = adm_BonaMasso_f;
 	real g = .5f * (stateL[STATE_G] + stateR[STATE_G]);
 	
 	//the only variable used for the eigenvector functions
@@ -133,7 +133,7 @@ __kernel void addSource(
 	//real A = state[STATE_A];
 	//real D = state[STATE_D];
 	real KTilde = state[STATE_K_TILDE];
-	real f = ADM_BONA_MASSO_F;
+	real f = adm_BonaMasso_f;
 	real tmp1 = alpha / sqrt(g);
 	deriv[STATE_ALPHA] -= tmp1 * alpha * f * KTilde / g;
 	deriv[STATE_G] -= 2.f * tmp1 * KTilde;

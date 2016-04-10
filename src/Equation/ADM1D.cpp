@@ -1,6 +1,5 @@
 #include "HydroGPU/Equation/ADM1D.h"
 #include "HydroGPU/Boundary/Boundary.h"
-#include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 #include "Common/Exception.h"
@@ -45,15 +44,6 @@ ADM1D::ADM1D(HydroGPUApp* app_)
 void ADM1D::getProgramSources(std::vector<std::string>& sources) {
 	Super::getProgramSources(sources);
 
-	//TODO detect type, cast number to CL string or use literal string
-	//if type is number ...
-	//real adm_BonaMasso_f = 1.f;
-	//app->lua["adm_BonaMasso_f"] >> adm_BonaMasso_f;
-	//sources[0] += "#define ADM_BONA_MASSO_F " + toNumericString<real>(adm_BonaMasso_f) + "\n";
-	//else if type is string ...
-	std::string adm_BonaMasso_f = "1.f";
-	app->lua["adm_BonaMasso_f"] >> adm_BonaMasso_f;
-	sources[0] += "#define ADM_BONA_MASSO_F (" + adm_BonaMasso_f + ")\n";
 	sources.push_back("#include \"ADM1DCommon.cl\"\n");
 	
 	//tell the Roe solver to calculate left & right separately

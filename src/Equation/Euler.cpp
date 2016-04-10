@@ -33,13 +33,6 @@ Euler::Euler(HydroGPUApp* app_)
 
 void Euler::getProgramSources(std::vector<std::string>& sources) {
 	Super::getProgramSources(sources);
-	
-	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
-	
-	real gamma = 1.4f;
-	app->lua["gamma"] >> gamma;
-	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
-
 	sources.push_back("#include \"EulerMHDCommon.cl\"\n");
 }
 

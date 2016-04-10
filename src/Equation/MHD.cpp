@@ -40,19 +40,10 @@ MHD::MHD(HydroGPUApp* app_)
 void MHD::getProgramSources(std::vector<std::string>& sources) {
 	Super::getProgramSources(sources);
 	
-	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
+	sources[0] += "#define MHD 1\n";	//for EulerMHDCommon.cl
 	
-	real gamma = 1.4f;
-	app->lua["gamma"] >> gamma;
-	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
-
-	real vaccuumPermeability = 1.f;
-	app->lua["vaccuumPermeability"] >> vaccuumPermeability;
-	sources[0] += "constant real vaccuumPermeability = " + toNumericString<real>(vaccuumPermeability) + ";\n";
-	sources[0] += "constant real sqrtVaccuumPermeability = " + toNumericString<real>(sqrt(vaccuumPermeability)) + ";\n";
-
-	//for EulerMHDCommon.cl
-	sources[0] += "#define MHD 1\n";
+	//precompute the sqrt
+	sources[0] += std::string("#define mhd_sqrt_vacuumPermeability ") + toNumericString<real>(sqrt(app->lua["defs"]["mhd_vacuumPermeability"])) + std::string("\n");
 
 	sources.push_back("#include \"MHDCommon.cl\"\n");
 	sources.push_back("#include \"EulerMHDCommon.cl\"\n");

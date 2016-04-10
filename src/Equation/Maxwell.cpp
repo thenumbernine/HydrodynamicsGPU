@@ -46,23 +46,11 @@ Maxwell::Maxwell(HydroGPUApp* app_)
 
 void Maxwell::getProgramSources(std::vector<std::string>& sources) {
 	Super::getProgramSources(sources);
-	
-	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
 
-	real permeability = 1.f;
-	app->lua["permeability"] >> permeability;
-	sources[0] += "constant real permeability = " + toNumericString<real>(permeability) + ";\n";
-	sources[0] += "constant real sqrtPermeability = " + toNumericString<real>(sqrt(permeability)) + ";\n";
-	
-	real permittivity = 1.f;
-	app->lua["permittivity"] >> permittivity;
-	sources[0] += "constant real permittivity = " + toNumericString<real>(permittivity) + ";\n";
-	sources[0] += "constant real sqrtPermittivity = " + toNumericString<real>(sqrt(permittivity)) + ";\n";
-	
-	real conductivity = 1.f;
-	app->lua["conductivity"] >> conductivity;
-	sources[0] += "constant real conductivity = " + toNumericString<real>(conductivity) + ";\n";
-	sources[0] += "constant real sqrtConductivity = " + toNumericString<real>(sqrt(conductivity)) + ";\n";
+	//precompute the sqrt
+	for (std::string var : {"permittivity", "permeability", "conductivity"}) {
+		sources[0] += std::string("#define maxwell_sqrt_") + var + std::string(" ") + toNumericString<real>(sqrt(app->lua["defs"]["maxwell_" + var])) + std::string("\n");
+	}
 
 	sources.push_back("#include \"MaxwellCommon.cl\"\n");
 	

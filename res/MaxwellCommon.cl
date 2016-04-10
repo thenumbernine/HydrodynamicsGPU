@@ -11,7 +11,7 @@ __kernel void convertToTex(
 
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
-	real electric = length((real4)(state[STATE_ELECTRIC_X], state[STATE_ELECTRIC_Y], state[STATE_ELECTRIC_Z], 0.f)) / permittivity;
+	real electric = length((real4)(state[STATE_ELECTRIC_X], state[STATE_ELECTRIC_Y], state[STATE_ELECTRIC_Z], 0.f)) / maxwell_permittivity;
 	real magnetic = length((real4)(state[STATE_MAGNETIC_X], state[STATE_MAGNETIC_Y], state[STATE_MAGNETIC_Z], 0.f));
 
 #if DIM == 1
@@ -74,7 +74,7 @@ __kernel void updateVectorField(
 #if 1	//plotting electric field
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
-	real4 velocity = (real4)(state[STATE_ELECTRIC_X], state[STATE_ELECTRIC_Y], state[STATE_ELECTRIC_Z], 0.f) / permittivity;
+	real4 velocity = (real4)(state[STATE_ELECTRIC_X], state[STATE_ELECTRIC_Y], state[STATE_ELECTRIC_Z], 0.f) / maxwell_permittivity;
 #endif
 #if 0	//plotting electric field
 	int stateIndex = INDEXV(si);

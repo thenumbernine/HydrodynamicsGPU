@@ -5,6 +5,9 @@ using the following:
 
 #include "HydroGPU/Shared/Common.h"
 
+#define gamma idealGas_heatCapacityRatio	//laziness
+#define mu0 mhd_vacuumPermeability
+
 //debugging
 //#define DEBUG_OUTPUT
 #define DEBUG_INDEX		7
@@ -48,7 +51,7 @@ void calcEigenBasisSide(
 	real invDensityL = 1.f / densityL;
 	real4 velocityL = VELOCITY(stateL);
 	real4 magneticFieldL = (real4)(stateL[STATE_MAGNETIC_FIELD_X], stateL[STATE_MAGNETIC_FIELD_Y], stateL[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / vaccuumPermeability;
+	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / mu0;
 	real totalPlasmaEnergyDensityL = stateL[STATE_ENERGY_TOTAL];
 	real totalHydroEnergyDensityL = totalPlasmaEnergyDensityL - magneticEnergyDensityL;
 	real kineticEnergyDensityL = .5f * densityL * dot(velocityL, velocityL);
@@ -64,7 +67,7 @@ internalEnergyDensityL = max(0.f, internalEnergyDensityL);	//magnetic energy is 
 	real invDensityR = 1.f / densityR;
 	real4 velocityR = VELOCITY(stateR);
 	real4 magneticFieldR = (real4)(stateR[STATE_MAGNETIC_FIELD_X], stateR[STATE_MAGNETIC_FIELD_Y], stateR[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / vaccuumPermeability;
+	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / mu0;
 	real totalPlasmaEnergyDensityR = stateR[STATE_ENERGY_TOTAL];
 	real totalHydroEnergyDensityR = totalPlasmaEnergyDensityR - magneticEnergyDensityR;
 	real kineticEnergyDensityR = .5f * densityR * dot(velocityR, velocityR);
@@ -134,23 +137,23 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 		//for the HLL MHD not sure if I should use the original flux or the symmetrized flux ...
 		real fluxL[NUM_STATES];
 		fluxL[STATE_DENSITY] = densityL * velocityL.x;
-		fluxL[STATE_MOMENTUM_X] = densityL * velocityL.x * velocityL.x +  pressureL - magneticFieldL.x * magneticFieldL.x / vaccuumPermeability;
-		fluxL[STATE_MOMENTUM_Y] = densityL * velocityL.y * velocityL.x - magneticFieldL.x * magneticFieldL.y / vaccuumPermeability;
-		fluxL[STATE_MOMENTUM_Z] = densityL * velocityL.z * velocityL.x - magneticFieldL.x * magneticFieldL.z / vaccuumPermeability;
+		fluxL[STATE_MOMENTUM_X] = densityL * velocityL.x * velocityL.x +  pressureL - magneticFieldL.x * magneticFieldL.x / mu0;
+		fluxL[STATE_MOMENTUM_Y] = densityL * velocityL.y * velocityL.x - magneticFieldL.x * magneticFieldL.y / mu0;
+		fluxL[STATE_MOMENTUM_Z] = densityL * velocityL.z * velocityL.x - magneticFieldL.x * magneticFieldL.z / mu0;
 		fluxL[STATE_MAGNETIC_FIELD_X] = 0.f;
 		fluxL[STATE_MAGNETIC_FIELD_Y] = velocityL.x * magneticFieldL.y - magneticFieldL.x * velocityL.y;
 		fluxL[STATE_MAGNETIC_FIELD_Z] = velocityL.x * magneticFieldL.z - magneticFieldL.x * velocityL.z;
-		fluxL[STATE_ENERGY_TOTAL] = (totalPlasmaEnergyDensityL + pressureL) * velocityL.x + dot(velocityL, magneticFieldL) * magneticFieldL.x / vaccuumPermeability;
+		fluxL[STATE_ENERGY_TOTAL] = (totalPlasmaEnergyDensityL + pressureL) * velocityL.x + dot(velocityL, magneticFieldL) * magneticFieldL.x / mu0;
 
 		real fluxR[NUM_STATES];
 		fluxR[STATE_DENSITY] = densityR * velocityR.x;
-		fluxR[STATE_MOMENTUM_X] = densityR * velocityR.x * velocityR.x + pressureR - magneticFieldR.x * magneticFieldR.x / vaccuumPermeability;
-		fluxR[STATE_MOMENTUM_Y] = densityR * velocityR.y * velocityR.x - magneticFieldR.x * magneticFieldR.y / vaccuumPermeability;
-		fluxR[STATE_MOMENTUM_Z] = densityR * velocityR.z * velocityR.x - magneticFieldR.x * magneticFieldR.z / vaccuumPermeability;
+		fluxR[STATE_MOMENTUM_X] = densityR * velocityR.x * velocityR.x + pressureR - magneticFieldR.x * magneticFieldR.x / mu0;
+		fluxR[STATE_MOMENTUM_Y] = densityR * velocityR.y * velocityR.x - magneticFieldR.x * magneticFieldR.y / mu0;
+		fluxR[STATE_MOMENTUM_Z] = densityR * velocityR.z * velocityR.x - magneticFieldR.x * magneticFieldR.z / mu0;
 		fluxR[STATE_MAGNETIC_FIELD_X] = 0.f;
 		fluxR[STATE_MAGNETIC_FIELD_Y] = velocityR.x * magneticFieldR.y - magneticFieldR.x * velocityR.y;
 		fluxR[STATE_MAGNETIC_FIELD_Z] = velocityR.x * magneticFieldR.z - magneticFieldR.x * velocityR.z;
-		fluxR[STATE_ENERGY_TOTAL] = (totalPlasmaEnergyDensityR + pressureR) * velocityR.x + dot(velocityR, magneticFieldR) * magneticFieldR.x / vaccuumPermeability;
+		fluxR[STATE_ENERGY_TOTAL] = (totalPlasmaEnergyDensityR + pressureR) * velocityR.x + dot(velocityR, magneticFieldR) * magneticFieldR.x / mu0;
 
 		//HLL-specific
 		__global real* flux = fluxBuffer + NUM_STATES * interfaceIndex;
@@ -272,11 +275,11 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 
 		*/
 		real magneticFieldSq = dot(magneticField, magneticField);
-		real alfvenXSpeedSq = magneticField.x * magneticField.x / (vaccuumPermeability * density);
+		real alfvenXSpeedSq = magneticField.x * magneticField.x / (mu0 * density);
 		real alfvenXSpeed = sqrt(alfvenXSpeedSq);
 		real speedOfSoundSq = gamma * pressure / density;	//pressure == hydro pressure
 		real speedOfSound = sqrt(speedOfSoundSq);
-		real alfvenSpeedSq = magneticFieldSq / (vaccuumPermeability * density);
+		real alfvenSpeedSq = magneticFieldSq / (mu0 * density);
 		real alfvenSpeed = sqrt(alfvenSpeedSq);
 		real starSpeedSq = (alfvenSpeedSq + speedOfSoundSq) * .5f;
 		real discr = sqrt(starSpeedSq * starSpeedSq - alfvenXSpeedSq * speedOfSoundSq);
@@ -336,8 +339,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				-alpha_s * beta_y * alfvenXSpeed * sgnBx,
 				-alpha_s * beta_z * alfvenXSpeed * sgnBx,
 				0.f,
-				-alpha_s * beta_y * fastSpeed * sqrt(vaccuumPermeability * density),
-				-alpha_s * beta_z * fastSpeed * sqrt(vaccuumPermeability * density),
+				-alpha_s * beta_y * fastSpeed * sqrt(mu0 * density),
+				-alpha_s * beta_z * fastSpeed * sqrt(mu0 * density),
 				-alpha_f * gamma * pressure
 			) * RFast,
 		//alfven -
@@ -347,8 +350,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				-beta_z,
 				beta_y,
 				0.f,
-				-sgnBx * sqrt(vaccuumPermeability * density) * beta_z,
-				sgnBx * sqrt(vaccuumPermeability * density) * beta_y,
+				-sgnBx * sqrt(mu0 * density) * beta_z,
+				sgnBx * sqrt(mu0 * density) * beta_y,
 				0.f
 			) * M_SQRT1_2_F * fastSpeed,
 		//slow -
@@ -358,8 +361,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				alpha_f * beta_y * speedOfSound * sgnBx,
 				alpha_f * beta_z * speedOfSound * sgnBx,
 				0.f,
-				alpha_f * beta_y * speedOfSoundSq / fastSpeed * sqrt(vaccuumPermeability * density),
-				alpha_f * beta_z * speedOfSoundSq / fastSpeed * sqrt(vaccuumPermeability * density),
+				alpha_f * beta_y * speedOfSoundSq / fastSpeed * sqrt(mu0 * density),
+				alpha_f * beta_z * speedOfSoundSq / fastSpeed * sqrt(mu0 * density),
 				-alpha_s * gamma * pressure),
 		//entropy
 			(real8)(tau, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f),
@@ -372,8 +375,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				alpha_f * beta_y * speedOfSound * sgnBx,
 				alpha_f * beta_z * speedOfSound * sgnBx,
 				0.f,
-				-alpha_f * beta_y * speedOfSoundSq / fastSpeed * sqrt(vaccuumPermeability * density),
-				-alpha_f * beta_z * speedOfSoundSq / fastSpeed * sqrt(vaccuumPermeability * density),
+				-alpha_f * beta_y * speedOfSoundSq / fastSpeed * sqrt(mu0 * density),
+				-alpha_f * beta_z * speedOfSoundSq / fastSpeed * sqrt(mu0 * density),
 				alpha_s * gamma * pressure),
 		//alfven +
 			(real8)(
@@ -382,8 +385,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				beta_z,
 				-beta_y,
 				0.f,
-				-sgnBx * sqrt(vaccuumPermeability * density) * beta_z,
-				sgnBx * sqrt(vaccuumPermeability * density) * beta_y,
+				-sgnBx * sqrt(mu0 * density) * beta_z,
+				sgnBx * sqrt(mu0 * density) * beta_y,
 				0.f
 			) * M_SQRT1_2_F * fastSpeed,
 		//fast +
@@ -393,8 +396,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				-alpha_s * beta_y * alfvenXSpeed * sgnBx,
 				-alpha_s * beta_z * alfvenXSpeed * sgnBx,
 				0.f,
-				alpha_s * beta_y * fastSpeed * sqrt(vaccuumPermeability * density),
-				alpha_s * beta_z * fastSpeed * sqrt(vaccuumPermeability * density),
+				alpha_s * beta_y * fastSpeed * sqrt(mu0 * density),
+				alpha_s * beta_z * fastSpeed * sqrt(mu0 * density),
 				alpha_f * gamma * pressure
 			) * RFast
 		};
@@ -409,8 +412,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				 -alpha_s * beta_y * alfvenXSpeed * sgnBx,
 				 -alpha_s * beta_z * alfvenXSpeed * sgnBx,
 				 0.f,
-				 -alpha_s * beta_y * fastSpeed / sqrt(vaccuumPermeability * density),
-				 -alpha_s * beta_z * fastSpeed / sqrt(vaccuumPermeability * density),
+				 -alpha_s * beta_y * fastSpeed / sqrt(mu0 * density),
+				 -alpha_s * beta_z * fastSpeed / sqrt(mu0 * density),
 				 -alpha_f * tau
 			) * RFast / fastSpeedSq,
 		//alfven -
@@ -420,8 +423,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				-beta_z,
 				beta_y,
 				0.f,
-				-sgnBx * beta_z / sqrt(vaccuumPermeability * density), 
-				sgnBx * beta_y / sqrt(vaccuumPermeability * density),
+				-sgnBx * beta_z / sqrt(mu0 * density), 
+				sgnBx * beta_y / sqrt(mu0 * density),
 				0.f
 			) * M_SQRT1_2_F / fastSpeed,
 		//slow -
@@ -431,8 +434,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				alpha_f * beta_y * speedOfSound * sgnBx,
 				alpha_f * beta_z * speedOfSound * sgnBx,
 				0.f,
-				alpha_f * beta_y * speedOfSoundSq / (sqrt(vaccuumPermeability * density) * fastSpeed),
-				alpha_f * beta_z * speedOfSoundSq / (sqrt(vaccuumPermeability * density) * fastSpeed),
+				alpha_f * beta_y * speedOfSoundSq / (sqrt(mu0 * density) * fastSpeed),
+				alpha_f * beta_z * speedOfSoundSq / (sqrt(mu0 * density) * fastSpeed),
 				-alpha_s * gamma * pressure
 			) * RSlow / fastSpeedSq,
 		//entropy
@@ -446,8 +449,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				alpha_f * beta_y * speedOfSound * sgnBx,
 				alpha_f * beta_z * speedOfSound * sgnBx,
 				0.f,
-				-alpha_f * beta_y * speedOfSoundSq / (sqrt(vaccuumPermeability * density) * fastSpeed),
-				-alpha_f * beta_z * speedOfSoundSq / (sqrt(vaccuumPermeability * density) * fastSpeed),
+				-alpha_f * beta_y * speedOfSoundSq / (sqrt(mu0 * density) * fastSpeed),
+				-alpha_f * beta_z * speedOfSoundSq / (sqrt(mu0 * density) * fastSpeed),
 				alpha_s * gamma * pressure
 			) * RSlow / fastSpeedSq,
 		//alfven +
@@ -457,8 +460,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				beta_z,
 				-beta_y, 
 				0.f, 
-				-sgnBx * beta_z / sqrt(vaccuumPermeability * density), 
-				sgnBx * beta_y / sqrt(vaccuumPermeability * density), 
+				-sgnBx * beta_z / sqrt(mu0 * density), 
+				sgnBx * beta_y / sqrt(mu0 * density), 
 				0.f
 			) * M_SQRT1_2_F / fastSpeed,
 		//fast +
@@ -468,8 +471,8 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 				 -alpha_s * beta_y * alfvenXSpeed * sgnBx,
 				 -alpha_s * beta_z * alfvenXSpeed * sgnBx,
 				 0.f,
-				 alpha_s * beta_y * fastSpeed / sqrt(vaccuumPermeability * density),
-				 alpha_s * beta_z * fastSpeed / sqrt(vaccuumPermeability * density),
+				 alpha_s * beta_y * fastSpeed / sqrt(mu0 * density),
+				 alpha_s * beta_z * fastSpeed / sqrt(mu0 * density),
 				 alpha_f * tau
 			) * RFast / fastSpeedSq
 		};

@@ -37,7 +37,7 @@ __kernel void gravityPotentialPoissonRelax(
 
 	//delta^2 Phi = 4 pi G rho
 	const real pi = 3.141592653589793115997963468544185161590576171875f;
-	const real G = GRAVITATIONAL_CONSTANT;		//6.67384e-11 m^3 / (kg s^2)
+	const real G = selfGrav_gravitationalConstant;		//6.67384e-11 m^3 / (kg s^2)
 	const real fourPiGRho = -4.f * pi * G;
 	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
 	gravityPotentialBuffer[index] = (fourPiGRho * density - sum) / denom;

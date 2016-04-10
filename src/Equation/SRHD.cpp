@@ -1,6 +1,5 @@
 #include "HydroGPU/Equation/SRHD.h"
 #include "HydroGPU/Boundary/Boundary.h"
-#include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/Exception.h"
 
@@ -41,7 +40,7 @@ SRHD::SRHD(HydroGPUApp* app_)
 
 void SRHD::getProgramSources(std::vector<std::string>& sources) {
 	Super::getProgramSources(sources);
-
+	
 	std::vector<std::string> primitives;
 	primitives.push_back("DENSITY");
 	primitives.push_back("VELOCITY_X");
@@ -50,18 +49,6 @@ void SRHD::getProgramSources(std::vector<std::string>& sources) {
 	primitives.push_back("SPECIFIC_INTERNAL_ENERGY");
 	sources[0] += buildEnumCode("PRIMITIVE", primitives);
 	
-	sources[0] += "#include \"HydroGPU/Shared/Common.h\"\n";	//for real's definition
-	
-	real gamma = 1.4f;
-	app->lua["gamma"] >> gamma;
-	sources[0] += "constant real gamma = " + toNumericString<real>(gamma) + ";\n";
-
-//TODO: add iterator to LuaCxx::Ref with key() and value(), and make sure the implicit lua_tostring on the numbers is a good idea ...
-	LuaCxx::Ref defs = app->lua["defs"];
-	for (LuaCxx::Ref::iterator i = defs.begin(); i != defs.end(); ++i) {	//pairs() kv iterator
-		sources[0] += std::string("#define ") + i.key.operator std::string() + std::string(" ") + i.value.operator std::string() + "\n";
-	}
-
 	sources.push_back("#include \"SRHDCommon.cl\"\n");
 }
 

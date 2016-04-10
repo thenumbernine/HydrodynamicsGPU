@@ -4,6 +4,8 @@
 
 #include "HydroGPU/Shared/Common.h"
 
+#define gamma idealGas_heatCapacityRatio	//laziness
+
 void calcEigenvaluesSide(
 	__global real* eigenvaluesBuffer,
 	const __global real* stateBuffer,

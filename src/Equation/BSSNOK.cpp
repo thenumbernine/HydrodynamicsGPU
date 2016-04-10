@@ -1,6 +1,5 @@
 #include "HydroGPU/Equation/BSSNOK.h"
 #include "HydroGPU/Boundary/Boundary.h"
-#include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/Exception.h"
 
@@ -98,11 +97,6 @@ BSSNOK::BSSNOK(HydroGPUApp* app_)
 
 void BSSNOK::getProgramSources(std::vector<std::string>& sources) {
 	Super::getProgramSources(sources);
-	
-	real adm_BonaMasso_f = 1.f;
-	app->lua["adm_BonaMasso_f"] >> adm_BonaMasso_f;
-	sources[0] += "#define BSSNOK_BONA_MASSO_F " + toNumericString<real>(adm_BonaMasso_f) + "\n";
-	
 	sources.push_back("#include \"BSSNOKCommon.cl\"\n");
 }
 

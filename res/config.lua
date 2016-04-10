@@ -58,67 +58,49 @@ vectorField = {
 }
 
 -- TODO organize solver/equation variables:
+-- connect them to the GUI maybe?
 
 -- gravity is specific to the Euler fluid equation solver
 useGravity = false
 
-
-gravitationalConstant = 1	-- G = 6.67384e-11 m^3 kg^-1 s^-2 TODO meaningful units please
 -- used for gravitation Poisson solver
 gaussSeidelMaxIter = 20
 
--- Euler equations' constants:
-gamma = 1.4
-
--- MHD constants:
-vaccuumPermeability = 1	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
-
--- Maxwell constants:
-permittivity = 1
-permeability = 1
-conductivity = 1
-
--- numerical relativity, speed of light, in grid units
--- TODO umm, the NR solver uses normalized coordinates ...
--- so shouldn't this always be 1? 
-speedOfLightInM = 299792458
-speedOfLight = speedOfLightInM
-
 -- defs to forward on to OpenCL code 
 defs = {
-	HeatCapacityRatio = 1.4,
+	idealGas_heatCapacityRatio = 1.4,
 	
-	SelfGravitationConstant = 1,	-- works for any solver with 'self-gravity', i.e. Euler, MHD, SRHD, etc
-	SelfGravitationGaussSeidelMaxIters = 20,	-- max iters for inverse solver
+	selfGrav_gravitationalConstant = 1,	-- works for any solver with 'self-gravity', i.e. Euler, MHD, SRHD, etc
+	selfGrav_GaussSeidel_maxIters = 20,	-- max iters for inverse solver
 	
-	MHDVacuumPermeability = 1,	-- is this the same as the maxwell permeability?
-	
-	MaxwellPermittivity = 1,	-- epsilon, or epsilon_0 for vacuum permittivity
-	MaxwellPermeability = 1,	-- mu, or mu_0 for vacuum permeability
-	MaxwellConductivity = 1,	-- sigma
+	mhd_vacuumPermeability = 1,	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
+								-- is this the same as the maxwell permeability?
+	maxwell_permittivity = 1,	-- epsilon, or epsilon_0 for vacuum permittivity
+	maxwell_permeability = 1,	-- mu, or mu_0 for vacuum permeability
+	maxwell_conductivity = 1,	-- sigma
 
--- [[ tightly tuned, works in Lua in 1D for two-shock problem, but breaks for this ...
+--[[ tightly tuned, works in Lua in 1D for two-shock problem, but breaks for this ...
 -- these epsilons work for the shock wave interaction problem in 1D CPU implemntation ... 
 -- .. but in 1D GPU and in 2D it is crashing ...
-	SRHDSolvePrimMaxIter = 1000,
-	SRHDSolvePrimStopEpsilon = 1e-7,
-	SRHDSolvePrimVelEpsilon = 1e-15,
-	SRHDSolvePrimPMinEpsilon = 1e-16,
-	SRHDSolvePrimRhoMinEpsilon = 1e-15,
-	SRHDDMinEpsilon = 1e-15,
-	SRHDTauMinEpsilon = 1e-15,
+	srhd_solvePrimMaxIter = 1000,
+	srhd_solvePrimStopEpsilon = 1e-7,
+	srhd_solvePrimVelEpsilon = 1e-15,
+	srhd_solvePrimPMinEpsilon = 1e-16,
+	srhd_solvePrimRhoMinEpsilon = 1e-15,
+	srhd_DMinEpsilon = 1e-15,
+	srhd_tauMinEpsilon = 1e-15,
 --]]
---[[ looser tuning for two-shock problem in 1D, but 2D is still breaking ...
+-- [[ looser tuning for two-shock problem in 1D, but 2D is still breaking ...
 --so I'll try loosening the constraints...
 --the two-shockwave interaction problem crashes in 2D, but only near certain boundaries (which are broken)
 --try fixing that first ...
-	SRHDSolvePrimMaxIter = 1000,
-	SRHDSolvePrimStopEpsilon = 1e-7,
-	SRHDSolvePrimVelEpsilon = 1e-7,
-	SRHDSolvePrimPMinEpsilon = 1e-7,
-	SRHDSolvePrimRhoMinEpsilon = 1e-7,
-	SRHDDMinEpsilon = 1e-7,
-	SRHDTauMinEpsilon = 1e-7,
+	srhd_solvePrimMaxIter = 1000,
+	srhd_solvePrimStopEpsilon = 1e-7,
+	srhd_solvePrimVelEpsilon = 1e-7,
+	srhd_solvePrimPMinEpsilon = 1e-7,
+	srhd_solvePrimRhoMinEpsilon = 1e-7,
+	srhd_DMinEpsilon = 1e-7,
+	srhd_tauMinEpsilon = 1e-7,
 --]]
 }
 
@@ -129,10 +111,10 @@ defs = {
 size = {16, 16, 16}
 vectorField.resolution = 16
 --]]
--- [[ 2D
+--[[ 2D
 size = {512, 512}
 --]]
---[[ 1D
+-- [[ 1D
 size = {2048}
 --]]
 
@@ -223,9 +205,9 @@ solverName = 'ADM1DRoe'
 
 size = {1024}
 heatMap.colorScale = 128
+heatMap.variable = 'ALPHA'
 initConds['NR Gauge Shock Waves'].setup{unitDomain=false}
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
-heatMap.variable = 'ALPHA'
 camera.zoom = 1/300
 camera.pos = {150,150}
 --]]
@@ -271,7 +253,6 @@ planet.massInCoords = planet.massInRadii * planet.radiusInCoords
 for k,v in pairs(planet) do print(k,v) end
 
 local gridUnitsInM = planet.radiusInM / planet.radiusInCoords
-speedOfLight = speedOfLightInM / gridUnitsInM
 initConds['NR Stellar'].setup{bodies={{pos = {0,0,0}, radius = planet.radiusInCoords, mass = planet.massInCoords}}}
 --]=]
 
