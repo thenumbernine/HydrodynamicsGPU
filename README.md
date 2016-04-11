@@ -11,7 +11,7 @@ Self-gravity option for Euler equation solvers
 
 Simulates Euler equations, SRHD, Maxwell, and Bona-Masso ADM formalism
 
-Working on MHD
+Working on MHD and eventually GRMHD
 
 Might get around to CG or GMRes method of Backward Euler implicit integration
 
