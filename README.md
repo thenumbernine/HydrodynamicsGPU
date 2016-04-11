@@ -7,19 +7,13 @@ Works in 1D, 2D, and 3D.
 Burgers, Roe, HLL, HLLC, Bona-Masso ADM general relativistic solvers in 1D, 2D, 3D
 Slope limiter working on Burgers and Roe solvers
 Periodic, Mirror, and Free-Flow boundary methods
-Self-gravity option for Euler solvers
+Self-gravity option for Euler equation solvers
 
-Simulates Euler equations, Maxwell, and Bona-Masso ADM formalism
+Simulates Euler equations, SRHD, Maxwell, and Bona-Masso ADM formalism
 
-Working on MHD, SRHD
+Working on MHD
 
 Might get around to CG or GMRes method of Backward Euler implicit integration
-
-
-TODO:
-EulerHLL, EulerHLLC, MHDBurgers, MHDHLLC are using the old all-sides-at-once integration method
-everything else is using the one-side-at-a-time method
-I think I want to go back to the old method.
 
 Check out the Makefile for a list of its dependent projects.
 
