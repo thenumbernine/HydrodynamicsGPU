@@ -6,8 +6,13 @@
 namespace HydroGPU {
 namespace Solver {
 
+//pure virtual
+struct MHDRemoveDivergenceInterface {
+	virtual cl::Buffer getMagneticFieldDivergenceBuffer() = 0;
+};
+
 template<typename Parent>
-struct MHDRemoveDivergenceBehavior : public Parent {
+struct MHDRemoveDivergenceBehavior : public Parent, public MHDRemoveDivergenceInterface {
 	typedef Parent Super;
 	using Super::Super;
 protected:
@@ -20,17 +25,18 @@ public:
 		divfree->init();
 	}
 
-	virtual void setupConvertToTexKernelArgs() {
-		Super::setupConvertToTexKernelArgs();
-		divfree->setupConvertToTexKernelArgs();
-	}
-
 protected:
 	virtual std::vector<std::string> getProgramSources() {
 		std::vector<std::string> sources = Super::getProgramSources();
 		std::vector<std::string> added = divfree->getProgramSources();
 		sources.insert(sources.end(), added.begin(), added.end());
 		return sources;
+	}
+
+public:
+	//MHDRemoveDivergenceInterface 
+	virtual cl::Buffer getMagneticFieldDivergenceBuffer() {
+		return divfree->getMagneticFieldDivergenceBuffer();
 	}
 };
 

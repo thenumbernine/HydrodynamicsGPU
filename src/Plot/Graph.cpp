@@ -69,7 +69,7 @@ void Graph::display() {
 						.setUniform<float>("size", app->size.s[0], app->size.s[1]);
 			graphShader->setUniform<float>("xmin", app->xmin.s[0], app->xmin.s[1]);
 			graphShader->setUniform<float>("xmax", app->xmax.s[0], app->xmax.s[1]);
-			glBindTexture(GL_TEXTURE_2D, app->plot->tex);
+			glBindTexture(GL_TEXTURE_2D, app->plot->getTex());
 			const float* c = colors[i % numberof(colors)];
 			glColor4f(c[0], c[1], c[2], var.alpha);
 			

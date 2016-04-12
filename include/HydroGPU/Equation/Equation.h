@@ -1,11 +1,15 @@
 #pragma once
 
 #include "HydroGPU/Shared/Common.h"	//real
+#include <OpenCL/cl.hpp>
 #include <vector>
 #include <string>
 
 namespace HydroGPU {
 struct HydroGPUApp;
+namespace Solver {
+struct Solver;
+}
 namespace Equation {
 
 struct Equation {
@@ -24,6 +28,9 @@ public:
 	virtual void readStateCell(real* state, const real* source);
 	virtual int numReadStateChannels();
 	virtual std::string name() const = 0; 
+	
+	virtual void setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::Solver* solver);
+	virtual void setupUpdateVectorFieldKernelArgs(cl::Kernel updateVectorFieldKernel, Solver::Solver* solver);
 };
 
 }

@@ -35,8 +35,9 @@ constant float2 offset[6] = {
 
 __kernel void updateVectorField(
 	__global float* vectorFieldVertexBuffer,
-	const __global real* stateBuffer,
-	float scale)
+	real scale,
+	int displayMethod,
+	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
@@ -54,32 +55,16 @@ __kernel void updateVectorField(
 	int4 si = (int4)(sf.x, sf.y, sf.z, 0);
 	//float4 fp = (float4)(sf.x - (float)si.x, sf.y - (float)si.y, sf.z - (float)si.z, 0.);
 	
-#if 1	//plotting velocity 
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
-	float4 velocity = (float4)(state[4], 0., 0., 0.);	//extrinsic curvature?  what's velocity?
-#endif
-#if 0	//plotting gravity
-	int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
-	int4 ixR = si; ixR.x = (ixR.x + 1) % SIZE_X;
-	int4 iyL = si; iyL.y = (iyL.y + SIZE_X - 1) % SIZE_X;
-	int4 iyR = si; iyR.y = (iyR.y + 1) % SIZE_X;
-	//external force is negative the potential gradient
-	float4 velocity = (float4)(
-		gravityPotentialBuffer[INDEXV(ixL)] - gravityPotentialBuffer[INDEXV(ixR)],
-		gravityPotentialBuffer[INDEXV(iyL)] - gravityPotentialBuffer[INDEXV(iyR)],
-		0.,
-		0.);
-#endif
+	float4 field = (float4)(state[0], 0., 0., 0.);	//extrinsic curvature?  what's field?
 
-	//velocity is the first axis of the basis to draw the arrows
-	//the second should be perpendicular to velocity
 #if DIM < 3
-	real4 tv = (real4)(-velocity.y, velocity.x, 0., 0.);
+	real4 tv = (real4)(-velocity.y, field.x, 0., 0.);
 #elif DIM == 3
-	real4 vx = (real4)(0., -velocity.z, velocity.y, 0.);
-	real4 vy = (real4)(velocity.z, 0., -velocity.x, 0.);
-	real4 vz = (real4)(-velocity.y, velocity.x, 0., 0.f);
+	real4 vx = (real4)(0., -velocity.z, field.y, 0.);
+	real4 vy = (real4)(field.z, 0., -velocity.x, 0.);
+	real4 vz = (real4)(-velocity.y, field.x, 0., 0.f);
 	real lxsq = dot(vx,vx);
 	real lysq = dot(vy,vy);
 	real lzsq = dot(vz,vz);
@@ -100,9 +85,9 @@ __kernel void updateVectorField(
 #endif
 
 	for (int i = 0; i < 6; ++i) {
-		vertex[0 + 3 * i] = f.x * (XMAX - XMIN) + XMIN + scale * (offset[i].x * velocity.x + offset[i].y * tv.x);
-		vertex[1 + 3 * i] = f.y * (YMAX - YMIN) + YMIN + scale * (offset[i].x * velocity.y + offset[i].y * tv.y);
-		vertex[2 + 3 * i] = f.z * (ZMAX - ZMIN) + ZMIN + scale * (offset[i].x * velocity.z + offset[i].y * tv.z);
+		vertex[0 + 3 * i] = f.x * (XMAX - XMIN) + XMIN + scale * (offset[i].x * field.x + offset[i].y * tv.x);
+		vertex[1 + 3 * i] = f.y * (YMAX - YMIN) + YMIN + scale * (offset[i].x * field.y + offset[i].y * tv.y);
+		vertex[2 + 3 * i] = f.z * (ZMAX - ZMIN) + ZMIN + scale * (offset[i].x * field.z + offset[i].y * tv.z);
 	}
 }
 

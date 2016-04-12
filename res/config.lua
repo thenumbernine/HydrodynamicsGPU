@@ -50,7 +50,7 @@ boundaryMethods = {
 -- connect them to the GUI maybe?
 
 -- gravity is specific to the Euler fluid equation solver
-useGravity = false
+useGravity = true
 
 -- used for gravitation Poisson solver
 gaussSeidelMaxIter = 20
@@ -126,14 +126,14 @@ vectorField = {
 
 
 
---[[ Euler
+-- [[ Euler
 
 -- uncomment one:
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
---solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
-solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
+solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+--solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
 
@@ -171,11 +171,11 @@ end
 --initCondName = 'Forward Facing Step'
 --initCondName = 'Double Mach Reflection'
 --initCondName = 'Spiral Implosion'
---initCondName = 'self-gravitation test 1'
+initCondName = 'self-gravitation test 1'
 --initCondName = 'Colella-Woodward'
 --initCondName = 'Configuration 6'
 --initCondName = 'SRHD Schneider et al'
-initCondName = 'Relativistic Blast Wave Interaction'
+--initCondName = 'Relativistic Blast Wave Interaction'
 --initCondName = 'Marti & Muller 2008 Problem #1'
 --initCondName = 'Marti & Muller 2008 Problem #2'
 --initCondName = 'Relativistic Jet'
@@ -233,7 +233,7 @@ solverName = 'ADM2DSpherical'	-- not yet
 -- I want to get rid of this one.  and the 1D ADM as well -- just one Bona-Masso ADM implementation is enough (I think) unless I should have separate ones for shift/less and mass/less
 --]]
 
--- [[ ADM3D
+--[[ ADM3D
 solverName = 'ADM3DRoe'
 		
 --size = {1024} heatMap.scale = 128

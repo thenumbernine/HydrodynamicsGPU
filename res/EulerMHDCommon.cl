@@ -118,9 +118,9 @@ constant float2 offset[6] = {
 
 __kernel void updateVectorField(
 	__global float* vectorFieldVertexBuffer,
-	const __global real* stateBuffer,
 	real scale,
-	int displayMethod)
+	int displayMethod,
+	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
@@ -151,6 +151,7 @@ __kernel void updateVectorField(
 		field.z = state[STATE_MOMENTUM_Z];
 #endif
 		if (displayMethod == VECTORFIELD_MOMENTUM) field *= 1. / state[STATE_DENSITY];
+#if 0
 	} else if (displayMethod == VECTORFIELD_GRAVITY) {
 		//external force is negative the potential gradient
 		int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
@@ -165,6 +166,7 @@ __kernel void updateVectorField(
 		int4 izL = si; izL.y = (izL.y + SIZE_Z - 1) % SIZE_Z;
 		int4 izR = si; izR.y = (izR.y + 1) % SIZE_Z;
 		field.z = gravityPotentialBuffer[INDEXV(izL)] - gravityPotentialBuffer[INDEXV(izR)];
+#endif
 #endif
 	}
 

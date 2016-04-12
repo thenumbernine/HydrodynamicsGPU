@@ -7,8 +7,14 @@
 namespace HydroGPU {
 namespace Solver {
 
+//pure-virtual
+struct SelfGravitationInterface {
+	virtual cl::Buffer getPotentialBuffer() = 0;
+	virtual cl::Buffer getSolidBuffer() = 0;
+};
+
 template<typename Parent>
-struct SelfGravitationBehavior : public Parent {
+struct SelfGravitationBehavior : public Parent, public SelfGravitationInterface {
 	typedef Parent Super;
 	using Super::Super;
 protected:
@@ -18,11 +24,6 @@ public:
 	virtual void init() {
 		selfgrav = std::make_shared<SelfGravitation>(this);
 		Super::init();
-	}
-
-	virtual void setupConvertToTexKernelArgs() {
-		Super::setupConvertToTexKernelArgs();
-		selfgrav->setupConvertToTexKernelArgs();
 	}
 
 protected:
@@ -96,6 +97,17 @@ protected:
 		std::vector<std::string> channelNames = Super::getSaveChannelNames();
 		channelNames.push_back("potential");
 		return channelNames;
+	}
+
+public:
+	//SelfGravitationInterface
+	virtual cl::Buffer getPotentialBuffer() {
+		return selfgrav->getPotentialBuffer();
+	}
+	
+	//SelfGravitationInterface
+	virtual cl::Buffer getSolidBuffer() {
+		return selfgrav->getSolidBuffer();
 	}
 };
 

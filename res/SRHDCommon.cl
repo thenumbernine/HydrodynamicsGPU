@@ -278,9 +278,10 @@ constant float2 offset[6] = {
 
 __kernel void updateVectorField(
 	__global float* vectorFieldVertexBuffer,
-	const __global real* stateBuffer,
 	real scale,
-	int displayMethod)
+	int displayMethod,
+	const __global real* stateBuffer,
+	const __global real* primitiveBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
@@ -300,9 +301,18 @@ __kernel void updateVectorField(
 	
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
+	const __global real* primitive = primitiveBuffer + NUM_STATES * stateIndex;
 	
 	real4 field = (real4)(0., 0., 0., 0.);
-	if (displayMethod == VECTORFIELD_VELOCITY || displayMethod == VECTORFIELD_MOMENTUM) {
+	if (displayMethod == VECTORFIELD_VELOCITY) {
+		field.x = primitive[PRIMITIVE_VELOCITY_X];
+#if DIM > 1
+		field.y = primitive[PRIMITIVE_VELOCITY_Y];
+#endif
+#if DIM > 2
+		field.z = primitive[PRIMITIVE_VELOCITY_Z];
+#endif
+	} else if (displayMethod == VECTORFIELD_MOMENTUM) {
 		field.x = state[STATE_MOMENTUM_DENSITY_X];
 #if DIM > 1
 		field.y = state[STATE_MOMENTUM_DENSITY_Y];
@@ -310,9 +320,6 @@ __kernel void updateVectorField(
 #if DIM > 2
 		field.z = state[STATE_MOMENTUM_DENSITY_Z];
 #endif
-		//TODO velocity vector field should be reconstructed
-		// that means a modular setup from the solver - to provide the primitive buffer
-		if (displayMethod == VECTORFIELD_MOMENTUM) field *= 1. / state[STATE_REST_MASS_DENSITY];
 #if 0	//gravity is disabled in srhd at the moment
 	} else if (displayMethod == VECTORFIELD_GRAVITY) {
 		//external force is negative the potential gradient

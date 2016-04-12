@@ -52,9 +52,9 @@ constant float2 offset[6] = {
 
 __kernel void updateVectorField(
 	__global float* vectorFieldVertexBuffer,
-	const __global real* stateBuffer,
 	float scale,
-	int displayMethod)
+	int displayMethod,
+	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
@@ -85,7 +85,6 @@ __kernel void updateVectorField(
 		real4 magnetic = (real4)(state[STATE_MAGNETIC_X], state[STATE_MAGNETIC_Y], state[STATE_MAGNETIC_Z], 0.f);
 		field = cross(electric, magnetic);
 	}
-#endif
 
 	//field is the first axis of the basis to draw the arrows
 	//the second should be perpendicular to field

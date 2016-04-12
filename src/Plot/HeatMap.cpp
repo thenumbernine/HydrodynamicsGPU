@@ -33,7 +33,7 @@ void HeatMap::display() {
 				.setUniform<bool>("useLog", useLog);
 	
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, app->plot->tex);
+	glBindTexture(GL_TEXTURE_2D, app->plot->getTex());
 //TODO heat map flag for texture mag filtering
 //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);

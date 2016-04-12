@@ -17,6 +17,8 @@ struct Euler : public SelfGravitationBehavior<Equation> {
 	virtual void readStateCell(real* state, const real* source);
 	virtual int numReadStateChannels();
 	virtual std::string name() const { return "Euler"; } 
+
+	void setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::Solver* solver);
 };
 
 }

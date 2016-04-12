@@ -43,11 +43,11 @@ public:
 
 protected:
 	virtual void createEquation();
-	virtual std::vector<std::string> getProgramSources();
 
 	virtual void initBuffers();
 	virtual void initKernels();
-	virtual void setupConvertToTexKernelArgs();
+	
+	virtual std::vector<std::string> getProgramSources();
 
 	/*
 	super writes the newtonian state variables
@@ -60,6 +60,9 @@ protected:
 public:
 	virtual void boundary();
 	virtual std::string name() const { return "SRHDRoe"; }
+
+	//SRHD interface (if I ever make one) for the Equation::SRHD to communicate with
+	virtual cl::Buffer getPrimitiveBuffer();
 };
 
 }

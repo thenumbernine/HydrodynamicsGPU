@@ -1,7 +1,9 @@
 #include "HydroGPU/Equation/SRHD.h"
+#include "HydroGPU/Solver/SRHDRoe.h"
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/Exception.h"
+#include <cassert>
 
 namespace HydroGPU {
 namespace Equation {
@@ -94,6 +96,22 @@ void SRHD::readStateCell(real* state, const real* source) {
 
 int SRHD::numReadStateChannels() {
 	return 8;
+}
+
+void SRHD::setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::Solver* solver) {
+	Super::setupConvertToTexKernelArgs(convertToTexKernel, solver);
+
+	Solver::SRHDRoe *srhdSolver = dynamic_cast<Solver::SRHDRoe*>(solver);
+	assert(srhdSolver != nullptr);
+	convertToTexKernel.setArg(3, srhdSolver->getPrimitiveBuffer());
+}
+
+void SRHD::setupUpdateVectorFieldKernelArgs(cl::Kernel updateVectorFieldKernel, Solver::Solver* solver) {
+	Super::setupUpdateVectorFieldKernelArgs(updateVectorFieldKernel, solver);
+	
+	Solver::SRHDRoe *srhdSolver = dynamic_cast<Solver::SRHDRoe*>(solver);
+	assert(srhdSolver != nullptr);
+	updateVectorFieldKernel.setArg(4, srhdSolver->getPrimitiveBuffer());
 }
 
 }

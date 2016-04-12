@@ -1,7 +1,10 @@
 #include "HydroGPU/Equation/MHD.h"
+#include "HydroGPU/Solver/SelfGravitationBehavior.h"
+#include "HydroGPU/Solver/MHDRemoveDivergenceBehavior.h"
 #include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/Exception.h"
+#include <cassert>
 
 namespace HydroGPU {
 namespace Equation {
@@ -70,6 +73,20 @@ int MHD::stateGetBoundaryKernelForBoundaryMethod(int dim, int stateIndex, int mi
 		return BOUNDARY_KERNEL_FREEFLOW;
 	}
 	throw Common::Exception() << "got an unknown boundary method " << app->boundaryMethods(dim, minmax) << " for dim " << dim;
+}
+
+
+void MHD::setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::Solver* solver) {
+	Super::setupConvertToTexKernelArgs(convertToTexKernel, solver);
+
+	Solver::SelfGravitationInterface* selfGravSolver = dynamic_cast<Solver::SelfGravitationInterface*>(solver);
+	assert(selfGravSolver != nullptr);
+	convertToTexKernel.setArg(3, selfGravSolver->getPotentialBuffer());
+	convertToTexKernel.setArg(4, selfGravSolver->getSolidBuffer());
+	
+	Solver::MHDRemoveDivergenceInterface* mhdSolver = dynamic_cast<Solver::MHDRemoveDivergenceInterface*>(solver);
+	assert(mhdSolver != nullptr);
+	convertToTexKernel.setArg(5, mhdSolver->getMagneticFieldDivergenceBuffer());
 }
 
 }

@@ -1,4 +1,5 @@
 #include "HydroGPU/Equation/Equation.h"
+#include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
 
 namespace HydroGPU {
@@ -32,6 +33,14 @@ void Equation::readStateCell(real* state, const real* source) {
 
 int Equation::numReadStateChannels() {
 	return states.size();
+}
+
+void Equation::setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::Solver* solver) {
+	convertToTexKernel.setArg(2, solver->stateBuffer);
+}
+
+void Equation::setupUpdateVectorFieldKernelArgs(cl::Kernel updateVectorFieldKernel, Solver::Solver* solver) {
+	updateVectorFieldKernel.setArg(3, solver->stateBuffer);
 }
 
 }

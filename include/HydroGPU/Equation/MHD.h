@@ -15,6 +15,8 @@ struct MHD : public SelfGravitationBehavior<Equation> {
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);
 	virtual std::string name() const { return "MHD"; } 
+
+	virtual void setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::Solver* solver);
 };
 
 }

@@ -1,5 +1,6 @@
 #include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/System.h"
 #include "Common/File.h"
@@ -47,8 +48,7 @@ void Plot::init() {
 	//init kernels
 	convertToTexKernel = cl::Kernel(app->solver->program, "convertToTex");
 	convertToTexKernel.setArg(0, texCLMem);
-	convertToTexKernel.setArg(2, app->solver->stateBuffer);
-	app->solver->setupConvertToTexKernelArgs();
+	app->solver->equation->setupConvertToTexKernelArgs(convertToTexKernel, app->solver.get());
 }
 
 Plot::~Plot() {

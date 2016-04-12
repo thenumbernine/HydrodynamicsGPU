@@ -1,5 +1,6 @@
 #include "HydroGPU/Plot/VectorField.h"
 #include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/HydroGPUApp.h"
 
 namespace HydroGPU {
@@ -28,7 +29,9 @@ VectorField::VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_, int 
 	vertexBuffer = cl::BufferGL(solver->app->clCommon->context, CL_MEM_READ_WRITE, glBuffer);
 	//create transfer kernel
 	updateVectorFieldKernel = cl::Kernel(solver->program, "updateVectorField");
-	CLCommon::setArgs(updateVectorFieldKernel, vertexBuffer, solver->stateBuffer, scale, variable);
+	updateVectorFieldKernel.setArg(0, vertexBuffer);
+	updateVectorFieldKernel.setArg(1, scale);
+	updateVectorFieldKernel.setArg(2, variable);
 }
 
 VectorField::~VectorField() {
@@ -49,8 +52,10 @@ void VectorField::display() {
 		global = cl::NDRange(resolution, resolution, resolution);
 		break;
 	}
-	updateVectorFieldKernel.setArg(2, (real)scale);
-	updateVectorFieldKernel.setArg(3, variable);	//equation->vectorFieldVars
+	updateVectorFieldKernel.setArg(1, (real)scale);
+	updateVectorFieldKernel.setArg(2, variable);	//equation->vectorFieldVars
+	solver->equation->setupUpdateVectorFieldKernelArgs(updateVectorFieldKernel, solver.get());
+	
 	solver->app->clCommon->commands.enqueueNDRangeKernel(updateVectorFieldKernel, solver->offsetNd, global, solver->localSize);
 	solver->app->clCommon->commands.finish();
 

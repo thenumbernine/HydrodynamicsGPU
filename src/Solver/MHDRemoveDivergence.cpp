@@ -29,10 +29,6 @@ void MHDRemoveDivergence::init() {
 	CLCommon::setArgs(magneticFieldRemoveDivergenceKernel, solver->stateBuffer, magneticFieldPotentialBuffer);
 }
 
-void MHDRemoveDivergence::setupConvertToTexKernelArgs() {
-	solver->app->plot->convertToTexKernel.setArg(5, magneticFieldDivergenceBuffer);
-}
-
 std::vector<std::string> MHDRemoveDivergence::getProgramSources() {
 	return {"#include \"MHDRemoveDivergence.cl\"\n"};
 }
@@ -79,7 +75,9 @@ void MHDRemoveDivergence::boundary(cl::Buffer buffer) {
 	}
 }
 
+cl::Buffer MHDRemoveDivergence::getMagneticFieldDivergenceBuffer() {
+	return magneticFieldDivergenceBuffer;
+}
 
 }
 }
-

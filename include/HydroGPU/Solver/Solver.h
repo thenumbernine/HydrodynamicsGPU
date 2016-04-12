@@ -22,6 +22,7 @@ namespace Solver {
 
 struct Solver {
 	friend struct HydroGPU::Integrator::Integrator;
+	friend struct HydroGPU::Equation::Equation;
 
 	struct EventProfileEntry {
 		EventProfileEntry(std::string name_) : name(name_) {}
@@ -68,11 +69,7 @@ public:
 	virtual void init();	//...because I'm using virtual function calls in here
 protected:
 	virtual void createEquation() {}
-public:
-	virtual void setupConvertToTexKernelArgs() {}
-public:	//protected:
 	virtual std::vector<std::string> getProgramSources();
-protected:
 	virtual void initBuffers();
 	virtual void initKernels();
 public:

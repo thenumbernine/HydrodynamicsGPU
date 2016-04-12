@@ -14,8 +14,7 @@ protected:
 	HydroGPU::HydroGPUApp* app;
 	cl::ImageGL texCLMem;		//data is written to this buffer before rendering
 	
-public:
-	cl::Kernel convertToTexKernel;	//public so Solver can set the input args of this 
+	cl::Kernel convertToTexKernel;
 	GLuint tex;
 
 public:
@@ -23,8 +22,13 @@ public:
 	virtual ~Plot();
 	virtual void init();
 
+	//external call to convert the app->solver displayVariable (specified in solver->equation->displayVariables) to the tex 
 	virtual void convertVariableToTex(int displayVariable);
 	
+	//read-only so others can use the handle but not modify it
+	//this is still not safe to others deleting/messing with its contents ...
+	GLuint getTex() { return tex; }
+
 public:
 	void screenshot();
 protected:
@@ -33,4 +37,3 @@ protected:
 
 }
 }
-

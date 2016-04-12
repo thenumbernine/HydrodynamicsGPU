@@ -17,6 +17,9 @@ struct SRHD : public Equation/*SelfGravitationBehavior<Equation>*/ {
 	virtual void readStateCell(real* state, const real* source);
 	virtual int numReadStateChannels();
 	virtual std::string name() const { return "SRHD"; } 
+
+	virtual void setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::Solver* solver);
+	virtual void setupUpdateVectorFieldKernelArgs(cl::Kernel updateVectorFieldKernel, Solver::Solver* solver);
 };
 
 }

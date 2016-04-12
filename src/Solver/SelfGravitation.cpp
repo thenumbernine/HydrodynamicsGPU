@@ -28,11 +28,6 @@ void SelfGravitation::initKernels() {
 	calcGravityDerivKernel.setArg(2, potentialBuffer);
 }
 
-void SelfGravitation::setupConvertToTexKernelArgs() {
-	solver->app->plot->convertToTexKernel.setArg(3, potentialBuffer);
-	solver->app->plot->convertToTexKernel.setArg(4, solidBuffer);
-}
-
 std::vector<std::string> SelfGravitation::getProgramSources() {
 	return {"#include \"SelfGravitation.cl\"\n"};
 }
@@ -137,6 +132,14 @@ void SelfGravitation::potentialBoundary() {
 			commands.enqueueNDRangeKernel(kernel, offset, global, local);
 		}
 	}
+}
+	
+cl::Buffer SelfGravitation::getPotentialBuffer() {
+	return potentialBuffer;
+}
+
+cl::Buffer SelfGravitation::getSolidBuffer() {
+	return solidBuffer;
 }
 
 }

@@ -175,9 +175,9 @@ constant float2 offset[6] = {
 
 __kernel void updateVectorField(
 	__global float* vectorFieldVertexBuffer,
-	const __global real* stateBuffer,
 	real scale,
-	int displayMethod)
+	int displayMethod,
+	const __global real* stateBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	

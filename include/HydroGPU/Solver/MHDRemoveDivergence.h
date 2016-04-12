@@ -22,10 +22,11 @@ public:
 	MHDRemoveDivergence(Solver* solver_);
 
 	virtual void init();
-	virtual void setupConvertToTexKernelArgs();
+	virtual std::vector<std::string> getProgramSources();
 	virtual void update();
 	virtual void boundary(cl::Buffer buffer);
-	virtual std::vector<std::string> getProgramSources();
+
+	cl::Buffer getMagneticFieldDivergenceBuffer();
 };
 
 }

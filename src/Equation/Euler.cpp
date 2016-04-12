@@ -1,8 +1,10 @@
 #include "HydroGPU/Equation/Euler.h"
+#include "HydroGPU/Solver/SelfGravitationBehavior.h"
 #include "HydroGPU/Boundary/Boundary.h"
 #include "HydroGPU/toNumericString.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/Exception.h"
+#include <cassert>
 
 namespace HydroGPU {
 namespace Equation {
@@ -34,7 +36,7 @@ Euler::Euler(HydroGPUApp* app_)
 		"VELOCITY",
 		"MOMENTUM",
 		"VORTICITY",
-		"GRAVITY",
+		//"GRAVITY",
 	};
 }
 
@@ -78,6 +80,16 @@ void Euler::readStateCell(real* state, const real* source) {
 int Euler::numReadStateChannels() {
 	return 8;
 }
+
+void Euler::setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::Solver* solver) {
+	Super::setupConvertToTexKernelArgs(convertToTexKernel, solver);
+	
+	Solver::SelfGravitationInterface* selfGravSolver = dynamic_cast<Solver::SelfGravitationInterface*>(solver);
+	assert(selfGravSolver != nullptr);
+	convertToTexKernel.setArg(3, selfGravSolver->getPotentialBuffer());
+	convertToTexKernel.setArg(4, selfGravSolver->getSolidBuffer());
+}
+
 
 }
 }

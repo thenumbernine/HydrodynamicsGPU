@@ -27,11 +27,6 @@ void SRHDRoe::initKernels() {
 	constrainStateKernel.setArg(0, stateBuffer);
 }
 
-//TODO make sure this runs when the plot or solver changes from the gui
-void SRHDRoe::setupConvertToTexKernelArgs() {
-	app->plot->convertToTexKernel.setArg(3, primitiveBuffer);
-}
-
 void SRHDRoe::createEquation() {
 	equation = std::make_shared<HydroGPU::Equation::SRHD>(app);
 }
@@ -98,6 +93,10 @@ void SRHDRoe::boundary() {
 			}
 		}
 	}
+}
+	
+cl::Buffer SRHDRoe::getPrimitiveBuffer() {
+	return primitiveBuffer;
 }
 
 }
