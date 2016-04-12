@@ -397,7 +397,8 @@ void HydroGPUApp::init() {
 		}
 	}
 
-	if (dim == 2) {
+	//3D heatmap is a pointcloud 
+	if (dim == 2 || dim == 3) {
 		heatMap = std::make_shared<Plot::HeatMap>(this);
 		if (!lua["heatMap"].isNil()) {
 			lua["heatMap"]["enabled"] >> showHeatMap;
@@ -418,8 +419,10 @@ void HydroGPUApp::init() {
 			}
 		}
 	}
-	
-	if (dim == 3) {
+
+	//3D isosurface is raytraced
+	//TODO add in a marching cube display?
+	if (false && dim == 3) {
 		iso3D = std::make_shared<Plot::Iso3D>(this);
 		if (!lua["iso3D"].isNil()) {
 			lua["iso3D"]["enabled"] >> showIso3D;

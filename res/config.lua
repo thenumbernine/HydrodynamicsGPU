@@ -31,7 +31,7 @@ integratorName = 'ForwardEuler'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
---maxFrames = 0			-- enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+maxFrames = 0			-- enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	-- whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -113,11 +113,11 @@ vectorField = {
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
---[[ 3D
+-- [[ 3D
 size = {16, 16, 16}
 vectorField.resolution = 16
 --]]
--- [[ 2D
+--[[ 2D
 size = {256, 256}
 --]]
 --[[ 1D
@@ -128,10 +128,10 @@ size = {2048}
 -- [[ Euler
 
 -- uncomment one:
---solverName = 'EulerBurgers'
+solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
-solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+--solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
 --solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
