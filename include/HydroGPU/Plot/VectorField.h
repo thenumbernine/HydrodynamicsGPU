@@ -22,6 +22,7 @@ public:
 	VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_, int resolution_);
 	virtual ~VectorField();
 	virtual void display();
+	int variable;
 	float scale;
 	int getResolution() const { return resolution; }
 };

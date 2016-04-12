@@ -713,6 +713,9 @@ PROFILE_BEGIN_FRAME()
 		}
 
 		if (ImGui::CollapsingHeader("vector field")) {
+			std::string s = makeComboStr(solver->equation->vectorFieldVars);
+			ImGui::Combo("vector field variable", &vectorField->variable, s.c_str());
+			
 			ImGui::Checkbox("show vectorField", &showVectorField); // velocity field on/off
 			//TODO velocity field variable
 			ImGui::Text("log scale");
@@ -787,26 +790,6 @@ PROFILE_BEGIN_FRAME()
 
 		/*
 		TODO
-
-		vector field variable:
-			Euler, MHD, SRHD:
-				velocity
-				momentum
-				vorticity (curl of velocity) ... for 3D only
-			Maxwell:
-				electric
-				magnetic
-				poynting (electric cross magnetic)
-			ADM3D:
-				A (alpha * grad alpha)
-				V (D's constraint variable)
-				V & D's constraint
-				momentum constraint
-				... 3 vectors / cube per spatial metric
-				... 3 vectors / cube per extrinsic metric
-				... 9 for the partials of the spatial metric, or just 3 per x- y- z- partial
-				gravitation (spatial geodesic)
-				tidal (riemann twice-contracted with time, and once with the delta vector)
 
 		slope limiter
 		integrator

@@ -29,6 +29,13 @@ Euler::Euler(HydroGPUApp* app_)
 	if (app->dim > 1) states.push_back("MOMENTUM_Y");
 	if (app->dim > 2) states.push_back("MOMENTUM_Z");
 	states.push_back("ENERGY_TOTAL");
+
+	vectorFieldVars = {
+		"VELOCITY",
+		"MOMENTUM",
+		"VORTICITY",
+		"GRAVITY",
+	};
 }
 
 void Euler::getProgramSources(std::vector<std::string>& sources) {

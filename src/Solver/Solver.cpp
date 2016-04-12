@@ -270,8 +270,18 @@ std::vector<std::string> Solver::getProgramSources() {
 		//TODO 'toNumericString' should be 'toOpenCLNumber' ?
 		//NOTICE - I'm wrapping all strings with ()'s, incase they are expressions
 		// is there any situation where that's a bad idea?
-		std::string valueStr = std::string("(") + (std::string)i.value + std::string(")");
-		sourceStrs[0] += std::string("#define ") + keyStr + std::string(" ") + valueStr + "\n";
+		std::string valueStr = (std::string)i.value;
+		
+		//if you want to define them ...
+		sourceStrs[0] += std::string("#define ") + keyStr + std::string(" ((real)") + valueStr + ")\n";
+		//if you want them as variables (for further manipulation)
+		//sourceStrs[0] += std::string("constant real ") + keyStr + " = (real)" + valueStr + ";\n";
+		//honestly there's no difference.  there's nothing in OpenCL to let you maniuplate it from the outside. 
+		// there's no OpenCL equivalent of OpenGL uniforms.
+		//sites say to use a single structure of parameters and pass that into all kernels
+		//but my kernels are getting full as it is...
+		//one fix for that (the AoS way?) is to just pass a single pointer in, and have the kernels offset into it accordingly
+		//but that means ugly memory management on the C++ and OpenCL side of things...
 	}
 
 	sourceStrs.push_back("#include \"SlopeLimiter.cl\"\n");

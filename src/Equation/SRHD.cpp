@@ -36,6 +36,13 @@ SRHD::SRHD(HydroGPUApp* app_)
 	if (app->dim > 1) states.push_back("MOMENTUM_DENSITY_Y");
 	if (app->dim > 2) states.push_back("MOMENTUM_DENSITY_Z");
 	states.push_back("TOTAL_ENERGY_DENSITY");
+
+	vectorFieldVars = {
+		"VELOCITY",
+		"MOMENTUM",
+		"VORTICITY",
+		"GRAVITY",
+	};
 }
 
 void SRHD::getProgramSources(std::vector<std::string>& sources) {

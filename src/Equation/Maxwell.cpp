@@ -36,12 +36,20 @@ Maxwell::Maxwell(HydroGPUApp* app_)
 		"FREEFLOW"
 	};
 
-	states.push_back("ELECTRIC_X");
-	states.push_back("ELECTRIC_Y");
-	states.push_back("ELECTRIC_Z");
-	states.push_back("MAGNETIC_X");
-	states.push_back("MAGNETIC_Y");
-	states.push_back("MAGNETIC_Z");
+	states = {
+		"ELECTRIC_X",
+		"ELECTRIC_Y",
+		"ELECTRIC_Z",
+		"MAGNETIC_X",
+		"MAGNETIC_Y",
+		"MAGNETIC_Z",
+	};
+
+	vectorFieldVars = {
+		"ELECTRIC",
+		"MAGNETIC",
+		"POYNTING",
+	};
 }
 
 void Maxwell::getProgramSources(std::vector<std::string>& sources) {

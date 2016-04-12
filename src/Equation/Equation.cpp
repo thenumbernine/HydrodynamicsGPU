@@ -19,6 +19,7 @@ std::string Equation::buildEnumCode(const std::string& prefix, const std::vector
 void Equation::getProgramSources(std::vector<std::string>& sources) {
 	sources[0] += buildEnumCode("STATE", states);
 	sources[0] += buildEnumCode("DISPLAY", displayVariables);
+	sources[0] += buildEnumCode("VECTORFIELD", vectorFieldVars);
 	sources[0] += buildEnumCode("BOUNDARY", boundaryMethods);
 	sources[0] += "#define DISPLAY_NONE -1\n";
 }

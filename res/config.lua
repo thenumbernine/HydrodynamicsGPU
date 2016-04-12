@@ -55,13 +55,11 @@ useGravity = false
 -- used for gravitation Poisson solver
 gaussSeidelMaxIter = 20
 
--- defs to forward on to OpenCL code 
--- TODO make a separate set of reals to be forward *AND* to be editable by the GUI
+-- variables to forward on to OpenCL code 
 defs = {
 	idealGas_heatCapacityRatio = 1.4,
 	
 	selfGrav_gravitationalConstant = 1,	-- works for any solver with 'self-gravity', i.e. Euler, MHD, SRHD, etc
-	selfGrav_GaussSeidel_maxIters = 20,	-- max iters for inverse solver
 	
 	mhd_vacuumPermeability = 1,	--4 * math.pi * 1e-7		-- mu0 = 4π*1e−7 V s A^-1 m^-1
 								-- is this the same as the maxwell permeability?
@@ -128,14 +126,14 @@ vectorField = {
 
 
 
--- [[ Euler
+--[[ Euler
 
 -- uncomment one:
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
-solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
---solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
+--solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
 
@@ -163,7 +161,7 @@ end
 --solidFilename = 'test-solid.png'
 --]=]
 
-initCondName = 'Sod'
+--initCondName = 'Sod'
 --initCondName = 'Sphere'
 --initCondName = 'Square Cavity'
 --initCondName = 'Kelvin-Hemholtz'
@@ -177,19 +175,22 @@ initCondName = 'Sod'
 --initCondName = 'Colella-Woodward'
 --initCondName = 'Configuration 6'
 --initCondName = 'SRHD Schneider et al'
---initCondName = 'Relativistic Blast Wave Interaction'
+initCondName = 'Relativistic Blast Wave Interaction'
 --initCondName = 'Marti & Muller 2008 Problem #1'
 --initCondName = 'Marti & Muller 2008 Problem #2'
 --initCondName = 'Relativistic Jet'
 initConds[initCondName].setup()
 --]]
 
--- for 2D Relativistic Blast Wave problem, cfl=.1 is needed
 if solverName == 'SRHDRoe'
-and #size == 2
 and initCondName == 'Relativistic Blast Wave Interaction'
 then
-	cfl = .1
+	if #size == 1 then
+		graph.variables = {'DENSITY'}
+	-- for 2D Relativistic Blast Wave problem, cfl=.1 is needed
+	elseif #size == 2 then
+		cfl = .1
+	end
 end
 
 --[[ MHD
@@ -211,7 +212,7 @@ initCondName = 'Maxwell-1'
 initConds[initCondName].setup()
 --]]
 
---[[ ADM (1D)
+--[[ ADM1D
 solverName = 'ADM1DRoe'
 --solverName = 'BSSNOKRoe'		-- not yet.  TODO copy from the gravitation wave sim project, but that BSSNOK+Roe solver isn't as accurate as it should be
 -- TODO ImplicitIncompressibleNavierStokes	<- from my GPU fluid sim Lua+GLSL project
@@ -232,7 +233,7 @@ solverName = 'ADM2DSpherical'	-- not yet
 -- I want to get rid of this one.  and the 1D ADM as well -- just one Bona-Masso ADM implementation is enough (I think) unless I should have separate ones for shift/less and mass/less
 --]]
 
---[[ ADM (3D)
+-- [[ ADM3D
 solverName = 'ADM3DRoe'
 		
 --size = {1024} heatMap.scale = 128
@@ -271,7 +272,8 @@ initConds['NR Stellar'].setup{bodies={{pos = {0,0,0}, radius = planet.radiusInCo
 --]=]
 
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
-heatMap.variable = 'K'
+heatMap.variable = 'EXPANSION'
+heatMap.useLog = false
 --fixedDT = .125
 --useFixedDT = true
 graph.variables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = all.

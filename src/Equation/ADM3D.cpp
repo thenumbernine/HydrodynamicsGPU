@@ -107,6 +107,18 @@ ADM3D::ADM3D(HydroGPUApp* app_)
 	//displayVariables.push_back("CONSTRAINT_HAMILTONIAN");
 	//addSuffixes(displayVariables, "CONSTRAINT_MOMENTUM_", spaceSuffixes);
 	//addSuffixes(displayVariables, "CONSTRAINT_EFE_", sym33Suffixes);
+
+
+	addSuffixes(vectorFieldVars, "GAMMA_", spaceSuffixes);	//visualize 3 axis of the gamma metric ... separately.  TODO all 3 at once would be nice
+	vectorFieldVars.push_back("A");
+	//TODO how to visualize D's ... do you show the tetrad of the metric's deriv for each vector sepraately? or do you show the grad of deriv for each component separately? all?
+	// D_[i]jk, or D_i[j]k ? nine of each means 18 total ...
+	addSuffixes(vectorFieldVars, "K_", spaceSuffixes);	//likewise with extrinsic curvature
+	vectorFieldVars.push_back("V");
+	vectorFieldVars.push_back("GRAVITY");
+	//vectorFieldVars.push_back("TIDAL");
+	vectorFieldVars.push_back("V_CONSTRAINT");
+	//vectorFieldVars.push_back("MOMENTUM_CONSTRAINT");
 }
 
 void ADM3D::getProgramSources(std::vector<std::string>& sources) {

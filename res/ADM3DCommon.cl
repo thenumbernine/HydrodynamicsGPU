@@ -40,20 +40,22 @@ __kernel void convertToTex(
 	real K_xx = state[28], K_xy = state[29], K_xz = state[30], K_yy = state[31], K_yz = state[32], K_zz = state[33];
 	real V_x = state[34], V_y = state[35], V_z = state[36];
 
-	real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
-	real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
-	real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
-	
-	real tr_K = K_xx * gammaUxx + K_yy * gammaUyy + K_zz * gammaUzz + 2. * K_xy * gammaUxy + 2. * K_yz * gammaUyz + 2. * K_xz * gammaUxz;
-
 	float value = 0.;
 	if (displayMethod == DISPLAY_VOLUME) {
+		real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
 		value = alpha * sqrt(gamma);
 	} else if (displayMethod == DISPLAY_K) {
+		real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
+		real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
+		real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
+		real tr_K = K_xx * gammaUxx + K_yy * gammaUyy + K_zz * gammaUzz + 2. * K_xy * gammaUxy + 2. * K_yz * gammaUyz + 2. * K_xz * gammaUxz;
 		value = tr_K;
 	//TODO incorporate beta into the gravity equation.
 	//-Gamma^k_tt = (-alpha alpha,j - beta_j,t + beta^i beta_i,j) gamma^jk + (beta^k alpha,t + beta^k beta^j alpha,j) / alpha - (beta^i beta^j beta^k beta_i,j) / alpha^2
 	} else if (displayMethod == DISPLAY_GRAVITY_MAGN) {
+		real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
+		real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
+		real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
 		real4 AU = (real4)(
 			A_x * gammaUxx + A_y * gammaUxy + A_z * gammaUxz,
 			A_x * gammaUxy + A_y * gammaUyy + A_z * gammaUyz,
@@ -61,8 +63,16 @@ __kernel void convertToTex(
 			0.);
 		value = alpha * alpha * length(AU);
 	} else if (displayMethod == DISPLAY_EXPANSION) {
+		real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
+		real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
+		real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
+		real tr_K = K_xx * gammaUxx + K_yy * gammaUyy + K_zz * gammaUzz + 2. * K_xy * gammaUxy + 2. * K_yz * gammaUyz + 2. * K_xz * gammaUxz;
 		value = -alpha * tr_K;
 /*	} else if (displayMethod == DISPLAY_GAUSSIAN_CURVATURE) {
+		real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
+		real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
+		real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
+		real tr_K = K_xx * gammaUxx + K_yy * gammaUyy + K_zz * gammaUzz + 2. * K_xy * gammaUxy + 2. * K_yz * gammaUyz + 2. * K_xz * gammaUxz;
 		//R4 = R3 + K_ij K^ij - K^2
 		// = R3 + tr(K^i_k K^k_j) - tr(K^i_j)^2
 		real KUL[3][3] = {
@@ -84,14 +94,24 @@ __kernel void convertToTex(
 		value = R + tr_KSq - tr_K * tr_K;
 */
 	} else if (displayMethod == DISPLAY_GAMMA) {
+		real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
 		value = gamma;
 
 	//V_k = D_km^m - D^m_mk = (D_kmn - D_mnk) gamma^mn
 	} else if (displayMethod == DISPLAY_V_CONSTRAINT_X) {
+		real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
+		real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
+		real /*gammaUxx = gammaInv[0], */gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
 		value = ((((((V_x - (gammaUxy * D_xxy)) - (gammaUxz * D_xxz)) - (gammaUyy * D_xyy)) - (2. * gammaUyz * D_xyz)) - (gammaUzz * D_xzz)) + (gammaUxy * D_yxx) + (gammaUxz * D_zxx) + (gammaUyy * D_yxy) + (gammaUyz * D_zxy) + (gammaUyz * D_yxz) + (gammaUzz * D_zxz));
 	} else if (displayMethod == DISPLAY_V_CONSTRAINT_Y) {
+		real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
+		real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
+		real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], /*gammaUyy = gammaInv[3], */gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
 		value = ((((((V_y - (gammaUxx * D_yxx)) - (gammaUxy * D_yxy)) - (2. * gammaUxz * D_yxz)) - (gammaUyz * D_yyz)) - (gammaUzz * D_yzz)) + (gammaUxx * D_xxy) + (gammaUxz * D_zxy) + (gammaUxy * D_xyy) + (gammaUyz * D_zyy) + (gammaUxz * D_xyz) + (gammaUzz * D_zyz));
 	} else if (displayMethod == DISPLAY_V_CONSTRAINT_Z) {
+		real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
+		real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
+		real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4]/*, gammaUzz = gammaInv[5]*/;
 		value = ((((((V_z - (gammaUxx * D_zxx)) - (2. * gammaUxy * D_zxy)) - (gammaUxz * D_zxz)) - (gammaUyy * D_zyy)) - (gammaUyz * D_zyz)) + (gammaUxx * D_xxz) + (gammaUxy * D_yxz) + (gammaUxy * D_xyz) + (gammaUyy * D_yyz) + (gammaUxz * D_xzz) + (gammaUyz * D_yzz));
 
 	//states
@@ -156,7 +176,8 @@ constant float2 offset[6] = {
 __kernel void updateVectorField(
 	__global float* vectorFieldVertexBuffer,
 	const __global real* stateBuffer,
-	real scale)
+	real scale,
+	int displayMethod)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
@@ -176,25 +197,58 @@ __kernel void updateVectorField(
 	
 	int stateIndex = INDEXV(si);
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
-
+	
 	real alpha = state[0];
 	real gamma_xx = state[1], gamma_xy = state[2], gamma_xz = state[3], gamma_yy = state[4], gamma_yz = state[5], gamma_zz = state[6];
 	real A_x = state[7], A_y = state[8], A_z = state[9];
-	
-	real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
-	real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
-	real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
+	real /*D_xxx = state[10], */D_xxy = state[11], D_xxz = state[12], D_xyy = state[13], D_xyz = state[14], D_xzz = state[15];
+	real D_yxx = state[16], D_yxy = state[17], D_yxz = state[18]/*, D_yyy = state[19]*/, D_yyz = state[20], D_yzz = state[21];
+	real D_zxx = state[22], D_zxy = state[23], D_zxz = state[24], D_zyy = state[25], D_zyz = state[26]/*, D_zzz = state[27]*/;
+	real K_xx = state[28], K_xy = state[29], K_xz = state[30], K_yy = state[31], K_yz = state[32], K_zz = state[33];
+	real V_x = state[34], V_y = state[35], V_z = state[36];
 
-#if 1	//plotting rest-frame gravity 
-	real4 AU = (real4)(
-		A_x * gammaUxx + A_y * gammaUxy + A_z * gammaUxz,
-		A_x * gammaUxy + A_y * gammaUyy + A_z * gammaUyz,
-		A_x * gammaUxz + A_y * gammaUyz + A_z * gammaUzz,
-		0.);
-	//TODO incorporate betas ...
-	real4 gravity = -alpha * alpha * AU;
-	float4 field = convert_float4(gravity);
-#endif
+	real4 field;
+	if (displayMethod == VECTORFIELD_GAMMA_X) {
+		field = (real4)(gamma_xx, gamma_xy, gamma_xz, 0.);
+	} else if (displayMethod == VECTORFIELD_GAMMA_Y) {
+		field = (real4)(gamma_xy, gamma_yy, gamma_yz, 0.);
+	} else if (displayMethod == VECTORFIELD_GAMMA_Z) {
+		field = (real4)(gamma_xz, gamma_yz, gamma_zz, 0.);
+	} else if (displayMethod == VECTORFIELD_A) {
+		field = (real4)(A_x, A_y, A_z, 0.);
+	} else if (displayMethod == VECTORFIELD_K_X) {
+		field = (real4)(K_xx, K_xy, K_xz, 0.);
+	} else if (displayMethod == VECTORFIELD_K_Y) {
+		field = (real4)(K_xy, K_yy, K_yz, 0.);
+	} else if (displayMethod == VECTORFIELD_K_Z) {
+		field = (real4)(K_xz, K_yz, K_zz, 0.);
+	} else if (displayMethod == VECTORFIELD_V) {
+		field = (real4)(V_x, V_y, V_z, 0.);
+	} else if (displayMethod == VECTORFIELD_GRAVITY) {
+		real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
+		real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
+		real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
+
+		real4 AU = (real4)(
+			A_x * gammaUxx + A_y * gammaUxy + A_z * gammaUxz,
+			A_x * gammaUxy + A_y * gammaUyy + A_z * gammaUyz,
+			A_x * gammaUxz + A_y * gammaUyz + A_z * gammaUzz,
+			0.);
+		//TODO incorporate betas ...
+		field = -alpha * alpha * AU;
+	//} else if (displayMethod == VECTORFIELD_TIDAL) {
+		//TODO
+	} else if (displayMethod == VECTORFIELD_V_CONSTRAINT) {
+		//V_k = D_km^m - D^m_mk = (D_kmn - D_mnk) gamma^mn
+		real gamma = det3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz);
+		real8 gammaInv = inv3x3sym(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz, gamma);
+		real gammaUxx = gammaInv[0], gammaUxy = gammaInv[1], gammaUxz = gammaInv[2], gammaUyy = gammaInv[3], gammaUyz = gammaInv[4], gammaUzz = gammaInv[5];
+		field.x = ((((((V_x - (gammaUxy * D_xxy)) - (gammaUxz * D_xxz)) - (gammaUyy * D_xyy)) - (2. * gammaUyz * D_xyz)) - (gammaUzz * D_xzz)) + (gammaUxy * D_yxx) + (gammaUxz * D_zxx) + (gammaUyy * D_yxy) + (gammaUyz * D_zxy) + (gammaUyz * D_yxz) + (gammaUzz * D_zxz));
+		field.y = ((((((V_y - (gammaUxx * D_yxx)) - (gammaUxy * D_yxy)) - (2. * gammaUxz * D_yxz)) - (gammaUyz * D_yyz)) - (gammaUzz * D_yzz)) + (gammaUxx * D_xxy) + (gammaUxz * D_zxy) + (gammaUxy * D_xyy) + (gammaUyz * D_zyy) + (gammaUxz * D_xyz) + (gammaUzz * D_zyz));
+		field.z = ((((((V_z - (gammaUxx * D_zxx)) - (2. * gammaUxy * D_zxy)) - (gammaUxz * D_zxz)) - (gammaUyy * D_zyy)) - (gammaUyz * D_zyz)) + (gammaUxx * D_xxz) + (gammaUxy * D_yxz) + (gammaUxy * D_xyz) + (gammaUyy * D_yyz) + (gammaUxz * D_xzz) + (gammaUyz * D_yzz));
+	//} else if (displayMethod == VECTORFIELD_MOMENTUM_CONSTRAINT) {
+		//TODO
+	}
 
 	//field is the first axis of the basis to draw the arrows
 	//the second should be perpendicular to field

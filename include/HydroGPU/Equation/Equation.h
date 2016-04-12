@@ -12,7 +12,8 @@ struct Equation {
 protected:
 	HydroGPUApp* app;
 public:
-	std::vector<std::string> displayVariables;
+	std::vector<std::string> displayVariables;	//TODO: "scalarVariables"
+	std::vector<std::string> vectorFieldVars;
 	std::vector<std::string> boundaryMethods;
 	std::vector<std::string> states;
 
