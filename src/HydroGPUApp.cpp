@@ -503,7 +503,7 @@ PROFILE_BEGIN_FRAME()
 	camera->setupModelview();
 
 	//no point in showing the graph in ortho
-	graph->display();
+	if (graph) graph->display();
 
 	glDepthMask(GL_FALSE);
 	glEnable(GL_BLEND);
@@ -560,7 +560,7 @@ PROFILE_BEGIN_FRAME()
 				newVectorField->scale = vectorField->scale;
 				vectorField = newVectorField;
 			
-				if (dim == 1 || dim == 2) {
+				if (graph && (dim == 1 || dim == 2)) {
 					std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
 					newGraph->variables = graph->variables;
 					graph = newGraph;
@@ -599,7 +599,7 @@ PROFILE_BEGIN_FRAME()
 				newVectorField->scale = vectorField->scale;
 				vectorField = newVectorField;
 
-				if (dim == 1 || dim == 2) {
+				if (graph && (dim == 1 || dim == 2)) {
 					std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
 					newGraph->variables = graph->variables;
 					graph = newGraph;
@@ -661,60 +661,62 @@ PROFILE_BEGIN_FRAME()
 				ImGui::Checkbox("isosurface log scale", &iso3D->useLog);
 			}
 		}
+
+		if (graph) {
+			if (ImGui::CollapsingHeader("graph")) {
+				std::function<void(Plot::Graph::Variable&)> addVarControls = [&](Plot::Graph::Variable& var){
+					const std::string& name = var.name;
+					ImGui::Checkbox((name + std::string(" enabled")).c_str(), &var.enabled);
+					ImGui::SameLine();
+					if (ImGui::TreeNode((name + std::string(" tree")).c_str())) {
+						
+						ImGui::Checkbox((std::string("log ") + name).c_str(), &var.log);
+					
+						ImGui::Combo((std::string("polyMode ") + name).c_str(), &var.polyMode, makeComboStr({"point", "line", "fill"}).c_str());
+						
+						ImGui::SliderFloat((std::string("alpha ") + name).c_str(), &var.alpha, 0.f, 1.f);
+
+						float logScale = log(var.scale) / log(10);
+						ImGui::SliderFloat((std::string("scale ") + name).c_str(), &logScale, -10, 10);
+						var.scale = pow(10, logScale);
+
+						ImGui::SliderInt((std::string("spacing ") + name).c_str(), &var.step, 1, (int)size.s[0]);
+						
+						ImGui::TreePop();
+					}
+				};
+
+				Plot::Graph::Variable all = graph->variables[0];
+				all.name = "all";
+				Plot::Graph::Variable prevAll = all;
+				addVarControls(all);
 		
-		if (ImGui::CollapsingHeader("graph")) {
-			std::function<void(Plot::Graph::Variable&)> addVarControls = [&](Plot::Graph::Variable& var){
-				const std::string& name = var.name;
-				ImGui::Checkbox((name + std::string(" enabled")).c_str(), &var.enabled);
-				ImGui::SameLine();
-				if (ImGui::TreeNode((name + std::string(" tree")).c_str())) {
-					
-					ImGui::Checkbox((std::string("log ") + name).c_str(), &var.log);
-				
-					ImGui::Combo((std::string("polyMode ") + name).c_str(), &var.polyMode, makeComboStr({"point", "line", "fill"}).c_str());
-					
-					ImGui::SliderFloat((std::string("alpha ") + name).c_str(), &var.alpha, 0.f, 1.f);
-
-					float logScale = log(var.scale) / log(10);
-					ImGui::SliderFloat((std::string("scale ") + name).c_str(), &logScale, -10, 10);
-					var.scale = pow(10, logScale);
-
-					ImGui::SliderInt((std::string("spacing ") + name).c_str(), &var.step, 1, (int)size.s[0]);
-					
-					ImGui::TreePop();
-				}
-			};
-
-			Plot::Graph::Variable all = graph->variables[0];
-			all.name = "all";
-			Plot::Graph::Variable prevAll = all;
-			addVarControls(all);
-	
-			auto applyFields = [&](auto fields) {
-				for (auto field : fields) {
-					if (prevAll.*field != all.*field) {
-						for (Plot::Graph::Variable& var : graph->variables) {
-							var.*field = all.*field;
+				auto applyFields = [&](auto fields) {
+					for (auto field : fields) {
+						if (prevAll.*field != all.*field) {
+							for (Plot::Graph::Variable& var : graph->variables) {
+								var.*field = all.*field;
+							}
 						}
 					}
-				}
-			};
+				};
 
-			applyFields(std::vector<bool Plot::Graph::Variable::*>{
-				&Plot::Graph::Variable::enabled,
-				&Plot::Graph::Variable::log,
-			});
-			applyFields(std::vector<int Plot::Graph::Variable::*>{
-				&Plot::Graph::Variable::polyMode,
-				&Plot::Graph::Variable::step,
-			});
-			applyFields(std::vector<float Plot::Graph::Variable::*>{
-				&Plot::Graph::Variable::alpha,
-				&Plot::Graph::Variable::scale,
-			});
-			
-			for (Plot::Graph::Variable& var : graph->variables) {
-				addVarControls(var);
+				applyFields(std::vector<bool Plot::Graph::Variable::*>{
+					&Plot::Graph::Variable::enabled,
+					&Plot::Graph::Variable::log,
+				});
+				applyFields(std::vector<int Plot::Graph::Variable::*>{
+					&Plot::Graph::Variable::polyMode,
+					&Plot::Graph::Variable::step,
+				});
+				applyFields(std::vector<float Plot::Graph::Variable::*>{
+					&Plot::Graph::Variable::alpha,
+					&Plot::Graph::Variable::scale,
+				});
+				
+				for (Plot::Graph::Variable& var : graph->variables) {
+					addVarControls(var);
+				}
 			}
 		}
 
@@ -900,13 +902,15 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				}
 				std::cout << "heatMap->scale " << heatMap->scale << std::endl;
 			} else if (event.key.keysym.sym == SDLK_b) {
-				for (Plot::Graph::Variable& var : graph->variables) {
-					if (shiftDown) {
-						var.scale *= .5;
-					} else {
-						var.scale *= 2.;
+				if (graph) {
+					for (Plot::Graph::Variable& var : graph->variables) {
+						if (shiftDown) {
+							var.scale *= .5;
+						} else {
+							var.scale *= 2.;
+						}
+						std::cout << "var " << var.name << " scale " << var.scale << std::endl;
 					}
-					std::cout << "var " << var.name << " scale " << var.scale << std::endl;
 				}
 			} else if (event.key.keysym.sym == SDLK_d) {
 				if (shiftDown) {

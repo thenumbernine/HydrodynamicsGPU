@@ -81,20 +81,6 @@ defs = {
 	srhd_tauMax = 1e+20,
 }
 
--- the number of non-1-sized elements in 'size' determine the dimension
---  (if an element is not provided or nil then it defaults to 1)
---[[ 3D
-size = {16, 16, 16}
-vectorField.resolution = 16
---]]
--- [[ 2D
-size = {256, 256}
---]]
---[[ 1D
-size = {2048}
---]]
-
-
 -- camera properties
 camera = {}
 
@@ -124,6 +110,19 @@ vectorField = {
 	scale = 1/8,
 }
 
+
+-- the number of non-1-sized elements in 'size' determine the dimension
+--  (if an element is not provided or nil then it defaults to 1)
+-- [[ 3D
+size = {16, 16, 16}
+vectorField.resolution = 16
+--]]
+--[[ 2D
+size = {256, 256}
+--]]
+--[[ 1D
+size = {2048}
+--]]
 
 
 -- [[ Euler

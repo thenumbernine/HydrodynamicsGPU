@@ -27,21 +27,18 @@ uniform bool useLog;
 #define _1_LN_10 0.4342944819032517611567811854911269620060920715332
 
 float getValue(vec3 p) {
-	float value = texture2D(tex, p).r;
+	float value = texture3D(tex, p).r;
 	if (useLog) value = log(1. + abs(value)) * _1_LN_10;
 	value *= scale;
 	return value;
 }
 
 void main() {
-	float alpha;
 	vec3 p = texCoordStart;
 	vec4 result = vec4(0., 0., 0., 1.);
-	
 	float value = getValue(p); 
-	
-	alpha = .7 * min(1., mod(value * 4., 3.));
-	result.rgb += result.a * alpha * texture1D(gradient, value);
+	float alpha = .7 * min(1., mod(value * 4., 3.));
+	result.rgb += result.a * alpha * texture1D(gradient, value).rgb;
 	result.a *= 1. - alpha;
 	
 	vec3 step = vertexStart - eye;
@@ -57,9 +54,9 @@ void main() {
 		//instead of having to backward-trace
 		//(as you would when rendering transparent stuff on top of each other)
 		//this will allow you to bailout early if your transparency ever hits fully opaque
-		value = texture3D(tex, p);
+		value = getValue(p);
 		alpha = .7 * min(1., mod(value * 4., 3.));
-		result.rgb += result.a * alpha * texture1D(gradient, value);
+		result.rgb += result.a * alpha * texture1D(gradient, value).rgb;
 		result.a *= 1. - alpha;
 
 		if (result.a < .01) break;
@@ -68,4 +65,3 @@ void main() {
 }
 
 #endif	//FRAGMENT_SHADER
-
