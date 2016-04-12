@@ -45,11 +45,13 @@ void SelfGravitation::resetState(
 	int volume = solver->getVolume();
 	
 	//if using gravity then use the density field as an initial guess before poisson relaxiation
+	//NOTICE this assumes the density of the selfgrav is in the first place of the state vec
 	if (solver->app->useGravity) {
 		for (size_t i = 0; i < volume; ++i) {
-			potentialVec[i] = stateVec[0 + solver->numStates() * i];
+			potentialVec[i] = -stateVec[0 + solver->numStates() * i];
 		}
 	}
+	commands.enqueueWriteBuffer(potentialBuffer, CL_TRUE, 0, sizeof(real) * volume, potentialVec.data());
 
 	//HACK: if the Lua state has a solid filename then load that and use it for the solid channel ...
 	std::string solidFilename;
@@ -70,8 +72,6 @@ void SelfGravitation::resetState(
 			}
 		}
 	}
-
-	commands.enqueueWriteBuffer(potentialBuffer, CL_TRUE, 0, sizeof(real) * volume, potentialVec.data());
 	commands.enqueueWriteBuffer(solidBuffer, CL_TRUE, 0, sizeof(char) * volume, solidVec.data());
 	
 	if (solver->app->useGravity) {
@@ -84,6 +84,7 @@ void SelfGravitation::resetState(
 
 	//add potential energy into total energy
 	for (int i = 0; i < volume; ++i) {
+		//NOTICE this makes another assumption about state layout
 		int energyTotalIndex = 1 + solver->app->dim;
 		stateVec[energyTotalIndex + solver->numStates() * i] += potentialVec[i];
 	}

@@ -18,12 +18,13 @@ uniform bool useLog;
 uniform float scale;
 uniform sampler2D tex;
 uniform sampler1D gradient;
+uniform float alpha;
 
 void main() {
 	float value = texture2D(tex, texCoord).r;
 	if (useLog) value = log(1. + abs(value)) * _1_LN_10;
 	value *= scale;
-	gl_FragColor = texture1D(gradient, value);
+	gl_FragColor = vec4(texture1D(gradient, value).rgb, alpha);
 }
 
 #endif	//FRAGMENT_SHADER

@@ -59,17 +59,14 @@ void VectorField::display() {
 	solver->app->clCommon->commands.enqueueNDRangeKernel(updateVectorFieldKernel, solver->offsetNd, global, solver->localSize);
 	solver->app->clCommon->commands.finish();
 
-	glDisable(GL_DEPTH_TEST);
-
 	glBindBuffer(GL_ARRAY_BUFFER_ARB, glBuffer);
-	glColor3d(1,1,1);
+	glColor3f(1,1,1);
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glVertexPointer(3, GL_FLOAT, 0, 0);
 	glDrawArrays(GL_LINES, 0, vertexCount);
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
-	
-	glEnable(GL_DEPTH_TEST);
+
 }
 
 }

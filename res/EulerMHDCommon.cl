@@ -120,7 +120,8 @@ __kernel void updateVectorField(
 	__global float* vectorFieldVertexBuffer,
 	real scale,
 	int displayMethod,
-	const __global real* stateBuffer)
+	const __global real* stateBuffer,
+	const __global real* gravityPotentialBuffer)
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int4 size = (int4)(get_global_size(0), get_global_size(1), get_global_size(2), 0);	
@@ -151,23 +152,23 @@ __kernel void updateVectorField(
 		field.z = state[STATE_MOMENTUM_Z];
 #endif
 		if (displayMethod == VECTORFIELD_MOMENTUM) field *= 1. / state[STATE_DENSITY];
-#if 0
 	} else if (displayMethod == VECTORFIELD_GRAVITY) {
 		//external force is negative the potential gradient
+		real4 grad = (real4)(0., 0., 0., 0.);
 		int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
 		int4 ixR = si; ixR.x = (ixR.x + 1) % SIZE_X;
-		field.x = gravityPotentialBuffer[INDEXV(ixL)] - gravityPotentialBuffer[INDEXV(ixR)];
+		grad.x = (gravityPotentialBuffer[INDEXV(ixR)] - gravityPotentialBuffer[INDEXV(ixL)]) / (2. * dx[0]);
 #if DIM > 1	
 		int4 iyL = si; iyL.y = (iyL.y + SIZE_Y - 1) % SIZE_Y;
 		int4 iyR = si; iyR.y = (iyR.y + 1) % SIZE_Y;
-		field.y = gravityPotentialBuffer[INDEXV(iyL)] - gravityPotentialBuffer[INDEXV(iyR)];
+		grad.y = (gravityPotentialBuffer[INDEXV(iyR)] - gravityPotentialBuffer[INDEXV(iyL)]) / (2. * dx[1]);
 #endif
 #if DIM > 2
-		int4 izL = si; izL.y = (izL.y + SIZE_Z - 1) % SIZE_Z;
-		int4 izR = si; izR.y = (izR.y + 1) % SIZE_Z;
-		field.z = gravityPotentialBuffer[INDEXV(izL)] - gravityPotentialBuffer[INDEXV(izR)];
+		int4 izL = si; izL.z = (izL.z + SIZE_Z - 1) % SIZE_Z;
+		int4 izR = si; izR.z = (izR.z + 1) % SIZE_Z;
+		grad.z = (gravityPotentialBuffer[INDEXV(izR)] - gravityPotentialBuffer[INDEXV(izL)]) / (2. * dx[2]);
 #endif
-#endif
+		field = -grad;
 	}
 
 	//field is the first axis of the basis to draw the arrows

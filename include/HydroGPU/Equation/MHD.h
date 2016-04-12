@@ -17,6 +17,7 @@ struct MHD : public SelfGravitationBehavior<Equation> {
 	virtual std::string name() const { return "MHD"; } 
 
 	virtual void setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::Solver* solver);
+	virtual void setupUpdateVectorFieldKernelArgs(cl::Kernel updateVectorFieldKernel, Solver::Solver* solver);
 };
 
 }

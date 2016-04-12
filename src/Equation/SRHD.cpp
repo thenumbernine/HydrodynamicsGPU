@@ -43,7 +43,6 @@ SRHD::SRHD(HydroGPUApp* app_)
 		"VELOCITY",
 		"MOMENTUM",
 		"VORTICITY",
-		"GRAVITY",
 	};
 }
 

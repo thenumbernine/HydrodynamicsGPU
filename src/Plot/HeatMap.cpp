@@ -12,6 +12,7 @@ HeatMap::HeatMap(HydroGPU::HydroGPUApp* app_)
 , variable(0)
 , scale(1.f)
 , useLog(false)
+, alpha(1.f)
 {
 	std::string shaderCode = Common::File::read("HeatMap.shader");
 	std::vector<Shader::Shader> shaders = {
@@ -30,7 +31,8 @@ void HeatMap::display() {
 
 	heatShader->use();
 	heatShader->setUniform<float>("scale", scale)
-				.setUniform<bool>("useLog", useLog);
+				.setUniform<bool>("useLog", useLog)
+				.setUniform<float>("alpha", alpha);
 	
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, app->plot->getTex());

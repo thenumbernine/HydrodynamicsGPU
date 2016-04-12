@@ -89,5 +89,13 @@ void MHD::setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::Sol
 	convertToTexKernel.setArg(5, mhdSolver->getMagneticFieldDivergenceBuffer());
 }
 
+void MHD::setupUpdateVectorFieldKernelArgs(cl::Kernel updateVectorFieldKernel, Solver::Solver* solver) {
+	Super::setupUpdateVectorFieldKernelArgs(updateVectorFieldKernel, solver);
+
+	Solver::SelfGravitationInterface* selfGravSolver = dynamic_cast<Solver::SelfGravitationInterface*>(solver);
+	assert(selfGravSolver != nullptr);
+	updateVectorFieldKernel.setArg(4, selfGravSolver->getPotentialBuffer());
+}
+
 }
 }

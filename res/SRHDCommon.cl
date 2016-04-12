@@ -320,23 +320,6 @@ __kernel void updateVectorField(
 #if DIM > 2
 		field.z = state[STATE_MOMENTUM_DENSITY_Z];
 #endif
-#if 0	//gravity is disabled in srhd at the moment
-	} else if (displayMethod == VECTORFIELD_GRAVITY) {
-		//external force is negative the potential gradient
-		int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
-		int4 ixR = si; ixR.x = (ixR.x + 1) % SIZE_X;
-		field.x = gravityPotentialBuffer[INDEXV(ixL)] - gravityPotentialBuffer[INDEXV(ixR)];
-#if DIM > 1	
-		int4 iyL = si; iyL.y = (iyL.y + SIZE_Y - 1) % SIZE_Y;
-		int4 iyR = si; iyR.y = (iyR.y + 1) % SIZE_Y;
-		field.y = gravityPotentialBuffer[INDEXV(iyL)] - gravityPotentialBuffer[INDEXV(iyR)];
-#endif
-#if DIM > 2
-		int4 izL = si; izL.y = (izL.y + SIZE_Z - 1) % SIZE_Z;
-		int4 izR = si; izR.y = (izR.y + 1) % SIZE_Z;
-		field.z = gravityPotentialBuffer[INDEXV(izL)] - gravityPotentialBuffer[INDEXV(izR)];
-#endif
-#endif	//0
 	}
 
 	//field is the first axis of the basis to draw the arrows

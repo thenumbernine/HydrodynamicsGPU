@@ -1,5 +1,22 @@
 #include "HydroGPU/Shared/Common.h"
 
+/*
+Phi = - G m / r
+nabla^2 phi = -4 pi G rho
+
+k = 1/dx^2 + 1/dy^2 + 1/dz^2
+[-2k 1/dx^2 ... 1/dy^2 ... 1/dz^2           ] [   ]           [   ]
+[1/dx^2 -2k 1/dx^2 ... 1/dy^2 ... 1/dz^2    ] [phi] = -4 pi G [rho]
+[   1/dx^2 -2k 1/dx^2 ... 1/dy^2 ... 1/dz^2 ] [   ]           [   ]
+
+boundary:
+phi(dOmega) = 0
+
+jacobi:
+
+phi_i := (b_i - sum_j (a_ij phi_j) / a_ii), j != i
+
+*/
 __kernel void gravityPotentialPoissonRelax(
 	__global real* gravityPotentialBuffer,
 	const __global real* stateBuffer)
@@ -18,29 +35,31 @@ __kernel void gravityPotentialPoissonRelax(
 	
 	int index = INDEXV(i);
 
-	real sum = (gravityPotentialBuffer[index + stepsize.x] + gravityPotentialBuffer[index - stepsize.x]) / (DX * DX);
+	//sum of skew (non-diag) components: sum_j a_ij phi_j, j != i
+	real skewSum = 0.;
+	if (i.x < SIZE_X-3) skewSum += gravityPotentialBuffer[index + stepsize.x] / (DX * DX);
+	if (i.x > 2) skewSum += gravityPotentialBuffer[index - stepsize.x] / (DX * DX);
 #if DIM > 1
-	sum += (gravityPotentialBuffer[index + stepsize.y] + gravityPotentialBuffer[index - stepsize.y]) / (DY * DY);
-#if DIM > 2
-	sum += (gravityPotentialBuffer[index + stepsize.z] + gravityPotentialBuffer[index - stepsize.z]) / (DZ * DZ);
+	if (i.y < SIZE_Y-3) skewSum += gravityPotentialBuffer[index + stepsize.y] / (DY * DY);
+	if (i.y > 2) skewSum += gravityPotentialBuffer[index - stepsize.y] / (DY * DY);
 #endif
+#if DIM > 2
+	if (i.z < SIZE_Z-3) skewSum += gravityPotentialBuffer[index + stepsize.z] / (DZ * DZ);
+	if (i.z > 2) skewSum += gravityPotentialBuffer[index - stepsize.z] / (DZ * DZ);
 #endif
 
-	const real denom = -2.f * (1.f / (DX * DX)
+	const real diag = -2. * (1. / (DX * DX)
 #if DIM > 1
-		+ 1.f / (DY * DY)
+							+ 1. / (DY * DY)
 #endif
 #if DIM > 2
-		+ 1.f / (DZ * DZ)
+							+ 1. / (DZ * DZ)
 #endif
 	);
 
-	//delta^2 Phi = 4 pi G rho
-	const real pi = 3.141592653589793115997963468544185161590576171875f;
 	const real G = selfGrav_gravitationalConstant;		//6.67384e-11 m^3 / (kg s^2)
-	const real fourPiGRho = -4.f * pi * G;
 	real density = stateBuffer[STATE_DENSITY + NUM_STATES * index];
-	gravityPotentialBuffer[index] = (fourPiGRho * density - sum) / denom;
+	gravityPotentialBuffer[index] = (4. * M_PI * G * density - skewSum) / diag;
 }
 
 __kernel void calcGravityDeriv(
@@ -66,18 +85,18 @@ __kernel void calcGravityDeriv(
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
 	real density = state[STATE_DENSITY];
-	real derivEnergyTotal = 0.f;
+	real derivEnergyTotal = 0.;
 	for (int side = 0; side < DIM; ++side) {
 		int indexPrev = index - stepsize[side];
 		int indexNext = index + stepsize[side];
 	
-		real gravityPotentialGradient = (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]) / (2.f * dx[side]);
-	
+		real gradient = (gravityPotentialBuffer[indexNext] - gravityPotentialBuffer[indexPrev]) / (2. * dx[side]);
+		real gravity = -gradient;
+
 		//gravitational force = -gradient of gravitational potential
-		deriv[side + STATE_MOMENTUM_X] -= density * gravityPotentialGradient;
-		derivEnergyTotal -= density * gravityPotentialGradient * state[side + STATE_MOMENTUM_X];
+		deriv[side + STATE_MOMENTUM_X] -= density * gravity;
+		derivEnergyTotal -= density * gravity * state[side + STATE_MOMENTUM_X];
 	}
 
 	deriv[STATE_ENERGY_TOTAL] += derivEnergyTotal;
 }
-

@@ -36,7 +36,7 @@ Euler::Euler(HydroGPUApp* app_)
 		"VELOCITY",
 		"MOMENTUM",
 		"VORTICITY",
-		//"GRAVITY",
+		"GRAVITY",
 	};
 }
 
@@ -90,6 +90,13 @@ void Euler::setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::S
 	convertToTexKernel.setArg(4, selfGravSolver->getSolidBuffer());
 }
 
+void Euler::setupUpdateVectorFieldKernelArgs(cl::Kernel updateVectorFieldKernel, Solver::Solver* solver) {
+	Super::setupUpdateVectorFieldKernelArgs(updateVectorFieldKernel, solver);
+
+	Solver::SelfGravitationInterface* selfGravSolver = dynamic_cast<Solver::SelfGravitationInterface*>(solver);
+	assert(selfGravSolver != nullptr);
+	updateVectorFieldKernel.setArg(4, selfGravSolver->getPotentialBuffer());
+}
 
 }
 }

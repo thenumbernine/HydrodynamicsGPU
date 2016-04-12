@@ -501,16 +501,20 @@ PROFILE_BEGIN_FRAME()
 
 	camera->setupProjection();
 	camera->setupModelview();
-	if (showVectorField) vectorField->display();
 
 	//no point in showing the graph in ortho
 	graph->display();
 
+	glDepthMask(GL_FALSE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
 	if (showHeatMap && heatMap) heatMap->display();
 	if (showIso3D && iso3D) iso3D->display();
+	if (showVectorField) vectorField->display();
+	
 	glDisable(GL_BLEND);
+	glDepthMask(GL_TRUE);
 
 	//do this before rendering the gui so it stays out of the picture
 	if (createAnimation) plot->screenshot();
@@ -638,6 +642,8 @@ PROFILE_BEGIN_FRAME()
 				heatMap->scale = exp(logScale);
 			
 				ImGui::Checkbox("heatMap log scale", &heatMap->useLog);
+			
+				ImGui::SliderFloat("heatMap alpha", &heatMap->alpha, 0.f, 1.f);
 			}
 		}
 

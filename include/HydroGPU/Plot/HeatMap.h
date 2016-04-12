@@ -16,6 +16,7 @@ public:
 	int variable;
 	float scale;
 	bool useLog;
+	float alpha;
 
 	HeatMap(HydroGPU::HydroGPUApp* app_);
 
