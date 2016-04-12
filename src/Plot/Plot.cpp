@@ -14,28 +14,41 @@ Plot::Plot(HydroGPU::HydroGPUApp* app_)
 : app(app_)
 , tex(GLuint())
 {
+	GLuint targets[] = {
+		GL_TEXTURE_2D,	//1D?
+		GL_TEXTURE_2D,
+		GL_TEXTURE_3D,
+	};
+	target = targets[app->dim-1]; 
+	
 	//get a texture going for visualizing the output
 	glGenTextures(1, &tex);
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glBindTexture(target, tex);
+	glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	Tensor::Vector<int,3> glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
 	//specific to Euler
 	for (int i = 0; i < app->dim; ++i) {
 		switch (app->boundaryMethods(i, 0)) {	//can't wrap one side and not the other, so just use the min 
 		case 0://BOUNDARY_PERIODIC:
-			glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_REPEAT);
+			glTexParameteri(target, glWraps(i), GL_REPEAT);
 			break;
 		case 1://BOUNDARY_MIRROR:
 		case 2://BOUNDARY_FREEFLOW:
-			glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_CLAMP_TO_EDGE);
+			glTexParameteri(target, glWraps(i), GL_CLAMP_TO_EDGE);
 			break;
 		}
 	}
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app->size.s[0], app->size.s[1], 0, GL_RGBA, GL_FLOAT, nullptr);
-	app->solver->cl.totalAlloc += sizeof(float) * 4 * app->size.s[0] * app->size.s[1];
-	std::cout << "allocating texture size " << (sizeof(float) * 4 * app->size.s[0] * app->size.s[1]) << " running total " << app->solver->cl.totalAlloc << std::endl;
-	glBindTexture(GL_TEXTURE_2D, 0);
+	std::function<void()> uploads[] = {
+		[&](){ glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app->size.s[0], app->size.s[1], 0, GL_RGBA, GL_FLOAT, nullptr); },
+		[&](){ glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app->size.s[0], app->size.s[1], 0, GL_RGBA, GL_FLOAT, nullptr); },
+		[&](){ glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F_ARB, app->size.s[0], app->size.s[1], app->size.s[2], 0, GL_RGBA, GL_FLOAT, nullptr); },
+	};
+	uploads[app->dim-1]();
+	int volume = app->solver->getVolume();
+	app->solver->cl.totalAlloc += sizeof(float) * 4 * volume;
+	std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << app->solver->cl.totalAlloc << std::endl;
+	glBindTexture(target, 0);
 	int err = glGetError();
 	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
 }
@@ -43,11 +56,14 @@ Plot::Plot(HydroGPU::HydroGPUApp* app_)
 //call this after plot's subclass ctor, when the tex is allocated
 void Plot::init() {
 	//init buffers
+	//NOTICE tex is TEXTURE_2D
+	//texCLMem is TEXTURE_3D
+	//...and convertVariableToTex is image3d_t
+	//...but it all seems to work.
 	texCLMem = cl::ImageGL(app->clCommon->context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, tex);
 
 	//init kernels
 	convertToTexKernel = cl::Kernel(app->solver->program, "convertToTex");
-	convertToTexKernel.setArg(0, texCLMem);
 	app->solver->equation->setupConvertToTexKernelArgs(convertToTexKernel, app->solver.get());
 }
 
@@ -70,6 +86,7 @@ void Plot::convertVariableToTex(int displayVariable) {
 
 	//if (app->clCommon->useGPU)
 	{
+		convertToTexKernel.setArg(0, texCLMem);
 		convertToTexKernel.setArg(1, displayVariable);
 		
 		//TODO round up next power of 2 of global size for texture ...

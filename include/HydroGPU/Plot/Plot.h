@@ -12,22 +12,25 @@ namespace Plot {
 struct Plot {
 protected:
 	HydroGPU::HydroGPUApp* app;
-	cl::ImageGL texCLMem;		//data is written to this buffer before rendering
 	
 	cl::Kernel convertToTexKernel;
+
+	GLuint target;
 	GLuint tex;
+	cl::ImageGL texCLMem;		//data is written to this buffer before rendering
 
 public:
 	Plot(HydroGPU::HydroGPUApp* app_);
 	virtual ~Plot();
-	virtual void init();
+	void init();
 
 	//external call to convert the app->solver displayVariable (specified in solver->equation->displayVariables) to the tex 
-	virtual void convertVariableToTex(int displayVariable);
+	void convertVariableToTex(int displayVariable);
 	
 	//read-only so others can use the handle but not modify it
 	//this is still not safe to others deleting/messing with its contents ...
-	GLuint getTex() { return tex; }
+	GLuint getTex() const { return tex; }
+	GLuint getTarget() const { return target; }
 
 public:
 	void screenshot();

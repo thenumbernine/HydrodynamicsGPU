@@ -3,6 +3,7 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 #include <OpenGL/gl.h>
+#include <cassert>
 
 namespace HydroGPU {
 namespace Plot {
@@ -33,7 +34,9 @@ void HeatMap::display() {
 	heatShader->setUniform<float>("scale", scale)
 				.setUniform<bool>("useLog", useLog)
 				.setUniform<float>("alpha", alpha);
-	
+
+	assert(app->plot->getTarget() == GL_TEXTURE_2D);
+
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, app->plot->getTex());
 //TODO heat map flag for texture mag filtering

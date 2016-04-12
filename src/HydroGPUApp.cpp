@@ -900,7 +900,8 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 					if (heatMap) heatMap->scale *= 2.;
 					if (iso3D) iso3D->scale *= 2.;
 				}
-				std::cout << "heatMap->scale " << heatMap->scale << std::endl;
+				if (heatMap) std::cout << "heatMap->scale " << heatMap->scale << std::endl;
+				if (iso3D) std::cout << "iso3D->scale " << iso3D->scale << std::endl;
 			} else if (event.key.keysym.sym == SDLK_b) {
 				if (graph) {
 					for (Plot::Graph::Variable& var : graph->variables) {
@@ -920,7 +921,8 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 					if (heatMap) heatMap->variable = (heatMap->variable + 1) % solver->equation->displayVariables.size();
 					if (iso3D) iso3D->variable = (iso3D->variable + 1) % solver->equation->displayVariables.size();
 				}
-				std::cout << "display " << solver->equation->displayVariables[heatMap->variable] << std::endl;
+				if (heatMap) std::cout << "heatMap->variable " << solver->equation->displayVariables[heatMap->variable] << std::endl;
+				if (iso3D) std::cout << "iso3D->variable " << solver->equation->displayVariables[iso3D->variable] << std::endl;
 			} else if (event.key.keysym.sym == SDLK_u) {
 				if (doUpdate) {
 					std::cout << "stopping..." << std::endl;

@@ -50,7 +50,7 @@ boundaryMethods = {
 -- connect them to the GUI maybe?
 
 -- gravity is specific to the Euler fluid equation solver
-useGravity = true
+useGravity = false
 
 -- used for gravitation Poisson solver
 gaussSeidelMaxIter = 20
@@ -113,11 +113,11 @@ vectorField = {
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
--- [[ 3D
+--[[ 3D
 size = {16, 16, 16}
 vectorField.resolution = 16
 --]]
---[[ 2D
+-- [[ 2D
 size = {256, 256}
 --]]
 --[[ 1D

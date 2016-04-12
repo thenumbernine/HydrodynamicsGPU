@@ -31,7 +31,6 @@ namespace Plot {
 
 Iso3D::Iso3D(HydroGPU::HydroGPUApp* app_)
 : app(app_)
-, tex(GLuint())
 , variable(0)
 , scale(1.f)
 , useLog(false)
@@ -48,37 +47,8 @@ Iso3D::Iso3D(HydroGPU::HydroGPUApp* app_)
 		.setUniform<int>("maxiter", std::max(app->size.s[0], std::max(app->size.s[1], app->size.s[2])))
 		.setUniform<float>("oneOverDx", app->xmax.s[0] - app->xmin.s[0], app->xmax.s[1] - app->xmin.s[1], app->xmax.s[2] - app->xmin.s[2])
 		.done();
-
-	//get a texture going for visualizing the output
-	glGenTextures(1, &tex);
-	glBindTexture(GL_TEXTURE_3D, tex);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	Tensor::Vector<int,3> glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
-	//specific to Euler
-	for (int i = 0; i < app->dim; ++i) {
-		switch (app->boundaryMethods(i,0)) {	//use min side to determine texture wrap along this dimension
-		case 0://BOUNDARY_PERIODIC:
-			glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_REPEAT);
-			break;
-		case 1://BOUNDARY_MIRROR:
-		case 2://BOUNDARY_FREEFLOW:
-			glTexParameteri(GL_TEXTURE_2D, glWraps(i), GL_CLAMP_TO_EDGE);
-			break;
-		}
-	}
-	glTexImage3D(GL_TEXTURE_3D, 0, 4, app->size.s[0], app->size.s[1], app->size.s[2], 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	app->solver->cl.totalAlloc += sizeof(char) * 4 * app->size.s[0] * app->size.s[1] * app->size.s[2];
-	std::cout << "allocating texture size " << (sizeof(float) * 4 * app->size.s[0] * app->size.s[1] * app->size.s[2]) << " running total " << app->solver->cl.totalAlloc << std::endl;
-	glBindTexture(GL_TEXTURE_3D, 0);
-	int err = glGetError();
-	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
 }
 	
-Iso3D::~Iso3D() {
-	glDeleteTextures(1, &tex);
-}
-
 void Iso3D::display() {
 	app->plot->convertVariableToTex(variable);
 
@@ -95,8 +65,9 @@ void Iso3D::display() {
 			shader->use()
 				.setUniform<float>("scale", scale)
 				.setUniform<bool>("useLog", useLog);
+			assert(app->plot->getTarget() == GL_TEXTURE_3D);
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_3D, tex);
+			glBindTexture(GL_TEXTURE_3D, app->plot->getTex());
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_1D, app->gradientTex);
 		}
