@@ -1,12 +1,5 @@
-/*
-TODO
-rename Plot2D to HeatMap
-...and then Plot3D to isobar
-*/
-
-#include "HydroGPU/Plot/Plot2D.h"
-#include "HydroGPU/Plot/Camera.h"
-#include "HydroGPU/Solver/Solver.h"
+#include "HydroGPU/Plot/HeatMap.h"
+#include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
 #include <OpenGL/gl.h>
@@ -14,8 +7,11 @@ rename Plot2D to HeatMap
 namespace HydroGPU {
 namespace Plot {
 	
-Plot2D::Plot2D(HydroGPU::HydroGPUApp* app_)
-: Super(app_)
+HeatMap::HeatMap(HydroGPU::HydroGPUApp* app_)
+: app(app_)
+, variable(0)
+, scale(1.f)
+, useLog(false)
 {
 	std::string shaderCode = Common::File::read("HeatMap.shader");
 	std::vector<Shader::Shader> shaders = {
@@ -29,15 +25,15 @@ Plot2D::Plot2D(HydroGPU::HydroGPUApp* app_)
 		.done();
 }
 
-void Plot2D::display() {
-	convertVariableToTex(app->heatMapVariable);
+void HeatMap::display() {
+	app->plot->convertVariableToTex(variable);
 
 	heatShader->use();
-	heatShader->setUniform<float>("scale", app->heatMapColorScale)
-				.setUniform<bool>("useLog", app->heatMapUseLog);
+	heatShader->setUniform<float>("scale", scale)
+				.setUniform<bool>("useLog", useLog);
 	
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, tex);
+	glBindTexture(GL_TEXTURE_2D, app->plot->tex);
 //TODO heat map flag for texture mag filtering
 //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);

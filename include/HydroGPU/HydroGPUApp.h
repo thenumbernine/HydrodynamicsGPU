@@ -20,8 +20,10 @@ struct Camera;
 struct CameraOrtho;
 struct CameraFrustum;
 struct Plot;
-struct VectorField;
 struct Graph;
+struct HeatMap;
+struct Iso3D;
+struct VectorField;
 }
 
 namespace Solver {
@@ -67,13 +69,8 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	bool useFixedDT;
 	real fixedDT;
 	float cfl;
-	//TODO the enumeration of these values is dependent on the solver equation 
-	//TODO as well, (1) get rid of Plot1D (2) rename Plot2D to HeatMap/Isobar2D (3) rename Plot3D to Isobar3D
-	// ... then move these into there
 	bool showHeatMap;
-	int heatMapVariable;	
-	float heatMapColorScale;
-	bool heatMapUseLog;
+	bool showIso3D;
 	Tensor::Tensor<int, Tensor::Lower<3>, Tensor::Lower<2>> boundaryMethods;
 	bool useGravity;
 	int gaussSeidelMaxIter;	//max iterations for Gauss-Seidel max iterations
@@ -95,9 +92,22 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	float aspectRatio;
 	
 	//construct this after the program has been compiled
-	std::shared_ptr<HydroGPU::Plot::VectorField> vectorField;
+	
+	//screenshots, converting cl mem to textures
 	std::shared_ptr<HydroGPU::Plot::Plot> plot;
+	
+	//1D and 2D heightmap graphs
 	std::shared_ptr<HydroGPU::Plot::Graph> graph;
+	
+	//2D heat maps ... possibly 3D slices someday?
+	std::shared_ptr<HydroGPU::Plot::HeatMap> heatMap;
+	
+	//3D isobars
+	std::shared_ptr<HydroGPU::Plot::Iso3D> iso3D;
+	
+	//1D 2D and 3D vector fields
+	std::shared_ptr<HydroGPU::Plot::VectorField> vectorField;
+
 	std::shared_ptr<HydroGPU::Plot::Camera> camera;
 	std::shared_ptr<HydroGPU::Plot::CameraFrustum> cameraFrustum;
 	std::shared_ptr<HydroGPU::Plot::CameraOrtho> cameraOrtho;
@@ -110,8 +120,6 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	virtual void resize(int width, int height);
 	virtual void update();
 	virtual void sdlEvent(SDL_Event &event);
-protected:
-	void createPlot();
 };
 
 inline std::ostream& operator<<(std::ostream& o, real4 v) {

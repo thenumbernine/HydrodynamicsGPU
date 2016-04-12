@@ -126,8 +126,6 @@ protected:
 	virtual std::shared_ptr<Converter> createConverter();
 public:
 	virtual void resetState();
-	
-	virtual void screenshot();
 
 protected:
 	virtual std::vector<std::string> getSaveChannelNames();

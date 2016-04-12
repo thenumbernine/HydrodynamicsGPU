@@ -741,6 +741,37 @@ initConds = {
 	},
 
 
+
+	{
+		name = 'Relativistic Jet',
+		equations = {'Euler', 'MHD', 'SRHD'},
+		setup = function()
+			defs.idealGas_heatCapacityRatio = 5/3
+			initState = function(x,y,z)
+				local pressure = 1
+				local velocityX = 0
+				local height = .05
+				local width = (xmax[1] - xmin[1]) / size[1] * 10
+				if x < xmin[1] + width
+				and y > (.5+height) * xmin[2] + (.5-height) * xmax[2]
+				and y < (.5-height) * xmin[2] + (.5+height) * xmax[2]
+				then
+					local dx = (x - xmin[1]) / width 
+					local dy = (y - .5 * (xmax[2] + xmin[2])) / (height * (xmax[2] - xmin[2]))
+					local coeff = math.exp(-(dx*dx + dy*dy))
+					pressure = pressure + 10 * coeff
+					velocityX = .99 * coeff
+				end
+				return buildStateEuler{
+					x = x, y = y, z = z,
+					density = 1,
+					velocityX = velocityX,
+					pressure = pressure,
+				}
+			end
+		end,
+	},
+
 		-- Maxwell equations initial state
 
 

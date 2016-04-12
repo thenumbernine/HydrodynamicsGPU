@@ -20,12 +20,13 @@
 #include "HydroGPU/Equation/ADM3D.h"
 #include "HydroGPU/Equation/BSSNOK.h"
 
-#include "HydroGPU/Plot/VectorField.h"
-#include "HydroGPU/Plot/Plot2D.h"
-#include "HydroGPU/Plot/Plot3D.h"
 #include "HydroGPU/Plot/CameraOrtho.h"
 #include "HydroGPU/Plot/CameraFrustum.h"
 #include "HydroGPU/Plot/Graph.h"
+#include "HydroGPU/Plot/HeatMap.h"
+#include "HydroGPU/Plot/Iso3D.h"
+#include "HydroGPU/Plot/Plot.h"
+#include "HydroGPU/Plot/VectorField.h"
 
 #include "HydroGPU/HydroGPUApp.h"
 
@@ -34,11 +35,13 @@
 #include "Common/Exception.h"
 #include "Common/File.h"
 #include "Common/Macros.h"
+
 #include <SDL2/SDL.h>
 #include <OpenCL/cl.hpp>
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h>
 #include <iostream>
+
 
 static std::string makeComboStr(const std::vector<std::string>& v) {
 	std::string result;
@@ -63,9 +66,7 @@ HydroGPUApp::HydroGPUApp()
 , fixedDT(.001f)
 , cfl(.5f)
 , showHeatMap(true)
-, heatMapVariable(0)
-, heatMapColorScale(2.f)
-, heatMapUseLog(false)
+, showIso3D(true)
 , useGravity(false)
 , gaussSeidelMaxIter(20)
 , showVectorField(true)
@@ -211,14 +212,6 @@ void HydroGPUApp::init() {
 	lua["useGravity"] >> useGravity;
 	lua["gaussSeidelMaxIter"] >> gaussSeidelMaxIter;
 
-	int vectorFieldResolution = 16;
-	float vectorFieldScale = .125f;
-	if (!lua["vectorField"].isNil()) {
-		lua["vectorField"]["enabled"] >> showVectorField;
-		lua["vectorField"]["scale"] >> vectorFieldScale;
-		lua["vectorField"]["resolution"] >> vectorFieldResolution;
-	}
-
 	//store dimension as last non-1 size
 	for (dim = 3; dim > 0; --dim) {
 		if (size.s[dim-1] > 1) {
@@ -343,6 +336,14 @@ void HydroGPUApp::init() {
 	}
 
 	//needs solver->program to be created
+	int vectorFieldResolution = 16;
+	float vectorFieldScale = .125f;
+	if (!lua["vectorField"].isNil()) {
+		lua["vectorField"]["enabled"] >> showVectorField;
+		lua["vectorField"]["scale"] >> vectorFieldScale;
+		lua["vectorField"]["resolution"] >> vectorFieldResolution;
+	}
+	
 	vectorField = std::make_shared<Plot::VectorField>(solver, vectorFieldResolution);
 	vectorField->scale = vectorFieldScale;
 
@@ -363,51 +364,80 @@ void HydroGPUApp::init() {
 	}
 
 	//needs solver->program to be created
-	createPlot();
+	plot = std::make_shared<Plot::Plot>(this);
+	plot->init();
 
-	graph = std::make_shared<Plot::Graph>(this);
-	{
-		std::vector<std::string> graphVariableNames;
-		LuaCxx::Ref graphVariablesRef = lua["graphVariables"];
-		if (graphVariablesRef.isTable()) {
-			//TODO LuaCxx iterator
-			for (int i = 0; i < graphVariablesRef.len(); ++i) {
-				std::string varName;
-				if ((graphVariablesRef[i+1] >> varName).good()) {
-					graphVariableNames.push_back(varName);
+	if (dim == 1 || dim == 2) {
+		graph = std::make_shared<Plot::Graph>(this);
+		{
+			std::vector<std::string> graphVariableNames;
+			LuaCxx::Ref graphVariablesRef = lua["graph"]["variables"];
+			if (graphVariablesRef.isTable()) {
+				//TODO LuaCxx iterator
+				for (int i = 0; i < graphVariablesRef.len(); ++i) {
+					std::string varName;
+					if ((graphVariablesRef[i+1] >> varName).good()) {
+						graphVariableNames.push_back(varName);
+					}
 				}
 			}
-		}
 
-		if (graphVariableNames.empty()) {
-			graphVariableNames = solver->equation->displayVariables;
-		}
+			if (graphVariableNames.empty()) {
+				graphVariableNames = solver->equation->displayVariables;
+			}
 
-		//make a mapping from names to indexes
-		const std::vector<std::string>& displayVariables = solver->equation->displayVariables;
-		for (std::vector<std::string>::const_iterator i = displayVariables.begin(); i != displayVariables.end(); ++i) {
-			int displayVarIndex = i - displayVariables.begin();
-			if (displayVarIndex >= 0 && displayVarIndex < displayVariables.size()) {
-				graph->variables[displayVarIndex].enabled = true;
+			//make a mapping from names to indexes
+			const std::vector<std::string>& displayVariables = solver->equation->displayVariables;
+			for (std::vector<std::string>::const_iterator i = displayVariables.begin(); i != displayVariables.end(); ++i) {
+				int displayVarIndex = i - displayVariables.begin();
+				if (displayVarIndex >= 0 && displayVarIndex < displayVariables.size()) {
+					graph->variables[displayVarIndex].enabled = true;
+				}
 			}
 		}
 	}
 
-	if (!lua["heatMap"].isNil()) {
-		lua["heatMap"]["enabled"] >> showHeatMap;
-		lua["heatMap"]["colorScale"] >> heatMapColorScale;
-		lua["heatMap"]["useLog"] >> heatMapUseLog;
+	if (dim == 2) {
+		heatMap = std::make_shared<Plot::HeatMap>(this);
+		if (!lua["heatMap"].isNil()) {
+			lua["heatMap"]["enabled"] >> showHeatMap;
+			lua["heatMap"]["colorScale"] >> heatMap->scale;
+			lua["heatMap"]["useLog"] >> heatMap->useLog;
 
-		std::string heatMapVariableName;
-		if ((lua["heatMap"]["variable"] >> heatMapVariableName).good()) {
-			heatMapVariable = std::find(
-				solver->equation->displayVariables.begin(),
-				solver->equation->displayVariables.end(),
-				heatMapVariableName)
-				- solver->equation->displayVariables.begin();
-			if (heatMapVariable == solver->equation->displayVariables.size()) {
-				throw Common::Exception() << "couldn't interpret display method " << heatMapVariableName;
+			std::string variableName;
+			if ((lua["heatMap"]["variable"] >> variableName).good()) {
+				heatMap->variable = std::find(
+					solver->equation->displayVariables.begin(),
+					solver->equation->displayVariables.end(),
+					variableName)
+					- solver->equation->displayVariables.begin();
+				if (heatMap->variable == solver->equation->displayVariables.size()) {
+					heatMap->variable = 0;
+					std::cerr << "couldn't interpret display method " << variableName << std::endl;
+				}
 			}
+		}
+	}
+	
+	if (dim == 3) {
+		iso3D = std::make_shared<Plot::Iso3D>(this);
+		if (!lua["iso3D"].isNil()) {
+			lua["iso3D"]["enabled"] >> showIso3D;
+			lua["iso3D"]["colorScale"] >> iso3D->scale;
+			lua["iso3D"]["useLog"] >> iso3D->useLog;
+			
+			std::string variableName;
+			if ((lua["iso3D"]["variable"] >> variableName).good()) {
+				iso3D->variable = std::find(
+					solver->equation->displayVariables.begin(),
+					solver->equation->displayVariables.end(),
+					variableName)
+					- solver->equation->displayVariables.begin();
+				if (iso3D->variable == solver->equation->displayVariables.size()) {
+					iso3D->variable = 0;
+					std::cerr << "couldn't interpret display method " << variableName << std::endl;
+				}
+			}		
 		}
 	}
 
@@ -434,21 +464,6 @@ void HydroGPUApp::init() {
 	if (err) throw Common::Exception() << "GL error " << err;
 
 	std::cout << "Success!" << std::endl;
-}
-
-void HydroGPUApp::createPlot() {
-	switch(dim) {
-	case 1:
-		plot = nullptr;
-		break;
-	case 2:
-		plot = std::make_shared<Plot::Plot2D>(this);
-		break;
-	case 3:
-		plot = std::make_shared<Plot::Plot3D>(this);
-		break;
-	}
-	if (plot) plot->init();
 }
 
 void HydroGPUApp::shutdown() {
@@ -485,7 +500,7 @@ PROFILE_BEGIN_FRAME()
 	}
 
 	camera->setupProjection();
-	solver->app->camera->setupModelview();
+	camera->setupModelview();
 	if (showVectorField) vectorField->display();
 
 	//no point in showing the graph in ortho
@@ -493,11 +508,12 @@ PROFILE_BEGIN_FRAME()
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-	if (plot && showHeatMap) plot->display();
+	if (showHeatMap && heatMap) heatMap->display();
+	if (showIso3D && iso3D) iso3D->display();
 	glDisable(GL_BLEND);
 
 	//do this before rendering the gui so it stays out of the picture
-	if (createAnimation) solver->screenshot();
+	if (createAnimation) plot->screenshot();
 
 	/*
 	What should be customizable?
@@ -533,15 +549,18 @@ PROFILE_BEGIN_FRAME()
 				solver->resetState();
 
 				//regen aux things that depend on the solver
-				createPlot();
+				plot = std::make_shared<Plot::Plot>(this);
+				plot->init();
 				
 				std::shared_ptr<Plot::VectorField> newVectorField = std::make_shared<Plot::VectorField>(solver, vectorField->getResolution());
 				newVectorField->scale = vectorField->scale;
 				vectorField = newVectorField;
-				
-				std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
-				newGraph->variables = graph->variables;
-				graph = newGraph;
+			
+				if (dim == 1 || dim == 2) {
+					std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
+					newGraph->variables = graph->variables;
+					graph = newGraph;
+				}
 			}
 
 			//list solvers of the equation
@@ -569,15 +588,18 @@ PROFILE_BEGIN_FRAME()
 				solver = newSolver;
 
 				//regen aux things that depend on the solver
-				createPlot();
+				plot = std::make_shared<Plot::Plot>(this);
+				plot->init();
 				
 				std::shared_ptr<Plot::VectorField> newVectorField = std::make_shared<Plot::VectorField>(solver, vectorField->getResolution());
 				newVectorField->scale = vectorField->scale;
 				vectorField = newVectorField;
 
-				std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
-				newGraph->variables = graph->variables;
-				graph = newGraph;
+				if (dim == 1 || dim == 2) {
+					std::shared_ptr<Plot::Graph> newGraph = std::make_shared<Plot::Graph>(this);
+					newGraph->variables = graph->variables;
+					graph = newGraph;
+				}
 			}
 
 			int lastInitCondIndex = initCondIndex;
@@ -604,25 +626,37 @@ PROFILE_BEGIN_FRAME()
 			}
 		}
 
-		if (ImGui::CollapsingHeader("heat map")) {
-			// heat map on/off/variable
-			ImGui::Checkbox("show heatMap", &showHeatMap);
+		if (heatMap) {
+			if (ImGui::CollapsingHeader("heat map")) {
+				ImGui::Checkbox("show heatMap", &showHeatMap);
 
-			//heat map variable
-			std::string s = makeComboStr(solver->equation->displayVariables);
-			ImGui::Combo("variable", &heatMapVariable, s.c_str());
+				std::string s = makeComboStr(solver->equation->displayVariables);
+				ImGui::Combo("heatMap variable ", &heatMap->variable, s.c_str());
 
-			//heat map color scale
-			ImGui::Text("log scale");
-			float logHeatMapColorScale = log(heatMapColorScale);
-			ImGui::SliderFloat("h.m.s.", &logHeatMapColorScale, -10.f, 10.f);
-			heatMapColorScale = exp(logHeatMapColorScale);
-		
-			ImGui::Checkbox("heat map log scale", &heatMapUseLog);
+				float logScale = log(heatMap->scale);
+				ImGui::SliderFloat("heatMap scale ", &logScale, -10.f, 10.f);
+				heatMap->scale = exp(logScale);
+			
+				ImGui::Checkbox("heatMap log scale", &heatMap->useLog);
+			}
 		}
 
-		if (ImGui::CollapsingHeader("graph")) {
+		if (iso3D) {
+			if (ImGui::CollapsingHeader("isosurfaces")) {
+				ImGui::Checkbox("show isosurfaces ", &showIso3D);
+
+				std::string s = makeComboStr(solver->equation->displayVariables);
+				ImGui::Combo("isosurface variable", &iso3D->variable, s.c_str());
+
+				float logScale = log(iso3D->scale);
+				ImGui::SliderFloat("isosurface scale ", &logScale, -10.f, 10.f);
+				iso3D->scale = exp(logScale);
 			
+				ImGui::Checkbox("isosurface log scale", &iso3D->useLog);
+			}
+		}
+		
+		if (ImGui::CollapsingHeader("graph")) {
 			std::function<void(Plot::Graph::Variable&)> addVarControls = [&](Plot::Graph::Variable& var){
 				const std::string& name = var.name;
 				ImGui::Checkbox((name + std::string(" enabled")).c_str(), &var.enabled);
@@ -712,7 +746,7 @@ PROFILE_BEGIN_FRAME()
 
 			// take screenshot
 			if (ImGui::Button("screenshot")) {
-				solver->screenshot();
+				plot->screenshot();
 			}
 
 			// continuous screenshots
@@ -725,6 +759,7 @@ PROFILE_BEGIN_FRAME()
 			}
 		}
 
+#if 0
 		{
 			//TODO redirect stdout to here ...
 			//or just override print() and io.write() ... anything else?
@@ -748,6 +783,7 @@ PROFILE_BEGIN_FRAME()
 				memset(scriptInputBuffer, 0, sizeof(scriptInputBuffer));
 			}
 		}
+#endif
 
 		/*
 		TODO
@@ -773,7 +809,6 @@ PROFILE_BEGIN_FRAME()
 				tidal (riemann twice-contracted with time, and once with the delta vector)
 
 		slope limiter
-		boundary condition
 		integrator
 		fixed dt
 		cfl #
@@ -864,15 +899,17 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				if (shiftDown) {
 					solver->save();
 				} else {
-					solver->screenshot();
+					plot->screenshot();
 				}
 			} else if (event.key.keysym.sym == SDLK_f) {
 				if (shiftDown) {
-					heatMapColorScale *= .5;
+					if (heatMap) heatMap->scale *= .5;
+					if (iso3D) iso3D->scale *= .5;
 				} else {
-					heatMapColorScale *= 2.;
+					if (heatMap) heatMap->scale *= 2.;
+					if (iso3D) iso3D->scale *= 2.;
 				}
-				std::cout << "heatMapColorScale " << heatMapColorScale << std::endl;
+				std::cout << "heatMap->scale " << heatMap->scale << std::endl;
 			} else if (event.key.keysym.sym == SDLK_b) {
 				for (Plot::Graph::Variable& var : graph->variables) {
 					if (shiftDown) {
@@ -884,11 +921,13 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				}
 			} else if (event.key.keysym.sym == SDLK_d) {
 				if (shiftDown) {
-					heatMapVariable = (heatMapVariable + solver->equation->displayVariables.size() - 1) % solver->equation->displayVariables.size();
+					if (heatMap) heatMap->variable = (heatMap->variable + solver->equation->displayVariables.size() - 1) % solver->equation->displayVariables.size();
+					if (iso3D) iso3D->variable = (iso3D->variable + solver->equation->displayVariables.size() - 1) % solver->equation->displayVariables.size();
 				} else {
-					heatMapVariable = (heatMapVariable + 1) % solver->equation->displayVariables.size();
+					if (heatMap) heatMap->variable = (heatMap->variable + 1) % solver->equation->displayVariables.size();
+					if (iso3D) iso3D->variable = (iso3D->variable + 1) % solver->equation->displayVariables.size();
 				}
-				std::cout << "display " << solver->equation->displayVariables[heatMapVariable] << std::endl;
+				std::cout << "display " << solver->equation->displayVariables[heatMap->variable] << std::endl;
 			} else if (event.key.keysym.sym == SDLK_u) {
 				if (doUpdate) {
 					std::cout << "stopping..." << std::endl;

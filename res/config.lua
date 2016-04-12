@@ -38,13 +38,6 @@ xmax = {.5, .5, .5}
 useFixedDT = false
 fixedDT = .001
 
-heatMap = {
-	enabled = true,
-	variable = 'DENSITY',
-	scale = 2,
-	useLog = false,
-}
-
 -- TODO AMD card has trouble with mirror and periodic boundaries ... probably all boundaries
 boundaryMethods = {
 	{min='FREEFLOW', max='FREEFLOW'},
@@ -52,11 +45,6 @@ boundaryMethods = {
 	{min='FREEFLOW', max='FREEFLOW'},
 }
 
-vectorField = {
-	enabled = false,
-	resolution = 64,
-	scale = 1/8,
-}
 
 -- TODO organize solver/equation variables:
 -- connect them to the GUI maybe?
@@ -68,6 +56,7 @@ useGravity = false
 gaussSeidelMaxIter = 20
 
 -- defs to forward on to OpenCL code 
+-- TODO make a separate set of reals to be forward *AND* to be editable by the GUI
 defs = {
 	idealGas_heatCapacityRatio = 1.4,
 	
@@ -94,7 +83,6 @@ defs = {
 	srhd_tauMax = 1e+20,
 }
 
-
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
 --[[ 3D
@@ -102,14 +90,41 @@ size = {16, 16, 16}
 vectorField.resolution = 16
 --]]
 -- [[ 2D
-size = {512, 512}
+size = {256, 256}
 --]]
 --[[ 1D
 size = {2048}
 --]]
 
 
+-- camera properties
 camera = {}
+
+-- heightmap graph properties:
+graph = {}
+
+-- heatmap properties.  visible in 2D
+heatMap = {
+	enabled = true,
+	variable = 'DENSITY',
+	scale = 4,
+	useLog = true,
+}
+
+-- 3D isosurface properties.  visible in 3D
+iso3D = {
+	enabled = true,
+	variable = 'DENSITY',
+	scale = 4,
+	useLog = true,
+}
+
+-- vector field properties
+vectorField = {
+	enabled = false,
+	resolution = 64,
+	scale = 1/8,
+}
 
 
 
@@ -119,8 +134,8 @@ camera = {}
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'		-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
---solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
-solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
+solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+--solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
 
@@ -148,7 +163,7 @@ end
 --solidFilename = 'test-solid.png'
 --]=]
 
---initCondName = 'Sod'
+initCondName = 'Sod'
 --initCondName = 'Sphere'
 --initCondName = 'Square Cavity'
 --initCondName = 'Kelvin-Hemholtz'
@@ -162,9 +177,10 @@ end
 --initCondName = 'Colella-Woodward'
 --initCondName = 'Configuration 6'
 --initCondName = 'SRHD Schneider et al'
-initCondName = 'Relativistic Blast Wave Interaction'
+--initCondName = 'Relativistic Blast Wave Interaction'
 --initCondName = 'Marti & Muller 2008 Problem #1'
 --initCondName = 'Marti & Muller 2008 Problem #2'
+--initCondName = 'Relativistic Jet'
 initConds[initCondName].setup()
 --]]
 
@@ -202,7 +218,7 @@ solverName = 'ADM1DRoe'
 --solverName = 'BSSNOKFiniteDifference'	-- doing the bare minimum to consider this a solver.  I could use this to make a coefficient matrix (application function) and, from there, make the implicit solver.
 
 size = {1024}
-heatMap.colorScale = 128
+heatMap.scale = 128
 heatMap.variable = 'ALPHA'
 initConds['NR Gauge Shock Waves'].setup{unitDomain=false}
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
@@ -219,9 +235,9 @@ solverName = 'ADM2DSpherical'	-- not yet
 --[[ ADM (3D)
 solverName = 'ADM3DRoe'
 		
---size = {1024} heatMap.colorScale = 128
-size = {256, 256} heatMap.colorScale = 1
---size = {16, 16, 16} heatMap.colorScale = 1
+--size = {1024} heatMap.scale = 128
+size = {256, 256} heatMap.scale = 1
+--size = {16, 16, 16} heatMap.scale = 1
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=false}
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
 initConds['NR Alcubierre Warp Bubble'].setup()	-- ...needs shift vector support
@@ -258,7 +274,7 @@ boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEF
 heatMap.variable = 'K'
 --fixedDT = .125
 --useFixedDT = true
-graphVariables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = all.
+graph.variables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = all.
 --]]
 
 -- camera setup:

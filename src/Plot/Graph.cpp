@@ -64,7 +64,7 @@ void Graph::display() {
 			graphShader->use();
 			graphShader->setUniform<float>("scale", var.scale)
 						.setUniform<int>("axis", app->dim)
-						.setUniform<float>("ambient", app->dim == 1 ? 1 : .1)
+						.setUniform<float>("ambient", app->dim == 1 ? 1 : .4)
 						.setUniform<bool>("useLog", var.log)
 						.setUniform<float>("size", app->size.s[0], app->size.s[1]);
 			graphShader->setUniform<float>("xmin", app->xmin.s[0], app->xmin.s[1]);
