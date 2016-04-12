@@ -4,16 +4,21 @@ A finite volume solver based on hyperbolic formalisms.
 
 Works in 1D, 2D, and 3D.
 
-Burgers, Roe, HLL, HLLC, Bona-Masso ADM general relativistic solvers in 1D, 2D, 3D
-Slope limiter working on Burgers and Roe solvers
-Periodic, Mirror, and Free-Flow boundary methods
-Self-gravity option for Euler equation solvers
+Simulates Euler equations, SRHD, Maxwell, and ADM formalism (Bona-Masso) numerical relativity.  Almost got MHD working.
 
-Simulates Euler equations, SRHD, Maxwell, and Bona-Masso ADM formalism
+Euler is simulated via Burgers, HLL, HLLC, Roe.
+SRHD via Roe.
+Maxwell via Roe.
+ADM Bona-Masso via Roe.
+MHD, I'm working on a Burgers, HLLC, and Roe ... though none are working yet.
 
-Working on MHD and eventually GRMHD
+Slope limiters are working on all Burgers and Roe solvers.
 
-Might get around to CG or GMRes method of Backward Euler implicit integration
+Support for Periodic, Mirror, and Free-Flow boundary methods.
+
+Self-gravity option for Euler and MHD equation solvers.
+
+Might get around to CG or GMRes method of Backward Euler implicit integration.
 
 Check out the Makefile for a list of its dependent projects.
 
