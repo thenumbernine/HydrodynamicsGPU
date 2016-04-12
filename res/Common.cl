@@ -26,7 +26,7 @@ __kernel void findMinTimestep(
 	int local_index = get_local_id(0);
 	scratch[local_index] = accumulator;
 	barrier(CLK_LOCAL_MEM_FENCE);
-	for(int offset = get_local_size(0) / 2; offset > 0; offset = offset / 2) {
+	for (int offset = get_local_size(0) / 2; offset > 0; offset = offset / 2) {
 		if (local_index < offset) {
 			real other = scratch[local_index + offset];
 			real mine = scratch[local_index];
@@ -258,4 +258,3 @@ __kernel void dotBuffer(
 		result[get_group_id(0)] = scratch[0];
 	}
 }
-

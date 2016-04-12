@@ -23,6 +23,7 @@ uniform int maxiter;
 uniform vec3 oneOverDx;
 uniform float scale;
 uniform bool useLog;
+uniform float alpha;
 //1/log(10)
 #define _1_LN_10 0.4342944819032517611567811854911269620060920715332
 
@@ -37,13 +38,15 @@ void main() {
 	vec3 p = texCoordStart;
 	vec4 result = vec4(0., 0., 0., 1.);
 	float value = getValue(p); 
-	float alpha = .7 * min(1., mod(value * 4., 3.));
-	result.rgb += result.a * alpha * texture1D(gradient, value).rgb;
-	result.a *= 1. - alpha;
+	float voxelAlpha = alpha;// * min(1., mod(value * 4., 3.));
+	vec3 voxelColor = texture1D(gradient, value).rgb;
+	voxelAlpha *= min(1., length(voxelColor));
+	result.rgb += result.a * voxelAlpha * voxelColor;
+	result.a *= 1. - voxelAlpha;
 	
 	vec3 step = vertexStart - eye;
 	step = normalize(step) / float(maxiter);
-	step /= oneOverDx;
+//	step /= oneOverDx;
 	for (int i = 2; i <= maxiter; i++) {
 		p += step;
 		if (p.x < 0. || p.y < 0. || p.z < 0. ||
@@ -55,9 +58,11 @@ void main() {
 		//(as you would when rendering transparent stuff on top of each other)
 		//this will allow you to bailout early if your transparency ever hits fully opaque
 		value = getValue(p);
-		alpha = .7 * min(1., mod(value * 4., 3.));
-		result.rgb += result.a * alpha * texture1D(gradient, value).rgb;
-		result.a *= 1. - alpha;
+		voxelAlpha = alpha;// * min(1., mod(value * 4., 3.));
+		voxelColor = texture1D(gradient, value).rgb;
+		voxelAlpha *= min(1., length(voxelColor));
+		result.rgb += result.a * voxelAlpha * voxelColor;
+		result.a *= 1. - voxelAlpha;
 
 		if (result.a < .01) break;
 	}

@@ -34,6 +34,7 @@ Iso3D::Iso3D(HydroGPU::HydroGPUApp* app_)
 , variable(0)
 , scale(1.f)
 , useLog(false)
+, alpha(.5f)
 {
 	std::string shaderCode = Common::File::read("Isosurface3D.shader");
 	std::vector<Shader::Shader> shaders = {
@@ -64,7 +65,8 @@ void Iso3D::display() {
 			glEnable(GL_BLEND);
 			shader->use()
 				.setUniform<float>("scale", scale)
-				.setUniform<bool>("useLog", useLog);
+				.setUniform<bool>("useLog", useLog)
+				.setUniform<float>("alpha", alpha);
 			assert(app->plot->getTarget() == GL_TEXTURE_3D);
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_3D, app->plot->getTex());

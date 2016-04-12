@@ -120,7 +120,7 @@ OR I could just have the debug printfs also output their thread ID and filter al
 #endif
 			localSize = cl::NDRange(n, n, n);
 		}
-		localSize1d = cl::NDRange(localSize[0]);
+		localSize1d = cl::NDRange(16);	//can't be 1 for sake of the reduction kernel
 		offset1d = cl::NDRange(0);
 		offsetNd = cl::NDRange(0, 0, 0);
 		break;
@@ -188,7 +188,7 @@ void Solver::initBuffers() {
 
 	//not necessary for fixed timestep.  TODO don't allocate in that case.
 	dtBuffer = cl.alloc(sizeof(real) * volume * app->dim, "Solver::dtBuffer");
-	dtSwapBuffer = cl.alloc(sizeof(real) * volume * app->dim / localSize[0], "Solver::dtSwapBuffer");
+	dtSwapBuffer = cl.alloc(sizeof(real) * volume * app->dim / localSize1d[0], "Solver::dtSwapBuffer");
 	
 	stateBuffer = cl.alloc(sizeof(real) * numStates() * volume, "Solver::stateBuffer");
 	
@@ -445,19 +445,51 @@ real Solver::findMinTimestep() {
 	int reduceSize = getVolume();
 	cl::Buffer dst = dtSwapBuffer;
 	cl::Buffer src = dtBuffer;
+
+#if 0
+auto debugPrint = [&](cl::Buffer buffer, int size){
+	commands.finish();	
+	std::vector<real> dtVec(size);
+	commands.enqueueReadBuffer(buffer, CL_TRUE, 0, sizeof(real) * size, dtVec.data());
+	real dtMin = std::numeric_limits<real>::infinity();
+	int imax = size;
+	for (int i = 0; i < imax; ++i) {
+		real f = dtVec[i];
+		dtMin = std::min(dtMin, f);
+		if (i > 0 && i % (app->size.s[0]) == 0) std::cout << std::endl;
+		if (i > 0 && i % (app->size.s[0] * app->size.s[1]) == 0) {
+			std::cout << "new slice:" << std::endl;
+		}
+		std::cout << " " << f;
+	}
+	std::cout << std::endl;
+	std::cout << "min dt by cpu: " << dtMin << std::endl; 
+};
+std::cout << std::endl << "dtBuffer:" << std::endl;
+debugPrint(dtBuffer, reduceSize);
+#endif
 	while (reduceSize > 1) {
+		//TODO instead of >> 4, make sure it matches whatever localSize1d is
+		// ... which just so happens to be 16 (i.e. 1 << 4) at the moment
 		int nextSize = (reduceSize >> 4) + !!(reduceSize & ((1 << 4) - 1));
 		cl::NDRange reduceGlobalSize(std::max<int>(reduceSize, localSize[0]));
 		findMinTimestepKernel.setArg(0, src);
 		findMinTimestepKernel.setArg(2, reduceSize);
 		findMinTimestepKernel.setArg(3, dst);
-		commands.enqueueNDRangeKernel(findMinTimestepKernel, offset1d, reduceGlobalSize, localSize1d);
+		commands.enqueueNDRangeKernel(findMinTimestepKernel, offset1d, reduceGlobalSize, cl::NDRange(std::min(reduceGlobalSize[0], localSize1d[0])));
 		if (app->clCommon->useGPU) commands.finish();
 		std::swap(dst, src);
 		reduceSize = nextSize;
+#if 0
+std::cout << std::endl << "next buffer:" << std::endl;
+debugPrint(src, reduceSize);
+#endif
 	}
 	real dt = real();
 	commands.enqueueReadBuffer(src, CL_TRUE, 0, sizeof(real), &dt);
+#if 0
+std::cout << "min dt by gpu: " << dt << std::endl;
+#endif
 	return dt * app->cfl;
 }
 

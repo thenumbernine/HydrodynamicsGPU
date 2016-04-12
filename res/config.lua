@@ -93,14 +93,16 @@ heatMap = {
 	variable = 'DENSITY',
 	scale = 4,
 	useLog = true,
+	alpha = 1,
 }
 
 -- 3D isosurface properties.  visible in 3D
 iso3D = {
 	enabled = true,
 	variable = 'DENSITY',
-	scale = 4,
-	useLog = true,
+	scale = 1,
+	useLog = false,
+	alpha = .5,
 }
 
 -- vector field properties
@@ -114,7 +116,7 @@ vectorField = {
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
 -- [[ 3D
-size = {16, 16, 16}
+size = {32, 32, 32}
 vectorField.resolution = 16
 --]]
 --[[ 2D
@@ -125,7 +127,7 @@ size = {2048}
 --]]
 
 
--- [[ Euler
+--[[ Euler
 
 -- uncomment one:
 solverName = 'EulerBurgers'
@@ -232,12 +234,12 @@ solverName = 'ADM2DSpherical'	-- not yet
 -- I want to get rid of this one.  and the 1D ADM as well -- just one Bona-Masso ADM implementation is enough (I think) unless I should have separate ones for shift/less and mass/less
 --]]
 
---[[ ADM3D
+-- [[ ADM3D
 solverName = 'ADM3DRoe'
 		
---size = {1024} heatMap.scale = 128
-size = {256, 256} heatMap.scale = 1
---size = {16, 16, 16} heatMap.scale = 1
+--size = {1024}
+--size = {256, 256}
+size = {32, 32, 32}
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=false}
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
 initConds['NR Alcubierre Warp Bubble'].setup()	-- ...needs shift vector support
@@ -273,6 +275,8 @@ initConds['NR Stellar'].setup{bodies={{pos = {0,0,0}, radius = planet.radiusInCo
 boundaryMethods = {{min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}, {min='FREEFLOW', max='FREEFLOW'}}
 heatMap.variable = 'EXPANSION'
 heatMap.useLog = false
+iso3D.variable = 'EXPANSION'
+vectorField.variable = 'GRAVITY'
 --fixedDT = .125
 --useFixedDT = true
 graph.variables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = all.

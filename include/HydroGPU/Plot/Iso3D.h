@@ -18,6 +18,7 @@ public:
 	int variable;
 	float scale;
 	bool useLog;
+	float alpha;
 
 	Iso3D(HydroGPU::HydroGPUApp* app_);
 

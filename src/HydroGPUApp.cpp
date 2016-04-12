@@ -338,14 +338,28 @@ void HydroGPUApp::init() {
 	//needs solver->program to be created
 	int vectorFieldResolution = 16;
 	float vectorFieldScale = .125f;
+	int vectorFieldVariable = 0;
 	if (!lua["vectorField"].isNil()) {
 		lua["vectorField"]["enabled"] >> showVectorField;
 		lua["vectorField"]["scale"] >> vectorFieldScale;
 		lua["vectorField"]["resolution"] >> vectorFieldResolution;
-	}
 	
+		std::string variableName;
+		if ((lua["vectorField"]["variable"] >> variableName).good()) {
+			vectorFieldVariable = std::find(
+				solver->equation->vectorFieldVars.begin(),
+				solver->equation->vectorFieldVars.end(),
+				variableName)
+				- solver->equation->vectorFieldVars.begin();
+			if (vectorFieldVariable == solver->equation->vectorFieldVars.size()) {
+				vectorFieldVariable = 0;
+				std::cerr << "couldn't interpret display method " << variableName << std::endl;
+			}
+		}
+	}
 	vectorField = std::make_shared<Plot::VectorField>(solver, vectorFieldResolution);
 	vectorField->scale = vectorFieldScale;
+	vectorField->variable = vectorFieldVariable;
 
 	if (lua["camera"].isNil()) {
 		throw Common::Exception() << "unknown camera";
@@ -398,12 +412,13 @@ void HydroGPUApp::init() {
 	}
 
 	//3D heatmap is a pointcloud 
-	if (dim == 2 || dim == 3) {
+	if (dim == 2) {// || dim == 3) {
 		heatMap = std::make_shared<Plot::HeatMap>(this);
 		if (!lua["heatMap"].isNil()) {
 			lua["heatMap"]["enabled"] >> showHeatMap;
 			lua["heatMap"]["colorScale"] >> heatMap->scale;
 			lua["heatMap"]["useLog"] >> heatMap->useLog;
+			lua["heatMap"]["alpha"] >> heatMap->alpha;
 
 			std::string variableName;
 			if ((lua["heatMap"]["variable"] >> variableName).good()) {
@@ -422,12 +437,13 @@ void HydroGPUApp::init() {
 
 	//3D isosurface is raytraced
 	//TODO add in a marching cube display?
-	if (false && dim == 3) {
+	if (dim == 3) {
 		iso3D = std::make_shared<Plot::Iso3D>(this);
 		if (!lua["iso3D"].isNil()) {
 			lua["iso3D"]["enabled"] >> showIso3D;
 			lua["iso3D"]["colorScale"] >> iso3D->scale;
 			lua["iso3D"]["useLog"] >> iso3D->useLog;
+			lua["iso3D"]["alpha"] >> iso3D->alpha;
 			
 			std::string variableName;
 			if ((lua["iso3D"]["variable"] >> variableName).good()) {
@@ -662,6 +678,8 @@ PROFILE_BEGIN_FRAME()
 				iso3D->scale = exp(logScale);
 			
 				ImGui::Checkbox("isosurface log scale", &iso3D->useLog);
+				
+				ImGui::SliderFloat("isosurface alpha", &iso3D->alpha, 0.f, 1.f);
 			}
 		}
 

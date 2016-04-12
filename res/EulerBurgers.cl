@@ -30,9 +30,9 @@ __kernel void calcCellTimestep(
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
 #endif
 	) {
 		dtBuffer[index] = INFINITY;
@@ -55,10 +55,10 @@ __kernel void calcCellTimestep(
 #if DIM > 1
 	real velocityY = state[STATE_MOMENTUM_Y] / density;
 	velocitySq += velocityY * velocityY;
+#endif
 #if DIM > 2
 	real velocityZ = state[STATE_MOMENTUM_Z] / density;
 	velocitySq += velocityZ * velocityZ;
-#endif
 #endif
 
 	real specificEnergyTotal = energyTotal / density;
@@ -70,9 +70,9 @@ __kernel void calcCellTimestep(
 	real result = DX / (speedOfSound + fabs(velocityX));
 #if DIM > 1
 	result = min(result, DY / (speedOfSound + fabs(velocityY)));
+#endif
 #if DIM > 2
 	result = min(result, DZ / (speedOfSound + fabs(velocityZ)));
-#endif
 #endif
 	dtBuffer[index] = result;
 }
@@ -170,9 +170,9 @@ void calcFluxSide(
 	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 1
-#endif
 #endif
 	) {
 		return;
@@ -296,9 +296,9 @@ __kernel void computePressure(
 	if (i.x < 1 || i.x >= SIZE_X - 1 
 #if DIM > 1
 		|| i.y < 1 || i.y >= SIZE_Y - 1 
+#endif
 #if DIM > 2
 		|| i.z < 1 || i.z >= SIZE_Z - 1
-#endif
 #endif
 	) {
 		return;
@@ -319,10 +319,10 @@ __kernel void computePressure(
 #if DIM > 1
 	real velocityY = state[STATE_MOMENTUM_Y] / density;
 	velocitySq += velocityY * velocityY;
+#endif
 #if DIM > 2
 	real velocityZ = state[STATE_MOMENTUM_Z] / density;
 	velocitySq += velocityZ * velocityZ;
-#endif
 #endif
 
 	real specificEnergyTotal = energyTotal / density;
@@ -341,11 +341,11 @@ __kernel void computePressure(
 	real deltaVelocityY = stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * (index+STEP_Y)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index+STEP_Y)]
 						- stateBuffer[STATE_MOMENTUM_Y + NUM_STATES * (index-STEP_Y)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_Y)];
 	deltaVelocitySq += deltaVelocityY * deltaVelocityY; 
+#endif
 #if DIM > 2
 	real deltaVelocityZ = stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * (index+STEP_Z)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index+STEP_Z)]
 						- stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * (index-STEP_Z)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_Z)];
 	deltaVelocitySq += deltaVelocityZ * deltaVelocityZ; 
-#endif
 #endif
 	const real ZETA = 2.;
 	pressure += .25 * ZETA * ZETA * density * deltaVelocitySq;
@@ -367,9 +367,9 @@ __kernel void diffuseMomentum(
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
 #endif
 	) {
 		return;
@@ -401,6 +401,7 @@ __kernel void diffuseMomentum(
 	if (solidBuffer[index + STEP_Y]) pressureR = pressureBuffer[index];
 #endif
 	deriv[STATE_MOMENTUM_Y] -= .5 * (pressureR - pressureL) / DY;
+#endif
 
 #if DIM > 2
 	pressureL = pressureBuffer[index - STEP_Z];
@@ -410,7 +411,6 @@ __kernel void diffuseMomentum(
 	if (solidBuffer[index + STEP_Z]) pressureR = pressureBuffer[index];
 #endif
 	deriv[STATE_MOMENTUM_Z] -= .5 * (pressureR - pressureL) / DZ;
-#endif
 #endif
 }
 
@@ -428,9 +428,9 @@ __kernel void diffuseWork(
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
 #endif
 	) {
 		return;
@@ -470,6 +470,7 @@ __kernel void diffuseWork(
 	if (solidBuffer[index+STEP_Y]) pressureR = pressureBuffer[index];
 #endif
 	deltaEnergyTotal -= .5 * (pressureR * velocityR - pressureL * velocityL) / DY;
+#endif
 
 #if DIM > 2
 	velocityL = stateBuffer[STATE_MOMENTUM_Z + NUM_STATES * (index-STEP_Z)] / stateBuffer[STATE_DENSITY + NUM_STATES * (index-STEP_Z)];
@@ -483,8 +484,6 @@ __kernel void diffuseWork(
 	if (solidBuffer[index+STEP_Z]) pressureR = pressureBuffer[index];
 #endif
 	deltaEnergyTotal -= .5 * (pressureR * velocityR - pressureL * velocityL) / DZ;
-
-#endif
 #endif
 
 	deriv[STATE_ENERGY_TOTAL] += deltaEnergyTotal; 
