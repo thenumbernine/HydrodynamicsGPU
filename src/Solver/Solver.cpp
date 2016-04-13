@@ -121,6 +121,7 @@ OR I could just have the debug printfs also output their thread ID and filter al
 			localSize = cl::NDRange(n, n, n);
 		}
 		localSize1d = cl::NDRange(16);	//can't be 1 for sake of the reduction kernel
+		//I put it at 256 and ... no difference in FPS
 		offset1d = cl::NDRange(0);
 		offsetNd = cl::NDRange(0, 0, 0);
 		break;

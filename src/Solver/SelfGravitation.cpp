@@ -76,9 +76,13 @@ void SelfGravitation::resetState(
 	
 	if (solver->app->useGravity) {
 		//solve for gravitational potential via gauss seidel
-		for (int i = 0; i < solver->app->gaussSeidelMaxIter; ++i) {
-			potentialBoundary();
-			commands.enqueueNDRangeKernel(gravityPotentialPoissonRelaxKernel, offsetNd, globalSize, localSize);
+		//try to reach a steady state, so run it for a while ...
+		// better yet, stop once the residual is low
+		for (int tries = 0; tries < 100; ++tries) {
+			for (int i = 0; i < solver->app->gaussSeidelMaxIter; ++i) {
+				potentialBoundary();
+				commands.enqueueNDRangeKernel(gravityPotentialPoissonRelaxKernel, offsetNd, globalSize, localSize);
+			}
 		}
 	}
 
