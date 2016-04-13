@@ -40,8 +40,20 @@ public:	//protected:
 	cl::Program program;
 	cl::CommandQueue commands;
 
-	cl::Buffer stateBuffer;	//initialized by the child class, but used in arguments in the parent class
+	/*
+	initialized by the child class, but used in arguments in the parent class
+	*/
+	cl::Buffer stateBuffer;	
+	
+	/*
+	holds the timestep computed based on the wavespeeds at the interface at each grid point 
+	*/
 	cl::Buffer dtBuffer;
+	
+	/*
+	used for reduction to get a min across the whole dtBuffer.
+	only needs to be 1/localsize1d[0] of the size of dtBuffer (courtesy of the first reduction iteration)
+	*/
 	cl::Buffer dtSwapBuffer;
 	
 	cl::Kernel findMinTimestepKernel;

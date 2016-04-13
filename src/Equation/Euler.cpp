@@ -35,9 +35,10 @@ Euler::Euler(HydroGPUApp* app_)
 	vectorFieldVars = {
 		"VELOCITY",
 		"MOMENTUM",
-		"VORTICITY",
 		"GRAVITY",
+		//"PRESSURE",
 	};
+	if (app->dim == 3) vectorFieldVars.push_back("VORTICITY");
 }
 
 void Euler::getProgramSources(std::vector<std::string>& sources) {

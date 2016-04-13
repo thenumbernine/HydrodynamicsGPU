@@ -10,9 +10,8 @@ namespace Solver {
 struct EulerHLL : public SelfGravitationBehavior<HLL> {
 	typedef SelfGravitationBehavior<HLL> Super;
 	using Super::Super;
-public:
-	virtual void init();
 protected:
+	virtual void initKernels();
 	virtual void createEquation();
 	virtual std::string getFluxSource();
 	virtual void step(real dt);

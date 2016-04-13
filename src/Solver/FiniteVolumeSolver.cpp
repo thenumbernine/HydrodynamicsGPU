@@ -18,7 +18,8 @@ void FiniteVolumeSolver::initKernels() {
 	Super::initKernels();
 
 	calcFluxKernel = cl::Kernel(program, "calcFlux");
-	CLCommon::setArgs(calcFluxKernel, fluxBuffer, stateBuffer);
+	calcFluxKernel.setArg(0, fluxBuffer);
+	calcFluxKernel.setArg(1, stateBuffer);
 	
 	calcFluxDerivKernel = cl::Kernel(program, "calcFluxDeriv");
 	calcFluxDerivKernel.setArg(1, fluxBuffer);

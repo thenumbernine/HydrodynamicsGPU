@@ -8,11 +8,17 @@ namespace Solver {
 
 /*
 Roe solver for Euler equations
-TODO to re-enable SelfGravitationBehavior, get SRHD equation working with selfgrav by renaming STATE_REST_MASS_DENSITY to STATE_DENSITY
+
+as far as self-gravitation goes ...
+to incorporate this with gr, fluid would need to be pulled along geodesics, not just along the gradient of the potential ...
+... and geodesics would be computed by the adm metric ...
+... would a potential buffer exist?  no ...
+
+also, don't forget, SelfGravitationBehavoir comes with solidBuffer ... TODO get rid of this
 */
-struct SRHDRoe : public Roe/*SelfGravitationBehavior<Roe>*/ {
+struct SRHDRoe : public /*SelfGravitationBehavior<Roe>*/Roe {
 protected:
-	typedef Roe/*SelfGravitationBehavior<Roe>*/ Super;
+	typedef /*SelfGravitationBehavior<Roe>*/Roe Super;
 
 	/*
 	The primitive buffer holds density, velocity, pressure

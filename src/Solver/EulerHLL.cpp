@@ -5,12 +5,13 @@
 namespace HydroGPU {
 namespace Solver {
 
-void EulerHLL::init() {
-	Super::init();
+void EulerHLL::initKernels() {
+	Super::initKernels();
 
 	//all Euler and MHD systems also have a separate potential buffer...
-	CLCommon::setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer, selfgrav->potentialBuffer);
-	CLCommon::setArgs(calcFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, selfgrav->potentialBuffer);
+	calcEigenvaluesKernel.setArg(2, selfgrav->potentialBuffer);
+	
+	calcFluxKernel.setArg(3, selfgrav->potentialBuffer);
 }
 
 void EulerHLL::createEquation() {
@@ -28,4 +29,3 @@ void EulerHLL::step(real dt) {
 
 }
 }
-

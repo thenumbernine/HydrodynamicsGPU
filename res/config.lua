@@ -50,7 +50,7 @@ boundaryMethods = {
 -- connect them to the GUI maybe?
 
 -- gravity is specific to the Euler fluid equation solver
-useGravity = false
+useGravity = true
 
 -- used for gravitation Poisson solver
 gaussSeidelMaxIter = 20
@@ -131,10 +131,10 @@ size = {2048}
 
 -- uncomment one:
 --solverName = 'EulerBurgers'
---solverName = 'EulerHLL'		-- needs slope limiter support
+solverName = 'EulerHLL'			-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
-solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
---solverName = 'SRHDRoe'			-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
+--solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+--solverName = 'SRHDRoe'		-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
 

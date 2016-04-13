@@ -9,18 +9,17 @@ namespace Solver {
 struct HLL : public FiniteVolumeSolver {
 	typedef FiniteVolumeSolver Super;
 
+protected:
 	cl::Buffer eigenvaluesBuffer;
-	cl::Buffer eigenvectorsBuffer;
-	cl::Buffer eigenvectorsInverseBuffer;
-	cl::Buffer deltaQTildeBuffer;
-	
 	cl::Kernel calcEigenvaluesKernel;
 	cl::Kernel calcCellTimestepKernel;
-	
+
+public:
 	using Super::Super;
-	virtual void init();
 
 protected:
+	virtual void initBuffers();
+	virtual void initKernels();
 	virtual std::vector<std::string> getProgramSources();
 	virtual std::string getFluxSource() = 0;
 	virtual void initStep();

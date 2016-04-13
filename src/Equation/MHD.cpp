@@ -46,6 +46,7 @@ MHD::MHD(HydroGPUApp* app_)
 		"MOMENTUM",
 		"VORTICITY",
 		"GRAVITY",
+		"PRESSURE",
 	};
 }
 

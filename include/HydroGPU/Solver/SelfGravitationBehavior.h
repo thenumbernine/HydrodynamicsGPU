@@ -13,6 +13,13 @@ struct SelfGravitationInterface {
 	virtual cl::Buffer getSolidBuffer() = 0;
 };
 
+/*
+selfGrav holds both gravitation info (potentialBuffer) and solid info (solidBuffer)
+seems unnecessary.  let's split this up.
+but that becomes problematic.
+what of the CL kernel arg order? what of the index numbers?
+if we have to keep track for this reason, should we keep track for the sake of consolidating all buffers and making one giant SoA to pass into all kernels?
+*/
 template<typename Parent>
 struct SelfGravitationBehavior : public Parent, public SelfGravitationInterface {
 	typedef Parent Super;

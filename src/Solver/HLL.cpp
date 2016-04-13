@@ -4,14 +4,14 @@
 namespace HydroGPU {
 namespace Solver {
 
-void HLL::init() {
-	Super::init();
+void HLL::initBuffers() {
+	Super::initBuffers();
 
-	//memory
+	eigenvaluesBuffer = cl.alloc(sizeof(real) * numStates() * getVolume() * app->dim);
+}
 
-	int volume = getVolume();
-
-	eigenvaluesBuffer = cl.alloc(sizeof(real) * numStates() * volume * app->dim);
+void HLL::initKernels() {
+	Super::initKernels();
 	
 	calcEigenvaluesKernel = cl::Kernel(program, "calcEigenvalues");
 	CLCommon::setArgs(calcEigenvaluesKernel, eigenvaluesBuffer, stateBuffer);
@@ -48,5 +48,3 @@ void HLL::step(real dt) {
 
 }
 }
-
-

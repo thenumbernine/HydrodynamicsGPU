@@ -143,7 +143,9 @@ __kernel void updateVectorField(
 	const __global real* state = stateBuffer + NUM_STATES * stateIndex;
 
 	real4 field = (real4)(0., 0., 0., 0.);
-	if (displayMethod == VECTORFIELD_VELOCITY || displayMethod == VECTORFIELD_MOMENTUM) {
+	switch (displayMethod) {
+	case VECTORFIELD_VELOCITY:
+	case VECTORFIELD_MOMENTUM:
 		field.x = state[STATE_MOMENTUM_X];
 #if DIM > 1
 		field.y = state[STATE_MOMENTUM_Y];
@@ -152,23 +154,55 @@ __kernel void updateVectorField(
 		field.z = state[STATE_MOMENTUM_Z];
 #endif
 		if (displayMethod == VECTORFIELD_MOMENTUM) field *= 1. / state[STATE_DENSITY];
-	} else if (displayMethod == VECTORFIELD_GRAVITY) {
-		//external force is negative the potential gradient
-		real4 grad = (real4)(0., 0., 0., 0.);
-		int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
-		int4 ixR = si; ixR.x = (ixR.x + 1) % SIZE_X;
-		grad.x = (gravityPotentialBuffer[INDEXV(ixR)] - gravityPotentialBuffer[INDEXV(ixL)]) / (2. * dx[0]);
+		break;
+	case VECTORFIELD_GRAVITY:
+		{
+			real4 grad = (real4)(0., 0., 0., 0.);
+			int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
+			int4 ixR = si; ixR.x = (ixR.x + 1) % SIZE_X;
+			grad.x = (gravityPotentialBuffer[INDEXV(ixR)] - gravityPotentialBuffer[INDEXV(ixL)]) / (2. * DX);
 #if DIM > 1	
-		int4 iyL = si; iyL.y = (iyL.y + SIZE_Y - 1) % SIZE_Y;
-		int4 iyR = si; iyR.y = (iyR.y + 1) % SIZE_Y;
-		grad.y = (gravityPotentialBuffer[INDEXV(iyR)] - gravityPotentialBuffer[INDEXV(iyL)]) / (2. * dx[1]);
+			int4 iyL = si; iyL.y = (iyL.y + SIZE_Y - 1) % SIZE_Y;
+			int4 iyR = si; iyR.y = (iyR.y + 1) % SIZE_Y;
+			grad.y = (gravityPotentialBuffer[INDEXV(iyR)] - gravityPotentialBuffer[INDEXV(iyL)]) / (2. * DY);
 #endif
 #if DIM > 2
-		int4 izL = si; izL.z = (izL.z + SIZE_Z - 1) % SIZE_Z;
-		int4 izR = si; izR.z = (izR.z + 1) % SIZE_Z;
-		grad.z = (gravityPotentialBuffer[INDEXV(izR)] - gravityPotentialBuffer[INDEXV(izL)]) / (2. * dx[2]);
+			int4 izL = si; izL.z = (izL.z + SIZE_Z - 1) % SIZE_Z;
+			int4 izR = si; izR.z = (izR.z + 1) % SIZE_Z;
+			grad.z = (gravityPotentialBuffer[INDEXV(izR)] - gravityPotentialBuffer[INDEXV(izL)]) / (2. * DZ);
 #endif
-		field = -grad;
+			//external force is negative the potential gradient
+			field = -grad;
+		}
+		break;
+#if DIM == 3
+	case VECTORFIELD_VORTICITY:
+		{
+			int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
+			real* stateXL = stateBuffer + NUM_STATES * INDEXV(ixL);
+			int4 ixR = si; ixR.x = (ixR.x + 1) % SIZE_X;
+			real* stateXR = stateBuffer + NUM_STATES * INDEXV(ixR);
+			int4 iyL = si; iyL.y = (iyL.y + SIZE_Y - 1) % SIZE_Y;
+			real* stateYL = stateBuffer + NUM_STATES * INDEXV(iyL);
+			int4 iyR = si; iyR.y = (iyR.y + 1) % SIZE_Y;
+			real* stateYR = stateBuffer + NUM_STATES * INDEXV(iyR);
+			int4 izL = si; izL.z = (izL.z + SIZE_Z - 1) % SIZE_Z;
+			real* stateZL = stateBuffer + NUM_STATES * INDEXV(izL);
+			int4 izR = si; izR.z = (izR.z + 1) % SIZE_Z;
+			real* stateZR = stateBuffer + NUM_STATES * INDEXV(izR);
+			
+			// d/dy velocity.z - d/dz velocity.y
+			field.x = (stateYR[STATE_MOMENTUM_Z] / stateYR[STATE_DENSITY] - stateYL[STATE_MOMENTUM_Z] / stateYL[STATE_DENSITY]) / (2. * DX)
+					- (stateZR[STATE_MOMENTUM_Y] / stateZR[STATE_DENSITY] - stateZL[STATE_MOMENTUM_Y] / stateZL[STATE_DENSITY]) / (2. * DX);
+			// d/dz velocity.x - d/dx velocity.z
+			field.y = (stateZR[STATE_MOMENTUM_X] / stateZR[STATE_DENSITY] - stateZL[STATE_MOMENTUM_X] / stateZL[STATE_DENSITY]) / (2. * DY)
+					- (stateXR[STATE_MOMENTUM_Z] / stateXR[STATE_DENSITY] - stateXL[STATE_MOMENTUM_Z] / stateXL[STATE_DENSITY]) / (2. * DY);
+			// d/dx velocity.y - d/dy velocity.x
+			field.z = (stateXR[STATE_MOMENTUM_Y] / stateXR[STATE_DENSITY] - stateXL[STATE_MOMENTUM_Y] / stateXL[STATE_DENSITY]) / (2. * DZ)
+					- (stateYR[STATE_MOMENTUM_X] / stateYR[STATE_DENSITY] - stateYL[STATE_MOMENTUM_X] / stateYL[STATE_DENSITY]) / (2. * DZ);
+		}
+		break;
+#endif
 	}
 
 	//field is the first axis of the basis to draw the arrows
