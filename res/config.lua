@@ -131,10 +131,10 @@ size = {2048}
 
 -- uncomment one:
 --solverName = 'EulerBurgers'
-solverName = 'EulerHLL'			-- needs slope limiter support
+--solverName = 'EulerHLL'			-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
 --solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
---solverName = 'SRHDRoe'		-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
+solverName = 'SRHDRoe'		-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
 
@@ -162,7 +162,7 @@ end
 --solidFilename = 'test-solid.png'
 --]=]
 
---initCondName = 'Sod'
+initCondName = 'Sod'
 --initCondName = 'Sphere'
 --initCondName = 'Square Cavity'
 --initCondName = 'Kelvin-Hemholtz'
@@ -172,7 +172,7 @@ end
 --initCondName = 'Forward Facing Step'
 --initCondName = 'Double Mach Reflection'
 --initCondName = 'Spiral Implosion'
-initCondName = 'self-gravitation test 1'
+--initCondName = 'self-gravitation test 1'
 --initCondName = 'Colella-Woodward'
 --initCondName = 'Configuration 6'
 --initCondName = 'SRHD Schneider et al'

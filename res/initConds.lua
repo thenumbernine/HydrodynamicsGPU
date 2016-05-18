@@ -715,10 +715,11 @@ initConds = {
 		setup=function()
 			defs.idealGas_heatCapacityRatio=5/3
 			initState = function(x,y,z)
+				local inside = x <= 0 and y <= 0 and z <= 0
 				return buildStateEuler{
 					x=x, y=y, z=z,
-					density = x < 0 and 10 or 1,
-					specificEnergyInternal = x < 0 and 2 or 1e-6,
+					density = inside and 10 or 1,
+					specificEnergyInternal = inside and 2 or 1e-6,
 				}
 			end
 		end,
@@ -730,11 +731,11 @@ initConds = {
 		setup=function()
 			defs.idealGas_heatCapacityRatio = 5/3
 			initState = function(x,y,z)
-				local lhs = x <= 0 and y <= 0 and z <= 0
+				local inside = x <= 0 and y <= 0 and z <= 0
 				return buildStateEuler{
 					x=x, y=y, z=z,
 					density = 1,
-					pressure = lhs and 1e+3 or 1e-2,
+					pressure = inside and 1e+3 or 1e-2,
 				}
 			end
 		end,

@@ -944,19 +944,17 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				}
 				if (heatMap) std::cout << "heatMap->variable " << solver->equation->displayVariables[heatMap->variable] << std::endl;
 				if (iso3D) std::cout << "iso3D->variable " << solver->equation->displayVariables[iso3D->variable] << std::endl;
-			} else if (event.key.keysym.sym == SDLK_u) {
+			} else if (event.key.keysym.sym == SDLK_SPACE) {
 				if (doUpdate) {
 					std::cout << "stopping..." << std::endl;
 					doUpdate = 0;
 				} else {
-					if (shiftDown) {
-						std::cout << "step..." << std::endl;
-						doUpdate = 2;
-					} else {
-						std::cout << "starting..." << std::endl;
-						doUpdate = 1;
-					}
+					std::cout << "starting..." << std::endl;
+					doUpdate = 1;
 				}
+			} else if (event.key.keysym.sym == SDLK_u) {
+				std::cout << "step..." << std::endl;
+				doUpdate = 2;
 			} else if (event.key.keysym.sym == SDLK_r) {
 				solver->resetState();
 			} else if (event.key.keysym.sym == SDLK_t) {
