@@ -40,21 +40,31 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	
 	cl::ImageGL gradientTexMem;	//as it is written, data is read from this for mapping values to colors
 
-	std::vector<std::string> equationNames;
-	std::string equationNamesSeparated;
 	int equationIndex;
 
 	std::map<std::string, std::vector<std::string>> initCondNamesForEqns;
-	std::map<std::string, std::string> initCondNamesSeparatedForEqns;
 	int initCondIndex;
 
-	std::vector<std::pair<std::string, std::vector<std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>>>> solverGensForEqns;
-	std::map<std::string, std::string> solverNamesSeparatedForEqn;
+	//solverGensForEqns[index corresponding with pair whose first is the equation name][index corresponding with pair whose first is the solver name] = function to create solver
+	typedef std::shared_ptr<Solver::Solver> SolverPtr;
+	typedef std::function<SolverPtr()> SolverGenFunc;
+	struct SolverGenPair {
+		SolverGenPair(const std::string& name_, SolverGenFunc func_)
+		: name(name_), func(func_) {}
+		std::string name;
+		SolverGenFunc func;
+	};
+	struct SolverEqnsPair {
+		SolverEqnsPair(const std::string& name_, const std::vector<SolverGenPair>& generators_)
+		: name(name_), generators(generators_) {}
+		std::string name;
+		std::vector<SolverGenPair> generators;
+	};
+	std::vector<SolverEqnsPair> solverGensForEqns;
+	
 	int solverForEqnIndex;
 	
-	std::vector<std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>> solverGens;
-	
-	std::shared_ptr<HydroGPU::Solver::Solver> solver;
+	SolverPtr solver;
 
 	//config
 	std::string configFilename;

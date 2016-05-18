@@ -43,10 +43,10 @@
 #include <iostream>
 
 
-static std::string makeComboStr(const std::vector<std::string>& v) {
-	std::string result;
+static std::vector<const char*> getCStrsFromStrVector(const std::vector<std::string>& v) {
+	std::vector<const char*> result;
 	for (const std::string& s : v) {
-		result.append(s).append(1, '\0');
+		result.push_back(s.c_str());
 	}
 	return result;
 }
@@ -80,49 +80,37 @@ HydroGPUApp::HydroGPUApp()
 , rightGuiDown(false)
 , aspectRatio(0.f)
 {
-#define MAKE_SOLVER(solver) std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>(#solver, [=]()->std::shared_ptr<Solver::Solver>{ return std::make_shared<Solver::solver>(this); })
+#define MAKE_SOLVER(solver) SolverGenPair(#solver, [=]()->SolverPtr{ return std::make_shared<Solver::solver>(this); })
 	solverGensForEqns = {
-		{"Euler", {
+		SolverEqnsPair("Euler", {
 			MAKE_SOLVER(EulerBurgers),
 			MAKE_SOLVER(EulerHLL),
 			MAKE_SOLVER(EulerHLLC),
 			MAKE_SOLVER(EulerRoe),
-		}},
-		{"SRHD", {
+		}),
+		SolverEqnsPair("SRHD", {
 			MAKE_SOLVER(SRHDRoe),
-		}},
-		{"MHD", {
+		}),
+		SolverEqnsPair("MHD", {
 			MAKE_SOLVER(MHDBurgers),
 			MAKE_SOLVER(MHDHLLC),
 			MAKE_SOLVER(MHDRoe),
-		}},
-		{"Maxwell", {
+		}),
+		SolverEqnsPair("Maxwell", {
 			MAKE_SOLVER(MaxwellRoe),
-		}},
-		{"ADM1D", {
+		}),
+		SolverEqnsPair("ADM1D", {
 			MAKE_SOLVER(ADM1DRoe),
-		}},
-		{"ADM3D", {
+		}),
+		SolverEqnsPair("ADM3D", {
 			MAKE_SOLVER(ADM3DRoe),
-		}},
-		{"BSSNOK", {
+		}),
+		SolverEqnsPair("BSSNOK", {
 			MAKE_SOLVER(BSSNOKRoe),
-		}},
+		}),
 	};
 #undef MAKE_SOLVER
 
-	for (const std::pair<std::string, std::vector<std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>>>& p : solverGensForEqns) {
-		const std::string& equationName = p.first;
-		equationNames.push_back(equationName);
-		std::vector<std::string> solverNamesForEqn;
-		for (const std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>& q : p.second) {
-			const std::string& thisSolverName = q.first;
-			solverNamesForEqn.push_back(thisSolverName);
-			solverGens.push_back(q);
-		}
-		solverNamesSeparatedForEqn[equationName] = makeComboStr(solverNamesForEqn);
-	}
-	equationNamesSeparated = makeComboStr(equationNames);
 	equationIndex = 0;
 
 	for (int i = 0; i < 4; ++i) {
@@ -185,7 +173,8 @@ void HydroGPUApp::init() {
 		}
 	}
 
-	for (const std::string& eqnName : equationNames) {
+	for (const SolverEqnsPair& p : solverGensForEqns) {
+		const std::string& eqnName = p.name;
 		std::vector<std::string> initCondNames;
 		for (int i = 1; i <= lua["initConds"].len(); ++i) {
 			std::string initCondName;
@@ -201,7 +190,6 @@ void HydroGPUApp::init() {
 			}
 		}
 		initCondNamesForEqns[eqnName] = initCondNames;
-		initCondNamesSeparatedForEqns[eqnName] = makeComboStr(initCondNames);
 	}
 
 	lua["maxFrames"] >> maxFrames;
@@ -301,35 +289,41 @@ void HydroGPUApp::init() {
 	lua["solverName"] >> solverName;
 	std::cout << "solverName " << solverName << std::endl;
 	{
-		std::vector<std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>>::iterator i
-			= find_if(solverGens.begin(), solverGens.end(),
-				[&](const std::pair<std::string, std::function<std::shared_ptr<Solver::Solver>()>>& p)->bool{
-					return p.first == solverName;
-				});
-		if (i == solverGens.end()) {
+		bool found = false;
+		for (const SolverEqnsPair &p : solverGensForEqns) {
+			for (const SolverGenPair &q : p.generators) {
+				if (q.name == solverName) {
+					solver = q.func();
+					solver->init();	//...now that the vtable is in place
+					solver->resetState();
+					found = true;
+					break;
+				}
+			}
+			if (found) break;
+		}
+		if (!found) {
 			throw Common::Exception() << "unknown solver " << solverName;
 		}
-		solver = i->second();
-		solver->init();	//...now that the vtable is in place
-		solver->resetState();
 	}
 
 	//find the index of the equation associated with the selected solver (for the combo box)
-	for (equationIndex = 0; equationIndex < equationNames.size(); ++equationIndex) {
-		if (solver->equation->name() == equationNames[equationIndex]) break;
+	
+	for (equationIndex = 0; equationIndex < solverGensForEqns.size(); ++equationIndex) {
+		if (solver->equation->name() == solverGensForEqns[equationIndex].name) break;
 	}
-	if (equationIndex == equationNames.size()) equationIndex = 0;
+	if (equationIndex == solverGensForEqns.size()) equationIndex = 0;
 
-	//find the solver in the equations
-	for (solverForEqnIndex = 0; solverForEqnIndex < solverGensForEqns[equationIndex].second.size(); ++solverForEqnIndex) {
-		if (solver->name() == solverGensForEqns[equationIndex].second[solverForEqnIndex].first) break;
+	//find the solver index in the list of solvers for this equation
+	for (solverForEqnIndex = 0; solverForEqnIndex < solverGensForEqns[equationIndex].generators.size(); ++solverForEqnIndex) {
+		if (solver->name() == solverGensForEqns[equationIndex].generators[solverForEqnIndex].name) break;
 	}
-	if (solverForEqnIndex == solverGensForEqns[equationIndex].second.size()) solverForEqnIndex = 0;
+	if (solverForEqnIndex == solverGensForEqns[equationIndex].generators.size()) solverForEqnIndex = 0;
 
 	{
 		std::string initCondName;
 		if ((lua["initCondName"] >> initCondName).good()) {
-			std::string equationName = equationNames[equationIndex];
+			std::string equationName = solverGensForEqns[equationIndex].name;
 			std::vector<std::string>& initCondNames = initCondNamesForEqns[equationName];
 			initCondIndex = std::find(initCondNames.begin(), initCondNames.end(), initCondName) - initCondNames.begin();
 		}
@@ -549,7 +543,9 @@ PROFILE_BEGIN_FRAME()
 		if (ImGui::CollapsingHeader("setup")) {
 			//list equations
 			int lastEquationIndex = equationIndex;
-			ImGui::Combo("equation", &equationIndex, equationNamesSeparated.c_str());
+			std::vector<const char*> equationNamesCStrs;
+			for (const SolverEqnsPair& p : solverGensForEqns) { equationNamesCStrs.push_back(p.name.c_str()); } 
+			ImGui::Combo("equation", &equationIndex, equationNamesCStrs.data(), equationNamesCStrs.size());
 			if (lastEquationIndex != equationIndex) {
 
 				//if we are changing equations then (most likely) our initial conditions will be invalid
@@ -557,12 +553,12 @@ PROFILE_BEGIN_FRAME()
 				// either way, to be safe...)
 				//we will have to reset the initial condition to something that certainly belongs to this equation
 				initCondIndex = 0;
-				std::string initCondName = initCondNamesForEqns[equationNames[equationIndex]][initCondIndex];
+				std::string initCondName = initCondNamesForEqns[solverGensForEqns[equationIndex].name][initCondIndex];
 				lua["initConds"][initCondName]["setup"]();
 
 				solverForEqnIndex = 0;
-				std::cout << "setting equation to " << solverGensForEqns[equationIndex].first << std::endl;
-				solver = solverGensForEqns[equationIndex].second[solverForEqnIndex].second();
+				std::cout << "setting equation to " << solverGensForEqns[equationIndex].name << std::endl;
+				solver = solverGensForEqns[equationIndex].generators[solverForEqnIndex].func();
 				solver->init();
 				//now we need an initial condition to match the new equation
 				//but the initial conditions are provided in the script
@@ -588,10 +584,14 @@ PROFILE_BEGIN_FRAME()
 
 			//list solvers of the equation
 			int lastSolverForEqnIndex = solverForEqnIndex;
-			ImGui::Combo("solver", &solverForEqnIndex, solverNamesSeparatedForEqn[equationNames[equationIndex]].c_str());
+			std::vector<const char*> solverNamesForEqnCStrs;
+			for (const SolverGenPair& p : solverGensForEqns[equationIndex].generators) {
+				solverNamesForEqnCStrs.push_back(p.name.c_str());
+			}
+			ImGui::Combo("solver", &solverForEqnIndex, solverNamesForEqnCStrs.data(), solverNamesForEqnCStrs.size());
 			if (lastSolverForEqnIndex != solverForEqnIndex) {
-				std::cout << "setting solver to " << solverGensForEqns[equationIndex].second[solverForEqnIndex].first << std::endl;
-				std::shared_ptr<Solver::Solver> newSolver = solverGensForEqns[equationIndex].second[solverForEqnIndex].second();
+				std::cout << "setting solver to " << solverGensForEqns[equationIndex].generators[solverForEqnIndex].name << std::endl;
+				SolverPtr newSolver = solverGensForEqns[equationIndex].generators[solverForEqnIndex].func();
 				//but are there any solvers that have different #states for matching eqns?
 				//until then ...
 
@@ -626,24 +626,25 @@ PROFILE_BEGIN_FRAME()
 			}
 
 			int lastInitCondIndex = initCondIndex;
-			ImGui::Combo("init.cond.", &initCondIndex, initCondNamesSeparatedForEqns[equationNames[equationIndex]].c_str());
+			const std::string& eqnName = solverGensForEqns[equationIndex].name;
+			std::vector<const char*> initCondNamesCStrs = getCStrsFromStrVector(initCondNamesForEqns[eqnName]);
+			ImGui::Combo("init.cond.", &initCondIndex, initCondNamesCStrs.data(), initCondNamesCStrs.size());
 			if (lastInitCondIndex != initCondIndex) {
-				std::string initCondName = initCondNamesForEqns[equationNames[equationIndex]][initCondIndex];
+				std::string initCondName = initCondNamesForEqns[solverGensForEqns[equationIndex].name][initCondIndex];
 				std::cout << "setting up initial condition " << initCondName << std::endl;
 				lua["initConds"][initCondName]["setup"]();
 			}
 		}
 
 		if (ImGui::CollapsingHeader("boundaries")) {
-			std::vector<std::string> methods = solver->equation->boundaryMethods;
-			methods.insert(methods.begin(), "NONE");
-			std::string s = makeComboStr(methods);
+			std::vector<const char*> methodsCStrs = getCStrsFromStrVector(solver->equation->boundaryMethods);
+			methodsCStrs.insert(methodsCStrs.begin(), "NONE");
 			for (int i = 0; i < dim; ++i) {
 				for (int minmax = 0; minmax < 2; ++minmax) {
 					std::stringstream comboTitle;
 					comboTitle << (char)('x'+i) << " " << (minmax ? "max" : "min");
 					++boundaryMethods(i,minmax);
-					ImGui::Combo(comboTitle.str().c_str(), &boundaryMethods(i,minmax), s.c_str());
+					ImGui::Combo(comboTitle.str().c_str(), &boundaryMethods(i,minmax), methodsCStrs.data(), methodsCStrs.size());
 					--boundaryMethods(i,minmax);
 				}
 			}
@@ -651,35 +652,35 @@ PROFILE_BEGIN_FRAME()
 
 		if (heatMap) {
 			if (ImGui::CollapsingHeader("heat map")) {
-				ImGui::Checkbox("show heatMap", &showHeatMap);
+				ImGui::PushID("heatMap");
+				ImGui::Checkbox("show", &showHeatMap);
 
-				std::string s = makeComboStr(solver->equation->displayVariables);
-				ImGui::Combo("heatMap variable ", &heatMap->variable, s.c_str());
+				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->equation->displayVariables);
+				ImGui::Combo("variable ", &heatMap->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size());
 
-				float logScale = log(heatMap->scale);
-				ImGui::SliderFloat("heatMap scale ", &logScale, -10.f, 10.f);
-				heatMap->scale = exp(logScale);
+				ImGui::SliderFloat("scale", &heatMap->scale, 1e-10, 1e+10, "%.16f", 10);
 			
-				ImGui::Checkbox("heatMap log scale", &heatMap->useLog);
+				ImGui::Checkbox("log", &heatMap->useLog);
 			
-				ImGui::SliderFloat("heatMap alpha", &heatMap->alpha, 0.f, 1.f);
+				ImGui::SliderFloat("alpha", &heatMap->alpha, 0.f, 1.f);
+				ImGui::PopID();
 			}
 		}
 
 		if (iso3D) {
 			if (ImGui::CollapsingHeader("isosurfaces")) {
-				ImGui::Checkbox("show isosurfaces ", &showIso3D);
+				ImGui::PushID("isosurfaces");
+				ImGui::Checkbox("show ", &showIso3D);
 
-				std::string s = makeComboStr(solver->equation->displayVariables);
-				ImGui::Combo("isosurface variable", &iso3D->variable, s.c_str());
+				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->equation->displayVariables);
+				ImGui::Combo("variable", &iso3D->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size()); 
 
-				float logScale = log(iso3D->scale);
-				ImGui::SliderFloat("isosurface scale ", &logScale, -10.f, 10.f);
-				iso3D->scale = exp(logScale);
+				ImGui::SliderFloat("scale", &iso3D->scale, 1e-10, 1e+10, "%.16f", 10); 
 			
-				ImGui::Checkbox("isosurface log scale", &iso3D->useLog);
+				ImGui::Checkbox("log", &iso3D->useLog);
 				
-				ImGui::SliderFloat("isosurface alpha", &iso3D->alpha, 0.f, 1.f);
+				ImGui::SliderFloat("alpha", &iso3D->alpha, 0.f, 1.f);
+				ImGui::PopID();
 			}
 		}
 
@@ -687,24 +688,26 @@ PROFILE_BEGIN_FRAME()
 			if (ImGui::CollapsingHeader("graph")) {
 				std::function<void(Plot::Graph::Variable&)> addVarControls = [&](Plot::Graph::Variable& var){
 					const std::string& name = var.name;
-					ImGui::Checkbox((name + std::string(" enabled")).c_str(), &var.enabled);
+					ImGui::PushID("graph tree");
+					ImGui::PushID(name.c_str());
+					ImGui::Checkbox(name.c_str(), &var.enabled);
 					ImGui::SameLine();
-					if (ImGui::TreeNode((name + std::string(" tree")).c_str())) {
+					if (ImGui::TreeNode("")) {
+						ImGui::Checkbox("log", &var.log);
+				
+						const char* polyModes[] = {"point", "line", "fill"};
+						ImGui::Combo("polyMode", &var.polyMode, polyModes, numberof(polyModes));
 						
-						ImGui::Checkbox((std::string("log ") + name).c_str(), &var.log);
-					
-						ImGui::Combo((std::string("polyMode ") + name).c_str(), &var.polyMode, makeComboStr({"point", "line", "fill"}).c_str());
-						
-						ImGui::SliderFloat((std::string("alpha ") + name).c_str(), &var.alpha, 0.f, 1.f);
+						ImGui::SliderFloat("alpha", &var.alpha, 0.f, 1.f);
 
-						float logScale = log(var.scale) / log(10);
-						ImGui::SliderFloat((std::string("scale ") + name).c_str(), &logScale, -10, 10);
-						var.scale = pow(10, logScale);
+						ImGui::SliderFloat("scale", &var.scale, 1e-10, 1e+10, "%.16f", 10); 
 
-						ImGui::SliderInt((std::string("spacing ") + name).c_str(), &var.step, 1, (int)size.s[0]);
+						ImGui::SliderInt("spacing", &var.step, 1, (int)size.s[0]);
 						
 						ImGui::TreePop();
 					}
+					ImGui::PopID();
+					ImGui::PopID();
 				};
 
 				Plot::Graph::Variable all = graph->variables[0];
@@ -742,15 +745,14 @@ PROFILE_BEGIN_FRAME()
 		}
 
 		if (ImGui::CollapsingHeader("vector field")) {
-			std::string s = makeComboStr(solver->equation->vectorFieldVars);
-			ImGui::Combo("vector field variable", &vectorField->variable, s.c_str());
+			ImGui::PushID("vector field");
+			std::vector<const char*> vectorFieldVarsCStrs = getCStrsFromStrVector(solver->equation->vectorFieldVars);
+			ImGui::Combo("variable", &vectorField->variable, vectorFieldVarsCStrs.data(), vectorFieldVarsCStrs.size()); 
 			
-			ImGui::Checkbox("show vectorField", &showVectorField); // velocity field on/off
+			ImGui::Checkbox("show", &showVectorField); // velocity field on/off
 			//TODO velocity field variable
-			ImGui::Text("log scale");
-			float logVectorFieldScale = log(vectorField->scale);
-			ImGui::SliderFloat("v.f.s.", &logVectorFieldScale, -10.f, 10.f); // velocity field size
-			vectorField->scale = exp(logVectorFieldScale);
+			ImGui::SliderFloat("scale", &vectorField->scale, 1e-10, 1e+10, "%.16f", 10); // velocity field size
+			ImGui::PopID();
 		}
 
 		if (ImGui::CollapsingHeader("controls")) {
