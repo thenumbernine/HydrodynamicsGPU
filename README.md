@@ -11,6 +11,7 @@ Euler is simulated via Burgers, HLL, HLLC, Roe.
 SRHD via Roe.
 
 Maxwell via Roe.
+
 ADM Bona-Masso via Roe.
 
 MHD, I'm working on a Burgers, HLLC, and Roe ... though none are working yet.
