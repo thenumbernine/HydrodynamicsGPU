@@ -7,9 +7,12 @@ Works in 1D, 2D, and 3D.
 Simulates Euler equations, SRHD, Maxwell, and ADM formalism (Bona-Masso) numerical relativity.  Almost got MHD working.
 
 Euler is simulated via Burgers, HLL, HLLC, Roe.
+
 SRHD via Roe.
+
 Maxwell via Roe.
 ADM Bona-Masso via Roe.
+
 MHD, I'm working on a Burgers, HLLC, and Roe ... though none are working yet.
 
 Slope limiters are working on all Burgers and Roe solvers.
