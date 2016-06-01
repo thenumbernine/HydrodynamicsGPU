@@ -35,6 +35,7 @@ Might get around to CG or GMRes method of Backward Euler implicit integration.
 [![alcubierre warp bubble collapse](http://img.youtube.com/vi/ekKf21Cj4k0/0.jpg)](http://www.youtube.com/watch?v=ekKf21Cj4k0 "alcubierre warp bubble collapse")
 
 Dependencies:
+
 C++
 - Common: https://github.com/thenumbernine/Common
 - CLCommon: https://github.com/thenumbernine/CLCommon (depends on OpenCL)
@@ -45,9 +46,11 @@ C++
 - Image: https://github.com/thenumbernine/Image (depends on LibPNG, listed below)
 - Shader: https://github.com/thenumbernine/Shader
 - LuaCxx: https://github.com/thenumbernine/LuaCxx (depends on Lua/LuaJIT, listed below)
+
 Lua
 - ext: https://github.com/thenumbernine/lua-ext
 - symmath: https://github.com/thenumbernine/symmath-lua
+
 external:
 - ImGui v1.48: https://github.com/ocornut/imgui
 - Lua (used by LuaCxx, check that for instructions on building against either), use either one:
