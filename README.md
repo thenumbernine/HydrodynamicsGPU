@@ -34,7 +34,7 @@ Might get around to CG or GMRes method of Backward Euler implicit integration.
 
 [![alcubierre warp bubble collapse](http://img.youtube.com/vi/ekKf21Cj4k0/0.jpg)](http://www.youtube.com/watch?v=ekKf21Cj4k0 "alcubierre warp bubble collapse")
 
-Dependcies:
+Dependencies:
 C++
 - Common: https://github.com/thenumbernine/Common
 - CLCommon: https://github.com/thenumbernine/CLCommon (depends on OpenCL)
