@@ -26,8 +26,17 @@ require 'initConds'	--holds catalog of initial conditions
 slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
-integratorName = 'ForwardEuler'
+--integratorName = 'ForwardEuler'
+--integratorName = 'RungeKutta2'
+--integratorName = 'RungeKutta2Heun'
+--integratorName = 'RungeKutta2Ralston'
+--integratorName = 'RungeKutta3'
 --integratorName = 'RungeKutta4'
+--integratorName = 'RungeKutta4_3_8thsRule'
+--integratorName = 'RungeKutta2TVD'
+--integratorName = 'RungeKutta2NonTVD'
+--integratorName = 'RungeKutta3TVD'
+integratorName = 'RungeKutta4TVD'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
@@ -50,7 +59,7 @@ boundaryMethods = {
 -- connect them to the GUI maybe?
 
 -- gravity is specific to the Euler fluid equation solver
-useGravity = true
+useGravity = false
 
 -- used for gravitation Poisson solver
 gaussSeidelMaxIter = 20
@@ -115,26 +124,28 @@ vectorField = {
 
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
--- [[ 3D
+--[[ 3D
 size = {32, 32, 32}
 vectorField.resolution = 16
 --]]
 --[[ 2D
-size = {256, 256}
+size = {512, 512}
 --]]
---[[ 1D
-size = {2048}
+-- [[ 1D
+size = {256}
 --]]
 
 
---[[ Euler
+-- [[ Euler
+
+graph.variables = {'DENSITY', 'VELOCITY_X', 'PRESSURE'}	-- which variables to graph.  none = all.
 
 -- uncomment one:
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'			-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
---solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
-solverName = 'SRHDRoe'		-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
+solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+--solverName = 'SRHDRoe'		-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
 
@@ -234,7 +245,7 @@ solverName = 'ADM2DSpherical'	-- not yet
 -- I want to get rid of this one.  and the 1D ADM as well -- just one Bona-Masso ADM implementation is enough (I think) unless I should have separate ones for shift/less and mass/less
 --]]
 
--- [[ ADM3D
+--[[ ADM3D
 solverName = 'ADM3DRoe'
 		
 --size = {1024}

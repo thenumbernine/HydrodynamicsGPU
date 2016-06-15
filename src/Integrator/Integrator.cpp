@@ -10,4 +10,3 @@ Integrator::Integrator(HydroGPU::Solver::Solver* solver_)
 
 }
 }
-

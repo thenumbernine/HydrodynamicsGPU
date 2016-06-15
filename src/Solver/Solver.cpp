@@ -168,19 +168,33 @@ std::cout << s;
 
 	initBuffers();
 	initKernels();
-
+	
+	typedef std::map<std::string, std::function<std::shared_ptr<HydroGPU::Integrator::Integrator>()>> gensMap_t;
+	gensMap_t gens;
+#define MAKE_INTEGRATOR(integrator) gens[#integrator] = [=]()->std::shared_ptr<HydroGPU::Integrator::Integrator> { return std::make_shared<HydroGPU::Integrator::integrator>(this); }
+	MAKE_INTEGRATOR(ForwardEuler);
+	MAKE_INTEGRATOR(RungeKutta2);
+	MAKE_INTEGRATOR(RungeKutta2Heun);
+	MAKE_INTEGRATOR(RungeKutta2Ralston);
+	MAKE_INTEGRATOR(RungeKutta3);
+	MAKE_INTEGRATOR(RungeKutta4);
+	MAKE_INTEGRATOR(RungeKutta4_3_8thsRule);
+	MAKE_INTEGRATOR(BackwardEulerConjugateGradient);
+	MAKE_INTEGRATOR(RungeKutta2TVD);
+	MAKE_INTEGRATOR(RungeKutta2NonTVD);
+	MAKE_INTEGRATOR(RungeKutta3TVD);
+	MAKE_INTEGRATOR(RungeKutta4TVD);
+#undef MAKE_INTEGRATOR
 	//create integrator
 	std::string integratorName = "ForwardEuler";
 	app->lua["integratorName"] >> integratorName;
-	if (integratorName == "ForwardEuler") {
-		integrator = std::make_shared<HydroGPU::Integrator::ForwardEuler>(this);
-	} else if (integratorName == "RungeKutta4") {
-		integrator = std::make_shared<HydroGPU::Integrator::RungeKutta4>(this);
-	} else if (integratorName == "BackwardEulerConjugateGradient") {
-		integrator = std::make_shared<HydroGPU::Integrator::BackwardEulerConjugateGradient>(this);
-	} else {
+	
+	gensMap_t::iterator i = gens.find(integratorName);
+	if (i == gens.end()) {
 		throw Common::Exception() << "failed to find integrator named " << integratorName;
 	}
+
+	integrator = i->second();
 }
 
 
