@@ -128,11 +128,11 @@ vectorField = {
 size = {32, 32, 32}
 vectorField.resolution = 16
 --]]
---[[ 2D
+-- [[ 2D
 size = {512, 512}
 --]]
--- [[ 1D
-size = {256}
+--[[ 1D
+size = {2048}
 --]]
 
 

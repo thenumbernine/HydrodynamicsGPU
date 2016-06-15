@@ -2,9 +2,6 @@
 #include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/HydroGPUApp.h"
 
-//temporary...
-#include "HydroGPU/Integrator/RungeKutta4.h"
-
 namespace HydroGPU {
 namespace Solver {
 

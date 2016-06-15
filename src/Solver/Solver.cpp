@@ -1,6 +1,6 @@
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/Integrator/ForwardEuler.h"
-#include "HydroGPU/Integrator/RungeKutta4.h"
+#include "HydroGPU/Integrator/RungeKutta.h"
 #include "HydroGPU/Integrator/BackwardEulerConjugateGradient.h"
 #include "HydroGPU/Plot/VectorField.h"
 #include "HydroGPU/Plot/Plot.h"
