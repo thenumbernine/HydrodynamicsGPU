@@ -9,7 +9,9 @@ namespace Integrator {
 /*
 ButcherTable template struct has specializations of <row, col> with a ::value() static method that returns the Butcher tableau a_ij coefficient, for row i and column j
 The specializations of of row == order corresponds to the b_j coefficients, for column j
-ButcherTableAlpha  and ButhcerTableBeta make up the coefficients used in 1.8 of http://www.ams.org/journals/mcom/1998-67-221/S0025-5718-98-00913-2/S0025-5718-98-00913-2.pdf
+ButcherTableAlpha  and ButhcerTableBeta make up the coefficients used in 1.8 of 
+http://www.ams.org/journals/mcom/1998-67-221/S0025-5718-98-00913-2/S0025-5718-98-00913-2.pdf
+"TOTAL VARIATION DIMINISHING RUNGE-KUTTA SCHEMES" by SIGAL GOTTLIEB AND CHI-WANG SHU
 */
 template<typename Tableau>
 struct RungeKutta : public Integrator {
