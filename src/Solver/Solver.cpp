@@ -184,6 +184,7 @@ std::cout << s;
 	MAKE_INTEGRATOR(RungeKutta2NonTVD);
 	MAKE_INTEGRATOR(RungeKutta3TVD);
 	MAKE_INTEGRATOR(RungeKutta4TVD);
+	MAKE_INTEGRATOR(RungeKutta4NonTVD);
 #undef MAKE_INTEGRATOR
 	//create integrator
 	std::string integratorName = "ForwardEuler";

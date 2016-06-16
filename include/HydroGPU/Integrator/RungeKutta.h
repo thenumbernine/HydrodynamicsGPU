@@ -124,14 +124,7 @@ void RungeKutta<Tableau>::integrate(real dt, std::function<void(cl::Buffer)> cal
 	}
 }
 
-
-//List at https://en.wikipedia.org/wiki/List_of_Runge%E2%80%93Kutta_methods#Classic_fourth-order_method
-
-#define MATRIX(name, matrix) \
-	static real name(int i, int j) {\
-		static real m[Order][Order] = matrix;\
-		return m[i][j];\
-	}
+//the following are from https://en.wikipedia.org/wiki/List_of_Runge%E2%80%93Kutta_methods#Classic_fourth-order_method
 
 struct RungeKutta2Tableau {
 	enum { Order = 2 };
@@ -221,7 +214,7 @@ struct RungeKutta4_3_8thsRuleTableau {
 };
 typedef struct RungeKutta<RungeKutta4_3_8thsRuleTableau> RungeKutta4_3_8thsRule;
 
-//schemes from the TVD
+//the following are from http://www.ams.org/journals/mcom/1998-67-221/S0025-5718-98-00913-2/S0025-5718-98-00913-2.pdf
 
 struct RungeKutta2TVDTableau {
 	enum { Order = 2 };
@@ -281,7 +274,24 @@ struct RungeKutta4TVDTableau {
 };
 typedef struct RungeKutta<RungeKutta4TVDTableau> RungeKutta4TVD; 
 
-#undef MATRIX
+//this one is from http://lsec.cc.ac.cn/lcfd/DEWENO/paper/WENO_1996.pdf
+
+struct RungeKutta4NonTVDTableau {
+	enum { Order = 4 };
+	static real alphas(int i, int j) { static real m[Order][Order] = {
+		{1, 0, 0, 0},
+		{1, 0, 0, 0},
+		{1, 0, 0, 0},
+		{-1./3., 1./3., 2./3., 1./3.},
+	}; return m[i][j]; }
+	static real betas(int i, int j) { static real m[Order][Order] = {
+		{.5, 0, 0, 0},
+		{0, .5, 0, 0},
+		{0, 0, 1, 0},
+		{0, 0, 0, 1./6.},
+	}; return m[i][j]; }
+};
+typedef struct RungeKutta<RungeKutta4NonTVDTableau> RungeKutta4NonTVD; 
 
 }
 }

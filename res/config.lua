@@ -37,6 +37,7 @@ slopeLimiterName = 'Superbee'
 --integratorName = 'RungeKutta2NonTVD'
 --integratorName = 'RungeKutta3TVD'
 integratorName = 'RungeKutta4TVD'
+--integratorName = 'RungeKutta4NonTVD'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
@@ -53,7 +54,6 @@ boundaryMethods = {
 	{min='FREEFLOW', max='FREEFLOW'},
 	{min='FREEFLOW', max='FREEFLOW'},
 }
-
 
 -- TODO organize solver/equation variables:
 -- connect them to the GUI maybe?
@@ -121,7 +121,6 @@ vectorField = {
 	scale = 1/8,
 }
 
-
 -- the number of non-1-sized elements in 'size' determine the dimension
 --  (if an element is not provided or nil then it defaults to 1)
 --[[ 3D
@@ -129,12 +128,11 @@ size = {32, 32, 32}
 vectorField.resolution = 16
 --]]
 -- [[ 2D
-size = {512, 512}
+size = {256, 256}
 --]]
 --[[ 1D
 size = {2048}
 --]]
-
 
 -- [[ Euler
 
