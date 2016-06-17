@@ -24,6 +24,9 @@ protected:
 	virtual void initBuffers();
 	virtual void initKernels();
 	virtual void createEquation();
+	int getEigenTransformStructSize();
+	int getEigenSpaceDim();
+	std::vector<std::string> getEigenProgramSources();
 	virtual std::vector<std::string> getProgramSources();
 	virtual void calcFlux(real dt);
 	virtual void step(real dt);

@@ -15,6 +15,9 @@ void Roe::initBuffers() {
 	deltaQTildeBuffer = cl.alloc(sizeof(real) * getEigenSpaceDim() * getVolume() * app->dim, "Roe::deltaQTildeBuffer");
 }
 
+//if the eigen transform is transforming from/to conservative/characteristics
+//then it should be getEigenSpaceDim() * numStates * 2
+// but I don't think anyone who uses the default implementation changes the # of characteristics away from the # of conservative
 int Roe::getEigenTransformStructSize() {
 	return getEigenSpaceDim() * getEigenSpaceDim() * 2;	//times two for forward and inverse
 }

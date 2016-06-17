@@ -1,19 +1,5 @@
 /*
-using the following:
-"Eigenvalues, Eigenvectors, and Symmetrization of the Magneto-Hydrodynamic (MHD) Equations" by Jameson 2006
-
-Sticking with this because I like the thought of using the right eigenvectors for the left eigenvectors
-(courtesy of the symmetrized transformation in the Jameson paper)
-
-Following it in my Maxima worksheet to verify results.
-https://github.com/thenumbernine/MaximaWorksheets
- ... and the results posted at ...
-http://christopheremoore.net/mhd_equations_symmetrized/
-
-have dug through
-"A Numerical Solution of Hyperbolic Partial Differential Equations", Trangenstein, 2007
-"A multidimensional upwind scheme for magnetohydrodynamics" by Falle, Komissarov, Joarder, 1998
-"A Solution-Adaptive Upwind Scheme for Ideal Magnetohydrodynamics" by Powell, Roe, Linde, Gombosi, Zeeuw, 1999
+using https://arxiv.org/pdf/0804.0402v1.pdf
 */
 
 #include "HydroGPU/Shared/Common.h"
@@ -22,14 +8,82 @@ have dug through
 #define mu0 mhd_vacuumPermeability
 #define sqrt_mu0 mhd_sqrt_vacuumPermeability
 
-#define M_SQRT_1_2	0.7071067811865475727373109293694142252206802368164f
-#define M_SQRT_2	(2.f * M_SQRT_1_2)
+#if NUM_STATES != 8
+#error expected 8 states
+#endif
+#if EIGEN_SPACE_DIM != 7
+#error expected 7 waves
+#endif
 
-//debugging
-//#define DEBUG_OUTPUT
-#define DEBUG_INDEX		513
+//matches the 8-var input state 
+struct cons_t {
+	real rho;
+	real mx;
+	real my;
+	real mz;
+	real bx;
+	real by;
+	real bz;
+	real ETotal;
+};
 
-//#define USE_FLUX_FIX
+struct prim_t {
+	real rho;
+	real4 v;
+	real4 b;
+	real hTotal;
+};
+
+void calcPrimFromCons(struct prim_t *W, const __global real* U_, real ePot);
+void calcPrimFromCons(struct prim_t *W, const __global real* U_, real ePot) {
+	const real gamma_1 = gamma - 1.;
+	const __global struct cons_t* U = (const __global struct cons_t*)U_;
+	real rho = U->rho; 
+	real invRho = 1. / rho;
+	real4 v = (real4)(U->mx, U->my, U->mz, 0.) * invRho;
+	real4 b = (real4)(U->bx, U->by, U->bz, 0.);
+	real ETotal = U->ETotal;
+	real EMag = .5 * dot(b,b);
+	real EHydro = ETotal - EMag;
+	real EKin = .5 * rho * dot(v, v);
+	real EPot = rho * ePot;
+	real EInt = EHydro - EKin - EPot;
+	real P = gamma_1 * EInt;
+	real PTotal = P + EMag;
+	real hTotal = (ETotal + PTotal) * invRho;
+	W->rho = rho;
+	W->v = v;
+	W->b = b;
+	W->hTotal = hTotal;
+}
+
+real2 calcRoeVars(struct prim_t *W, const struct prim_t *WL, const struct prim_t *WR);
+real2 calcRoeVars(struct prim_t *W, const struct prim_t *WL, const struct prim_t *WR) {
+	real sqrtRhoL = sqrt(WL->rho);
+	real sqrtRhoR = sqrt(WR->rho);
+
+	real invDenom = 1. / (sqrtRhoL + sqrtRhoR);
+	W->rho = sqrtRhoL * sqrtRhoR;
+	W->v = (WL->v * sqrtRhoL + WR->v * sqrtRhoR) * invDenom;
+	W->b = (WL->b * sqrtRhoL + WR->b * sqrtRhoR) * invDenom;
+	W->hTotal = (WL->hTotal * sqrtRhoL + WR->hTotal * sqrtRhoR) * invDenom;
+	
+	real4 db = WL->b - WR->b;
+	real X = .5 * (db.y * db.y + db.z * db.z) * invDenom * invDenom;
+	real Y = .5 * (WL->rho + WR->rho) / W->rho;
+
+	return (real2)(X, Y);
+}
+
+void calcEigenBasisSide(
+	__global real* eigenvaluesBuffer,
+	__global real* eigenvectorsBuffer,
+	const __global real* stateBuffer,
+	const __global real* potentialBuffer,
+	const __global char* solidBuffer,
+	__global real* fluxBuffer,
+	__global char* fluxFlagBuffer,
+	int side);
 
 void calcEigenBasisSide(
 	__global real* eigenvaluesBuffer,
@@ -58,586 +112,258 @@ void calcEigenBasisSide(
 	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
 	const __global real* stateR = stateBuffer + NUM_STATES * index;
 	
-	__global real* eigenvalues = eigenvaluesBuffer + NUM_STATES * interfaceIndex;
+	__global real* eigenvalues = eigenvaluesBuffer + EIGEN_SPACE_DIM * interfaceIndex;
 	__global real* eigenvectorsInverse = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
-	__global real* eigenvectors = eigenvectorsInverse + NUM_STATES * NUM_STATES;
+	__global real* eigenvectors = eigenvectorsInverse + EIGEN_SPACE_DIM * EIGEN_SPACE_DIM;
+
+	const real gamma_1 = gamma - 1.;
+	const real gamma_2 = gamma - 2.;
+
+	struct prim_t WL, WR;
+	calcPrimFromCons(&WL, stateL, potentialBuffer[indexPrev]);
+	calcPrimFromCons(&WR, stateR, potentialBuffer[index]);
 	
-	const real gammaMinusOne = gamma - 1.f;
-
-	real densityL = stateL[STATE_DENSITY];
-	real invDensityL = 1.f / densityL;
-	real4 velocityL = VELOCITY(stateL);
-	real4 magneticFieldL = (real4)(stateL[STATE_MAGNETIC_FIELD_X], stateL[STATE_MAGNETIC_FIELD_Y], stateL[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityL = .5f * dot(magneticFieldL, magneticFieldL) / mu0;
-	real totalPlasmaEnergyDensityL = stateL[STATE_ENERGY_TOTAL];
-	real totalHydroEnergyDensityL = totalPlasmaEnergyDensityL - magneticEnergyDensityL;
-	real kineticEnergyDensityL = .5f * densityL * dot(velocityL, velocityL);
-	real potentialEnergyL = potentialBuffer[indexPrev];
-	real potentialEnergyDensityL = densityL * potentialEnergyL; 
-	real internalEnergyDensityL = totalHydroEnergyDensityL - kineticEnergyDensityL - potentialEnergyDensityL;
-internalEnergyDensityL = max(0.f, internalEnergyDensityL);	//magnetic energy is exceeding total energy ...
-	real pressureL = gammaMinusOne * internalEnergyDensityL;
-	//real enthalpyTotalL = (totalHydroEnergyDensityL + pressureL) / densityL;
-	real roeWeightL = sqrt(densityL);
-
-	real densityR = stateR[STATE_DENSITY];
-	real invDensityR = 1.f / densityR;
-	real4 velocityR = VELOCITY(stateR);
-	real4 magneticFieldR = (real4)(stateR[STATE_MAGNETIC_FIELD_X], stateR[STATE_MAGNETIC_FIELD_Y], stateR[STATE_MAGNETIC_FIELD_Z], 0.f);
-	real magneticEnergyDensityR = .5f * dot(magneticFieldR, magneticFieldR) / mu0;
-	real totalPlasmaEnergyDensityR = stateR[STATE_ENERGY_TOTAL];
-	real totalHydroEnergyDensityR = totalPlasmaEnergyDensityR - magneticEnergyDensityR;
-	real kineticEnergyDensityR = .5f * densityR * dot(velocityR, velocityR);
-	real potentialEnergyR = potentialBuffer[index];
-	real potentialEnergyDensityR = densityR * potentialEnergyR;
-	real internalEnergyDensityR = totalHydroEnergyDensityR - kineticEnergyDensityR - potentialEnergyDensityR;
-internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is exceeding total energy ...
-	real pressureR = gammaMinusOne * internalEnergyDensityR;
-	//real enthalpyTotalR = (totalHydroEnergyDensityR + pressureR) / densityR;
-	real roeWeightR = sqrt(densityR);
-
-	real roeWeightNormalization = 1.f / (roeWeightL + roeWeightR);
-	real4 velocity = (velocityL * roeWeightL + velocityR * roeWeightR) * roeWeightNormalization;
-	real4 magneticField = (magneticFieldL * roeWeightL + magneticFieldR * roeWeightR) * roeWeightNormalization;
-	real pressure = (pressureL * roeWeightL + pressureR * roeWeightR) * roeWeightNormalization;
-	//non-mhd hydro papers say to do this, but I get much greater dCons/dPrim eigenvector orthogonality error with this enthalpyTotal
-	//real enthalpyTotal = (enthalpyTotalL * roeWeightL + enthalpyTotalR * roeWeightR) * roeWeightNormalization;
-	real densitySq = densityL * densityR;
-	real density = sqrt(densitySq);
-	
+	//rotate v and magnetic field so x is forward
 #if DIM > 1
 	if (side == 1) {
-		// -90' rotation to put the y axis contents into the x axis
-		velocity.xy = velocity.yx;
-		magneticField.xy = magneticField.yx;
+		WL.v.xy = WL.v.yx;
+		WR.b.xy = WR.b.yx;
+		WL.b.xy = WL.b.yx;
+		WR.b.xy = WR.b.yx;
 	} 
+#endif
 #if DIM > 2
 	else if (side == 2) {
-		//-90' rotation to put the z axis in the x axis
-		velocity.xz = velocity.zx;
-		magneticField.xz = magneticField.zx;
+		WL.v.xz = WL.v.zx;
+		WR.b.xz = WR.b.zx;
+		WL.b.xz = WL.b.zx;
+		WR.b.xz = WR.b.zx;
 	}
 #endif
-#endif
-		
-	real speedOfSound = sqrt(gamma * pressure / density);
 
-#ifdef USE_FLUX_FIX
-	if (pressure <= 0.f || densitySq <= 0.f) {
-		
-		//solve the HLL flux
-		//TODO provide a mechanism to write to the flux 
-		// ... and therefore bail this out of the subsequent flux computation 
-		//   that is based on these eigenvectors
-		
-		real speedOfSoundL = sqrt(gamma * pressureL * invDensityL);
-		real speedOfSoundR = sqrt(gamma * pressureR * invDensityR);
+	struct prim_t W;
+	real2 xy = calcRoeVars(&W, &WL, &WR);
 
-		real eigenvaluesMinL = velocityL.x - speedOfSoundL;
-		real eigenvaluesMaxR = velocityR.x + speedOfSoundR;
+	real rho = W.rho;
+	real4 v = W.v;
+	real vx = W.v.x;
+	real vy = W.v.y;
+	real vz = W.v.z;
+	real bx = W.b.x;
+	real by = W.b.y;
+	real bz = W.b.z;
+	real hTotal = W.hTotal;
+	real X = xy.x;
+	real Y = xy.y;
 
-		for (int i = 0; i < NUM_STATES; ++i) {
-			eigenvalues[i] = velocity.x;
-		}
-		eigenvalues[0] -= speedOfSound;
-		real eigenvaluesMin = eigenvalues[0];
-		eigenvalues[NUM_STATES-1] += speedOfSound;
-		real eigenvaluesMax = eigenvalues[NUM_STATES-1];
+	real _1_rho = 1. / rho;
+	real vSq = dot(v, v);
+	real bPerpSq = by*by + bz*bz;
+	real bStarPerpSq = (gamma_1 - gamma_2 * Y) * bPerpSq;
+	real CAxSq = bx*bx*_1_rho;
+	real CASq = CAxSq + bPerpSq * _1_rho;
+	real hHydro = hTotal - CASq;
+	real aTildeSq = max((gamma_1 * (hHydro - .5 * vSq) - gamma_2 * X), 1e-20);
 
-		//flux
-
-#if 0	//Davis direct
-		real sl = eigenvaluesMinL;
-		real sr = eigenvaluesMaxR;
-#endif
-#if 1	//Davis direct bounded
-		real sl = min(eigenvaluesMinL, eigenvaluesMin);
-		real sr = max(eigenvaluesMaxR, eigenvaluesMax);
-#endif
-
-		//for the HLL MHD not sure if I should use the original flux or the symmetrized flux ...
-		real fluxL[NUM_STATES];
-		fluxL[STATE_DENSITY] = densityL * velocityL.x;
-		fluxL[STATE_MOMENTUM_X] = densityL * velocityL.x * velocityL.x +  pressureL - magneticFieldL.x * magneticFieldL.x / mu0;
-		fluxL[STATE_MOMENTUM_Y] = densityL * velocityL.y * velocityL.x - magneticFieldL.x * magneticFieldL.y / mu0;
-		fluxL[STATE_MOMENTUM_Z] = densityL * velocityL.z * velocityL.x - magneticFieldL.x * magneticFieldL.z / mu0;
-		fluxL[STATE_MAGNETIC_FIELD_X] = 0.f; 
-		fluxL[STATE_MAGNETIC_FIELD_Y] = velocityL.x * magneticFieldL.y - magneticFieldL.x * velocityL.y;
-		fluxL[STATE_MAGNETIC_FIELD_Z] = velocityL.x * magneticFieldL.z - magneticFieldL.x * velocityL.z;
-		fluxL[STATE_ENERGY_TOTAL] = (totalPlasmaEnergyDensityL + pressureL) * velocityL.x + dot(velocityL, magneticFieldL) * magneticFieldL.x / mu0;
+	real bStarPerpSq_rho = bStarPerpSq * _1_rho;
+	real CATildeSq = CAxSq + bStarPerpSq_rho;
+	real CStarSq = .5 * (CATildeSq + aTildeSq);
+	real CA_a_TildeSqDiff = .5 * (CATildeSq - aTildeSq);
+	real sqrtDiscr = sqrt(CA_a_TildeSqDiff * CA_a_TildeSqDiff + aTildeSq * bStarPerpSq_rho);
 	
-		real fluxR[NUM_STATES];
-		fluxR[STATE_DENSITY] = densityR * velocityR.x;
-		fluxR[STATE_MOMENTUM_X] = densityR * velocityR.x * velocityR.x + pressureR - magneticFieldR.x * magneticFieldR.x / mu0;
-		fluxR[STATE_MOMENTUM_Y] = densityR * velocityR.y * velocityR.x - magneticFieldR.x * magneticFieldR.y / mu0;
-		fluxR[STATE_MOMENTUM_Z] = densityR * velocityR.z * velocityR.x - magneticFieldR.x * magneticFieldR.z / mu0;
-		fluxR[STATE_MAGNETIC_FIELD_X] = 0.f; 
-		fluxR[STATE_MAGNETIC_FIELD_Y] = velocityR.x * magneticFieldR.y - magneticFieldR.x * velocityR.y;
-		fluxR[STATE_MAGNETIC_FIELD_Z] = velocityR.x * magneticFieldR.z - magneticFieldR.x * velocityR.z;
-		fluxR[STATE_ENERGY_TOTAL] = (totalPlasmaEnergyDensityR + pressureR) * velocityR.x + dot(velocityR, magneticFieldR) * magneticFieldR.x / mu0;
+	real CfSq = CStarSq + sqrtDiscr;
+	real Cf = sqrt(CfSq);
 
-		//HLL-specific
-		__global real* flux = fluxBuffer + NUM_FLUX_STATES * interfaceIndex;
-		__global char* fluxFlag = fluxFlagBuffer + interfaceIndex;
-	
-		//1 means we've got something 
-		*fluxFlag = 1;
-		
-		if (0.f <= sl) {
-			for (int i = 0; i < NUM_STATES; ++i) {
-				flux[i] = fluxL[i];
-			}
-		} else if (sl <= 0.f && 0.f <= sr) {
-			//(sr * fluxL[j] - sl * fluxR[j] + sl * sr * (stateR[j] - stateL[j])) / (sr - sl)
-			real invDenom = 1.f / (sr - sl);
-			for (int i = 0; i < NUM_STATES; ++i) {
-				flux[i] = (sr * fluxL[i] - sl * fluxR[i] + sl * sr * (stateR[i] - stateL[i])) * invDenom; 
-			}
-		} else if (sr <= 0.f) {
-			for (int i = 0; i < NUM_STATES; ++i) {
-				flux[i] = fluxR[i];
-			}
-		}
-		
-		//rotate back to side
-		{
-			real tmp = flux[STATE_MOMENTUM_X];
-			flux[STATE_MOMENTUM_X] = flux[STATE_MOMENTUM_X + side];
-			flux[STATE_MOMENTUM_X + side] = tmp;
-		}
+	real CsSq = aTildeSq * CAxSq / CfSq;
+	real Cs = sqrt(CsSq);
 
-	} else
-#endif
-	{
+	real bPerpLen = sqrt(bPerpSq);
+	real bStarPerpLen = sqrt(bStarPerpSq);
+	real betaY, betaZ;
+	if (bPerpLen == 0.) {
+		betaY = 1.;
+		betaZ = 0.;
+	} else {
+		betaY = by / bPerpLen;
+		betaZ = bz / bPerpLen;
+	}
+	real betaStarY = betaY / sqrt(gamma_1 - gamma_2*Y);
+	real betaStarZ = betaZ / sqrt(gamma_1 - gamma_2*Y);
+	real betaStarSq = betaStarY*betaStarY + betaStarZ*betaStarZ;
+	real vDotBeta = vy*betaStarY + vz*betaStarZ;
 
-		real4 magneticFieldT = (real4)(0.f, magneticField.y, magneticField.z, 0.f);
-		real magneticFieldXSq = magneticField.x * magneticField.x;
-		real magneticFieldTSq = magneticField.y * magneticField.y + magneticField.z * magneticField.z;
-		real magneticFieldSq = magneticFieldXSq + magneticFieldTSq;
-		real magneticFieldTLen = sqrt(magneticFieldTSq);
-		
-		real sqrtDensity = sqrt(density);
-		
-		//matrices are stored as A_ij = A[i + height * j]
-
-		real speedOfSoundSq = speedOfSound * speedOfSound;
-		
-		real velocitySq = dot(velocity, velocity);
-		real enthalpyTotal = speedOfSoundSq / gammaMinusOne + .5f * velocitySq;
-
-		real AlfvenSpeed = fabs(magneticField.x) / (sqrtDensity * sqrt_mu0);
-		real AlfvenSpeedSq = AlfvenSpeed * AlfvenSpeed;
-		//Alfven speed is the absolute of the magnetic field in the normal direction -- to ensure ordering of eigenvalues (which might not be a necessary constraint)
-		// however all my calculated results leave the eigenvalue as Bx, not |Bx|.  what to do?  enter sign(Bx).
-		// if the eigenvalue was Bx and is now |Bx| then the corresponding eigenvector should be scaled by sign(Bx) ... (if it makes a difference at all)
-		real sgnBx = magneticField.x >= 0.f ? 1.f : -1.f;
-		
-		real starSpeedSq = .5f * (speedOfSoundSq + magneticFieldSq / (density * mu0));
-		real discr = starSpeedSq * starSpeedSq - speedOfSoundSq * AlfvenSpeedSq;
-		real discrSqrt = sqrt(discr);
-		real fastSpeedSq = starSpeedSq + discrSqrt;
-		real fastSpeed = sqrt(fastSpeedSq);
-		real slowSpeedSq = starSpeedSq - discrSqrt;
-		real slowSpeed = sqrt(slowSpeedSq);
-			
-		//right eigenvectors
-		//since these are the eigenvectors of the system wrt the symmetrized variables
-		// the inverse of the right eigenvectors is the transpose of the right eigenvectors ... is the left eigenvectors
-		real8 eigenvectorsWrtSymmetrized8[NUM_STATES];
-		real* eigenvectorsWrtSymmetrized = (real*)eigenvectorsWrtSymmetrized8;
-
-		//the eigenvectors wrt the symmetrizing variables are orthonormal, so the transpose is the inverse
-
-		real alphaFast, alphaSlow;
-		real2 kf = (real2)(0.f, 0.f);
-		real2 ks = (real2)(0.f, 0.f);
-		real2 lf = (real2)(0.f, 0.f);
-		real2 ls = (real2)(0.f, 0.f);
-		real2 mf = (real2)(0.f, 0.f);
-		real2 ms = (real2)(0.f, 0.f);
-
-#define EPSILON	1e-7f
-		/*
-		the conditions Bx=0 and Bx=By=Bz=0 have similar eigenvalues so I lumped them together
-		
-		works for constant fields with and without tangent components
-		works for Sod with no field
-		fails after a bit for Sod with YZ field
-		*/
-		if (fabs(magneticField.x) < EPSILON) {
-#ifdef DEBUG_OUTPUT
-			if (index == DEBUG_INDEX) {
-				printf("using normal-B == 0 eigensystem\n");
-			}
-#endif
-			eigenvalues[0] = velocity.x - fastSpeed;
-			eigenvalues[1] = velocity.x;
-			eigenvalues[2] = velocity.x;
-			eigenvalues[3] = velocity.x;
-			eigenvalues[4] = velocity.x;
-			eigenvalues[5] = velocity.x;
-			eigenvalues[6] = velocity.x;
-			eigenvalues[7] = velocity.x + fastSpeed;
-
-			real4 BBar = magneticField * (1.f / (sqrtDensity * sqrt_mu0));
-
-			//normalize components separately
-			real4 v0 = normalize((real4)(speedOfSound, fastSpeed, BBar.y, BBar.z));
-			real4 v5 = normalize((real4)(-BBar.y * speedOfSound, speedOfSoundSq + BBar.z * BBar.z, -BBar.y * BBar.z, 0.f));
-			real2 v6 = normalize((real2)(-BBar.z, speedOfSound));
-			eigenvectorsWrtSymmetrized8[0] = (real8)(v0[0], -v0[1], 0.f, 0.f, 0.f, v0[2],	v0[3], 	0.f);
-			eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 	0.f, 	1.f, 0.f, 0.f, 0.f, 	0.f, 	0.f);
-			eigenvectorsWrtSymmetrized8[2] = (real8)(0.f, 	0.f, 	0.f, 1.f, 0.f, 0.f, 	0.f, 	0.f);
-			eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 	0.f, 	0.f, 0.f, 1.f, 0.f, 	0.f, 	0.f);
-			eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 	0.f, 	0.f, 0.f, 0.f, 0.f, 	0.f, 	1.f);
-			eigenvectorsWrtSymmetrized8[5] = (real8)(v5[0], 0.f, 	0.f, 0.f, 0.f, v5[1], 	v5[2], 	0.f);
-			eigenvectorsWrtSymmetrized8[6] = (real8)(v6[0], 0.f, 	0.f, 0.f, 0.f, 0.f, 	v6[1], 	0.f);
-			eigenvectorsWrtSymmetrized8[7] = (real8)(v0[0], v0[1],	0.f, 0.f, 0.f, v0[2], 	v0[3],	0.f);
-		}
-#if 1	//works for a while
-		/*
-		Bx=By=Bz=0 is handled above, so
-		this is only for By=Bz=0, Bx!=0
-
-		works for constant magnetic and hydro fields
-		fails on magnetic field x discontinuities
-		works for hydro discontinuities with no magnetic field
-		fails on hydro discontinuities with magnetic field along normal
-		*/
-		else if (magneticFieldTLen < EPSILON) {
-			//this condition doesn't seem to influence things too much, but it ensures we have the cf and cs eigenvalues in the same place for all conditions
-			if (speedOfSound > AlfvenSpeed) {	//c > ca, so c = cf, ca = cs
-#ifdef DEBUG_OUTPUT
-				if (index == DEBUG_INDEX) {
-					printf("using normal-B != 0, tangent-B == 0, c > ca eigensystem\n");
-				}
-#endif
-				eigenvalues[0] = velocity.x - speedOfSound;
-				eigenvalues[1] = velocity.x - AlfvenSpeed;
-				eigenvalues[2] = velocity.x - AlfvenSpeed;
-				eigenvalues[3] = velocity.x;
-				eigenvalues[4] = velocity.x;
-				eigenvalues[5] = velocity.x + AlfvenSpeed;
-				eigenvalues[6] = velocity.x + AlfvenSpeed;
-				eigenvalues[7] = velocity.x + speedOfSound;
-
-				eigenvectorsWrtSymmetrized8[0] = (real8)(1.f, -1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
-				eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
-				eigenvectorsWrtSymmetrized8[2] = (real8)(0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
-				eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f);
-				eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-				eigenvectorsWrtSymmetrized8[5] = (real8)(0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
-				eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
-				eigenvectorsWrtSymmetrized8[7] = (real8)(1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
-			} else {	//ca > c, so ca = cf, c = cs
-#ifdef DEBUG_OUTPUT
-				if (index == DEBUG_INDEX) {
-					printf("using normal-B != 0, tangent-B == 0, ca > c eigensystem\n");
-				}
-#endif		
-				eigenvalues[0] = velocity.x - AlfvenSpeed;
-				eigenvalues[1] = velocity.x - AlfvenSpeed;
-				eigenvalues[2] = velocity.x - speedOfSound;
-				eigenvalues[3] = velocity.x;
-				eigenvalues[4] = velocity.x;
-				eigenvalues[5] = velocity.x + speedOfSound;
-				eigenvalues[6] = velocity.x + AlfvenSpeed;
-				eigenvalues[7] = velocity.x + AlfvenSpeed;
-
-				//I exchanged 0 & 2, 5 & 7.  should I rotate them instead?
-				eigenvectorsWrtSymmetrized8[0] = (real8)(0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
-				eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
-				eigenvectorsWrtSymmetrized8[2] = (real8)(1.f, -1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;
-				eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f);
-				eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-				eigenvectorsWrtSymmetrized8[5] = (real8)(1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f) * M_SQRT_1_2;	
-				eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f) * M_SQRT_1_2 * sgnBx;
-				eigenvectorsWrtSymmetrized8[7] = (real8)(0.f, 0.f, -1.f, 0.f, 0.f, 1.f, 0.f, 0.f) * M_SQRT_1_2 * sgnBx;
-			}
-		}
-#endif	
-		else {
-#ifdef DEBUG_OUTPUT
-			if (index == DEBUG_INDEX) {
-				printf("using normal-B != 0, tangent-B != 0 eigensystem\n");
-			}
-#endif
-			
-			eigenvalues[0] = velocity.x - fastSpeed;
-			eigenvalues[1] = velocity.x - AlfvenSpeed;
-			eigenvalues[2] = velocity.x - slowSpeed;
-			eigenvalues[3] = velocity.x;
-			eigenvalues[4] = velocity.x;
-			eigenvalues[5] = velocity.x + slowSpeed;
-			eigenvalues[6] = velocity.x + AlfvenSpeed;
-			eigenvalues[7] = velocity.x + fastSpeed;
-		
-			//fast and slow eigenvectors are of the form [+/-k l +/-m 0]
-			//Alfven eigenvectors are of the form [0 l -/+l 0]
-			
-			real2 la;
-			if (magneticFieldTLen < EPSILON) {
-				la = (real2)(0.f, 1.f/*-sign(magneticField.y)*/) * M_SQRT_1_2;
-			} else {
-				la = (real2)(magneticField.z, -magneticField.y) * (M_SQRT_1_2 / magneticFieldTLen);
-			}
-
-			kf = (real2)(speedOfSound, -fastSpeed) * (fastSpeedSq - AlfvenSpeedSq);
-			ks = (real2)(speedOfSound, -slowSpeed) * (AlfvenSpeedSq - slowSpeedSq);
-			
-			lf = magneticField.x * fastSpeed / (density * mu0) * magneticField.yz;
-			ls = magneticField.x * slowSpeed / (density * mu0) * magneticField.yz;
-
-			mf = (fastSpeedSq / (sqrtDensity * sqrt_mu0)) * magneticFieldT.yz;
-			ms = (slowSpeedSq / (sqrtDensity * sqrt_mu0)) * magneticFieldT.yz;
-
-			//normalizing scalars for the fast and slow eigenvectors
-			//no need to do so for the Alfven wave since it is only composed of the 'la' vector, which only itself needs to be normalized (and scaled by sqrt(1/2) since it appears twice)
-			//without the max() I get errors when the alpha values are low.  I wonder if removing the sqrt() helps and factoring these out would make a difference?
-			alphaFast = max(1e-6f, sqrt(dot(kf,kf) + dot(lf,lf) + dot(mf,mf)));
-			alphaSlow = max(1e-6f, sqrt(dot(ks,ks) + dot(ls,ls) + dot(ms,ms)));
-
-			//if alpha fast is zero then the fast vectors are zero
-			//looking at it shows empty rows 2 and 5, so set set fast[2] = fast[5] = 1.f;
-			if (alphaFast < EPSILON) {
-				alphaFast = M_SQRT_2;
-				lf[0] = 1.f;//sign(magneticField.x * magneticField.y);
-				lf[1] = 0.f;
-				mf[0] = 1.f;//sign(magneticField.y);
-				mf[1] = 0.f;
-			} else {
-			}
-			kf /= alphaFast;
-			lf /= alphaFast;
-			mf /= alphaFast;
-
-			if (alphaSlow < EPSILON) {
-				//ks = (real2)(0.f, 0.f);
-				//ls = (real2)(1.f, 0.f);
-				//ms = (real2)(1.f, 0.f);
-			} else {
-			}
-			ks /= alphaSlow;
-			ls /= alphaSlow;
-			ms /= alphaSlow;
-
-			//column-major (represented transposed)
-			eigenvectorsWrtSymmetrized8[0] = (real8)(kf[0],	kf[1], 	lf[0], 	lf[1], 	0.f, 	mf[0], 	mf[1],	0.f); 
-			eigenvectorsWrtSymmetrized8[1] = (real8)(0.f, 	0.f, 	la[0], 	la[1], 	0.f, 	la[0],	la[1],	0.f) * sgnBx;
-			eigenvectorsWrtSymmetrized8[2] = (real8)(ks[0], ks[1], 	-ls[0], -ls[1],	0.f, 	-ms[0],	-ms[1],	0.f);
-			eigenvectorsWrtSymmetrized8[3] = (real8)(0.f, 	0.f, 	0.f, 	0.f, 	1.f, 	0.f, 	0.f,  	0.f);
-			eigenvectorsWrtSymmetrized8[4] = (real8)(0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f, 	0.f,  	1.f);
-			eigenvectorsWrtSymmetrized8[5] = (real8)(ks[0], -ks[1], ls[0], 	ls[1], 	0.f, 	-ms[0], -ms[1] ,  0.f);
-			eigenvectorsWrtSymmetrized8[6] = (real8)(0.f, 	0.f, 	la[0], 	la[1], 	0.f, 	-la[0], -la[1] ,  0.f) * sgnBx;
-			eigenvectorsWrtSymmetrized8[7] = (real8)(kf[0], -kf[1], -lf[0],	-lf[1], 0.f,	mf[0], 	mf[1] ,  0.f); 
-		}
-
-		//for all but the no-magnetic-field case transform the eigenvectors by dw/du
-
-		//left and right eigenvectors above are of the flux derivative with respect to primitive variables
-		//to find the eigenvectors of the flux with respect to the state variables, multiply by the derivative of the primitives with respect to the states
-		//L = l * dw/du, R = du/dw * r
-		//for l, r the left and right eigenvectors of derivative of flux wrt primitives
-		//u = states, w = primitives
-		//L, R the left and right eigenvectors of derivative of flux wrt state
-		//this matches up with A = Q V Q^-1 = R V L = du/dw r V l dw/du
-
-		//MBar
-		real8 dCons_dSym8[8];	//column-major (represented transposed)
-		real* dCons_dSym = (real*)dCons_dSym8;
-		{
-			real ctmp = speedOfSound * sqrt_mu0 / sqrtDensity; 
-			real4 BBar = magneticField * (1.f / (sqrtDensity * sqrt_mu0));
-			dCons_dSym8[0] = (real8)(1.f,  velocity.x,  	velocity.y,  	velocity.z,  	0.f,	0.f,    0.f,    enthalpyTotal);
-			dCons_dSym8[1] = (real8)(0.f,  speedOfSound,	0.f,            0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.x);
-			dCons_dSym8[2] = (real8)(0.f,  0.f,            	speedOfSound,	0.f,            0.f,	0.f,    0.f,    speedOfSound * velocity.y);
-			dCons_dSym8[3] = (real8)(0.f,  0.f,            	0.f,            speedOfSound,   0.f,	0.f,    0.f,    speedOfSound * velocity.z);
-			dCons_dSym8[4] = (real8)(0.f,  0.f,            	0.f,            0.f,            ctmp,	0.f,    0.f,    speedOfSound * BBar.x);
-			dCons_dSym8[5] = (real8)(0.f,  0.f,            	0.f,            0.f,            0.f,	ctmp,	0.f,    speedOfSound * BBar.y);
-			dCons_dSym8[6] = (real8)(0.f,  0.f,            	0.f,            0.f,            0.f,	0.f,    ctmp,	speedOfSound * BBar.z);
-			dCons_dSym8[7] = (real8)(-1.f, -velocity.x,		-velocity.y,	-velocity.z,	0.f,	0.f,    0.f,    -.5f * velocitySq);
-		}
-		
-		//MBar^-1
-		real8 dSym_dCons8[8];	//column-major (represented transposed)
-		real* dSym_dCons = (real*)dSym_dCons8;
-		{
-			real gammaBar = gammaMinusOne / speedOfSoundSq;
-			real4 negVGammaBar = -gammaBar * velocity;
-			real4 Btmp = magneticField * (-gammaBar / mu0);
-			real oneOverC = 1.f / speedOfSound;
-			real tmpc = sqrtDensity / (sqrt_mu0 * speedOfSound);
-			dSym_dCons8[0] = (real8)(.5f * gammaBar * velocitySq,	-velocity.x * oneOverC,	-velocity.y * oneOverC,	-velocity.z * oneOverC, 0.f, 	0.f,	0.f,	gammaBar * (velocitySq - enthalpyTotal));
-			dSym_dCons8[1] = (real8)(negVGammaBar.x,				oneOverC,				0.f,					0.f, 					0.f,	0.f,	0.f,	negVGammaBar.x);
-			dSym_dCons8[2] = (real8)(negVGammaBar.y,				0.f,					oneOverC,				0.f,					0.f,	0.f,	0.f,	negVGammaBar.y);
-			dSym_dCons8[3] = (real8)(negVGammaBar.z, 				0.f, 					0.f, 					oneOverC,				0.f, 	0.f,	0.f,	negVGammaBar.z);
-			dSym_dCons8[4] = (real8)(Btmp.x, 						0.f, 					0.f, 					0.f, 					tmpc, 	0.f, 	0.f,	Btmp.x);
-			dSym_dCons8[5] = (real8)(Btmp.y, 						0.f, 					0.f, 					0.f, 					0.f,	tmpc, 	0.f,	Btmp.y);
-			dSym_dCons8[6] = (real8)(Btmp.z,						0.f, 					0.f, 					0.f, 					0.f, 	0.f, 	tmpc,	Btmp.z);
-			dSym_dCons8[7] = (real8)(gammaBar, 						0.f,					0.f,					0.f,					0.f,	0.f,	0.f,	gammaBar);
-		}
-
-		//R = dCons/dSym * r <=> R_i = [dCons/dSym]_ik * r_k <=> R_ij = [dCons/dSym]_ik * r_kj
-		//L = l * dSym/dCons <=> L_j = l_k * [dSym/dCons]_kj <=> L_ij = l_ik * [dSym/dCons]_kj
-		//A = R * Lambda * L
-		for (int i = 0; i < NUM_STATES; ++i) {
-			for (int j = 0; j < NUM_STATES; ++j) {
-				real sum;
-				
-				sum = 0.f;
-				for (int k = 0; k < NUM_STATES; ++k) {
-					sum += eigenvectorsWrtSymmetrized[k + NUM_STATES * i] * dSym_dCons[k + NUM_STATES * j];	//left a_ik == right a_ki
-				}
-				eigenvectorsInverse[i + NUM_STATES * j] = sum;
-				
-				sum = 0.f;
-				for (int k = 0; k < NUM_STATES; ++k) {
-					sum += dCons_dSym[i + NUM_STATES * k] * eigenvectorsWrtSymmetrized[k + NUM_STATES * j];
-				}
-				eigenvectors[i + NUM_STATES * j] = sum;
-			}
-		}
-
-#ifdef DEBUG_OUTPUT
-		if (index == DEBUG_INDEX) {
-			printf("gamma %f\n", gamma);
-			printf("vacuum permeability %f\n", mu0);
-			printf("side %d\n", side);
-			printf("i %d\n", index);
-			//heart of current problem: magnetic energy density is exceeding our total energy density
-			// so the K+P energy density comes out negative ...
-			//magnetic energy density comes from the magnetic field states
-			//total energy density comes from the the ENERGY_TOTAL state
-			// this means our eigenvectors are contributing less to total energy than they should be. 
-			printf("magnetic field %f %f %f\n", magneticField.x, magneticField.y, magneticField.z);
-			printf("magnetic field T %f %f %f\n", magneticFieldT.x, magneticFieldT.y, magneticFieldT.z);
-			printf("magnetic field T length %f\n", magneticFieldTLen);
-			printf("magnetic field T length^2 %f\n", magneticFieldTSq);
-			printf("kf %f %f\n", kf.x, kf.y);
-			printf("ks %f %f\n", ks.x, ks.y);
-			printf("lf %f %f\n", lf.x, lf.y);
-			printf("ls %f %f\n", ls.x, ls.y);
-			printf("mf %f %f\n", mf.x, mf.y);
-			printf("ms %f %f\n", ms.x, ms.y);
-			printf("alphaFast %f\n", alphaFast);
-			printf("alphaSlow %f\n", alphaSlow);
-			printf("symmetrized eigenvectors\n");
-			for (int i = 0; i < NUM_STATES; ++i) {
-				for (int j = 0; j < NUM_STATES; ++j) {
-					printf(" %f", eigenvectorsWrtSymmetrized[i + NUM_STATES * j]);
-				}
-				printf("\n");
-			}
-			printf("symmetrized eigenvector orthogonality\n");
-			real sym_totalError = 0.f;
-			for (int i = 0; i < NUM_STATES; ++i) {
-				for (int j = 0; j < NUM_STATES; ++j) {
-					real sum = 0.f;
-					for (int k = 0; k < NUM_STATES; ++k) {
-						sum += eigenvectorsWrtSymmetrized[k + NUM_STATES * i] * eigenvectorsWrtSymmetrized[k + NUM_STATES * j];	//left i,k * right k,j == right k,i * right k,j
-					}
-					printf(" %f", sum);
-					sym_totalError += fabs(sum - (i == j ? 1.f : 0.f));
-				}
-				printf("\n");
-			}
-			printf("side %d\n", side);
-			printf("i %d\n", index);
-			printf("conservative eigenvector orthogonality\n");
-			real cons_totalError = 0.f;
-			for (int i = 0; i < NUM_STATES; ++i) {
-				for (int j = 0; j < NUM_STATES; ++j) {
-					real sum = 0.f;
-					for (int k = 0; k < NUM_STATES; ++k) {
-						sum += eigenvectorsInverse[i + NUM_STATES * k] * eigenvectors[k + NUM_STATES * j];
-					}
-					printf(" %f", sum);
-					cons_totalError += fabs(sum - (i == j ? 1.f : 0.f));
-				}
-				printf("\n");
-			}
-			printf("dCons/dSym\n");
-			for (int i = 0; i < NUM_STATES; ++i) {
-				for (int j = 0; j < NUM_STATES; ++j) {
-					printf(" %f", dCons_dSym[i + NUM_STATES * j]);
-				}
-				printf("\n");
-			}
-			printf("dSym/dCons\n");
-			for (int i = 0; i < NUM_STATES; ++i) {
-				for (int j = 0; j < NUM_STATES; ++j) {
-					printf(" %f", dSym_dCons[i + NUM_STATES * j]);
-				}
-				printf("\n");
-			}
-			printf("dCons/dSym_ik * dSym/dCons_kj orthogonality\n");
-			real dCons_dSym_totalError = 0.f;
-			for (int i = 0; i < NUM_STATES; ++i) {
-				for (int j = 0; j < NUM_STATES; ++j) {
-					real sum = 0.f;
-					for (int k = 0; k < NUM_STATES; ++k) {
-						sum += dCons_dSym[i + NUM_STATES * k] * dSym_dCons[k + NUM_STATES * j];
-					}
-					printf(" %f", sum);
-					dCons_dSym_totalError += fabs(sum - (i == j ? 1.f : 0.f));
-				}
-				printf("\n");
-			}
-			printf("eigenvalues");
-			for (int i = 0; i < NUM_STATES; ++i) {
-				printf(" %f", eigenvalues[i]);
-			}
-			printf("\n");	
-			printf("conservative eigenvector error %f\n", cons_totalError);
-			printf("symmetrized eigenvector error %f\n", sym_totalError);
-			printf("dCons/dSym_ik * dSym/dCons_kj error %f\n", dCons_dSym_totalError);
-			printf("total plasma energy density L %f R %f\n", totalPlasmaEnergyDensityL, totalPlasmaEnergyDensityR);
-			printf("magnetic energy density L %f R %f\n", magneticEnergyDensityL, magneticEnergyDensityR);
-			printf("potential energy density L %f R %f\n", potentialEnergyDensityL, potentialEnergyDensityR);
-			printf("kinetic energy density L %f R %f\n", kineticEnergyDensityL, kineticEnergyDensityR);
-			printf("total hydro energy density L %f R %f\n", totalHydroEnergyDensityL, totalHydroEnergyDensityR);
-			printf("internal energy density L %f R %f\n", internalEnergyDensityL, internalEnergyDensityR);
-			printf("pressure L %f R %f\n", pressureL, pressureR);
-			printf("density %f\n", density);
-			printf("pressure %f\n", pressure);
-			printf("speedOfSound %f\n", speedOfSound);
-			printf("fastSpeed %f\n", fastSpeed);
-			printf("AlfvenSpeed %f\n", AlfvenSpeed);
-			printf("slowSpeed %f\n", slowSpeed);
-			printf("speedOfSoundSq %f\n", speedOfSoundSq);
-			printf("fastSpeedSq %f\n", fastSpeedSq);
-			printf("AlfvenSpeedSq %f\n", AlfvenSpeedSq);
-			printf("slowSpeedSq %f\n", slowSpeedSq);
-			printf("starSpeedSq %f\n", starSpeedSq);
-		}
-#endif	//DEBUG_OUTPUT
-
-#if 0
-		//entropy fix (?)
-		//currently prevents divergence, but causes lots of oscillations
-		//other sources say "if pressure is negative then use HLLC" or "if lambda-min to lambda-max span zero then use Rusanov flux"
-		{
-			//assumes all eigenvalues are sorted
-			//real delta = 2.f * fabs(velocity.x);
-			//real delta = 2.f * max(fabs(eigenvalues[NUM_STATES-1]), fabs(eigenvalues[0]));
-			const real delta = .2f;
-			int wavesToCheck[] = {0,1,2,5,6,7};
-#define numberof(x)	(sizeof(x)/sizeof((x)[0]))
-			for (int* w = wavesToCheck; w < wavesToCheck + numberof(wavesToCheck); ++w) {
-				int i = *w;
-				float lambda = eigenvalues[i];
-				float absLambda = fabs(lambda);
-				float sgnLambda = sign(lambda);
-				if (absLambda < delta) {
-					//absLambda = (absLambda * absLambda + delta * delta) / (2.f * delta);
-					//absLambda = (absLambda * absLambda / delta + delta) / 2.f;
-				}
-				eigenvalues[i] = absLambda * sgnLambda;
-			}
-		}
-#endif
+	real alphaF, alphaS;
+	if (CfSq - CsSq == 0.) {
+		alphaF = 1.;
+		alphaS = 0.;
+	} else if (aTildeSq - CsSq <= 0.) {
+		alphaF = 0.;
+		alphaS = 1.;
+	} else if (CfSq - aTildeSq <= 0.) {
+		alphaF = 1.;
+		alphaS = 0.;
+	} else {
+		alphaF = sqrt((aTildeSq - CsSq) / (CfSq - CsSq));
+		alphaS = sqrt((CfSq - aTildeSq) / (CfSq - CsSq));
 	}
 
+	real sqrtRho = sqrt(rho);
+	real _1_sqrtRho = 1. / sqrtRho;
+	real sbx = bx >= 0. ? 1. : -1.;
+	real aTilde = sqrt(aTildeSq);
+	real Qf = Cf*alphaF*sbx;
+	real Qs = Cs*alphaS*sbx;
+	real Af = aTilde*alphaF*_1_sqrtRho;
+	real As = aTilde*alphaS*_1_sqrtRho;
+	real Afpbb = Af*bStarPerpLen*betaStarSq;
+	real Aspbb = As*bStarPerpLen*betaStarSq;
+
+	real CAx = sqrt(CAxSq);
+	eigenvalues[0] = vx - Cf;
+	eigenvalues[1] = vx - CAx;
+	eigenvalues[2] = vx - Cs;
+	eigenvalues[3] = vx;
+	eigenvalues[4] = vx + Cs;
+	eigenvalues[5] = vx + CAx;
+	eigenvalues[6] = vx + Cf;
+
+	// right eigenvectors
+	real qa3 = alphaF*vy;
+	real qb3 = alphaS*vy;
+	real qc3 = Qs*betaStarY;
+	real qd3 = Qf*betaStarY;
+	real qa4 = alphaF*vz;
+	real qb4 = alphaS*vz;
+	real qc4 = Qs*betaStarZ;
+	real qd4 = Qf*betaStarZ;
+	real r52 = -(vy*betaZ - vz*betaY);
+	real r61 = As*betaStarY;
+	real r62 = -betaZ*sbx*_1_sqrtRho;
+	real r63 = -Af*betaStarY;
+	real r71 = As*betaStarZ;
+	real r72 = betaY*sbx*_1_sqrtRho;
+	real r73 = -Af*betaStarZ;
+	//rows
+	eigenvectors[0 + EIGEN_SPACE_DIM * 0] = alphaF;
+	eigenvectors[0 + EIGEN_SPACE_DIM * 1] = 0.;
+	eigenvectors[0 + EIGEN_SPACE_DIM * 2] = alphaS;
+	eigenvectors[0 + EIGEN_SPACE_DIM * 3] = 1.;
+	eigenvectors[0 + EIGEN_SPACE_DIM * 4] = alphaS;
+	eigenvectors[0 + EIGEN_SPACE_DIM * 5] = 0.;
+	eigenvectors[0 + EIGEN_SPACE_DIM * 6] = alphaF;
+	eigenvectors[1 + EIGEN_SPACE_DIM * 0] = alphaF*eigenvalues[0];
+	eigenvectors[1 + EIGEN_SPACE_DIM * 1] = 0.;
+	eigenvectors[1 + EIGEN_SPACE_DIM * 2] = alphaS*eigenvalues[2];
+	eigenvectors[1 + EIGEN_SPACE_DIM * 3] = vx;
+	eigenvectors[1 + EIGEN_SPACE_DIM * 4] = alphaS*eigenvalues[4];
+	eigenvectors[1 + EIGEN_SPACE_DIM * 5] = 0.;
+	eigenvectors[1 + EIGEN_SPACE_DIM * 6] = alphaF*eigenvalues[6];
+	eigenvectors[2 + EIGEN_SPACE_DIM * 0] = qa3 + qc3;
+	eigenvectors[2 + EIGEN_SPACE_DIM * 1] = -betaZ;
+	eigenvectors[2 + EIGEN_SPACE_DIM * 2] = qb3 - qd3;
+	eigenvectors[2 + EIGEN_SPACE_DIM * 3] = vy;
+	eigenvectors[2 + EIGEN_SPACE_DIM * 4] = qb3 + qd3;
+	eigenvectors[2 + EIGEN_SPACE_DIM * 5] = betaZ;
+	eigenvectors[2 + EIGEN_SPACE_DIM * 6] = qa3 - qc3;
+	eigenvectors[3 + EIGEN_SPACE_DIM * 0] = qa4 + qc4;
+	eigenvectors[3 + EIGEN_SPACE_DIM * 1] = betaY;
+	eigenvectors[3 + EIGEN_SPACE_DIM * 2] = qb4 - qd4;
+	eigenvectors[3 + EIGEN_SPACE_DIM * 3] = vz;
+	eigenvectors[3 + EIGEN_SPACE_DIM * 4] = qb4 + qd4;
+	eigenvectors[3 + EIGEN_SPACE_DIM * 5] = -betaY;
+	eigenvectors[3 + EIGEN_SPACE_DIM * 6] = qa4 - qc4;
+	eigenvectors[4 + EIGEN_SPACE_DIM * 0] = alphaF*(hHydro - vx*Cf) + Qs*vDotBeta + Aspbb;
+	eigenvectors[4 + EIGEN_SPACE_DIM * 1] = r52;
+	eigenvectors[4 + EIGEN_SPACE_DIM * 2] = alphaS*(hHydro - vx*Cs) - Qf*vDotBeta - Afpbb;
+	eigenvectors[4 + EIGEN_SPACE_DIM * 3] = .5*vSq + gamma_2*X/gamma_1;
+	eigenvectors[4 + EIGEN_SPACE_DIM * 4] = alphaS*(hHydro + vx*Cs) + Qf*vDotBeta - Afpbb;
+	eigenvectors[4 + EIGEN_SPACE_DIM * 5] = -r52;
+	eigenvectors[4 + EIGEN_SPACE_DIM * 6] = alphaF*(hHydro + vx*Cf) - Qs*vDotBeta + Aspbb;
+	eigenvectors[5 + EIGEN_SPACE_DIM * 0] = r61;
+	eigenvectors[5 + EIGEN_SPACE_DIM * 1] = r62;
+	eigenvectors[5 + EIGEN_SPACE_DIM * 2] = r63;
+	eigenvectors[5 + EIGEN_SPACE_DIM * 3] = 0.;
+	eigenvectors[5 + EIGEN_SPACE_DIM * 4] = r63;
+	eigenvectors[5 + EIGEN_SPACE_DIM * 5] = r62;
+	eigenvectors[5 + EIGEN_SPACE_DIM * 6] = r61;
+	eigenvectors[6 + EIGEN_SPACE_DIM * 0] = r71;
+	eigenvectors[6 + EIGEN_SPACE_DIM * 1] = r72;
+	eigenvectors[6 + EIGEN_SPACE_DIM * 2] = r73;
+	eigenvectors[6 + EIGEN_SPACE_DIM * 3] = 0.;
+	eigenvectors[6 + EIGEN_SPACE_DIM * 4] = r73;
+	eigenvectors[6 + EIGEN_SPACE_DIM * 5] = r72;
+	eigenvectors[6 + EIGEN_SPACE_DIM * 6] = r71;
+
+	// left eigenvectors
+	real norm = .5/aTildeSq;
+	real Cff = norm*alphaF*Cf;
+	real Css = norm*alphaS*Cs;
+	Qf = Qf * norm;
+	Qs = Qs * norm;
+	real AHatF = norm*Af*rho;
+	real AHatS = norm*As*rho;
+	real afpb = norm*Af*bStarPerpLen;
+	real aspb = norm*As*bStarPerpLen;
+
+	norm = norm * gamma_1;
+	alphaF = alphaF * norm;
+	alphaS = alphaS * norm;
+	real QStarY = betaStarY/betaStarSq;
+	real QStarZ = betaStarZ/betaStarSq;
+	real vqstr = (vy*QStarY + vz*QStarZ);
+	norm = norm * 2.;
+	//rows
+	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 0] = alphaF*(vSq-hHydro) + Cff*(Cf+vx) - Qs*vqstr - aspb;
+	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 1] = -alphaF*vx - Cff;
+	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 2] = -alphaF*vy + Qs*QStarY;
+	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 3] = -alphaF*vz + Qs*QStarZ;
+	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 4] = alphaF;
+	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 5] = AHatS*QStarY - alphaF*by;
+	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 6] = AHatS*QStarZ - alphaF*bz;
+	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 0] = .5*(vy*betaZ - vz*betaY);
+	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 1] = 0.;
+	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 2] = -.5*betaZ;
+	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 3] = .5*betaY;
+	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 4] = 0.;
+	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 5] = -.5*sqrtRho*betaZ*sbx;
+	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 6] = .5*sqrtRho*betaY*sbx;
+	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 0] = alphaS*(vSq-hHydro) + Css*(Cs+vx) + Qf*vqstr + afpb;
+	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 1] = -alphaS*vx - Css;
+	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 2] = -alphaS*vy - Qf*QStarY;
+	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 3] = -alphaS*vz - Qf*QStarZ;
+	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 4] = alphaS;
+	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 5] = -AHatF*QStarY - alphaS*by;
+	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 6] = -AHatF*QStarZ - alphaS*bz;
+	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 0] = 1. - norm*(.5*vSq - gamma_2*X/gamma_1) ;
+	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 1] = norm*vx;
+	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 2] = norm*vy;
+	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 3] = norm*vz;
+	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 4] = -norm;
+	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 5] = norm*by;
+	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 6] = norm*bz;
+	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 0] = alphaS*(vSq-hHydro) + Css*(Cs-vx) - Qf*vqstr + afpb;
+	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 1] = -alphaS*vx + Css;
+	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 2] = -alphaS*vy + Qf*QStarY;
+	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 3] = -alphaS*vz + Qf*QStarZ;
+	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 4] = alphaS;
+	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 5] = eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 5];
+	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 6] = eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 6];
+	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 0] = -eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 0];
+	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 1] = 0.;
+	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 2] = -eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 2];
+	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 3] = -eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 3];
+	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 4] = 0.;
+	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 5] = eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 5];
+	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 6] = eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 6];
+	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 0] = alphaF*(vSq-hHydro) + Cff*(Cf-vx) + Qs*vqstr - aspb;
+	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 1] = -alphaF*vx + Cff;
+	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 2] = -alphaF*vy - Qs*QStarY;
+	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 3] = -alphaF*vz - Qs*QStarZ;
+	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 4] = alphaF;
+	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 5] = eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 5];
+	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 6] = eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 6];
+
+#if 0	//instead I'm going to rotate upon application of eigenvectors
 #if DIM > 1
 	if (side == 1) {
 		for (int i = 0; i < NUM_STATES; ++i) {
@@ -686,7 +412,7 @@ internalEnergyDensityR = max(0.f, internalEnergyDensityR);	//magnetic energy is 
 	}
 #endif
 #endif
-
+#endif
 }
 
 __kernel void calcEigenBasis(
@@ -701,6 +427,100 @@ __kernel void calcEigenBasis(
 	for (int side = 0; side < DIM; ++side) {
 		calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, potentialBuffer, solidBuffer, fluxBuffer, fluxFlagBuffer, side);
 	}
+}
+
+void leftEigenvectorTransform(
+	real* results_,
+	const __global real* eigenvectorsBuffer,
+	const real* input_,
+	int side);
+
+void leftEigenvectorTransform(
+	real* results,
+	const __global real* eigenvectorsBuffer,
+	const real* input_,
+	int side)
+{
+	real tmp;
+	const __global real* eigenvectorsInverse = eigenvectorsBuffer;
+
+	real input[8] = {
+		input_[0],
+		input_[1],
+		input_[2],
+		input_[3],
+		input_[4],
+		input_[5],
+		input_[6],
+		input_[7],
+	};
+	//swap x and side
+//	tmp = input[1]; input[1] = input[1+side]; input[1+side] = tmp;
+//	tmp = input[4]; input[4] = input[4+side]; input[4+side] = tmp;
+	//set 8th to 5th (and ignore 8th)
+	input[4] = input[7];
+
+	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
+		real sum = 0.;
+		for (int j = 0; j < EIGEN_SPACE_DIM; ++j) {
+			sum += eigenvectorsInverse[i + EIGEN_SPACE_DIM * j] * input[j];
+		}
+		results[i] = sum;
+	}
+
+	//set 8th to 5th, set 5th to 0
+	results[7] = results[4];
+	results[4] = 0;
+	//swap x and side
+//	tmp = results[1]; results[1] = results[1+side]; results[1+side] = tmp;
+//	tmp = results[4]; results[4] = results[4+side]; results[4+side] = tmp;
+}
+
+void rightEigenvectorTransform(
+	__global real* results,
+	const __global real* eigenvectorsBuffer,
+	const real* input_,
+	int side);
+
+void rightEigenvectorTransform(
+	__global real* results,
+	const __global real* eigenvectorsBuffer,
+	const real* input_,
+	int side)
+{
+	real tmp;
+	const __global real* eigenvectors = eigenvectorsBuffer + EIGEN_SPACE_DIM * EIGEN_SPACE_DIM;
+
+	real input[8] = {
+		input_[0],
+		input_[1],
+		input_[2],
+		input_[3],
+		input_[4],
+		input_[5],
+		input_[6],
+		input_[7],
+	};
+	//swap x and side
+//	tmp = input[1]; input[1] = input[1+side]; input[1+side] = tmp;
+//	tmp = input[4]; input[4] = input[4+side]; input[4+side] = tmp;
+	//set 8th to 5th (and ignore 8th)
+	input[4] = input[7];
+
+	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
+		real sum = 0.;
+		for (int j = 0; j < EIGEN_SPACE_DIM; ++j) {
+			sum += eigenvectors[i + EIGEN_SPACE_DIM * j] * input[j];
+		}
+		results[i] = sum;
+	}
+
+	//set 8th to 5th, set 5th to 0
+	results[7] = results[4];
+	results[4] = 0;
+	//swap x and side
+//	tmp = results[1]; results[1] = results[1+side]; results[1+side] = tmp;
+//	tmp = results[4]; results[4] = results[4+side]; results[4+side] = tmp;
 }
 
 //just like calcFlux except if the flux flag is already set then don't do it
@@ -718,7 +538,7 @@ __kernel void calcMHDFlux(
 {
 	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
 	int index = INDEXV(i);
-	if (fluxFlagBuffer[side + DIM * index]) return;
+//	if (fluxFlagBuffer[side + DIM * index]) return;
 	
 	calcFlux(
 		fluxBuffer,
@@ -726,7 +546,7 @@ __kernel void calcMHDFlux(
 		eigenvaluesBuffer,
 		eigenvectorsBuffer,
 		deltaQTildeBuffer,
-		dt,
+		dt
 #ifdef SOLID
 		, solidBuffer
 #endif	//SOLID

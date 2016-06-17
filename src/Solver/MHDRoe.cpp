@@ -24,17 +24,35 @@ void MHDRoe::initKernels() {
 	//just like ordinary calcMHDFluxKernel -- and calls the ordinary
 	// -- but with an extra step to bail out of the associated fluxFlag is already set 
 	calcMHDFluxKernel = cl::Kernel(program, "calcMHDFlux");
-	CLCommon::setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, deltaQTildeBuffer, 0, 0, fluxFlagBuffer);
+	CLCommon::setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, deltaQTildeBuffer, 0, /*#ifdef SOLID: 0,*/ fluxFlagBuffer);
 }
-	
+
 void MHDRoe::createEquation() {
 	equation = std::make_shared<HydroGPU::Equation::MHD>(app);
 }
 
+int MHDRoe::getEigenTransformStructSize() {
+	return 7 * 7 * 2;
+}
+
+int MHDRoe::getEigenSpaceDim() {
+	return 7;
+}
+
 std::vector<std::string> MHDRoe::getProgramSources() {
 	std::vector<std::string> sources = Super::getProgramSources();
+	
+	//also in Roe.cl ...
+	sources.push_back("#define EIGEN_TRANSFORM_STRUCT_SIZE "+std::to_string(getEigenTransformStructSize())+"\n");
+	sources.push_back("#define EIGEN_SPACE_DIM "+std::to_string(getEigenSpaceDim())+"\n");
+	
 	sources.push_back("#include \"MHDRoe.cl\"\n");
 	return sources;
+}
+
+//transforms are found within MHDRoe.cl
+std::vector<std::string> MHDRoe::getEigenProgramSources() {
+	return {};
 }
 
 void MHDRoe::initFlux() {
@@ -58,7 +76,8 @@ void MHDRoe::calcFlux(real dt) {
 void MHDRoe::step(real dt) {
 	Super::step(dt);
 	selfgrav->applyPotential(dt);
-	divfree->update();
+#warning add this once you know 1D MHD is working without it
+	//divfree->update();
 }
 
 }

@@ -26,7 +26,7 @@ require 'initConds'	--holds catalog of initial conditions
 slopeLimiterName = 'Superbee'
 --slopeLimiterName = 'BarthJespersen'
 
---integratorName = 'ForwardEuler'
+integratorName = 'ForwardEuler'
 --integratorName = 'RungeKutta2'
 --integratorName = 'RungeKutta2Heun'
 --integratorName = 'RungeKutta2Ralston'
@@ -36,7 +36,7 @@ slopeLimiterName = 'Superbee'
 --integratorName = 'RungeKutta2TVD'
 --integratorName = 'RungeKutta2NonTVD'
 --integratorName = 'RungeKutta3TVD'
-integratorName = 'RungeKutta4TVD'
+--integratorName = 'RungeKutta4TVD'
 --integratorName = 'RungeKutta4NonTVD'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
@@ -127,14 +127,14 @@ vectorField = {
 size = {32, 32, 32}
 vectorField.resolution = 16
 --]]
--- [[ 2D
+--[[ 2D
 size = {256, 256}
 --]]
---[[ 1D
+-- [[ 1D
 size = {2048}
 --]]
 
--- [[ Euler
+--[[ Euler
 
 graph.variables = {'DENSITY', 'VELOCITY_X', 'PRESSURE'}	-- which variables to graph.  none = all.
 
@@ -203,14 +203,14 @@ then
 	end
 end
 
---[[ MHD
+-- [[ MHD
 
 --solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
 solverName = 'MHDRoe'			-- suffers from negative pressure with magnetic problems.  solves fluid-only problems fine.
 
-initCondName = 'Sod'
---initCondName = 'Brio-Wu'
+--initCondName = 'Sod'
+initCondName = 'Brio-Wu'
 initConds[initCondName].setup()
 --]]
 
