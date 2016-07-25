@@ -18,7 +18,7 @@ struct Camera {
 	virtual void setupProjection() {}
 	virtual void setupModelview() {}
 	virtual void mousePan(int dx, int dy) {}
-	virtual void mouseZoom(int dz) {}
+	virtual void mouseZoom(int dx, int dy) {}
 };
 
 }

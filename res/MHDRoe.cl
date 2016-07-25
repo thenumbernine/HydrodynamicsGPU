@@ -14,65 +14,67 @@ using https://arxiv.org/pdf/0804.0402v1.pdf
 #if EIGEN_SPACE_DIM != 7
 #error expected 7 waves
 #endif
+#if EIGEN_TRANSFORM_STRUCT_SIZE != 7*7*2
+#error expected EIGEN_TRANSFORM_STRUCT_SIZE to be 2 dense 7x7 matrices
+#endif
 
 //matches the 8-var input state 
 struct cons_t {
 	real rho;
-	real mx;
-	real my;
-	real mz;
-	real bx;
-	real by;
-	real bz;
+	real mx, my, mz;
+	real bx, by, bz;
 	real ETotal;
 };
 
-struct prim_t {
+struct Roe_t {
 	real rho;
-	real4 v;
-	real4 b;
+	real vx, vy, vz;
+	real bx, by, bz;
 	real hTotal;
+	real X;
+	real Y;
 };
 
-void calcPrimFromCons(struct prim_t *W, const __global real* U_, real ePot);
-void calcPrimFromCons(struct prim_t *W, const __global real* U_, real ePot) {
-	const real gamma_1 = gamma - 1.;
-	const __global struct cons_t* U = (const __global struct cons_t*)U_;
-	real rho = U->rho; 
-	real invRho = 1. / rho;
-	real4 v = (real4)(U->mx, U->my, U->mz, 0.) * invRho;
-	real4 b = (real4)(U->bx, U->by, U->bz, 0.);
-	real ETotal = U->ETotal;
-	real EMag = .5 * dot(b,b);
-	real EHydro = ETotal - EMag;
-	real EKin = .5 * rho * dot(v, v);
-	real EPot = rho * ePot;
-	real EInt = EHydro - EKin - EPot;
-	real P = gamma_1 * EInt;
-	real PTotal = P + EMag;
-	real hTotal = (ETotal + PTotal) * invRho;
-	W->rho = rho;
-	W->v = v;
-	W->b = b;
-	W->hTotal = hTotal;
+void calcPrimFromCons(struct Roe_t *W, const __global struct cons_t *U, real ePot);
+void calcPrimFromCons(struct Roe_t *W, const __global struct cons_t *U, real ePot) {
+	W->rho = U->rho;
+	W->vx = U->mx / U->rho;
+	W->vy = U->my / U->rho;
+	W->vz = U->mz / U->rho;
+	W->bx = U->bx;
+	W->by = U->by;
+	W->bz = U->bz;
+	real vSq = W->vx * W->vx + W->vy * W->vy + W->vz * W->vz;
+	real bSq = W->bx * W->bx + W->by * W->by + W->bz * W->bz;
+	real EKin = .5 * U->rho * vSq;
+	real EMag = .5 * bSq;
+	real P = (U->ETotal - EKin - EMag) * (gamma - 1.);
+	W->rho = max(W->rho, 1e-7);
+	P = max(P, 1e-7);
+	W->hTotal = (U->ETotal + P + EMag) / U->rho;
 }
 
-real2 calcRoeVars(struct prim_t *W, const struct prim_t *WL, const struct prim_t *WR);
-real2 calcRoeVars(struct prim_t *W, const struct prim_t *WL, const struct prim_t *WR) {
+void calcRoeAverage(struct Roe_t *W, const struct Roe_t *WL, const struct Roe_t *WR);
+void calcRoeAverage(struct Roe_t *W, const struct Roe_t *WL, const struct Roe_t *WR) {
 	real sqrtRhoL = sqrt(WL->rho);
 	real sqrtRhoR = sqrt(WR->rho);
 
 	real invDenom = 1. / (sqrtRhoL + sqrtRhoR);
 	W->rho = sqrtRhoL * sqrtRhoR;
-	W->v = (WL->v * sqrtRhoL + WR->v * sqrtRhoR) * invDenom;
-	W->b = (WL->b * sqrtRhoL + WR->b * sqrtRhoR) * invDenom;
-	W->hTotal = (WL->hTotal * sqrtRhoL + WR->hTotal * sqrtRhoR) * invDenom;
-	
-	real4 db = WL->b - WR->b;
-	real X = .5 * (db.y * db.y + db.z * db.z) * invDenom * invDenom;
-	real Y = .5 * (WL->rho + WR->rho) / W->rho;
+	W->vx = (WL->vx * sqrtRhoL + WR->vx * sqrtRhoR) * invDenom;
+	W->vy = (WL->vy * sqrtRhoL + WR->vy * sqrtRhoR) * invDenom;
+	W->vz = (WL->vz * sqrtRhoL + WR->vz * sqrtRhoR) * invDenom;
+	W->bx = (WL->bx * sqrtRhoL + WR->bx * sqrtRhoR) * invDenom;
 
-	return (real2)(X, Y);
+	//by and bz weights are switched
+	W->by = (WL->by * sqrtRhoR + WR->by * sqrtRhoL) * invDenom;
+	W->bz = (WL->bz * sqrtRhoR + WR->bz * sqrtRhoL) * invDenom;
+	
+	W->hTotal = (WL->hTotal * sqrtRhoL + WR->hTotal * sqrtRhoR) * invDenom;
+	real dby = WL->by - WR->by;
+	real dbz = WL->bz - WR->bz;
+	W->X = .5 * (dby * dby + dbz * dbz) * invDenom * invDenom;
+	W->Y = .5 * (WL->rho + WR->rho) / W->rho;
 }
 
 void calcEigenBasisSide(
@@ -80,7 +82,9 @@ void calcEigenBasisSide(
 	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
+#ifdef SOLID
 	const __global char* solidBuffer,
+#endif
 	__global real* fluxBuffer,
 	__global char* fluxFlagBuffer,
 	int side);
@@ -90,12 +94,14 @@ void calcEigenBasisSide(
 	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
+#ifdef SOLID
 	const __global char* solidBuffer,
+#endif
 	__global real* fluxBuffer,
 	__global char* fluxFlagBuffer,
 	int side)
 {
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0.);
 	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1
@@ -107,57 +113,59 @@ void calcEigenBasisSide(
 	
 	int index = INDEXV(i);
 	int indexPrev = index - stepsize[side];
-	int interfaceIndex = side + DIM * index;
-
-	const __global real* stateL = stateBuffer + NUM_STATES * indexPrev;
-	const __global real* stateR = stateBuffer + NUM_STATES * index;
+	const __global struct cons_t *UL = (const __global struct cons_t*)(stateBuffer + NUM_STATES * indexPrev);
+	const __global struct cons_t *UR = (const __global struct cons_t*)(stateBuffer + NUM_STATES * index);
 	
+	int interfaceIndex = side + DIM * index;
 	__global real* eigenvalues = eigenvaluesBuffer + EIGEN_SPACE_DIM * interfaceIndex;
-	__global real* eigenvectorsInverse = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
-	__global real* eigenvectors = eigenvectorsInverse + EIGEN_SPACE_DIM * EIGEN_SPACE_DIM;
+	__global real* leftEigenvectors = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
+	__global real* rightEigenvectors = leftEigenvectors + EIGEN_SPACE_DIM * EIGEN_SPACE_DIM;
 
 	const real gamma_1 = gamma - 1.;
 	const real gamma_2 = gamma - 2.;
 
-	struct prim_t WL, WR;
-	calcPrimFromCons(&WL, stateL, potentialBuffer[indexPrev]);
-	calcPrimFromCons(&WR, stateR, potentialBuffer[index]);
-	
+	struct Roe_t WL, WR;
+	calcPrimFromCons(&WL, UL, potentialBuffer[indexPrev]);
+	calcPrimFromCons(&WR, UR, potentialBuffer[index]);
+
+/*
 	//rotate v and magnetic field so x is forward
 #if DIM > 1
 	if (side == 1) {
-		WL.v.xy = WL.v.yx;
-		WR.b.xy = WR.b.yx;
-		WL.b.xy = WL.b.yx;
-		WR.b.xy = WR.b.yx;
+		real tmp;
+		tmp = WL.vx; WL.vx = WL.vy; WL.vy = tmp;
+		tmp = WR.vx; WR.vx = WR.vy; WR.vy = tmp;
+		tmp = WL.bx; WL.bx = WL.by; WL.by = tmp;
+		tmp = WR.bx; WR.bx = WR.by; WR.by = tmp;
 	} 
 #endif
 #if DIM > 2
 	else if (side == 2) {
-		WL.v.xz = WL.v.zx;
-		WR.b.xz = WR.b.zx;
-		WL.b.xz = WL.b.zx;
-		WR.b.xz = WR.b.zx;
+		real tmp;
+		tmp = WL.vx; WL.vx = WL.vz; WL.vz = tmp;
+		tmp = WR.vx; WR.vx = WR.vz; WR.vz = tmp;
+		tmp = WL.bx; WL.bx = WL.bz; WL.bz = tmp;
+		tmp = WR.bx; WR.bx = WR.bz; WR.bz = tmp;
 	}
 #endif
+*/
 
-	struct prim_t W;
-	real2 xy = calcRoeVars(&W, &WL, &WR);
+	struct Roe_t W;
+	calcRoeAverage(&W, &WL, &WR);
 
 	real rho = W.rho;
-	real4 v = W.v;
-	real vx = W.v.x;
-	real vy = W.v.y;
-	real vz = W.v.z;
-	real bx = W.b.x;
-	real by = W.b.y;
-	real bz = W.b.z;
+	real vx = W.vx;
+	real vy = W.vy;
+	real vz = W.vz;
+	real vSq = vx * vx + vy * vy + vz * vz;
+	real bx = W.bx;
+	real by = W.by;
+	real bz = W.bz;
 	real hTotal = W.hTotal;
-	real X = xy.x;
-	real Y = xy.y;
+	real X = W.X;
+	real Y = W.Y;
 
 	real _1_rho = 1. / rho;
-	real vSq = dot(v, v);
 	real bPerpSq = by*by + bz*bz;
 	real bStarPerpSq = (gamma_1 - gamma_2 * Y) * bPerpSq;
 	real CAxSq = bx*bx*_1_rho;
@@ -206,7 +214,7 @@ void calcEigenBasisSide(
 		alphaF = sqrt((aTildeSq - CsSq) / (CfSq - CsSq));
 		alphaS = sqrt((CfSq - aTildeSq) / (CfSq - CsSq));
 	}
-
+	
 	real sqrtRho = sqrt(rho);
 	real _1_sqrtRho = 1. / sqrtRho;
 	real sbx = bx >= 0. ? 1. : -1.;
@@ -219,13 +227,17 @@ void calcEigenBasisSide(
 	real Aspbb = As*bStarPerpLen*betaStarSq;
 
 	real CAx = sqrt(CAxSq);
-	eigenvalues[0] = vx - Cf;
+	real lambdaFastMin = vx - Cf;
+	real lambdaSlowMin = vx - Cs;
+	real lambdaSlowMax = vx + Cs;
+	real lambdaFastMax = vx + Cf;
+	eigenvalues[0] = lambdaFastMin;
 	eigenvalues[1] = vx - CAx;
-	eigenvalues[2] = vx - Cs;
+	eigenvalues[2] = lambdaSlowMin;
 	eigenvalues[3] = vx;
-	eigenvalues[4] = vx + Cs;
+	eigenvalues[4] = lambdaSlowMax;
 	eigenvalues[5] = vx + CAx;
-	eigenvalues[6] = vx + Cf;
+	eigenvalues[6] = lambdaFastMax;
 
 	// right eigenvectors
 	real qa3 = alphaF*vy;
@@ -244,55 +256,55 @@ void calcEigenBasisSide(
 	real r72 = betaY*sbx*_1_sqrtRho;
 	real r73 = -Af*betaStarZ;
 	//rows
-	eigenvectors[0 + EIGEN_SPACE_DIM * 0] = alphaF;
-	eigenvectors[0 + EIGEN_SPACE_DIM * 1] = 0.;
-	eigenvectors[0 + EIGEN_SPACE_DIM * 2] = alphaS;
-	eigenvectors[0 + EIGEN_SPACE_DIM * 3] = 1.;
-	eigenvectors[0 + EIGEN_SPACE_DIM * 4] = alphaS;
-	eigenvectors[0 + EIGEN_SPACE_DIM * 5] = 0.;
-	eigenvectors[0 + EIGEN_SPACE_DIM * 6] = alphaF;
-	eigenvectors[1 + EIGEN_SPACE_DIM * 0] = alphaF*eigenvalues[0];
-	eigenvectors[1 + EIGEN_SPACE_DIM * 1] = 0.;
-	eigenvectors[1 + EIGEN_SPACE_DIM * 2] = alphaS*eigenvalues[2];
-	eigenvectors[1 + EIGEN_SPACE_DIM * 3] = vx;
-	eigenvectors[1 + EIGEN_SPACE_DIM * 4] = alphaS*eigenvalues[4];
-	eigenvectors[1 + EIGEN_SPACE_DIM * 5] = 0.;
-	eigenvectors[1 + EIGEN_SPACE_DIM * 6] = alphaF*eigenvalues[6];
-	eigenvectors[2 + EIGEN_SPACE_DIM * 0] = qa3 + qc3;
-	eigenvectors[2 + EIGEN_SPACE_DIM * 1] = -betaZ;
-	eigenvectors[2 + EIGEN_SPACE_DIM * 2] = qb3 - qd3;
-	eigenvectors[2 + EIGEN_SPACE_DIM * 3] = vy;
-	eigenvectors[2 + EIGEN_SPACE_DIM * 4] = qb3 + qd3;
-	eigenvectors[2 + EIGEN_SPACE_DIM * 5] = betaZ;
-	eigenvectors[2 + EIGEN_SPACE_DIM * 6] = qa3 - qc3;
-	eigenvectors[3 + EIGEN_SPACE_DIM * 0] = qa4 + qc4;
-	eigenvectors[3 + EIGEN_SPACE_DIM * 1] = betaY;
-	eigenvectors[3 + EIGEN_SPACE_DIM * 2] = qb4 - qd4;
-	eigenvectors[3 + EIGEN_SPACE_DIM * 3] = vz;
-	eigenvectors[3 + EIGEN_SPACE_DIM * 4] = qb4 + qd4;
-	eigenvectors[3 + EIGEN_SPACE_DIM * 5] = -betaY;
-	eigenvectors[3 + EIGEN_SPACE_DIM * 6] = qa4 - qc4;
-	eigenvectors[4 + EIGEN_SPACE_DIM * 0] = alphaF*(hHydro - vx*Cf) + Qs*vDotBeta + Aspbb;
-	eigenvectors[4 + EIGEN_SPACE_DIM * 1] = r52;
-	eigenvectors[4 + EIGEN_SPACE_DIM * 2] = alphaS*(hHydro - vx*Cs) - Qf*vDotBeta - Afpbb;
-	eigenvectors[4 + EIGEN_SPACE_DIM * 3] = .5*vSq + gamma_2*X/gamma_1;
-	eigenvectors[4 + EIGEN_SPACE_DIM * 4] = alphaS*(hHydro + vx*Cs) + Qf*vDotBeta - Afpbb;
-	eigenvectors[4 + EIGEN_SPACE_DIM * 5] = -r52;
-	eigenvectors[4 + EIGEN_SPACE_DIM * 6] = alphaF*(hHydro + vx*Cf) - Qs*vDotBeta + Aspbb;
-	eigenvectors[5 + EIGEN_SPACE_DIM * 0] = r61;
-	eigenvectors[5 + EIGEN_SPACE_DIM * 1] = r62;
-	eigenvectors[5 + EIGEN_SPACE_DIM * 2] = r63;
-	eigenvectors[5 + EIGEN_SPACE_DIM * 3] = 0.;
-	eigenvectors[5 + EIGEN_SPACE_DIM * 4] = r63;
-	eigenvectors[5 + EIGEN_SPACE_DIM * 5] = r62;
-	eigenvectors[5 + EIGEN_SPACE_DIM * 6] = r61;
-	eigenvectors[6 + EIGEN_SPACE_DIM * 0] = r71;
-	eigenvectors[6 + EIGEN_SPACE_DIM * 1] = r72;
-	eigenvectors[6 + EIGEN_SPACE_DIM * 2] = r73;
-	eigenvectors[6 + EIGEN_SPACE_DIM * 3] = 0.;
-	eigenvectors[6 + EIGEN_SPACE_DIM * 4] = r73;
-	eigenvectors[6 + EIGEN_SPACE_DIM * 5] = r72;
-	eigenvectors[6 + EIGEN_SPACE_DIM * 6] = r71;
+	rightEigenvectors[0 + EIGEN_SPACE_DIM * 0] = alphaF;
+	rightEigenvectors[0 + EIGEN_SPACE_DIM * 1] = 0.;
+	rightEigenvectors[0 + EIGEN_SPACE_DIM * 2] = alphaS;
+	rightEigenvectors[0 + EIGEN_SPACE_DIM * 3] = 1.;
+	rightEigenvectors[0 + EIGEN_SPACE_DIM * 4] = alphaS;
+	rightEigenvectors[0 + EIGEN_SPACE_DIM * 5] = 0.;
+	rightEigenvectors[0 + EIGEN_SPACE_DIM * 6] = alphaF;
+	rightEigenvectors[1 + EIGEN_SPACE_DIM * 0] = alphaF*lambdaFastMin;
+	rightEigenvectors[1 + EIGEN_SPACE_DIM * 1] = 0.;
+	rightEigenvectors[1 + EIGEN_SPACE_DIM * 2] = alphaS*lambdaSlowMin;
+	rightEigenvectors[1 + EIGEN_SPACE_DIM * 3] = vx;
+	rightEigenvectors[1 + EIGEN_SPACE_DIM * 4] = alphaS*lambdaSlowMax;
+	rightEigenvectors[1 + EIGEN_SPACE_DIM * 5] = 0.;
+	rightEigenvectors[1 + EIGEN_SPACE_DIM * 6] = alphaF*lambdaFastMax;
+	rightEigenvectors[2 + EIGEN_SPACE_DIM * 0] = qa3 + qc3;
+	rightEigenvectors[2 + EIGEN_SPACE_DIM * 1] = -betaZ;
+	rightEigenvectors[2 + EIGEN_SPACE_DIM * 2] = qb3 - qd3;
+	rightEigenvectors[2 + EIGEN_SPACE_DIM * 3] = vy;
+	rightEigenvectors[2 + EIGEN_SPACE_DIM * 4] = qb3 + qd3;
+	rightEigenvectors[2 + EIGEN_SPACE_DIM * 5] = betaZ;
+	rightEigenvectors[2 + EIGEN_SPACE_DIM * 6] = qa3 - qc3;
+	rightEigenvectors[3 + EIGEN_SPACE_DIM * 0] = qa4 + qc4;
+	rightEigenvectors[3 + EIGEN_SPACE_DIM * 1] = betaY;
+	rightEigenvectors[3 + EIGEN_SPACE_DIM * 2] = qb4 - qd4;
+	rightEigenvectors[3 + EIGEN_SPACE_DIM * 3] = vz;
+	rightEigenvectors[3 + EIGEN_SPACE_DIM * 4] = qb4 + qd4;
+	rightEigenvectors[3 + EIGEN_SPACE_DIM * 5] = -betaY;
+	rightEigenvectors[3 + EIGEN_SPACE_DIM * 6] = qa4 - qc4;
+	rightEigenvectors[4 + EIGEN_SPACE_DIM * 0] = alphaF*(hHydro - vx*Cf) + Qs*vDotBeta + Aspbb;
+	rightEigenvectors[4 + EIGEN_SPACE_DIM * 1] = r52;
+	rightEigenvectors[4 + EIGEN_SPACE_DIM * 2] = alphaS*(hHydro - vx*Cs) - Qf*vDotBeta - Afpbb;
+	rightEigenvectors[4 + EIGEN_SPACE_DIM * 3] = .5*vSq + gamma_2*X/gamma_1;
+	rightEigenvectors[4 + EIGEN_SPACE_DIM * 4] = alphaS*(hHydro + vx*Cs) + Qf*vDotBeta - Afpbb;
+	rightEigenvectors[4 + EIGEN_SPACE_DIM * 5] = -r52;
+	rightEigenvectors[4 + EIGEN_SPACE_DIM * 6] = alphaF*(hHydro + vx*Cf) - Qs*vDotBeta + Aspbb;
+	rightEigenvectors[5 + EIGEN_SPACE_DIM * 0] = r61;
+	rightEigenvectors[5 + EIGEN_SPACE_DIM * 1] = r62;
+	rightEigenvectors[5 + EIGEN_SPACE_DIM * 2] = r63;
+	rightEigenvectors[5 + EIGEN_SPACE_DIM * 3] = 0.;
+	rightEigenvectors[5 + EIGEN_SPACE_DIM * 4] = r63;
+	rightEigenvectors[5 + EIGEN_SPACE_DIM * 5] = r62;
+	rightEigenvectors[5 + EIGEN_SPACE_DIM * 6] = r61;
+	rightEigenvectors[6 + EIGEN_SPACE_DIM * 0] = r71;
+	rightEigenvectors[6 + EIGEN_SPACE_DIM * 1] = r72;
+	rightEigenvectors[6 + EIGEN_SPACE_DIM * 2] = r73;
+	rightEigenvectors[6 + EIGEN_SPACE_DIM * 3] = 0.;
+	rightEigenvectors[6 + EIGEN_SPACE_DIM * 4] = r73;
+	rightEigenvectors[6 + EIGEN_SPACE_DIM * 5] = r72;
+	rightEigenvectors[6 + EIGEN_SPACE_DIM * 6] = r71;
 
 	// left eigenvectors
 	real norm = .5/aTildeSq;
@@ -312,56 +324,66 @@ void calcEigenBasisSide(
 	real QStarZ = betaStarZ/betaStarSq;
 	real vqstr = (vy*QStarY + vz*QStarZ);
 	norm = norm * 2.;
+	
+	real l16 = AHatS*QStarY - alphaF*by;
+	real l17 = AHatS*QStarZ - alphaF*bz;
+	real l21 = .5*(vy*betaZ - vz*betaY);
+	real l23 = .5*betaZ;
+	real l24 = .5*betaY;
+	real l26 = -.5*sqrtRho*betaZ*sbx;
+	real l27 = .5*sqrtRho*betaY*sbx;
+	real l36 = -AHatF*QStarY - alphaS*by;
+	real l37 = -AHatF*QStarZ - alphaS*bz;
 	//rows
-	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 0] = alphaF*(vSq-hHydro) + Cff*(Cf+vx) - Qs*vqstr - aspb;
-	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 1] = -alphaF*vx - Cff;
-	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 2] = -alphaF*vy + Qs*QStarY;
-	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 3] = -alphaF*vz + Qs*QStarZ;
-	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 4] = alphaF;
-	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 5] = AHatS*QStarY - alphaF*by;
-	eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 6] = AHatS*QStarZ - alphaF*bz;
-	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 0] = .5*(vy*betaZ - vz*betaY);
-	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 1] = 0.;
-	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 2] = -.5*betaZ;
-	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 3] = .5*betaY;
-	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 4] = 0.;
-	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 5] = -.5*sqrtRho*betaZ*sbx;
-	eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 6] = .5*sqrtRho*betaY*sbx;
-	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 0] = alphaS*(vSq-hHydro) + Css*(Cs+vx) + Qf*vqstr + afpb;
-	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 1] = -alphaS*vx - Css;
-	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 2] = -alphaS*vy - Qf*QStarY;
-	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 3] = -alphaS*vz - Qf*QStarZ;
-	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 4] = alphaS;
-	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 5] = -AHatF*QStarY - alphaS*by;
-	eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 6] = -AHatF*QStarZ - alphaS*bz;
-	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 0] = 1. - norm*(.5*vSq - gamma_2*X/gamma_1) ;
-	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 1] = norm*vx;
-	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 2] = norm*vy;
-	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 3] = norm*vz;
-	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 4] = -norm;
-	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 5] = norm*by;
-	eigenvectorsInverse[3 + EIGEN_SPACE_DIM * 6] = norm*bz;
-	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 0] = alphaS*(vSq-hHydro) + Css*(Cs-vx) - Qf*vqstr + afpb;
-	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 1] = -alphaS*vx + Css;
-	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 2] = -alphaS*vy + Qf*QStarY;
-	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 3] = -alphaS*vz + Qf*QStarZ;
-	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 4] = alphaS;
-	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 5] = eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 5];
-	eigenvectorsInverse[4 + EIGEN_SPACE_DIM * 6] = eigenvectorsInverse[2 + EIGEN_SPACE_DIM * 6];
-	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 0] = -eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 0];
-	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 1] = 0.;
-	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 2] = -eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 2];
-	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 3] = -eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 3];
-	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 4] = 0.;
-	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 5] = eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 5];
-	eigenvectorsInverse[5 + EIGEN_SPACE_DIM * 6] = eigenvectorsInverse[1 + EIGEN_SPACE_DIM * 6];
-	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 0] = alphaF*(vSq-hHydro) + Cff*(Cf-vx) + Qs*vqstr - aspb;
-	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 1] = -alphaF*vx + Cff;
-	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 2] = -alphaF*vy - Qs*QStarY;
-	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 3] = -alphaF*vz - Qs*QStarZ;
-	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 4] = alphaF;
-	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 5] = eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 5];
-	eigenvectorsInverse[6 + EIGEN_SPACE_DIM * 6] = eigenvectorsInverse[0 + EIGEN_SPACE_DIM * 6];
+	leftEigenvectors[0 + EIGEN_SPACE_DIM * 0] = alphaF*(vSq-hHydro) + Cff*(Cf+vx) - Qs*vqstr - aspb;
+	leftEigenvectors[0 + EIGEN_SPACE_DIM * 1] = -alphaF*vx - Cff;
+	leftEigenvectors[0 + EIGEN_SPACE_DIM * 2] = -alphaF*vy + Qs*QStarY;
+	leftEigenvectors[0 + EIGEN_SPACE_DIM * 3] = -alphaF*vz + Qs*QStarZ;
+	leftEigenvectors[0 + EIGEN_SPACE_DIM * 4] = alphaF;
+	leftEigenvectors[0 + EIGEN_SPACE_DIM * 5] = l16;
+	leftEigenvectors[0 + EIGEN_SPACE_DIM * 6] = l17;
+	leftEigenvectors[1 + EIGEN_SPACE_DIM * 0] = l21;
+	leftEigenvectors[1 + EIGEN_SPACE_DIM * 1] = 0.;
+	leftEigenvectors[1 + EIGEN_SPACE_DIM * 2] = -l23;
+	leftEigenvectors[1 + EIGEN_SPACE_DIM * 3] = l24;
+	leftEigenvectors[1 + EIGEN_SPACE_DIM * 4] = 0.;
+	leftEigenvectors[1 + EIGEN_SPACE_DIM * 5] = l26;
+	leftEigenvectors[1 + EIGEN_SPACE_DIM * 6] = l27;
+	leftEigenvectors[2 + EIGEN_SPACE_DIM * 0] = alphaS*(vSq-hHydro) + Css*(Cs+vx) + Qf*vqstr + afpb;
+	leftEigenvectors[2 + EIGEN_SPACE_DIM * 1] = -alphaS*vx - Css;
+	leftEigenvectors[2 + EIGEN_SPACE_DIM * 2] = -alphaS*vy - Qf*QStarY;
+	leftEigenvectors[2 + EIGEN_SPACE_DIM * 3] = -alphaS*vz - Qf*QStarZ;
+	leftEigenvectors[2 + EIGEN_SPACE_DIM * 4] = alphaS;
+	leftEigenvectors[2 + EIGEN_SPACE_DIM * 5] = l36;
+	leftEigenvectors[2 + EIGEN_SPACE_DIM * 6] = l37;
+	leftEigenvectors[3 + EIGEN_SPACE_DIM * 0] = 1. - norm*(.5*vSq - gamma_2*X/gamma_1) ;
+	leftEigenvectors[3 + EIGEN_SPACE_DIM * 1] = norm*vx;
+	leftEigenvectors[3 + EIGEN_SPACE_DIM * 2] = norm*vy;
+	leftEigenvectors[3 + EIGEN_SPACE_DIM * 3] = norm*vz;
+	leftEigenvectors[3 + EIGEN_SPACE_DIM * 4] = -norm;
+	leftEigenvectors[3 + EIGEN_SPACE_DIM * 5] = norm*by;
+	leftEigenvectors[3 + EIGEN_SPACE_DIM * 6] = norm*bz;
+	leftEigenvectors[4 + EIGEN_SPACE_DIM * 0] = alphaS*(vSq-hHydro) + Css*(Cs-vx) - Qf*vqstr + afpb;
+	leftEigenvectors[4 + EIGEN_SPACE_DIM * 1] = -alphaS*vx + Css;
+	leftEigenvectors[4 + EIGEN_SPACE_DIM * 2] = -alphaS*vy + Qf*QStarY;
+	leftEigenvectors[4 + EIGEN_SPACE_DIM * 3] = -alphaS*vz + Qf*QStarZ;
+	leftEigenvectors[4 + EIGEN_SPACE_DIM * 4] = alphaS;
+	leftEigenvectors[4 + EIGEN_SPACE_DIM * 5] = l36;
+	leftEigenvectors[4 + EIGEN_SPACE_DIM * 6] = l37;
+	leftEigenvectors[5 + EIGEN_SPACE_DIM * 0] = -l21;
+	leftEigenvectors[5 + EIGEN_SPACE_DIM * 1] = 0.;
+	leftEigenvectors[5 + EIGEN_SPACE_DIM * 2] = -l23;
+	leftEigenvectors[5 + EIGEN_SPACE_DIM * 3] = -l24;
+	leftEigenvectors[5 + EIGEN_SPACE_DIM * 4] = 0.;
+	leftEigenvectors[5 + EIGEN_SPACE_DIM * 5] = l26;
+	leftEigenvectors[5 + EIGEN_SPACE_DIM * 6] = l27;
+	leftEigenvectors[6 + EIGEN_SPACE_DIM * 0] = alphaF*(vSq-hHydro) + Cff*(Cf-vx) + Qs*vqstr - aspb;
+	leftEigenvectors[6 + EIGEN_SPACE_DIM * 1] = -alphaF*vx + Cff;
+	leftEigenvectors[6 + EIGEN_SPACE_DIM * 2] = -alphaF*vy - Qs*QStarY;
+	leftEigenvectors[6 + EIGEN_SPACE_DIM * 3] = -alphaF*vz - Qs*QStarZ;
+	leftEigenvectors[6 + EIGEN_SPACE_DIM * 4] = alphaF;
+	leftEigenvectors[6 + EIGEN_SPACE_DIM * 5] = l16;
+	leftEigenvectors[6 + EIGEN_SPACE_DIM * 6] = l17;
 
 #if 0	//instead I'm going to rotate upon application of eigenvectors
 #if DIM > 1
@@ -370,22 +392,22 @@ void calcEigenBasisSide(
 			real tmp;
 
 			//each row's xy <- yx 
-			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Y] = tmp;
+			tmp = leftEigenvectors[i + NUM_STATES * STATE_MOMENTUM_X];
+			leftEigenvectors[i + NUM_STATES * STATE_MOMENTUM_X] = leftEigenvectors[i + NUM_STATES * STATE_MOMENTUM_Y];
+			leftEigenvectors[i + NUM_STATES * STATE_MOMENTUM_Y] = tmp;
 			
-			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Y];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Y] = tmp;
+			tmp = leftEigenvectors[i + NUM_STATES * STATE_MAGNETIC_FIELD_X];
+			leftEigenvectors[i + NUM_STATES * STATE_MAGNETIC_FIELD_X] = leftEigenvectors[i + NUM_STATES * STATE_MAGNETIC_FIELD_Y];
+			leftEigenvectors[i + NUM_STATES * STATE_MAGNETIC_FIELD_Y] = tmp;
 			
 			//each column's xy <- yx
-			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i] = tmp;
+			tmp = rightEigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
+			rightEigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = rightEigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i];
+			rightEigenvectors[STATE_MOMENTUM_Y + NUM_STATES * i] = tmp;
 			
-			tmp = eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i];
-			eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i] = eigenvectors[STATE_MAGNETIC_FIELD_Y + NUM_STATES * i];
-			eigenvectors[STATE_MAGNETIC_FIELD_Y + NUM_STATES * i] = tmp;
+			tmp = rightEigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i];
+			rightEigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i] = rightEigenvectors[STATE_MAGNETIC_FIELD_Y + NUM_STATES * i];
+			rightEigenvectors[STATE_MAGNETIC_FIELD_Y + NUM_STATES * i] = tmp;
 		}
 	}
 #if DIM > 2
@@ -393,21 +415,21 @@ void calcEigenBasisSide(
 		for (int i = 0; i < NUM_STATES; ++i) {
 			real tmp;
 			
-			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MOMENTUM_Z] = tmp;
+			tmp = leftEigenvectors[i + NUM_STATES * STATE_MOMENTUM_X];
+			leftEigenvectors[i + NUM_STATES * STATE_MOMENTUM_X] = leftEigenvectors[i + NUM_STATES * STATE_MOMENTUM_Z];
+			leftEigenvectors[i + NUM_STATES * STATE_MOMENTUM_Z] = tmp;
 			
-			tmp = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_X] = eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Z];
-			eigenvectorsInverse[i + NUM_STATES * STATE_MAGNETIC_FIELD_Z] = tmp;
+			tmp = leftEigenvectors[i + NUM_STATES * STATE_MAGNETIC_FIELD_X];
+			leftEigenvectors[i + NUM_STATES * STATE_MAGNETIC_FIELD_X] = leftEigenvectors[i + NUM_STATES * STATE_MAGNETIC_FIELD_Z];
+			leftEigenvectors[i + NUM_STATES * STATE_MAGNETIC_FIELD_Z] = tmp;
 			
-			tmp = eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i];
-			eigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i] = tmp;
+			tmp = rightEigenvectors[STATE_MOMENTUM_X + NUM_STATES * i];
+			rightEigenvectors[STATE_MOMENTUM_X + NUM_STATES * i] = rightEigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i];
+			rightEigenvectors[STATE_MOMENTUM_Z + NUM_STATES * i] = tmp;
 			
-			tmp = eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i];
-			eigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i] = eigenvectors[STATE_MAGNETIC_FIELD_Z + NUM_STATES * i];
-			eigenvectors[STATE_MAGNETIC_FIELD_Z + NUM_STATES * i] = tmp;
+			tmp = rightEigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i];
+			rightEigenvectors[STATE_MAGNETIC_FIELD_X + NUM_STATES * i] = rightEigenvectors[STATE_MAGNETIC_FIELD_Z + NUM_STATES * i];
+			rightEigenvectors[STATE_MAGNETIC_FIELD_Z + NUM_STATES * i] = tmp;
 		}
 	}
 #endif
@@ -420,12 +442,22 @@ __kernel void calcEigenBasis(
 	__global real* eigenvectorsBuffer,
 	const __global real* stateBuffer,
 	const __global real* potentialBuffer,
+#ifdef SOLID
 	const __global char* solidBuffer,
+#endif
 	__global real* fluxBuffer,
 	__global char* fluxFlagBuffer)
 {
+	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0.);
+	int index = INDEXV(i);
+	const __global real *U = stateBuffer + NUM_STATES * index;
+	
 	for (int side = 0; side < DIM; ++side) {
-		calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, potentialBuffer, solidBuffer, fluxBuffer, fluxFlagBuffer, side);
+		calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, potentialBuffer, 
+#ifdef SOLID
+			solidBuffer,
+#endif
+			fluxBuffer, fluxFlagBuffer, side);
 	}
 }
 
@@ -441,8 +473,7 @@ void leftEigenvectorTransform(
 	const real* input_,
 	int side)
 {
-	real tmp;
-	const __global real* eigenvectorsInverse = eigenvectorsBuffer;
+	const __global real* leftEigenvectors = eigenvectorsBuffer;
 
 	real input[8] = {
 		input_[0],
@@ -455,25 +486,19 @@ void leftEigenvectorTransform(
 		input_[7],
 	};
 	//swap x and side
-//	tmp = input[1]; input[1] = input[1+side]; input[1+side] = tmp;
-//	tmp = input[4]; input[4] = input[4+side]; input[4+side] = tmp;
+	real tmp;
+	tmp = input[1]; input[1] = input[1+side]; input[1+side] = tmp;
+	tmp = input[4]; input[4] = input[4+side]; input[4+side] = tmp;
 	//set 8th to 5th (and ignore 8th)
 	input[4] = input[7];
 
 	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
 		real sum = 0.;
 		for (int j = 0; j < EIGEN_SPACE_DIM; ++j) {
-			sum += eigenvectorsInverse[i + EIGEN_SPACE_DIM * j] * input[j];
+			sum += leftEigenvectors[i + EIGEN_SPACE_DIM * j] * input[j];
 		}
 		results[i] = sum;
 	}
-
-	//set 8th to 5th, set 5th to 0
-	results[7] = results[4];
-	results[4] = 0;
-	//swap x and side
-//	tmp = results[1]; results[1] = results[1+side]; results[1+side] = tmp;
-//	tmp = results[4]; results[4] = results[4+side]; results[4+side] = tmp;
 }
 
 void rightEigenvectorTransform(
@@ -485,32 +510,15 @@ void rightEigenvectorTransform(
 void rightEigenvectorTransform(
 	__global real* results,
 	const __global real* eigenvectorsBuffer,
-	const real* input_,
+	const real* input,
 	int side)
 {
-	real tmp;
-	const __global real* eigenvectors = eigenvectorsBuffer + EIGEN_SPACE_DIM * EIGEN_SPACE_DIM;
-
-	real input[8] = {
-		input_[0],
-		input_[1],
-		input_[2],
-		input_[3],
-		input_[4],
-		input_[5],
-		input_[6],
-		input_[7],
-	};
-	//swap x and side
-//	tmp = input[1]; input[1] = input[1+side]; input[1+side] = tmp;
-//	tmp = input[4]; input[4] = input[4+side]; input[4+side] = tmp;
-	//set 8th to 5th (and ignore 8th)
-	input[4] = input[7];
+	const __global real* rightEigenvectors = eigenvectorsBuffer + EIGEN_SPACE_DIM * EIGEN_SPACE_DIM;
 
 	for (int i = 0; i < EIGEN_SPACE_DIM; ++i) {
 		real sum = 0.;
 		for (int j = 0; j < EIGEN_SPACE_DIM; ++j) {
-			sum += eigenvectors[i + EIGEN_SPACE_DIM * j] * input[j];
+			sum += rightEigenvectors[i + EIGEN_SPACE_DIM * j] * input[j];
 		}
 		results[i] = sum;
 	}
@@ -519,8 +527,9 @@ void rightEigenvectorTransform(
 	results[7] = results[4];
 	results[4] = 0;
 	//swap x and side
-//	tmp = results[1]; results[1] = results[1+side]; results[1+side] = tmp;
-//	tmp = results[4]; results[4] = results[4+side]; results[4+side] = tmp;
+	real tmp;
+	tmp = results[1]; results[1] = results[1+side]; results[1+side] = tmp;
+	tmp = results[4]; results[4] = results[4+side]; results[4+side] = tmp;
 }
 
 //just like calcFlux except if the flux flag is already set then don't do it
@@ -536,8 +545,9 @@ __kernel void calcMHDFlux(
 #endif	//SOLID
 	const __global char* fluxFlagBuffer)
 {
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
-	int index = INDEXV(i);
+//if I'm going to override unphysical states with the HLLC solver:
+//	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0);
+//	int index = INDEXV(i);
 //	if (fluxFlagBuffer[side + DIM * index]) return;
 	
 	calcFlux(

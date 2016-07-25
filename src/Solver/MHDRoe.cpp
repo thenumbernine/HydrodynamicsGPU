@@ -16,15 +16,21 @@ void MHDRoe::initKernels() {
 	Super::initKernels();
 
 	//all Euler and MHD systems also have a separate potential buffer...
-	calcEigenBasisKernel.setArg(3, selfgrav->potentialBuffer);
-	calcEigenBasisKernel.setArg(4, selfgrav->solidBuffer);
-	calcEigenBasisKernel.setArg(5, fluxBuffer);
-	calcEigenBasisKernel.setArg(6, fluxFlagBuffer);
-
+	
+	CLCommon::setArgs(calcEigenBasisKernel,
+		eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, selfgrav->potentialBuffer,
+		//selfgrav->solidBuffer,
+		fluxBuffer,
+		fluxFlagBuffer);
+	
 	//just like ordinary calcMHDFluxKernel -- and calls the ordinary
 	// -- but with an extra step to bail out of the associated fluxFlag is already set 
 	calcMHDFluxKernel = cl::Kernel(program, "calcMHDFlux");
-	CLCommon::setArgs(calcMHDFluxKernel, fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, deltaQTildeBuffer, 0, /*#ifdef SOLID: 0,*/ fluxFlagBuffer);
+	CLCommon::setArgs(calcMHDFluxKernel,
+		fluxBuffer, stateBuffer, eigenvaluesBuffer, eigenvectorsBuffer, deltaQTildeBuffer,
+		0, //dt
+		//selfgrav->solidBuffer,
+		fluxFlagBuffer);
 }
 
 void MHDRoe::createEquation() {
@@ -75,8 +81,8 @@ void MHDRoe::calcFlux(real dt) {
 
 void MHDRoe::step(real dt) {
 	Super::step(dt);
-	selfgrav->applyPotential(dt);
 #warning add this once you know 1D MHD is working without it
+	//selfgrav->applyPotential(dt);
 	//divfree->update();
 }
 

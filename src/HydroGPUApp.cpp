@@ -861,8 +861,8 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 			int dy = event.motion.yrel;
 			if (leftButtonDown && !guiDown) {
 				if (shiftDown) {
-					if (dy) {
-						camera->mouseZoom(dy);
+					if (dx || dy) {
+						camera->mouseZoom(dx, dy);
 					}
 				} else {
 					if (dx || dy) {

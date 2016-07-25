@@ -7,23 +7,24 @@ namespace Plot {
 
 CameraOrtho::CameraOrtho(HydroGPU::HydroGPUApp* app_)
 : Super(app_)
-, zoom(1.f)
+, zoom(1,1)
 {
 	if (!app->lua["camera"]["pos"].isNil()) {
 		app->lua["camera"]["pos"][1] >> pos(0);
 		app->lua["camera"]["pos"][2] >> pos(1);
 	}
-	app->lua["camera"]["zoom"] >> zoom;
+	app->lua["camera"]["zoom"] >> zoom(0);
+	zoom(1) = zoom(0);
 }
 
 void CameraOrtho::setupProjection() {
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(
-		pos(0) - app->aspectRatio * .5 / zoom, 
-		pos(0) + app->aspectRatio * .5 / zoom,
-		pos(1) - .5 / zoom,
-		pos(1) + .5 / zoom, -1., 1.);
+		pos(0) - app->aspectRatio * .5 / zoom(0), 
+		pos(0) + app->aspectRatio * .5 / zoom(0),
+		pos(1) - .5 / zoom(1),
+		pos(1) + .5 / zoom(1), -1., 1.);
 }
 
 void CameraOrtho::setupModelview() {
@@ -38,11 +39,10 @@ void CameraOrtho::mousePan(int dx, int dy) {
 	) / zoom;
 }
 
-void CameraOrtho::mouseZoom(int dz) {
-	float scale = exp((float)dz * -.03f);
-	zoom *= scale;
+void CameraOrtho::mouseZoom(int dx, int dy) {
+	zoom(0) *= exp(-dx * -.03);
+	zoom(1) *= exp(dy * -.03);
 }
-
 
 }
 }

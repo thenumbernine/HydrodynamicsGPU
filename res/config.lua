@@ -127,14 +127,14 @@ vectorField = {
 size = {32, 32, 32}
 vectorField.resolution = 16
 --]]
---[[ 2D
+-- [[ 2D
 size = {256, 256}
 --]]
--- [[ 1D
-size = {2048}
+--[[ 1D
+size = {128}
 --]]
 
---[[ Euler
+-- [[ Euler
 
 graph.variables = {'DENSITY', 'VELOCITY_X', 'PRESSURE'}	-- which variables to graph.  none = all.
 
@@ -203,7 +203,7 @@ then
 	end
 end
 
--- [[ MHD
+--[[ MHD
 
 --solverName = 'MHDBurgers'		-- a mathematically-flawed version works with Orszag-Tang and Brio-Wu, and some hydro problems too.  fixing the math error causes it to break.
 --solverName = 'MHDHLLC'		-- needs 2nd order support, suffers same as EulerHLLC
@@ -302,4 +302,4 @@ else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end
 
-cfl = cfl or .5/#size
+cfl = cfl or 1/#size

@@ -126,16 +126,23 @@ void Graph::display() {
 		Tensor::Vector<double,2> viewxmin = -viewxmax;
 		std::shared_ptr<CameraOrtho> cameraOrtho = std::dynamic_pointer_cast<CameraOrtho>(app->camera);
 		if (cameraOrtho) {
-			viewxmin /= cameraOrtho->zoom;
-			viewxmax /= cameraOrtho->zoom;
+			viewxmin(0) /= cameraOrtho->zoom(0);
+			viewxmin(1) /= cameraOrtho->zoom(1);
+			viewxmax(0) /= cameraOrtho->zoom(0);
+			viewxmax(1) /= cameraOrtho->zoom(1);
 			viewxmin += cameraOrtho->pos;
 			viewxmax += cameraOrtho->pos;
-		
-			double spacing = std::max( viewxmax(0) - viewxmin(0), viewxmax(1) - viewxmin(1) );
-			spacing = pow(10.,floor(log10(spacing))) * .1;
+
+			Tensor::Vector<double,2> spacing;
+			spacing(0) = viewxmax(0) - viewxmin(0);
+			spacing(0) = pow(10.,floor(log10(spacing(0)))) * .1;
+			
+			spacing(1) = viewxmax(1) - viewxmin(1);
+			spacing(1) = pow(10.,floor(log10(spacing(1)))) * .1;
+			
 			for (int i = 0; i < 2; ++i) {
-				viewxmin(i) = spacing * floor(viewxmin(i) / spacing);
-				viewxmax(i) = spacing * ceil(viewxmax(i) / spacing);
+				viewxmin(i) = spacing(i) * floor(viewxmin(i) / spacing(i));
+				viewxmax(i) = spacing(i) * ceil(viewxmax(i) / spacing(i));
 			}
 		
 			glBegin(GL_LINES);
@@ -145,11 +152,11 @@ void Graph::display() {
 			glVertex2f(viewxmin(0), 0);
 			glVertex2f(viewxmax(0), 0);
 			glColor3f(.25, .25, .25);
-			for (double x = viewxmin(0); x <= viewxmax(0); x += spacing) {
+			for (double x = viewxmin(0); x <= viewxmax(0); x += spacing(0)) {
 				glVertex2f(x, viewxmin(1));
 				glVertex2f(x, viewxmax(1));
 			}
-			for (double y = viewxmin(1); y < viewxmax(1); y += spacing) {
+			for (double y = viewxmin(1); y < viewxmax(1); y += spacing(1)) {
 				glVertex2f(viewxmin(0), y);
 				glVertex2f(viewxmax(0), y);
 			}

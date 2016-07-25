@@ -29,46 +29,43 @@ __kernel void convertToTex(
 	const __global real* state = stateBuffer + NUM_STATES * index;
 
 	real density = state[STATE_DENSITY];
+#ifdef MHD
+	real4 velocity = (real4)(state[STATE_MOMENTUM_X], state[STATE_MOMENTUM_Y], state[STATE_MOMENTUM_Z], 0.) / density;
+#else
+	real4 velocity = VELOCITY(state);	//hmm, maybe I should just simulate all 3 dimensions of the Euler equation even for 1D problems? 
+#endif
 	real energyTotal = state[STATE_ENERGY_TOTAL];
-	real velocitySq = state[STATE_MOMENTUM_X] * state[STATE_MOMENTUM_X];
-#if DIM > 1
-	velocitySq += state[STATE_MOMENTUM_Y] * state[STATE_MOMENTUM_Y];
-#endif
-#if DIM > 2
-	velocitySq += state[STATE_MOMENTUM_Z] * state[STATE_MOMENTUM_Z];
-#endif
-	velocitySq /= density * density;
-	real specificEnergyTotal = energyTotal / density;
-	real specificEnergyKinetic = .5 * velocitySq;
-	real specificEnergyPotential = gravityPotentialBuffer[index];
-	real specificEnergyInternal = specificEnergyTotal - specificEnergyKinetic - specificEnergyPotential;
+	real velocitySq = dot(velocity, velocity); 
+	real energyKinetic = .5 * density * velocitySq;
+	real energyPotential = density * gravityPotentialBuffer[index];
+	real energyInternal = energyTotal - energyKinetic - energyPotential;
 
 #ifdef MHD
 	real4 magneticField = (real4)(state[STATE_MAGNETIC_FIELD_X], state[STATE_MAGNETIC_FIELD_Y], state[STATE_MAGNETIC_FIELD_Z], 0.);
-	real magneticFieldMagn = length(magneticField);
+	real magneticFieldSq = dot(magneticField, magneticField);
+	real energyMagnetic = .5 * magneticFieldSq;
+	energyInternal -= energyMagnetic;
 #endif
 
 	real value;
 	switch (displayMethod) {
-	case DISPLAY_DENSITY:	//density
-		value = density;
-		break;
-	case DISPLAY_VELOCITY:	//velocity
-		value = sqrt(velocitySq);
-		break;
-	case DISPLAY_PRESSURE:	//pressure
-		value = (gamma - 1.) * specificEnergyInternal * density;
-		break;
-	case DISPLAY_POTENTIAL:
-		value = gravityPotentialBuffer[index];
-		break;
+	case DISPLAY_DENSITY: value = density; break;
+	case DISPLAY_VELOCITY_X: value = velocity.x; break; 
+	case DISPLAY_VELOCITY_Y: value = velocity.y; break; 
+	case DISPLAY_VELOCITY_Z: value = velocity.z; break; 
+	case DISPLAY_VELOCITY: value = sqrt(velocitySq); break;
+	case DISPLAY_PRESSURE: value = (gamma - 1.) * energyInternal; break;
+	case DISPLAY_POTENTIAL: value = gravityPotentialBuffer[index]; break;
+	case DISPLAY_ENERGY_INTERNAL: value = energyInternal; break;
+	case DISPLAY_ENERGY_KINETIC: value = energyKinetic; break;
+	case DISPLAY_ENERGY_TOTAL: value = energyTotal; break;
 #ifdef MHD
-	case DISPLAY_MAGNETIC_FIELD:
-		value = magneticFieldMagn;
-		break;
-	case DISPLAY_MAGNETIC_DIVERGENCE_BUFFER:
-		value = magneticFieldDivergenceBuffer[index];
-		break;
+	case DISPLAY_ENERGY_MAGNETIC: value = energyMagnetic; break;
+	case DISPLAY_MAGNETIC_FIELD_X: value = magneticField.x; break;
+	case DISPLAY_MAGNETIC_FIELD_Y: value = magneticField.y; break;
+	case DISPLAY_MAGNETIC_FIELD_Z: value = magneticField.z; break;
+	case DISPLAY_MAGNETIC_FIELD: value = sqrt(magneticFieldSq); break;
+	case DISPLAY_MAGNETIC_DIVERGENCE_BUFFER: value = magneticFieldDivergenceBuffer[index]; break;
 	case DISPLAY_MAGNETIC_DIVERGENCE_CALCULATED:
 	case DISPLAY_MAGNETIC_DIVERGENCE_ERROR:
 		{

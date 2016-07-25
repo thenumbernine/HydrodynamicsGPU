@@ -458,7 +458,7 @@ void Solver::boundary() {
 }
 
 real Solver::findMinTimestep() {
-	int reduceSize = getVolume();
+	int reduceSize = getVolume() * app->dim;
 	cl::Buffer dst = dtSwapBuffer;
 	cl::Buffer src = dtBuffer;
 

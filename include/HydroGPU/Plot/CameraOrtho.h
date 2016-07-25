@@ -13,7 +13,7 @@ struct CameraOrtho : public Camera {
 
 public:	//protected:	
 	Tensor::Vector<float,2> pos;
-	float zoom;
+	Tensor::Vector<float,2> zoom;
 
 public:
 	CameraOrtho(HydroGPU::HydroGPUApp* app_);
@@ -21,7 +21,7 @@ public:
 	virtual void setupProjection();
 	virtual void setupModelview();
 	virtual void mousePan(int dx, int dy);
-	virtual void mouseZoom(int dz);
+	virtual void mouseZoom(int dx, int dy);
 };
 
 }

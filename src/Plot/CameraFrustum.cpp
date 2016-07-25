@@ -43,8 +43,8 @@ void CameraFrustum::mousePan(int dx, int dy) {
 	angle /= Tensor::Quat<float>::length(angle);
 }
 
-void CameraFrustum::mouseZoom(int dz) {
-	dist *= (float)exp((float)dz * -.03f);
+void CameraFrustum::mouseZoom(int dx, int dy) {
+	dist *= (float)exp((float)dy * -.03f);
 }
 
 }

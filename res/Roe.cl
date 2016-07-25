@@ -59,6 +59,7 @@ __kernel void calcCellTimestep(
 #if 0
 		real dum = dx[side] / (max(fabs(minLambda), fabs(maxLambda)) + 1e-9);
 #endif
+		
 		dtBuffer[side + DIM * index] = dum;
 	}
 }
@@ -96,10 +97,10 @@ void calcDeltaQTildeSide(
 	int index = INDEXV(i);
 	int indexPrev = index - stepsize[side];
 	int interfaceIndex = side + DIM * index;
-			
+	
 	const __global real* eigenvectors = eigenvectorsBuffer + EIGEN_TRANSFORM_STRUCT_SIZE * interfaceIndex;
 	__global real* deltaQTilde = deltaQTildeBuffer + EIGEN_SPACE_DIM * interfaceIndex;
-
+	
 	real stateL[NUM_STATES];
 	real stateR[NUM_STATES];
 	for (int i = 0; i < NUM_STATES; ++i) {
@@ -124,6 +125,7 @@ void calcDeltaQTildeSide(
 
 #ifdef ROE_EIGENFIELD_TRANSFORM_SEPARATE
 	//calculating this twice because leftEigenvectorTransform could use the state variables to construct the field information on the fly
+	//...but would it be the correct state information?
 
 	real stateLTilde[EIGEN_SPACE_DIM];
 	leftEigenvectorTransform(stateLTilde, eigenvectors, stateL, side);

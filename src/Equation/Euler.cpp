@@ -15,7 +15,13 @@ Euler::Euler(HydroGPUApp* app_)
 	displayVariables = std::vector<std::string>{
 		"DENSITY",
 		"VELOCITY",
+		"VELOCITY_X",
+		"VELOCITY_Y",
+		"VELOCITY_Z",
 		"PRESSURE",
+		"ENERGY_INTERNAL",
+		"ENERGY_KINETIC",
+		"ENERGY_TOTAL",
 		"POTENTIAL"
 	};
 
