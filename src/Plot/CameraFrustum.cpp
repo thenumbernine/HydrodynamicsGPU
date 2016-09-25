@@ -1,6 +1,6 @@
 #include "HydroGPU/Plot/CameraFrustum.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include <OpenGL/gl.h>
+#include "Common/gl.h"
 
 namespace HydroGPU {
 namespace Plot {

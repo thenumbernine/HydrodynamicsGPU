@@ -7,6 +7,8 @@
 #include "Tensor/Tensor.h"
 #include "CLCommon/CLCommon.h"
 #include "HydroGPU/Shared/Common.h"	//real4
+#include "Common/gl.h"
+
 #include <map>
 
 namespace ImGuiCommon {
@@ -143,7 +145,7 @@ inline std::ostream& operator<<(std::ostream& o, cl_int4 v) {
 inline std::ostream& operator<<(std::ostream& o, cl::NDRange &range) {
 	o << "(";
 	const char *comma = "";
-	for (int i = 0; i < range.dimensions(); ++i) {
+	for (int i = 0; i < (int)range.dimensions(); ++i) {
 		o << comma << range[i];
 		comma = ", ";
 	}

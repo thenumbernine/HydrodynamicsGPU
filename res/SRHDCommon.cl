@@ -1,3 +1,5 @@
+//note that, unlike src/Equation/Euler.cpp, res/EulerMHDCommon.cl, res/EulerRoe.cl, this file has the grid dimension and the equation dimension tied together
+
 #include "HydroGPU/Shared/Common.h"
 
 //velocity

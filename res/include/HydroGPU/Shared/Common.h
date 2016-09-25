@@ -13,7 +13,11 @@ typedef double4 real4;
 typedef double8 real8;
 typedef double16 real16;
 #else
+#ifdef PLATFORM_osx
 #include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
 typedef cl_double2 real2;
 typedef cl_double4 real4;
 typedef cl_double8 real8;

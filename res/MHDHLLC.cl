@@ -177,7 +177,7 @@ void calcFluxSide(
 	//flux
 
 	//real sl = eigenvalues[0];
-	//real sr = eigenvalues[DIM+1];
+	//real sr = eigenvalues[EULER_DIM+1];
 	real sl = min(eigenvaluesMinL, eigenvaluesMin);
 	real sr = max(eigenvaluesMaxR, eigenvaluesMax);
 
@@ -325,7 +325,7 @@ or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, ch
 		}
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
-		flux[i] -= .5f * deltaFlux * (theta + phi * (epsilon - theta) / (float)DIM);
+		flux[i] -= .5f * deltaFlux * (theta + phi * (epsilon - theta));
 	}
 #endif
 
@@ -396,5 +396,3 @@ __kernel void calcFluxDeriv(
 		}
 	}
 }
-
-

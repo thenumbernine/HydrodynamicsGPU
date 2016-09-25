@@ -2,7 +2,7 @@
 
 #include "Shader/Program.h"
 #include "Tensor/Tensor.h"
-#include <OpenGL/gl.h>
+#include "Common/gl.h"
 #include <memory>
 
 namespace HydroGPU {

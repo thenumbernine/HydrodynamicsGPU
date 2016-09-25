@@ -1,7 +1,11 @@
 #pragma once
 
-#include <OpenGL/gl.h>
+#include "Common/gl.h"
+#ifdef PLATFORM_osx
 #include <OpenCL/cl.hpp>
+#else
+#include <CL/cl.hpp>
+#endif
 #include <memory>
 #include <string>
 

@@ -51,10 +51,10 @@ void Graph::display() {
 			glDepthMask(GL_FALSE);
 		}
 	
-		for (int i = 0; i < variables.size(); ++i) {
+		for (int i = 0; i < (int)variables.size(); ++i) {
 			const Variable& var = variables[i];
 			if (!var.enabled) continue;
-			if (var.alpha < 1 != drawAlpha) continue;
+			if ((var.alpha < 1) != drawAlpha) continue;
 		
 			int step = var.step;
 			if (step < 1) step = 1;

@@ -1,6 +1,10 @@
 #pragma once
 
+#ifdef PLATFORM_osx
 #include <OpenCL/cl.hpp>
+#else
+#include <CL/cl.hpp>
+#endif
 
 namespace HydroGPU {
 namespace Solver {

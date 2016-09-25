@@ -142,7 +142,7 @@ std::cout << s;
 
 	try {
 		program.build({device}, "-I include");// -Werror -cl-fast-relaxed-math");
-	} catch (cl::Error &err) {
+	} catch (std::exception& err) {	//cl::Error
 		throw Common::Exception() 
 			<< "failed to build program executable!\n"
 			<< program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
@@ -446,7 +446,7 @@ void Solver::boundary() {
 		for (int j = 0; j < numStates(); ++j) {
 			for (int minmax = 0; minmax < 2; ++minmax) {
 				int boundaryKernelIndex = equation->stateGetBoundaryKernelForBoundaryMethod(i, j, minmax);
-				if (boundaryKernelIndex < 0 || boundaryKernelIndex >= boundaryKernels.size()) continue;
+				if (boundaryKernelIndex < 0 || boundaryKernelIndex >= (int)boundaryKernels.size()) continue;
 				cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i][minmax];
 				kernel.setArg(0, stateBuffer);
 				kernel.setArg(1, numStates());
@@ -566,7 +566,7 @@ void Solver::save() {
 	// how about a plane per 3rd dim, and separate save files per variable?
 	std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::Vector<int,2>(app->size.s[0], app->size.s[1]), nullptr, 1, app->size.s[2]);
 		
-	for (int channel = 0; channel < channelNames.size(); ++channel) {
+	for (int channel = 0; channel < (int)channelNames.size(); ++channel) {
 		for (int z = 0; z < app->size.s[2]; ++z) {	
 			for (int y = 0; y < app->size.s[1]; ++y) {
 				for (int x = 0; x < app->size.s[0]; ++x) {

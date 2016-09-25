@@ -67,6 +67,7 @@ function buildStateEuler(args)
 		density * velocityY, 
 		density * velocityZ, 
 		-- magnetic field
+		-- TODO put this last, so I can keep tacking crap on the end without readjusting indexes 
 		magneticFieldX,
 		magneticFieldY,
 		magneticFieldZ, 
@@ -74,6 +75,7 @@ function buildStateEuler(args)
 		energyTotal,
 		potentialEnergy,
 		-- solid or not
+		-- TODO get rid of this? solid sucks at the moment.
 		solid	
 end
 

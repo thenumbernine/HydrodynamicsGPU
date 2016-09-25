@@ -84,7 +84,7 @@ void SRHDRoe::boundary() {
 		for (int j = 0; j < numStates(); ++j) {
 			for (int minmax = 0; minmax < 2; ++minmax) {
 				int boundaryKernelIndex = equation->stateGetBoundaryKernelForBoundaryMethod(i, j, minmax);
-				if (boundaryKernelIndex < 0 || boundaryKernelIndex >= boundaryKernels.size()) continue;
+				if (boundaryKernelIndex < 0 || boundaryKernelIndex >= (int)boundaryKernels.size()) continue;
 				cl::Kernel& kernel = boundaryKernels[boundaryKernelIndex][i][minmax];
 				kernel.setArg(0, primitiveBuffer);
 				kernel.setArg(1, numStates());

@@ -37,11 +37,14 @@
 #include "Common/Macros.h"
 
 #include <SDL2/SDL.h>
+#include "Common/gl.h"
+#ifdef PLATFORM_osx
 #include <OpenCL/cl.hpp>
-#include <OpenGL/gl.h>
-#include <OpenGL/OpenGL.h>
+#else
+#include <CL/cl.hpp>
+#endif
 #include <iostream>
-
+#include <algorithm>
 
 static std::vector<const char*> getCStrsFromStrVector(const std::vector<std::string>& v) {
 	std::vector<const char*> result;
@@ -121,8 +124,8 @@ HydroGPUApp::HydroGPUApp()
 }
 
 int HydroGPUApp::main(const std::vector<std::string>& args) {
-	for (int i = 1; i < args.size(); ++i) {
-		if (i < args.size()-1 && args[i] == "-e") {
+	for (int i = 1; i < (int)args.size(); ++i) {
+		if (i < (int)args.size()-1 && args[i] == "-e") {
 			configString = args[++i];
 		} else {
 			configFilename = args[++i];
@@ -259,7 +262,7 @@ void HydroGPUApp::init() {
 			int ci = (int)f;
 			int ci2 = (ci + 1) % numberof(colors);
 			float s = f - (float)ci;
-			if (ci >= numberof(colors)) {
+			if (ci >= (int)numberof(colors)) {
 				ci = numberof(colors)-1;
 				s = 0;
 			}
@@ -309,16 +312,16 @@ void HydroGPUApp::init() {
 
 	//find the index of the equation associated with the selected solver (for the combo box)
 	
-	for (equationIndex = 0; equationIndex < solverGensForEqns.size(); ++equationIndex) {
-		if (solver->equation->name() == solverGensForEqns[equationIndex].name) break;
+	for (equationIndex = 0; equationIndex < (int)solverGensForEqns.size(); ++equationIndex) {
+		if (solver->getEquation()->name() == solverGensForEqns[equationIndex].name) break;
 	}
-	if (equationIndex == solverGensForEqns.size()) equationIndex = 0;
+	if (equationIndex == (int)solverGensForEqns.size()) equationIndex = 0;
 
 	//find the solver index in the list of solvers for this equation
-	for (solverForEqnIndex = 0; solverForEqnIndex < solverGensForEqns[equationIndex].generators.size(); ++solverForEqnIndex) {
+	for (solverForEqnIndex = 0; solverForEqnIndex < (int)solverGensForEqns[equationIndex].generators.size(); ++solverForEqnIndex) {
 		if (solver->name() == solverGensForEqns[equationIndex].generators[solverForEqnIndex].name) break;
 	}
-	if (solverForEqnIndex == solverGensForEqns[equationIndex].generators.size()) solverForEqnIndex = 0;
+	if (solverForEqnIndex == (int)solverGensForEqns[equationIndex].generators.size()) solverForEqnIndex = 0;
 
 	{
 		std::string initCondName;
@@ -341,11 +344,11 @@ void HydroGPUApp::init() {
 		std::string variableName;
 		if ((lua["vectorField"]["variable"] >> variableName).good()) {
 			vectorFieldVariable = std::find(
-				solver->equation->vectorFieldVars.begin(),
-				solver->equation->vectorFieldVars.end(),
+				solver->getEquation()->vectorFieldVars.begin(),
+				solver->getEquation()->vectorFieldVars.end(),
 				variableName)
-				- solver->equation->vectorFieldVars.begin();
-			if (vectorFieldVariable == solver->equation->vectorFieldVars.size()) {
+				- solver->getEquation()->vectorFieldVars.begin();
+			if (vectorFieldVariable == (int)solver->getEquation()->vectorFieldVars.size()) {
 				vectorFieldVariable = 0;
 				std::cerr << "couldn't interpret display method " << variableName << std::endl;
 			}
@@ -391,14 +394,14 @@ void HydroGPUApp::init() {
 			}
 
 			if (graphVariableNames.empty()) {
-				graphVariableNames = solver->equation->displayVariables;
+				graphVariableNames = solver->getEquation()->displayVariables;
 			}
 
 			//make a mapping from names to indexes
-			const std::vector<std::string>& displayVariables = solver->equation->displayVariables;
+			const std::vector<std::string>& displayVariables = solver->getEquation()->displayVariables;
 			for (std::vector<std::string>::const_iterator i = displayVariables.begin(); i != displayVariables.end(); ++i) {
 				int displayVarIndex = i - displayVariables.begin();
-				if (displayVarIndex >= 0 && displayVarIndex < displayVariables.size()) {
+				if (displayVarIndex >= 0 && displayVarIndex < (int)displayVariables.size()) {
 					graph->variables[displayVarIndex].enabled = true;
 				}
 			}
@@ -417,11 +420,11 @@ void HydroGPUApp::init() {
 			std::string variableName;
 			if ((lua["heatMap"]["variable"] >> variableName).good()) {
 				heatMap->variable = std::find(
-					solver->equation->displayVariables.begin(),
-					solver->equation->displayVariables.end(),
+					solver->getEquation()->displayVariables.begin(),
+					solver->getEquation()->displayVariables.end(),
 					variableName)
-					- solver->equation->displayVariables.begin();
-				if (heatMap->variable == solver->equation->displayVariables.size()) {
+					- solver->getEquation()->displayVariables.begin();
+				if (heatMap->variable == (int)solver->getEquation()->displayVariables.size()) {
 					heatMap->variable = 0;
 					std::cerr << "couldn't interpret display method " << variableName << std::endl;
 				}
@@ -442,11 +445,11 @@ void HydroGPUApp::init() {
 			std::string variableName;
 			if ((lua["iso3D"]["variable"] >> variableName).good()) {
 				iso3D->variable = std::find(
-					solver->equation->displayVariables.begin(),
-					solver->equation->displayVariables.end(),
+					solver->getEquation()->displayVariables.begin(),
+					solver->getEquation()->displayVariables.end(),
 					variableName)
-					- solver->equation->displayVariables.begin();
-				if (iso3D->variable == solver->equation->displayVariables.size()) {
+					- solver->getEquation()->displayVariables.begin();
+				if (iso3D->variable == (int)solver->getEquation()->displayVariables.size()) {
 					iso3D->variable = 0;
 					std::cerr << "couldn't interpret display method " << variableName << std::endl;
 				}
@@ -457,12 +460,13 @@ void HydroGPUApp::init() {
 	for (int i = 0; i < 3; ++i) {
 		for (int minmax = 0; minmax < 2; ++minmax) {
 			if (boundaryMethodNames[i][minmax].empty()) continue;
-			boundaryMethods(i,minmax) = std::find(
-				solver->equation->boundaryMethods.begin(),
-				solver->equation->boundaryMethods.end(),
-				boundaryMethodNames[i][minmax])
-				- solver->equation->boundaryMethods.begin();
-			if (boundaryMethods(i,minmax) == solver->equation->boundaryMethods.size()) {
+			std::vector<std::string>& equationBoundaryMethods = solver->getEquation()->boundaryMethods;
+			std::vector<std::string>::iterator iter = std::find(equationBoundaryMethods.begin(), equationBoundaryMethods.end(), boundaryMethodNames[i][minmax]);
+			boundaryMethods(i,minmax) = 
+				(iter == equationBoundaryMethods.end()) 
+				? (int)equationBoundaryMethods.size() 
+				: (iter - equationBoundaryMethods.begin());
+			if (boundaryMethods(i,minmax) == (int)equationBoundaryMethods.size()) {
 				//special case
 				if (boundaryMethodNames[i][minmax] == "NONE") {
 					boundaryMethods(i,minmax) = -1;
@@ -637,7 +641,7 @@ PROFILE_BEGIN_FRAME()
 		}
 
 		if (ImGui::CollapsingHeader("boundaries")) {
-			std::vector<const char*> methodsCStrs = getCStrsFromStrVector(solver->equation->boundaryMethods);
+			std::vector<const char*> methodsCStrs = getCStrsFromStrVector(solver->getEquation()->boundaryMethods);
 			methodsCStrs.insert(methodsCStrs.begin(), "NONE");
 			for (int i = 0; i < dim; ++i) {
 				for (int minmax = 0; minmax < 2; ++minmax) {
@@ -655,7 +659,7 @@ PROFILE_BEGIN_FRAME()
 				ImGui::PushID("heatMap");
 				ImGui::Checkbox("show", &showHeatMap);
 
-				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->equation->displayVariables);
+				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->getEquation()->displayVariables);
 				ImGui::Combo("variable ", &heatMap->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size());
 
 				ImGui::SliderFloat("scale", &heatMap->scale, 1e-10, 1e+10, "%.16f", 10);
@@ -672,7 +676,7 @@ PROFILE_BEGIN_FRAME()
 				ImGui::PushID("isosurfaces");
 				ImGui::Checkbox("show ", &showIso3D);
 
-				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->equation->displayVariables);
+				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->getEquation()->displayVariables);
 				ImGui::Combo("variable", &iso3D->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size()); 
 
 				ImGui::SliderFloat("scale", &iso3D->scale, 1e-10, 1e+10, "%.16f", 10); 
@@ -746,7 +750,7 @@ PROFILE_BEGIN_FRAME()
 
 		if (ImGui::CollapsingHeader("vector field")) {
 			ImGui::PushID("vector field");
-			std::vector<const char*> vectorFieldVarsCStrs = getCStrsFromStrVector(solver->equation->vectorFieldVars);
+			std::vector<const char*> vectorFieldVarsCStrs = getCStrsFromStrVector(solver->getEquation()->vectorFieldVars);
 			ImGui::Combo("variable", &vectorField->variable, vectorFieldVarsCStrs.data(), vectorFieldVarsCStrs.size()); 
 			
 			ImGui::Checkbox("show", &showVectorField); // velocity field on/off
@@ -938,14 +942,14 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 				}
 			} else if (event.key.keysym.sym == SDLK_d) {
 				if (shiftDown) {
-					if (heatMap) heatMap->variable = (heatMap->variable + solver->equation->displayVariables.size() - 1) % solver->equation->displayVariables.size();
-					if (iso3D) iso3D->variable = (iso3D->variable + solver->equation->displayVariables.size() - 1) % solver->equation->displayVariables.size();
+					if (heatMap) heatMap->variable = (heatMap->variable + solver->getEquation()->displayVariables.size() - 1) % solver->getEquation()->displayVariables.size();
+					if (iso3D) iso3D->variable = (iso3D->variable + solver->getEquation()->displayVariables.size() - 1) % solver->getEquation()->displayVariables.size();
 				} else {
-					if (heatMap) heatMap->variable = (heatMap->variable + 1) % solver->equation->displayVariables.size();
-					if (iso3D) iso3D->variable = (iso3D->variable + 1) % solver->equation->displayVariables.size();
+					if (heatMap) heatMap->variable = (heatMap->variable + 1) % solver->getEquation()->displayVariables.size();
+					if (iso3D) iso3D->variable = (iso3D->variable + 1) % solver->getEquation()->displayVariables.size();
 				}
-				if (heatMap) std::cout << "heatMap->variable " << solver->equation->displayVariables[heatMap->variable] << std::endl;
-				if (iso3D) std::cout << "iso3D->variable " << solver->equation->displayVariables[iso3D->variable] << std::endl;
+				if (heatMap) std::cout << "heatMap->variable " << solver->getEquation()->displayVariables[heatMap->variable] << std::endl;
+				if (iso3D) std::cout << "iso3D->variable " << solver->getEquation()->displayVariables[iso3D->variable] << std::endl;
 			} else if (event.key.keysym.sym == SDLK_SPACE) {
 				if (doUpdate) {
 					std::cout << "stopping..." << std::endl;

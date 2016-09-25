@@ -127,14 +127,14 @@ vectorField = {
 size = {32, 32, 32}
 vectorField.resolution = 16
 --]]
--- [[ 2D
+--[[ 2D
 size = {256, 256}
 --]]
---[[ 1D
-size = {128}
+-- [[ 1D
+size = {1024}
 --]]
 
--- [[ Euler
+--[[ Euler
 
 graph.variables = {'DENSITY', 'VELOCITY_X', 'PRESSURE'}	-- which variables to graph.  none = all.
 
@@ -243,12 +243,12 @@ solverName = 'ADM2DSpherical'	-- not yet
 -- I want to get rid of this one.  and the 1D ADM as well -- just one Bona-Masso ADM implementation is enough (I think) unless I should have separate ones for shift/less and mass/less
 --]]
 
---[[ ADM3D
+-- [[ ADM3D
 solverName = 'ADM3DRoe'
-		
+
 --size = {1024}
---size = {256, 256}
-size = {32, 32, 32}
+size = {256, 256}
+--size = {32, 32, 32}
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=false}
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well
 initConds['NR Alcubierre Warp Bubble'].setup()	-- ...needs shift vector support

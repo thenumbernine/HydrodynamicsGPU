@@ -105,11 +105,11 @@ void calcEigenvaluesSide(
 
 	eigenvalues[0] = sl;
 	eigenvalues[1] = velocity.x;
-#if DIM > 1
+#if EULER_DIM > 1
 	eigenvalues[2] = velocity.x;
-#if DIM > 2
-	eigenvalues[3] = velocity.x;
 #endif
+#if EULER_DIM > 2
+	eigenvalues[3] = velocity.x;
 #endif
 	eigenvalues[DIM+1] = sr;
 }
@@ -252,24 +252,24 @@ void calcFluxSide(
 	real fluxL[NUM_STATES];
 	fluxL[0] = densityL * velocityL.x;
 	fluxL[1] = densityL * velocityL.x * velocityL.x +  pressureL;
-#if DIM > 1
+#if EULER_DIM > 1
 	fluxL[2] = densityL * velocityL.y * velocityL.x;
 #endif
-#if DIM > 2
+#if EULER_DIM > 2
 	fluxL[3] = densityL * velocityL.z * velocityL.x;
 #endif
-	fluxL[DIM+1] = densityL * enthalpyTotalL * velocityL.x;
+	fluxL[EULER_DIM+1] = densityL * enthalpyTotalL * velocityL.x;
 	
 	real fluxR[NUM_STATES];
 	fluxR[0] = densityR * velocityR.x;
 	fluxR[1] = densityR * velocityR.x * velocityR.x + pressureR;
-#if DIM > 1
+#if EULER_DIM > 1
 	fluxR[2] = densityR * velocityR.y * velocityR.x;
 #endif
-#if DIM > 2
+#if EULER_DIM > 2
 	fluxR[3] = densityR * velocityR.z * velocityR.x;
 #endif
-	fluxR[DIM+1] = densityR * enthalpyTotalR * velocityR.x;	
+	fluxR[EULER_DIM+1] = densityR * enthalpyTotalR * velocityR.x;	
 
 	//HLL-specific
 	if (0. <= sl) {
@@ -330,7 +330,7 @@ or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, ch
 		}
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
-		flux[i] -= .5 * deltaFlux * (theta + phi * (epsilon - theta) / (real)DIM);
+		flux[i] -= .5 * deltaFlux * (theta + phi * (epsilon - theta));
 	}
 #endif
 

@@ -3,24 +3,25 @@
 #include "HydroGPU/Solver/SelfGravitation.h"
 #include "HydroGPU/Integrator/Integrator.h"
 #include "HydroGPU/Shared/Common.h"	//real
+#include "HydroGPU/Solver/ISolver.h"
 #include "Profiler/Stat.h"
 #include "Tensor/Vector.h"
+#ifdef PLATFORM_osx
 #include <OpenCL/cl.hpp>
+#else
+#include <CL/cl.hpp>
+#endif
 #include <vector>
 #include <string>
 #include <memory>
 
 namespace HydroGPU {
-
 struct HydroGPUApp;
-
-namespace Equation {
-struct Equation;
-}
-
 namespace Solver {
 
-struct Solver {
+struct Solver : public ISolver {
+	typedef ISolver Super;
+	
 	friend struct HydroGPU::Integrator::Integrator;
 	friend struct HydroGPU::Equation::Equation;
 
@@ -71,16 +72,20 @@ public:	//protected:
 	cl::NDRange offsetNd;
 
 	int frame;
+	std::shared_ptr<Equation::Equation> equation;
 
 public:
-	std::shared_ptr<Equation::Equation> equation;
 	
 	Solver(HydroGPUApp* app);
 	virtual ~Solver() {}
 
 	virtual void init();	//...because I'm using virtual function calls in here
+	
 protected:
 	virtual void createEquation() {}
+public:
+	virtual std::shared_ptr<Equation::Equation> getEquation() const { return equation; }
+protected:
 	virtual std::vector<std::string> getProgramSources();
 	virtual void initBuffers();
 	virtual void initKernels();
@@ -154,9 +159,6 @@ public:
 		Solver* solver;
 		size_t totalAlloc;
 	} cl;
-
-public:
-	virtual std::string name() const = 0;
 };
 
 }

@@ -1,0 +1,5 @@
+distName='HydroGPU'
+distType='app'
+depends:append{'../Common', '../GLApp', '../CLCommon', '../Tensor', '../Profiler', '../Image', '../Shader', '../LuaCxx', '../ImGuiCommon'}
+include:insert'res/include'
+cppver = 'c++14'

@@ -33,9 +33,9 @@ __kernel void calcCellTimestep(
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
 #endif
 	) {
 		dtBuffer[index] = INFINITY;
@@ -98,9 +98,9 @@ __kernel void calcVelocityFlux(
 	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 1
-#endif
 #endif
 	) {
 		return;
@@ -145,7 +145,7 @@ __kernel void calcVelocityFlux(
 			//2nd order
 			real phi = slopeLimiter(stateSlopeRatio);
 			real delta = phi * deltaState;
-			flux += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side])) / (float)DIM;
+			flux += delta * .5f * fabs(interfaceVelocity) * (1.f - fabs(interfaceVelocity * dt_dx[side]));
 			
 			fluxBuffer[j + NUM_FLUX_STATES * (side + DIM * index)] = flux;
 		}
@@ -216,9 +216,9 @@ __kernel void calcMagneticFieldFlux(
 	if (i.x < 2 || i.x >= SIZE_X - 1 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 1 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 1
-#endif
 #endif
 	) {
 		return;
@@ -271,7 +271,7 @@ __kernel void calcMagneticFieldFlux(
 			//2nd order
 			real phi = slopeLimiter(stateSlopeRatio);
 			real delta = phi * deltaState;
-			flux += delta * .5f * fabs(interfaceMagneticField) * (1.f - fabs(interfaceMagneticField * dt_dx[side])) / (float)DIM;
+			flux += delta * .5f * fabs(interfaceMagneticField) * (1.f - fabs(interfaceMagneticField * dt_dx[side]));
 			
 			fluxBuffer[j + NUM_FLUX_STATES * (side + DIM * index)] = flux;
 		}
@@ -289,9 +289,9 @@ __kernel void calcFluxDeriv(
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
 #endif
 	) {
 		return;
@@ -320,9 +320,9 @@ __kernel void computePressure(
 	if (i.x < 1 || i.x >= SIZE_X - 1 
 #if DIM > 1
 		|| i.y < 1 || i.y >= SIZE_Y - 1 
+#endif
 #if DIM > 2
 		|| i.z < 1 || i.z >= SIZE_Z - 1
-#endif
 #endif
 	) {
 		return;
@@ -366,9 +366,9 @@ __kernel void diffuseMomentum(
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
 #endif
 	) {
 		return;
@@ -398,9 +398,9 @@ __kernel void diffuseWork(
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
 #endif
 	) {
 		return;
@@ -424,4 +424,3 @@ __kernel void diffuseWork(
 		deriv[STATE_ENERGY_TOTAL] -= deltaWork / dx[side];
 	}
 }
-

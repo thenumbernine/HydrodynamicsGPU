@@ -1,23 +1,18 @@
 #pragma once
 
-#include "HydroGPU/Equation/Equation.h"
-#include "HydroGPU/Equation/SelfGravitationBehavior.h"
-#include <vector>
-#include <string>
+#include "HydroGPU/Equation/Euler.h"
 
 namespace HydroGPU {
 struct HydroGPUApp;
 namespace Equation {
 
-struct MHD : public SelfGravitationBehavior<Equation> {
-	typedef SelfGravitationBehavior<Equation> Super;
+struct MHD : public Euler {
+	typedef Euler Super;
 	MHD(HydroGPUApp* app_);
+	virtual std::string name() const { return "MHD"; } 
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);
-	virtual std::string name() const { return "MHD"; } 
-
 	virtual void setupConvertToTexKernelArgs(cl::Kernel convertToTexKernel, Solver::Solver* solver);
-	virtual void setupUpdateVectorFieldKernelArgs(cl::Kernel updateVectorFieldKernel, Solver::Solver* solver);
 };
 
 }

@@ -1,7 +1,11 @@
 #pragma once
 
 #include "HydroGPU/Shared/Common.h"	//cl shared header
+#ifdef PLATFORM_osx
 #include <OpenCL/cl.hpp>
+#else
+#include <CL/cl.hpp>
+#endif
 
 namespace HydroGPU {
 namespace Solver {

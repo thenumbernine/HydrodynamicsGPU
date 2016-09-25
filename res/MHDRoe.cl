@@ -448,10 +448,11 @@ __kernel void calcEigenBasis(
 	__global real* fluxBuffer,
 	__global char* fluxFlagBuffer)
 {
-	int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0.);
-	int index = INDEXV(i);
-	const __global real *U = stateBuffer + NUM_STATES * index;
-	
+	//int4 i = (int4)(get_global_id(0), get_global_id(1), get_global_id(2), 0.);
+	//int index = INDEXV(i);
+	//const __global real *U = stateBuffer + NUM_STATES * index;
+	//if flux flag then something
+
 	for (int side = 0; side < DIM; ++side) {
 		calcEigenBasisSide(eigenvaluesBuffer, eigenvectorsBuffer, stateBuffer, potentialBuffer, 
 #ifdef SOLID

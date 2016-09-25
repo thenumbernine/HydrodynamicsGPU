@@ -51,8 +51,12 @@ __kernel void convertToTex(
 	switch (displayMethod) {
 	case DISPLAY_DENSITY: value = density; break;
 	case DISPLAY_VELOCITY_X: value = velocity.x; break; 
+#if EULER_DIM > 1
 	case DISPLAY_VELOCITY_Y: value = velocity.y; break; 
+#endif
+#if EULER_DIM > 2
 	case DISPLAY_VELOCITY_Z: value = velocity.z; break; 
+#endif
 	case DISPLAY_VELOCITY: value = sqrt(velocitySq); break;
 	case DISPLAY_PRESSURE: value = (gamma - 1.) * energyInternal; break;
 	case DISPLAY_POTENTIAL: value = gravityPotentialBuffer[index]; break;
@@ -144,10 +148,10 @@ __kernel void updateVectorField(
 	case VECTORFIELD_VELOCITY:
 	case VECTORFIELD_MOMENTUM:
 		field.x = state[STATE_MOMENTUM_X];
-#if DIM > 1
+#if EULER_DIM > 1
 		field.y = state[STATE_MOMENTUM_Y];
 #endif
-#if DIM > 2
+#if EULER_DIM > 2
 		field.z = state[STATE_MOMENTUM_Z];
 #endif
 		if (displayMethod == VECTORFIELD_MOMENTUM) field *= 1. / state[STATE_DENSITY];
@@ -172,21 +176,21 @@ __kernel void updateVectorField(
 			field = -grad;
 		}
 		break;
-#if DIM == 3
+#if EULER_DIM == 3
 	case VECTORFIELD_VORTICITY:
 		{
 			int4 ixL = si; ixL.x = (ixL.x + SIZE_X - 1) % SIZE_X;
-			real* stateXL = stateBuffer + NUM_STATES * INDEXV(ixL);
+			const __global real* stateXL = stateBuffer + NUM_STATES * INDEXV(ixL);
 			int4 ixR = si; ixR.x = (ixR.x + 1) % SIZE_X;
-			real* stateXR = stateBuffer + NUM_STATES * INDEXV(ixR);
+			const __global real* stateXR = stateBuffer + NUM_STATES * INDEXV(ixR);
 			int4 iyL = si; iyL.y = (iyL.y + SIZE_Y - 1) % SIZE_Y;
-			real* stateYL = stateBuffer + NUM_STATES * INDEXV(iyL);
+			const __global real* stateYL = stateBuffer + NUM_STATES * INDEXV(iyL);
 			int4 iyR = si; iyR.y = (iyR.y + 1) % SIZE_Y;
-			real* stateYR = stateBuffer + NUM_STATES * INDEXV(iyR);
+			const __global real* stateYR = stateBuffer + NUM_STATES * INDEXV(iyR);
 			int4 izL = si; izL.z = (izL.z + SIZE_Z - 1) % SIZE_Z;
-			real* stateZL = stateBuffer + NUM_STATES * INDEXV(izL);
+			const __global real* stateZL = stateBuffer + NUM_STATES * INDEXV(izL);
 			int4 izR = si; izR.z = (izR.z + 1) % SIZE_Z;
-			real* stateZR = stateBuffer + NUM_STATES * INDEXV(izR);
+			const __global real* stateZR = stateBuffer + NUM_STATES * INDEXV(izR);
 			
 			// d/dy velocity.z - d/dz velocity.y
 			field.x = (stateYR[STATE_MOMENTUM_Z] / stateYR[STATE_DENSITY] - stateYL[STATE_MOMENTUM_Z] / stateYL[STATE_DENSITY]) / (2. * DX)

@@ -1,7 +1,11 @@
 #pragma once
 
+#include "Common/gl.h"
+#ifdef PLATFORM_osx
 #include <OpenCL/cl.hpp>
-#include <OpenGL/gl.h>
+#else
+#include <CL/cl.hpp>
+#endif
 #include <memory>
 
 namespace HydroGPU {

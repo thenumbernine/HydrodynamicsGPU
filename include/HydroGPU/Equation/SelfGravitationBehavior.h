@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HydroGPU/Boundary/Boundary.h"
+#include "HydroGPU/HydroGPUApp.h"
 #include "Common/Exception.h"
 
 namespace HydroGPU {

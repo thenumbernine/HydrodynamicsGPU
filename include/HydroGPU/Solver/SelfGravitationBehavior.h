@@ -52,7 +52,7 @@ protected:
 	}
 
 	struct Converter : public Super::Converter {
-		typedef typename Super::Converter Super;
+		typedef typename SelfGravitationBehavior::Super::Converter Super;
 		std::vector<real> potentialVec;
 
 		//I'm going to put solid flag buffers here for now because I'm lazy

@@ -1,7 +1,11 @@
 #pragma once
 
 #include "HydroGPU/Shared/Common.h"	//real
+#ifdef PLATFORM_osx
 #include <OpenCL/cl.hpp>
+#else
+#include <CL/cl.hpp>
+#endif
 #include <vector>
 #include <string>
 

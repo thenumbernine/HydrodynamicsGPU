@@ -47,7 +47,7 @@ void SelfGravitation::resetState(
 	//if using gravity then use the density field as an initial guess before poisson relaxiation
 	//NOTICE this assumes the density of the selfgrav is in the first place of the state vec
 	if (solver->app->useGravity) {
-		for (size_t i = 0; i < volume; ++i) {
+		for (int i = 0; i < volume; ++i) {
 			potentialVec[i] = -stateVec[0 + solver->numStates() * i];
 		}
 	}
@@ -130,7 +130,7 @@ void SelfGravitation::potentialBoundary() {
 	for (int i = 0; i < solver->app->dim; ++i) {
 		for (int minmax = 0; minmax < 2; ++minmax) {
 			int boundaryKernelIndex = gravEqn->gravityGetBoundaryKernelForBoundaryMethod(i, minmax);
-			if (boundaryKernelIndex < 0 || boundaryKernelIndex >= solver->boundaryKernels.size()) continue;
+			if (boundaryKernelIndex < 0 || boundaryKernelIndex >= (int)solver->boundaryKernels.size()) continue;
 			cl::Kernel& kernel = solver->boundaryKernels[boundaryKernelIndex][i][minmax];
 			CLCommon::setArgs(kernel, potentialBuffer, 1, 0);
 			solver->getBoundaryRanges(i, offset, global, local);

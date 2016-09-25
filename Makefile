@@ -16,7 +16,6 @@ include ../ImGuiCommon/Include.mk
 #override the original -std=c++11 that I have baked in my Base.mk
 CFLAGS+= -std=c++14
 
-MACROS+= AMD_SUCKS
 LUA_EXT_PATH=$(HYDROGPU_PATH)/../lua/ext
 LUA_SYMMATH_PATH=$(HYDROGPU_PATH)/../lua/symmath
 DIST_RESOURCE_PATH=$(DISTDIR)/$(call concat,$(call buildVar,DIST_PREFIX)$(DIST_FILENAME)).app/Contents/Resources/

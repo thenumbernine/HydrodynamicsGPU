@@ -52,11 +52,11 @@ __kernel void calcCellTimestep(
 	
 	real velocityX = state[STATE_MOMENTUM_X] / density;
 	real velocitySq = velocityX * velocityX;
-#if DIM > 1
+#if EULER_DIM > 1
 	real velocityY = state[STATE_MOMENTUM_Y] / density;
 	velocitySq += velocityY * velocityY;
 #endif
-#if DIM > 2
+#if EULER_DIM > 2
 	real velocityZ = state[STATE_MOMENTUM_Z] / density;
 	velocitySq += velocityZ * velocityZ;
 #endif
@@ -261,7 +261,6 @@ void calcFluxSide(
 		
 		flux[j] = .5 * interfaceVelocity * ((1. + theta) * stateL + (1. - theta) * stateR)
 				+ .5 * deltaState * phi * fabs(interfaceVelocity) * (1. - fabs(interfaceVelocity * dt_dx[side]));
-		//		/ (real)DIM;	//this wasn't in the Hydrodynamics II papers, but it seems to help.  there is some error with splitting higher dimensions.
 	}
 }
 

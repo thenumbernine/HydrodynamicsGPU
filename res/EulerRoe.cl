@@ -113,64 +113,64 @@ void calcEigenBasisSide(
 
 	eigenvalues[0] = velocity.x - speedOfSound;
 	eigenvalues[1] = velocity.x;
-#if DIM > 1
+#if EULER_DIM > 1
 	eigenvalues[2] = velocity.x;
-#if DIM > 2
+#endif
+#if EULER_DIM > 2
 	eigenvalues[3] = velocity.x;
 #endif
-#endif
-	eigenvalues[DIM+1] = velocity.x + speedOfSound;
+	eigenvalues[EULER_DIM+1] = velocity.x + speedOfSound;
 
 	//eigenvectors
 
 	//min col 
 	eigenvectors[0 + NUM_STATES * 0] = 1.f;
 	eigenvectors[1 + NUM_STATES * 0] = velocity.x - speedOfSound;
-#if DIM > 1
+#if EULER_DIM > 1
 	eigenvectors[2 + NUM_STATES * 0] = velocity.y;
-#if DIM > 2
+#endif
+#if EULER_DIM > 2
 	eigenvectors[3 + NUM_STATES * 0] = velocity.z;
 #endif
-#endif
-	eigenvectors[(DIM+1) + NUM_STATES * 0] = enthalpyTotal - speedOfSound * velocity.x;
+	eigenvectors[(EULER_DIM+1) + NUM_STATES * 0] = enthalpyTotal - speedOfSound * velocity.x;
 	//mid col (normal)
 	eigenvectors[0 + NUM_STATES * 1] = 1.f;
 	eigenvectors[1 + NUM_STATES * 1] = velocity.x;
-#if DIM > 1
+#if EULER_DIM > 1
 	eigenvectors[2 + NUM_STATES * 1] = velocity.y;
-#if DIM > 2
+#endif
+#if EULER_DIM > 2
 	eigenvectors[3 + NUM_STATES * 1] = velocity.z;
 #endif
-#endif
-	eigenvectors[(DIM+1) + NUM_STATES * 1] = .5f * velocitySq;
+	eigenvectors[(EULER_DIM+1) + NUM_STATES * 1] = .5f * velocitySq;
 	//mid col (tangent A)
-#if DIM > 1
+#if EULER_DIM > 1
 	eigenvectors[0 + NUM_STATES * 2] = 0.f;
 	eigenvectors[1 + NUM_STATES * 2] = 0.f;
 	eigenvectors[2 + NUM_STATES * 2] = 1.f;
-#if DIM > 2
+#if EULER_DIM > 2
 	eigenvectors[3 + NUM_STATES * 2] = 0.f;
 #endif
-	eigenvectors[(DIM+1) + NUM_STATES * 2] = velocity.y;
+	eigenvectors[(EULER_DIM+1) + NUM_STATES * 2] = velocity.y;
 #endif
 	//mid col (tangent B)
-#if DIM > 2
+#if EULER_DIM > 2
 	eigenvectors[0 + NUM_STATES * 3] = 0.f;
 	eigenvectors[1 + NUM_STATES * 3] = 0.f;
 	eigenvectors[2 + NUM_STATES * 3] = 0.f;
 	eigenvectors[3 + NUM_STATES * 3] = 1.f;
-	eigenvectors[(DIM+1) + NUM_STATES * 3] = velocity.z;
+	eigenvectors[(EULER_DIM+1) + NUM_STATES * 3] = velocity.z;
 #endif
 	//max col 
-	eigenvectors[0 + NUM_STATES * (DIM+1)] = 1.f;
-	eigenvectors[1 + NUM_STATES * (DIM+1)] = velocity.x + speedOfSound;
-#if DIM > 1
-	eigenvectors[2 + NUM_STATES * (DIM+1)] = velocity.y;
-#if DIM > 2
-	eigenvectors[3 + NUM_STATES * (DIM+1)] = velocity.z;
+	eigenvectors[0 + NUM_STATES * (EULER_DIM+1)] = 1.f;
+	eigenvectors[1 + NUM_STATES * (EULER_DIM+1)] = velocity.x + speedOfSound;
+#if EULER_DIM > 1
+	eigenvectors[2 + NUM_STATES * (EULER_DIM+1)] = velocity.y;
 #endif
+#if EULER_DIM > 2
+	eigenvectors[3 + NUM_STATES * (EULER_DIM+1)] = velocity.z;
 #endif
-	eigenvectors[(DIM+1) + NUM_STATES * (DIM+1)] = enthalpyTotal + speedOfSound * velocity.x;
+	eigenvectors[(EULER_DIM+1) + NUM_STATES * (EULER_DIM+1)] = enthalpyTotal + speedOfSound * velocity.x;
 
 	
 	//calculate eigenvector inverses ... 
@@ -179,51 +179,51 @@ void calcEigenBasisSide(
 	//min row
 	eigenvectorsInverse[0 + NUM_STATES * 0] = (.5f * (gamma - 1.f) * velocitySq + speedOfSound * velocity.x) * invDenom;
 	eigenvectorsInverse[0 + NUM_STATES * 1] = -(speedOfSound + (gamma - 1.f) * velocity.x) * invDenom;
-#if DIM > 1
+#if EULER_DIM > 1
 	eigenvectorsInverse[0 + NUM_STATES * 2] = -(gamma - 1.f) * velocity.y * invDenom;
-#if DIM > 2
+#endif
+#if EULER_DIM > 2
 	eigenvectorsInverse[0 + NUM_STATES * 3] = -(gamma - 1.f) * velocity.z * invDenom;
 #endif
-#endif
-	eigenvectorsInverse[0 + NUM_STATES * (DIM+1)] = (gamma - 1.f) * invDenom;
+	eigenvectorsInverse[0 + NUM_STATES * (EULER_DIM+1)] = (gamma - 1.f) * invDenom;
 	//mid normal row
 	eigenvectorsInverse[1 + NUM_STATES * 0] = 1.f - (gamma - 1.f) * velocitySq * invDenom;
 	eigenvectorsInverse[1 + NUM_STATES * 1] = (gamma - 1.f) * velocity.x * 2.f * invDenom;
-#if DIM > 1
+#if EULER_DIM > 1
 	eigenvectorsInverse[1 + NUM_STATES * 2] = (gamma - 1.f) * velocity.y * 2.f * invDenom;
-#if DIM > 2
+#endif
+#if EULER_DIM > 2
 	eigenvectorsInverse[1 + NUM_STATES * 3] = (gamma - 1.f) * velocity.z * 2.f * invDenom;
 #endif
-#endif
-	eigenvectorsInverse[1 + NUM_STATES * (DIM+1)] = -(gamma - 1.f) * 2.f * invDenom;
+	eigenvectorsInverse[1 + NUM_STATES * (EULER_DIM+1)] = -(gamma - 1.f) * 2.f * invDenom;
 	//mid tangent A row
-#if DIM > 1
+#if EULER_DIM > 1
 	eigenvectorsInverse[2 + NUM_STATES * 0] = -velocity.y; 
 	eigenvectorsInverse[2 + NUM_STATES * 1] = 0.f;
 	eigenvectorsInverse[2 + NUM_STATES * 2] = 1.f;
-#if DIM > 2
+#if EULER_DIM > 2
 	eigenvectorsInverse[2 + NUM_STATES * 3] = 0.f;
 #endif
-	eigenvectorsInverse[2 + NUM_STATES * (DIM+1)] = 0.f;
+	eigenvectorsInverse[2 + NUM_STATES * (EULER_DIM+1)] = 0.f;
 #endif
 	//mid tangent B row
-#if DIM > 2
+#if EULER_DIM > 2
 	eigenvectorsInverse[3 + NUM_STATES * 0] = -velocity.z;
 	eigenvectorsInverse[3 + NUM_STATES * 1] = 0.f;
 	eigenvectorsInverse[3 + NUM_STATES * 2] = 0.f;
 	eigenvectorsInverse[3 + NUM_STATES * 3] = 1.f;
-	eigenvectorsInverse[3 + NUM_STATES * (DIM+1)] = 0.f;
+	eigenvectorsInverse[3 + NUM_STATES * (EULER_DIM+1)] = 0.f;
 #endif
 	//max row
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 0] = (.5f * (gamma - 1.f) * velocitySq - speedOfSound * velocity.x) * invDenom;
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 1] = (speedOfSound - (gamma - 1.f) * velocity.x) * invDenom;
-#if DIM > 1
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 2] = -(gamma - 1.f) * velocity.y * invDenom;
-#if DIM > 2
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * 3] = -(gamma - 1.f) * velocity.z * invDenom;
+	eigenvectorsInverse[(EULER_DIM+1) + NUM_STATES * 0] = (.5f * (gamma - 1.f) * velocitySq - speedOfSound * velocity.x) * invDenom;
+	eigenvectorsInverse[(EULER_DIM+1) + NUM_STATES * 1] = (speedOfSound - (gamma - 1.f) * velocity.x) * invDenom;
+#if EULER_DIM > 1
+	eigenvectorsInverse[(EULER_DIM+1) + NUM_STATES * 2] = -(gamma - 1.f) * velocity.y * invDenom;
 #endif
+#if EULER_DIM > 2
+	eigenvectorsInverse[(EULER_DIM+1) + NUM_STATES * 3] = -(gamma - 1.f) * velocity.z * invDenom;
 #endif
-	eigenvectorsInverse[(DIM+1) + NUM_STATES * (DIM+1)] = (gamma - 1.f) * invDenom;
+	eigenvectorsInverse[(EULER_DIM+1) + NUM_STATES * (EULER_DIM+1)] = (gamma - 1.f) * invDenom;
 
 #if DIM > 1
 	if (side == 1) {

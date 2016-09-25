@@ -11,7 +11,12 @@ namespace Equation {
 
 struct Euler : public SelfGravitationBehavior<Equation> {
 	typedef SelfGravitationBehavior<Equation> Super;
-	Euler(HydroGPUApp* app_);
+	
+protected:
+	int dim;
+
+public:
+	Euler(HydroGPUApp* app_, int dim_ = -1);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);
 	virtual void readStateCell(real* state, const real* source);

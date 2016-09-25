@@ -98,13 +98,13 @@ void calcEigenvaluesSide(
 
 	eigenvalues[0] = sl;
 	eigenvalues[1] = velocity.x;
-#if DIM > 1
+#if EULER_DIM > 1
 	eigenvalues[2] = velocity.x;
-#if DIM > 2
+#endif
+#if EULER_DIM > 2
 	eigenvalues[3] = velocity.x;
 #endif
-#endif
-	eigenvalues[DIM+1] = sr;
+	eigenvalues[EULER_DIM+1] = sr;
 }
 
 __kernel void calcEigenvalues(
@@ -158,7 +158,7 @@ __kernel void calcCellTimestep(
 		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexNext);
 
 		real minLambda = min(0., eigenvaluesR[0]);
-		real maxLambda = max(0., eigenvaluesL[DIM+1]);
+		real maxLambda = max(0., eigenvaluesL[EULER_DIM+1]);
 
 		real dum = dx[side] / (maxLambda - minLambda);
 		result = min(result, dum);
@@ -241,30 +241,30 @@ void calcFluxSide(
 	//flux
 
 	real sl = eigenvalues[0];
-	real sr = eigenvalues[DIM+1];
+	real sr = eigenvalues[EULER_DIM+1];
 
 	real fluxL[NUM_STATES];
 	fluxL[0] = densityL * velocityL.x;
 	fluxL[1] = densityL * velocityL.x * velocityL.x +  pressureL;
-#if DIM > 1
+#if EULER_DIM > 1
 	fluxL[2] = densityL * velocityL.y * velocityL.x;
 #endif
-#if DIM > 2
+#if EULER_DIM > 2
 	fluxL[3] = densityL * velocityL.z * velocityL.x;
 #endif
-	fluxL[DIM+1] = densityL * enthalpyTotalL * velocityL.x;
+	fluxL[EULER_DIM+1] = densityL * enthalpyTotalL * velocityL.x;
 
 
 	real fluxR[NUM_STATES];
 	fluxR[0] = densityR * velocityR.x;
 	fluxR[1] = densityR * velocityR.x * velocityR.x + pressureR;
-#if DIM > 1
+#if EULER_DIM > 1
 	fluxR[2] = densityR * velocityR.y * velocityR.x;
 #endif
-#if DIM > 2
+#if EULER_DIM > 2
 	fluxR[3] = densityR * velocityR.z * velocityR.x;
 #endif
-	fluxR[DIM+1] = densityR * enthalpyTotalR * velocityR.x;	
+	fluxR[EULER_DIM+1] = densityR * enthalpyTotalR * velocityR.x;	
 
 //#define HLLC_METHOD		0
 //#define HLLC_METHOD		1
@@ -283,11 +283,11 @@ void calcFluxSide(
 		real stateLStar[NUM_STATES];
 		stateLStar[STATE_DENSITY] = densityL * (sl - velocityL.x) / (sl - sStar);
 		stateLStar[STATE_MOMENTUM_X] = stateLStar[STATE_DENSITY] * sStar;
-#if DIM > 1
+#if EULER_DIM > 1
 		stateLStar[STATE_MOMENTUM_Y] = stateLStar[STATE_DENSITY] * velocityL.y;
-#if DIM > 2
-		stateLStar[STATE_MOMENTUM_Z] = stateLStar[STATE_DENSITY] * velocityL.z;
 #endif
+#if EULER_DIM > 2
+		stateLStar[STATE_MOMENTUM_Z] = stateLStar[STATE_DENSITY] * velocityL.z;
 #endif
 		stateLStar[STATE_ENERGY_TOTAL] = stateLStar[STATE_DENSITY] * (energyTotalL + (sStar - velocityL.x) * (sStar + pressureL / (densityL * (sl - velocityL.x))));
 		for (int i = 0; i < NUM_STATES; ++i) {
@@ -297,11 +297,11 @@ void calcFluxSide(
 		real stateRStar[NUM_STATES];
 		stateRStar[STATE_DENSITY] = densityR * (sr - velocityR.x) / (sr - sStar);
 		stateRStar[STATE_MOMENTUM_X] = stateRStar[STATE_DENSITY] * sStar;
-#if DIM > 1
+#if EULER_DIM > 1
 		stateRStar[STATE_MOMENTUM_Y] = stateRStar[STATE_DENSITY] * velocityR.y;
-#if DIM > 2
-		stateRStar[STATE_MOMENTUM_Z] = stateRStar[STATE_DENSITY] * velocityR.z;
 #endif
+#if EULER_DIM > 2
+		stateRStar[STATE_MOMENTUM_Z] = stateRStar[STATE_DENSITY] * velocityR.z;
 #endif
 		stateRStar[STATE_ENERGY_TOTAL] = stateRStar[STATE_DENSITY] * (energyTotalR + (sStar - velocityR.x) * (sStar + pressureR / (densityR * (sr - velocityR.x))));
 		for (int i = 0; i < NUM_STATES; ++i) {
@@ -313,21 +313,21 @@ void calcFluxSide(
 	} else if (sl <= 0. && 0. <= sStar) {
 		flux[STATE_DENSITY] = (sStar * (sl * stateL[STATE_DENSITY] - fluxL[STATE_DENSITY])) / (sl - sStar);
 		flux[STATE_MOMENTUM_X] = (sStar * (sl * stateL[STATE_MOMENTUM_X] - fluxL[STATE_MOMENTUM_X]) + sl * (pressureL + densityL * (sl - velocityL.x) * (sStar - velocityL.x))) / (sl - sStar);
-#if DIM > 1
+#if EULER_DIM > 1
 		flux[STATE_MOMENTUM_Y] = (sStar * (sl * stateL[STATE_MOMENTUM_Y] - fluxL[STATE_MOMENTUM_Y])) / (sl - sStar);
-#if DIM > 2
-		flux[STATE_MOMENTUM_Z] = (sStar * (sl * stateL[STATE_MOMENTUM_Z] - fluxL[STATE_MOMENTUM_Z])) / (sl - sStar);
 #endif
+#if EULER_DIM > 2
+		flux[STATE_MOMENTUM_Z] = (sStar * (sl * stateL[STATE_MOMENTUM_Z] - fluxL[STATE_MOMENTUM_Z])) / (sl - sStar);
 #endif
 		flux[STATE_ENERGY_TOTAL] = (sStar * (sl * stateL[STATE_ENERGY_TOTAL] - fluxL[STATE_ENERGY_TOTAL]) + sl * (pressureL + densityL * (sl - velocityL.x) * (sStar - velocityL.x)) * sStar) / (sl - sStar);
 	} else if (sStar <= 0. && 0. <= sr) {
 		flux[STATE_DENSITY] = (sStar * (sr * stateR[STATE_DENSITY] - fluxR[STATE_DENSITY])) / (sr - sStar);
 		flux[STATE_MOMENTUM_X] = (sStar * (sr * stateR[STATE_MOMENTUM_X] - fluxR[STATE_MOMENTUM_X]) + sr * (pressureR + densityR * (sr - velocityR.x) * (sStar - velocityR.x))) / (sr - sStar);
-#if DIM > 1
+#if EULER_DIM > 1
 		flux[STATE_MOMENTUM_Y] = (sStar * (sr * stateR[STATE_MOMENTUM_Y] - fluxR[STATE_MOMENTUM_Y])) / (sr - sStar);
-#if DIM > 2
-		flux[STATE_MOMENTUM_Z] = (sStar * (sr * stateR[STATE_MOMENTUM_Z] - fluxR[STATE_MOMENTUM_Z])) / (sr - sStar);
 #endif
+#if EULER_DIM > 2
+		flux[STATE_MOMENTUM_Z] = (sStar * (sr * stateR[STATE_MOMENTUM_Z] - fluxR[STATE_MOMENTUM_Z])) / (sr - sStar);
 #endif
 		flux[STATE_ENERGY_TOTAL] = (sStar * (sr * stateR[STATE_ENERGY_TOTAL] - fluxR[STATE_ENERGY_TOTAL]) + sr * (pressureR + densityR * (sr - velocityR.x) * (sStar - velocityR.x)) * sStar) / (sr - sStar);
 
@@ -337,22 +337,22 @@ void calcFluxSide(
 		real pressureLR = .5f * (pressureL + pressureR + densityL * (sl - velocityL.x) * (sStar - velocityL.x) + densityR * (sr - velocityR.x) * (sStar - velocityR.x));
 		flux[STATE_DENSITY] = sStar * (sl * stateL[STATE_DENSITY] - fluxL[STATE_DENSITY]) / (sl - sStar);
 		flux[STATE_MOMENTUM_X] = (sStar * (sl * stateL[STATE_MOMENTUM_X] - fluxL[STATE_MOMENTUM_X]) + sl * pressureLR) / (sl - sStar);
-#if DIM > 1
+#if EULER_DIM > 1
 		flux[STATE_MOMENTUM_Y] = sStar * (sl * stateL[STATE_MOMENTUM_Y] - fluxL[STATE_MOMENTUM_Y]) / (sl - sStar);
-#if DIM > 2
-		flux[STATE_MOMENTUM_Z] = sStar * (sl * stateL[STATE_MOMENTUM_Z] - fluxL[STATE_MOMENTUM_Z]) / (sl - sStar);
 #endif
+#if EULER_DIM > 2
+		flux[STATE_MOMENTUM_Z] = sStar * (sl * stateL[STATE_MOMENTUM_Z] - fluxL[STATE_MOMENTUM_Z]) / (sl - sStar);
 #endif
 		flux[STATE_ENERGY_TOTAL] = (sStar * (sl * stateL[STATE_ENERGY_TOTAL] - fluxL[STATE_ENERGY_TOTAL]) + sl * pressureLR * sStar) / (sl - sStar);
 	} else if (sStar <= 0. && 0. <= sr) {
 		real pressureLR = .5f * (pressureL + pressureR + densityL * (sl - velocityL.x) * (sStar - velocityL.x) + densityR * (sr - velocityR.x) * (sStar - velocityR.x));
 		flux[STATE_DENSITY] = sStar * (sr * stateR[STATE_DENSITY] - fluxR[STATE_DENSITY]) / (sr - sStar);
 		flux[STATE_MOMENTUM_X] = (sStar * (sr * stateR[STATE_MOMENTUM_X] - fluxR[STATE_MOMENTUM_X]) + sr * pressureLR) / (sr - sStar);
-#if DIM > 1
+#if EULER_DIM > 1
 		flux[STATE_MOMENTUM_Y] = sStar * (sr * stateR[STATE_MOMENTUM_Y] - fluxR[STATE_MOMENTUM_Y]) / (sr - sStar);
-#if DIM > 2
-		flux[STATE_MOMENTUM_Z] = sStar * (sr * stateR[STATE_MOMENTUM_Z] - fluxR[STATE_MOMENTUM_Z]) / (sr - sStar);
 #endif
+#if EULER_DIM > 2
+		flux[STATE_MOMENTUM_Z] = sStar * (sr * stateR[STATE_MOMENTUM_Z] - fluxR[STATE_MOMENTUM_Z]) / (sr - sStar);
 #endif
 		flux[STATE_ENERGY_TOTAL] = (sStar * (sr * stateR[STATE_ENERGY_TOTAL] - fluxR[STATE_ENERGY_TOTAL]) + sr * pressureLR * sStar) / (sr - sStar);
 
@@ -406,7 +406,7 @@ or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, ch
 		}
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
-		flux[i] -= .5f * deltaFlux * (theta + phi * (epsilon - theta) / (real)DIM);
+		flux[i] -= .5f * deltaFlux * (theta + phi * (epsilon - theta));
 	}
 #endif
 

@@ -16,9 +16,9 @@ __kernel void calcFluxDeriv(
 	if (i.x < 2 || i.x >= SIZE_X - 2 
 #if DIM > 1
 		|| i.y < 2 || i.y >= SIZE_Y - 2 
+#endif
 #if DIM > 2
 		|| i.z < 2 || i.z >= SIZE_Z - 2
-#endif
 #endif
 	) {
 		return;

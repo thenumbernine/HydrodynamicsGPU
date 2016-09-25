@@ -9,21 +9,22 @@
 namespace HydroGPU {
 namespace Equation {
 
-Euler::Euler(HydroGPUApp* app_) 
-: Super(app_)
+Euler::Euler(HydroGPUApp* app_, int dim_)
+: Super(app_), dim(dim_)
 {
-	displayVariables = std::vector<std::string>{
-		"DENSITY",
-		"VELOCITY",
-		"VELOCITY_X",
-		"VELOCITY_Y",
-		"VELOCITY_Z",
-		"PRESSURE",
-		"ENERGY_INTERNAL",
-		"ENERGY_KINETIC",
-		"ENERGY_TOTAL",
-		"POTENTIAL"
-	};
+	if (dim == -1) dim = app->dim;
+	if (dim < 1 || dim > 3) throw Common::Exception() << "Equation::Euler must have a dim between 1 and 3.  Got " << dim;
+
+	displayVariables.push_back("DENSITY");
+	displayVariables.push_back("VELOCITY");
+	displayVariables.push_back("VELOCITY_X");
+	if (dim > 1) displayVariables.push_back("VELOCITY_Y");
+	if (dim > 2) displayVariables.push_back("VELOCITY_Z");
+	displayVariables.push_back("PRESSURE");
+	displayVariables.push_back("ENERGY_INTERNAL");
+	displayVariables.push_back("ENERGY_KINETIC");
+	displayVariables.push_back("ENERGY_TOTAL");
+	displayVariables.push_back("POTENTIAL");
 
 	//matches Equations/SelfGravitationBehavior 
 	boundaryMethods = std::vector<std::string>{
@@ -34,8 +35,8 @@ Euler::Euler(HydroGPUApp* app_)
 
 	states.push_back("DENSITY");
 	states.push_back("MOMENTUM_X");
-	if (app->dim > 1) states.push_back("MOMENTUM_Y");
-	if (app->dim > 2) states.push_back("MOMENTUM_Z");
+	if (dim > 1) states.push_back("MOMENTUM_Y");
+	if (dim > 2) states.push_back("MOMENTUM_Z");
 	states.push_back("ENERGY_TOTAL");
 
 	vectorFieldVars = {
@@ -44,12 +45,19 @@ Euler::Euler(HydroGPUApp* app_)
 		"GRAVITY",
 		//"PRESSURE",
 	};
-	if (app->dim == 3) vectorFieldVars.push_back("VORTICITY");
+	if (dim == 3) vectorFieldVars.push_back("VORTICITY");
 }
 
 void Euler::getProgramSources(std::vector<std::string>& sources) {
 	Super::getProgramSources(sources);
 	sources.push_back("#include \"EulerMHDCommon.cl\"\n");
+	
+	//redefine DIM to be this equation's dim instead of the app's dim
+	//but the #includes defined from the first DIM def and now will have incorrect DIM values ...
+	//I could solve this a few ways
+	//1) have Solver ask the equation for DIM
+	//2) have Euler define all variables instead of just 1 through DIM
+	sources[0] += "#define EULER_DIM " + std::to_string(dim) + "\n";
 }
 
 int Euler::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax) {
@@ -70,12 +78,8 @@ int Euler::stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minma
 void Euler::readStateCell(real* state, const real* source) {
 	state[0] = source[0];
 	state[1] = source[1];
-	if (app->dim > 1) {
-		state[2] = source[2];
-	}
-	if (app->dim > 2) {
-		state[3] = source[3];
-	}
+	if (dim > 1) state[2] = source[2];
+	if (dim > 2) state[3] = source[3];
 	if (states.size() == 8) {
 		state[4] = source[4];
 		state[5] = source[5];
