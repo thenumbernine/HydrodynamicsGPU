@@ -81,7 +81,7 @@ void MHDRoe::calcFlux(real dt) {
 
 void MHDRoe::step(real dt) {
 	Super::step(dt);
-#warning add this once you know 1D MHD is working without it
+#pragma warning("add this once you know 1D MHD is working without it")
 	//selfgrav->applyPotential(dt);
 	//divfree->update();
 }

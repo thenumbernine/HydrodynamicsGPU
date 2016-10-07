@@ -248,7 +248,7 @@ void Solver::initKernels() {
 	}
 	
 	findMinTimestepKernel = cl::Kernel(program, "findMinTimestep");
-	CLCommon::setArgs(findMinTimestepKernel, dtBuffer, cl::Local(localSize[0] * sizeof(real)), volume * app->dim, dtSwapBuffer);	
+	CLCommon::setArgs(findMinTimestepKernel, dtBuffer, cl::Local(localSize1d[0] * sizeof(real)), volume * app->dim, dtSwapBuffer);
 }
 
 std::vector<std::string> Solver::getProgramSources() {

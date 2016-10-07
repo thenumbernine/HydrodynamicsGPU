@@ -57,7 +57,7 @@ void Maxwell::getProgramSources(std::vector<std::string>& sources) {
 
 	//precompute the sqrt
 	for (std::string var : {"permittivity", "permeability", "conductivity"}) {
-		sources[0] += std::string("#define maxwell_sqrt_") + var + std::string(" ") + toNumericString<real>(sqrt(app->lua["defs"]["maxwell_" + var])) + std::string("\n");
+		sources[0] += std::string("#define maxwell_sqrt_") + var + std::string(" ") + toNumericString<real>((real)sqrt((real)app->lua["defs"]["maxwell_" + var])) + std::string("\n");
 	}
 
 	sources.push_back("#include \"MaxwellCommon.cl\"\n");

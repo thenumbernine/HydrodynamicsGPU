@@ -48,7 +48,7 @@ void MHD::getProgramSources(std::vector<std::string>& sources) {
 	
 	sources[0] += "#define MHD 1\n";	//for EulerMHDCommon.cl
 	//precompute the sqrt
-	sources[0] += std::string("#define mhd_sqrt_vacuumPermeability ") + toNumericString<real>(sqrt(app->lua["defs"]["mhd_vacuumPermeability"])) + std::string("\n");
+	sources[0] += std::string("#define mhd_sqrt_vacuumPermeability ") + toNumericString<real>((real)sqrt((real)app->lua["defs"]["mhd_vacuumPermeability"])) + std::string("\n");
 	sources.push_back("#include \"MHDCommon.cl\"\n");
 	
 	Super::getProgramSources(sources);

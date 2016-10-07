@@ -36,7 +36,7 @@
 #include "Common/File.h"
 #include "Common/Macros.h"
 
-#include <SDL2/SDL.h>
+#include "SDL.h"
 #include "Common/gl.h"
 #ifdef PLATFORM_osx
 #include <OpenCL/cl.hpp>
