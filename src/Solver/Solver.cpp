@@ -152,6 +152,7 @@ std::cout << s;
 	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
 	
 	//for curiousity's sake
+#ifndef PLATFORM_linux
 	if (app->clCommon->useGPU) {
 		cl_int err;
 		
@@ -165,6 +166,7 @@ std::cout << s;
 
 		Common::File::write("program.cl.bin", std::string(&binary[0], binary.size()));
 	}
+#endif
 
 	initBuffers();
 	initKernels();

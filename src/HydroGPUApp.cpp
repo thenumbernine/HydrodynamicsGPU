@@ -1,3 +1,9 @@
+#ifdef PLATFORM_linux	//only here for Ubuntu build's sake
+#include "Common/gl.h"
+#include <istream>
+#include "bits/stream_iterator.h"
+#endif
+
 #include "HydroGPU/Solver/EulerHLL.h"
 #include "HydroGPU/Solver/EulerHLLC.h"
 #include "HydroGPU/Solver/EulerBurgers.h"
@@ -232,9 +238,13 @@ void HydroGPUApp::init() {
 		/*pickDevice=*/[&](const std::vector<cl::Device>& devices) -> std::vector<cl::Device>::const_iterator {
 			return std::find_if(devices.begin(), devices.end(), [&](const cl::Device& device) -> bool {
 				std::vector<std::string> extensions = CLCommon::getExtensions(device);
+#ifdef PLATFORM_linux	//no GL sharing	available in linux ...
+				return true;
+#else	
 				return (std::find(extensions.begin(), extensions.end(), "cl_khr_gl_sharing") != extensions.end()
 					|| std::find(extensions.begin(), extensions.end(), "cl_APPLE_gl_sharing") != extensions.end())
 					&& std::find(extensions.begin(), extensions.end(), "cl_khr_fp64") != extensions.end();
+#endif			
 			});
 		});
 

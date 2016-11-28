@@ -33,4 +33,3 @@ void ForwardEuler::integrate(real dt, std::function<void(cl::Buffer)> callback) 
 
 }
 }
-
