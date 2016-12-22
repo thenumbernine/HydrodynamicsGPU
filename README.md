@@ -72,24 +72,32 @@ Hydrodynamics:
 * Masatsuka, I Do Like CFD.  http://www.cfdbooks.com/cfdcodes.html 
 * Toro, Eleuterio F. Riemann Solvers and Numerical Methods for Fluid Dynamics - A Practical Introduction. Springer, Germany, 1999. 2nd Edition.
 * http://people.nas.nasa.gov/~pulliam/Classes/New_notes/euler_notes.pdf
+
 Electromagnetics:
 * Trangenstein "Numerical Simulation of Hyperbolic Conservation Laws"
+
 Numerical Relativity- ADM, BSSN, etc:
 * Alcubierre, Miguel. Introduction to 3+1 Numerical Relativity. Oxford Science Publications, Oxford, 2008.
 * Baumgarte, Shapiro. Numerical Relativity: Solving Einstein's Equations on the Computer, 2010.
+
 Stellar Schwarzschild initial conditions:
 * Misner, Thorne, Wheeler. Gravitation, 1973
+
 SRHD:
 * Marti, J. M. and Muller, E. Numerical Hydrodynamics in Special Relativity Living Reviews in Relativity 6 (2003), 7 http://relativity.livingreviews.org/Articles/lrr-2003-7
 * Sheck, Aloy, Marti, Gomez, Muller Does the plasma composition affect the long-term evolution of relativistic jets? Monthly Notices of Royal Astronomical Society 331, 615-634 2002.
 * Anton, Luis; Zanotti, Olindo; Miralles, Juan; Marti, Jose; Ibanez, Jose; Font, Jose; Pons, Jose. Numerical 3+1 General Relativistic Magnetohydrodynamics: A Local Characteristic Approach February 2, 2008 https://arxiv.org/abs/astro-ph/0506063
+
 HLLC:
 * http://math.lanl.gov/~shenli/publications/hllc_mhd.pdf
 * http://marian.fsik.cvut.cz/~bodnar/PragueSum_2012/Toro_2-HLLC-RiemannSolver.pdf
+
 MHD Roe:
 * https://arxiv.org/pdf/0804.0402v1.pdf
+
 MHD initial conditions:
 * Brio, M. & C.C. Wu, "An Upwind Differencing Scheme for the Equations of Ideal Magnetohydrodynamics", Journal of Computational Physics, 75, 400-422 (1988). The test is described in Section V.
+
 Runge Kutta & TVD RK:
 * http://www.ams.org/journals/mcom/1998-67-221/S0025-5718-98-00913-2/S0025-5718-98-00913-2.pdf
 * http://lsec.cc.ac.cn/lcfd/DEWENO/paper/WENO_1996.pdf
