@@ -38,7 +38,7 @@ Might get around to CG or GMRes method of Backward Euler implicit integration.
 
 [![alcubierre warp bubble collapse](http://img.youtube.com/vi/ekKf21Cj4k0/0.jpg)](http://www.youtube.com/watch?v=ekKf21Cj4k0 "alcubierre warp bubble collapse")
 
-### Dependencies: ### 
+### Dependencies: 
 
 C++
 - Common: https://github.com/thenumbernine/Common
@@ -65,7 +65,7 @@ external:
 - OpenCL v1.2.  If your dist doesn't include the cl.hpp header (*cough*Apple*cough*) then just put it in the CLCommon/include/OpenCL/ folder
 - OpenGL
 
-### Sources: ### 
+### Sources:
 
 Hydrodynamics:
 * Duellemond, 2009. Lecture on Hydrodynamics II http://www.mpia-hd.mpg.de/homes/dullemon/lectures/hydrodynamicsII/ 
