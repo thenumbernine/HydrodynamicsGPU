@@ -3,3 +3,22 @@ distType='app'
 depends:append{'../Common', '../GLApp', '../CLCommon', '../Tensor', '../Profiler', '../Image', '../Shader', '../LuaCxx', '../ImGuiCommon'}
 include:insert'res/include'
 cppver = 'c++14'
+
+local luaExtPath = '../lua/ext'
+local luaSymMathPath = '../lua/symmath'
+
+-- TODO define this by the build scipt.
+-- for OSX it is dist/platform/build/distName.app/Contents/Resources
+-- for windows ... idk?  same as linux?
+local distResourcePath = 'dist/'..platform..'/'..build
+
+local function copyTreeOfType(ext, src, dst)
+	exec("rsync -avm --include='"..ext.."' -f 'hide,! */' "..src.." "..dst)
+end
+
+function postBuildDist()
+	print "copying Lua scripts..."
+	copyTreeOfType('*.lua', luaExtPath, distResourcePath)
+	copyTreeOfType('*.lua', luaSymMathPath, distResourcePath)
+	print "done copying Lua scripts."
+end
