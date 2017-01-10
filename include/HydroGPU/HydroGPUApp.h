@@ -36,6 +36,9 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	typedef ::GLApp::GLApp Super;
 
 	std::shared_ptr<CLCommon::CLCommon> clCommon;
+	bool hasGLSharing;
+	bool hasFP64;
+	
 	std::shared_ptr<ImGuiCommon::ImGuiCommon> gui;
 
 	GLuint gradientTex;

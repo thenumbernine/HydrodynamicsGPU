@@ -64,6 +64,8 @@ namespace HydroGPU {
 
 HydroGPUApp::HydroGPUApp()
 : Super()
+, hasGLSharing(false)
+, hasFP64(false)
 , gradientTex(GLuint())
 , configFilename("config.lua")
 , solverName("EulerBurgers")
@@ -232,21 +234,46 @@ void HydroGPUApp::init() {
 
 	gui = std::make_shared<ImGuiCommon::ImGuiCommon>(window);
 
+	//TODO put this in CLCommon, where a similar function operating on vectors exists
+	auto checkHasGLSharing = [](const cl::Device& device)-> bool {
+		std::vector<std::string> extensions = CLCommon::getExtensions(device);
+		return std::find(extensions.begin(), extensions.end(), "cl_khr_gl_sharing") != extensions.end()
+			|| std::find(extensions.begin(), extensions.end(), "cl_APPLE_gl_sharing") != extensions.end();
+	};
+
+	auto checkHasFP64 = [](const cl::Device& device)-> bool {
+		std::vector<std::string> extensions = CLCommon::getExtensions(device);
+		return std::find(extensions.begin(), extensions.end(), "cl_khr_fp64") != extensions.end();
+	};
+
 	clCommon = std::make_shared<CLCommon::CLCommon>(
 		useGPU,
 		/*verbose=*/true,
-		/*pickDevice=*/[&](const std::vector<cl::Device>& devices) -> std::vector<cl::Device>::const_iterator {
-			return std::find_if(devices.begin(), devices.end(), [&](const cl::Device& device) -> bool {
-				std::vector<std::string> extensions = CLCommon::getExtensions(device);
-#ifdef PLATFORM_linux	//no GL sharing	available in linux ...
-				return true;
-#else	
-				return (std::find(extensions.begin(), extensions.end(), "cl_khr_gl_sharing") != extensions.end()
-					|| std::find(extensions.begin(), extensions.end(), "cl_APPLE_gl_sharing") != extensions.end())
-					&& std::find(extensions.begin(), extensions.end(), "cl_khr_fp64") != extensions.end();
-#endif			
-			});
+		/*pickDevice=*/[&](const std::vector<cl::Device>& devices_) -> std::vector<cl::Device>::const_iterator {
+			
+			//sort with a preference to sharing
+			std::vector<cl::Device> devices = devices_;
+			std::sort(
+				devices.begin(),
+				devices.end(),
+				[&](const cl::Device& a, const cl::Device& b) -> bool {
+					return 
+						//has GL sharing is most important, has fp64 is next
+						//TODO let the config file pick what features to request
+						(2*checkHasGLSharing(a) + checkHasFP64(a)) 
+						> (2*checkHasGLSharing(b) + checkHasFP64(b));
+				});
+
+			cl::Device best = devices[0];
+			//return std::find<std::vector<cl::Device>::const_iterator, cl::Device>(devices_.begin(), devices_.end(), best);
+			for (std::vector<cl::Device>::const_iterator iter = devices_.begin(); iter != devices_.end(); ++iter) {
+				if ((*iter)() == best()) return iter;
+			}
+			throw Common::Exception() << "couldn't find a device";
 		});
+	
+	hasGLSharing = checkHasGLSharing(clCommon->device);
+	hasFP64 = checkHasFP64(clCommon->device);
 
 	glEnable(GL_DEPTH_TEST);
 

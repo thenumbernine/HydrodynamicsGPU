@@ -20,9 +20,8 @@ Graph::Graph(HydroGPU::HydroGPUApp* app_)
 		Shader::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
 	};
 	graphShader = std::make_shared<Shader::Program>(shaders);
-	graphShader->link();
-	graphShader->setUniform<int>("tex", 0);
-	graphShader->done();
+	graphShader->setUniform<int>("tex", 0)
+		.done();
 
 	variables.clear();
 	for (const std::string& name : app->solver->equation->displayVariables) {
@@ -51,7 +50,7 @@ void Graph::display() {
 			glEnable(GL_BLEND);
 			glDepthMask(GL_FALSE);
 		}
-	
+		
 		for (int i = 0; i < (int)variables.size(); ++i) {
 			const Variable& var = variables[i];
 			if (!var.enabled) continue;
@@ -67,9 +66,9 @@ void Graph::display() {
 						.setUniform<int>("axis", app->dim)
 						.setUniform<float>("ambient", app->dim == 1 ? 1 : .4)
 						.setUniform<bool>("useLog", var.log)
-						.setUniform<float>("size", app->size.s[0], app->size.s[1]);
-			graphShader->setUniform<float>("xmin", app->xmin.s[0], app->xmin.s[1]);
-			graphShader->setUniform<float>("xmax", app->xmax.s[0], app->xmax.s[1]);
+						.setUniform<float>("size", app->size.s[0], app->size.s[1])
+						.setUniform<float>("xmin", app->xmin.s[0], app->xmin.s[1])
+						.setUniform<float>("xmax", app->xmax.s[0], app->xmax.s[1]);
 			glBindTexture(GL_TEXTURE_2D, app->plot->getTex());
 			const float* c = colors[i % numberof(colors)];
 			glColor4f(c[0], c[1], c[2], var.alpha);

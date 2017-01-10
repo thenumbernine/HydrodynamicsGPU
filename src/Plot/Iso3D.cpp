@@ -42,8 +42,7 @@ Iso3D::Iso3D(HydroGPU::HydroGPUApp* app_)
 		Shader::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
 	};
 	shader = std::make_shared<Shader::Program>(shaders);
-	shader->link()
-		.setUniform<int>("tex", 0)
+	shader->setUniform<int>("tex", 0)
 		.setUniform<int>("gradient", 1)
 		.setUniform<int>("maxiter", std::max(app->size.s[0], std::max(app->size.s[1], app->size.s[2])))
 		.setUniform<float>("oneOverDx", app->xmax.s[0] - app->xmin.s[0], app->xmax.s[1] - app->xmin.s[1], app->xmax.s[2] - app->xmin.s[2])

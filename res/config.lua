@@ -127,14 +127,14 @@ vectorField = {
 size = {32, 32, 32}
 vectorField.resolution = 16
 --]]
---[[ 2D
+-- [[ 2D
 size = {256, 256}
 --]]
--- [[ 1D
+--[[ 1D
 size = {1024}
 --]]
 
---[[ Euler
+-- [[ Euler
 
 graph.variables = {'DENSITY', 'VELOCITY_X', 'PRESSURE'}	-- which variables to graph.  none = all.
 
@@ -243,7 +243,7 @@ solverName = 'ADM2DSpherical'	-- not yet
 -- I want to get rid of this one.  and the 1D ADM as well -- just one Bona-Masso ADM implementation is enough (I think) unless I should have separate ones for shift/less and mass/less
 --]]
 
--- [[ ADM3D
+--[[ ADM3D
 solverName = 'ADM3DRoe'
 
 --size = {1024}

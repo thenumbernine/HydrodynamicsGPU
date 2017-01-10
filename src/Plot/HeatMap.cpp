@@ -44,8 +44,7 @@ HeatMap::HeatMap(HydroGPU::HydroGPUApp* app_)
 		Shader::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
 	};
 	heatShader = std::make_shared<Shader::Program>(shaders);
-	heatShader->link()
-		.setUniform<int>("tex", 0)
+	heatShader->setUniform<int>("tex", 0)
 		.setUniform<int>("gradient", 1)
 		.done();
 }
