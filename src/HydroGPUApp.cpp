@@ -421,25 +421,22 @@ void HydroGPUApp::init() {
 			std::vector<std::string> graphVariableNames;
 			LuaCxx::Ref graphVariablesRef = lua["graph"]["variables"];
 			if (graphVariablesRef.isTable()) {
-				//TODO LuaCxx iterator
-				for (int i = 0; i < graphVariablesRef.len(); ++i) {
-					std::string varName;
-					if ((graphVariablesRef[i+1] >> varName).good()) {
-						graphVariableNames.push_back(varName);
-					}
+				for (LuaCxx::Ref::iterator i = graphVariablesRef.begin(); i != graphVariablesRef.end(); ++i) {
+					std::string varName = (std::string)i.value;	//TODO operator-> for i.value?
+					graphVariableNames.push_back(varName);
 				}
-			}
-
-			if (graphVariableNames.empty()) {
+			} else if (graphVariablesRef.isNil()) {
+				//by default add all
 				graphVariableNames = solver->getEquation()->displayVariables;
 			}
 
-			//make a mapping from names to indexes
-			const std::vector<std::string>& displayVariables = solver->getEquation()->displayVariables;
-			for (std::vector<std::string>::const_iterator i = displayVariables.begin(); i != displayVariables.end(); ++i) {
-				int displayVarIndex = i - displayVariables.begin();
-				if (displayVarIndex >= 0 && displayVarIndex < (int)displayVariables.size()) {
-					graph->variables[displayVarIndex].enabled = true;
+			//enable all graph variables that are in graph.variables Lua table
+			for (std::vector<std::string>::const_iterator i = graphVariableNames.begin(); i != graphVariableNames.end(); ++i) {
+				for (std::vector<HydroGPU::Plot::Graph::Variable>::iterator j = graph->variables.begin(); j != graph->variables.end(); ++j) {
+					if (*i == j->name) {
+						j->enabled = true;
+						break;
+					}
 				}
 			}
 		}

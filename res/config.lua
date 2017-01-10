@@ -128,7 +128,7 @@ size = {32, 32, 32}
 vectorField.resolution = 16
 --]]
 -- [[ 2D
-size = {256, 256}
+size = {1024, 1024}
 --]]
 --[[ 1D
 size = {1024}
@@ -136,13 +136,14 @@ size = {1024}
 
 -- [[ Euler
 
-graph.variables = {'DENSITY', 'VELOCITY_X', 'PRESSURE'}	-- which variables to graph.  none = all.
+--graph.variables = {'DENSITY', 'VELOCITY_X', 'PRESSURE'}	-- which variables to graph.  none = all.
+graph.variables = {}
 
 -- uncomment one:
---solverName = 'EulerBurgers'
+solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'			-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
-solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+--solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
 --solverName = 'SRHDRoe'		-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
@@ -243,6 +244,7 @@ solverName = 'ADM2DSpherical'	-- not yet
 -- I want to get rid of this one.  and the 1D ADM as well -- just one Bona-Masso ADM implementation is enough (I think) unless I should have separate ones for shift/less and mass/less
 --]]
 
+-- much like my purely-LuaJIT implementation, this goes deathly slow, and it's not the CL/GL copy across the CPU in absence of gl_sharing that's doing it.
 --[[ ADM3D
 solverName = 'ADM3DRoe'
 
@@ -296,8 +298,8 @@ graph.variables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = a
 if #size == 1 then			-- 1D better be ortho
 	camera.mode = 'ortho'
 elseif #size == 2 then		-- 2D can handle either ortho or frustum
-	camera.mode = 'ortho'
-	--camera.mode = 'frustum'
+	--camera.mode = 'ortho'
+	camera.mode = 'frustum'
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end

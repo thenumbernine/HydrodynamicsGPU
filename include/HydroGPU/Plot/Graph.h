@@ -12,9 +12,9 @@ namespace Plot {
 struct Graph {
 	HydroGPU::HydroGPUApp* app;	
 	std::shared_ptr<Shader::Program> graphShader;
-
+	
 	Graph(HydroGPU::HydroGPUApp* app_);
-
+	
 	/*
 	how to display variables ...
 	*/
