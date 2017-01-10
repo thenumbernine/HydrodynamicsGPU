@@ -197,7 +197,11 @@ __kernel void updatePrimitives(
 
 //specific to Euler equations
 __kernel void convertToTex(
+#ifdef has_gl_sharing 
 	__write_only image3d_t destTex,
+#else
+	global float4* destTex,
+#endif
 	int displayMethod,
 	const __global real* stateBuffer,
 	const __global real* primitiveBuffer)
@@ -266,7 +270,11 @@ __kernel void convertToTex(
 		value = state[STATE_TOTAL_ENERGY_DENSITY];
 	}
 
+#ifdef has_gl_sharing 
 	write_imagef(destTex, (int4)(i.x, i.y, i.z, 0), (float4)(value, 0., 0., 0.));
+#else
+	destTex[index] = (float4)(value, 0., 0., 0.);
+#endif
 }
 
 constant float2 offset[6] = {

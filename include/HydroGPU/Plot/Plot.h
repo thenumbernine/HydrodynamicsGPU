@@ -22,6 +22,8 @@ protected:
 	GLuint target;
 	GLuint tex;
 	cl::ImageGL texCLMem;		//data is written to this buffer before rendering
+	cl::Buffer texBuffer;		//if gl_sharing is missing then write it here before downloading and uploading it =p
+	std::vector<float> texVec;	//so many copies ...
 
 public:
 	Plot(HydroGPU::HydroGPUApp* app_);

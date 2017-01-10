@@ -10,15 +10,16 @@
 namespace HydroGPU {
 namespace Plot {
 
+static GLuint targets[] = {
+	GL_TEXTURE_2D,	//1D?
+	GL_TEXTURE_2D,
+	GL_TEXTURE_3D,
+};
+
 Plot::Plot(HydroGPU::HydroGPUApp* app_)
 : app(app_)
 , tex(GLuint())
 {
-	GLuint targets[] = {
-		GL_TEXTURE_2D,	//1D?
-		GL_TEXTURE_2D,
-		GL_TEXTURE_3D,
-	};
 	target = targets[app->dim-1]; 
 	
 	//get a texture going for visualizing the output
@@ -60,7 +61,11 @@ void Plot::init() {
 	//texCLMem is TEXTURE_3D
 	//...and convertVariableToTex is image3d_t
 	//...but it all seems to work.
-	texCLMem = cl::ImageGL(app->clCommon->context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, tex);
+	if (app->hasGLSharing) {
+		texCLMem = cl::ImageGL(app->clCommon->context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, tex);
+	} else {
+		texBuffer = app->solver->cl.alloc(sizeof(float) * 4 * app->solver->getVolume());
+	}
 
 	//init kernels
 	convertToTexKernel = cl::Kernel(app->solver->program, "convertToTex");
@@ -80,37 +85,47 @@ static int npo2(int x) {
 void Plot::convertVariableToTex(int displayVariable) {
 	glFinish();
 	cl::CommandQueue commands = app->solver->commands;
-
 	std::vector<cl::Memory> acquireGLMems = {texCLMem};
-	commands.enqueueAcquireGLObjects(&acquireGLMems);
 
-	//if (app->clCommon->useGPU)
-	{
-		convertToTexKernel.setArg(0, texCLMem);
-		convertToTexKernel.setArg(1, displayVariable);
-		
-		//TODO round up next power of 2 of global size for texture ...
-		cl::NDRange npo2size = 
-			app->dim == 1
-			? cl::NDRange(npo2(app->size.s[0]))
-			: ( app->dim == 2
-				? cl::NDRange(npo2(app->size.s[0]), npo2(app->size.s[1]))
-				: ( app->dim == 3
-					? cl::NDRange(npo2(app->size.s[0]), npo2(app->size.s[1]), npo2(app->size.s[2]))
-					: throw Common::Exception() << "got an unknown dim " << app->dim
-				)
-			);
-		//TODO is localSize compatible?  is it always 16x16 for 2D?
-		commands.enqueueNDRangeKernel(convertToTexKernel, app->solver->offsetNd, npo2size /*app->solver->globalSize*/, app->solver->localSize);
-	//} else {
-		//TODO if we're not using GPU then we need to transfer the contents via a CPU buffer ... or not at all?
-		//do the CL drivers correctly emulate the GL share writes when using CPU instead of GPU?
-	//	throw Common::Exception() << "TODO";
+	if (app->hasGLSharing) {
+		commands.enqueueAcquireGLObjects(&acquireGLMems);
 	}
 
-	commands.enqueueReleaseGLObjects(&acquireGLMems);
-	commands.finish();
-	
+	if (app->hasGLSharing) {
+		convertToTexKernel.setArg(0, texCLMem);
+	} else {
+		convertToTexKernel.setArg(0, texBuffer);
+	}
+		
+	convertToTexKernel.setArg(1, displayVariable);
+
+	//TODO round up next power of 2 of global size for texture ...
+	cl::NDRange npo2size = 
+		app->dim == 1
+		? cl::NDRange(npo2(app->size.s[0]))
+		: ( app->dim == 2
+			? cl::NDRange(npo2(app->size.s[0]), npo2(app->size.s[1]))
+			: ( app->dim == 3
+				? cl::NDRange(npo2(app->size.s[0]), npo2(app->size.s[1]), npo2(app->size.s[2]))
+				: throw Common::Exception() << "got an unknown dim " << app->dim
+			)
+		);
+	//TODO is localSize compatible?  is it always 16x16 for 2D?
+	commands.enqueueNDRangeKernel(convertToTexKernel, app->solver->offsetNd, npo2size /*app->solver->globalSize*/, app->solver->localSize);
+
+	if (app->hasGLSharing) {
+		commands.enqueueReleaseGLObjects(&acquireGLMems);
+		commands.finish();
+	} else {
+		texVec.resize(4 * app->solver->getVolume());
+		commands.enqueueReadBuffer(texBuffer, CL_TRUE, 0, sizeof(float) * 4 * app->solver->getVolume(), texVec.data());
+		target = targets[app->dim-1]; 
+		glBindTexture(target, tex);
+		if (app->dim == 3) throw Common::Exception() << "still need to add 3D texture uploads with gl_sharing";
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, app->size.s[0], app->size.s[1], GL_RGBA, GL_FLOAT, texVec.data());
+		glBindTexture(target, 0);
+	}
+
 	int err = glGetError();
 	if (err) std::cout << "GL error " << err << " at " << __FILE__ << ":" << __LINE__ << std::endl;
 }

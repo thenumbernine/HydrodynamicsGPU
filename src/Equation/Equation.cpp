@@ -23,6 +23,9 @@ void Equation::getProgramSources(std::vector<std::string>& sources) {
 	sources[0] += buildEnumCode("VECTORFIELD", vectorFieldVars);
 	sources[0] += buildEnumCode("BOUNDARY", boundaryMethods);
 	sources[0] += "#define DISPLAY_NONE -1\n";
+	if (app->hasGLSharing) {
+		sources[0] += "#define has_gl_sharing 1\n";
+	}
 }
 
 void Equation::readStateCell(real* state, const real* source) {
