@@ -18,7 +18,13 @@ struct VectorField {
 protected:
 	std::shared_ptr<HydroGPU::Solver::Solver> solver;
 	GLuint glBuffer;
-	cl::BufferGL vertexBuffer;
+	
+	//with cl/gl sharing
+	cl::BufferGL vertexBufferGL;
+	//without cl/gl sharing	
+	cl::Buffer vertexBufferCL;
+	std::vector<float> vertexBufferCPU;
+
 	cl::Kernel updateVectorFieldKernel;
 	int resolution;
 	int vertexCount;

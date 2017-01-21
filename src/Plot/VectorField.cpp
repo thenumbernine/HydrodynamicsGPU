@@ -25,11 +25,22 @@ VectorField::VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_, int 
 	glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(float) * vertexCount, nullptr, GL_DYNAMIC_DRAW_ARB);
 	solver->cl.totalAlloc += sizeof(float) * vertexCount;
 	glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
+	
 	//create CL interop
-	vertexBuffer = cl::BufferGL(solver->app->clCommon->context, CL_MEM_READ_WRITE, glBuffer);
+	if (solver->app->hasGLSharing) {
+		vertexBufferGL = cl::BufferGL(solver->app->clCommon->context, CL_MEM_READ_WRITE, glBuffer);
+	} else {
+		vertexBufferCL = solver->cl.alloc(sizeof(float) * vertexCount);
+		vertexBufferCPU.resize(vertexCount);
+	}
+	
 	//create transfer kernel
 	updateVectorFieldKernel = cl::Kernel(solver->program, "updateVectorField");
-	updateVectorFieldKernel.setArg(0, vertexBuffer);
+	if (solver->app->hasGLSharing) {
+		updateVectorFieldKernel.setArg(0, vertexBufferGL);
+	} else {
+		updateVectorFieldKernel.setArg(0, vertexBufferCL);
+	}
 	updateVectorFieldKernel.setArg(1, scale);
 	updateVectorFieldKernel.setArg(2, variable);
 }
@@ -60,6 +71,11 @@ void VectorField::display() {
 	solver->app->clCommon->commands.finish();
 
 	glBindBuffer(GL_ARRAY_BUFFER_ARB, glBuffer);
+	if (!solver->app->hasGLSharing) {
+		solver->app->clCommon->commands.enqueueReadBuffer(vertexBufferCL, CL_TRUE, 0, sizeof(float) * vertexCount, vertexBufferCPU.data());
+		glBufferSubData(GL_ARRAY_BUFFER_ARB, 0, sizeof(float) * vertexCount, vertexBufferCPU.data());
+	}
+
 	glColor3f(1,1,1);
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glVertexPointer(3, GL_FLOAT, 0, 0);

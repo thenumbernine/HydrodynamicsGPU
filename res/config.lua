@@ -128,7 +128,7 @@ size = {32, 32, 32}
 vectorField.resolution = 16
 --]]
 -- [[ 2D
-size = {1024, 1024}
+size = {256, 256}
 --]]
 --[[ 1D
 size = {1024}
@@ -140,10 +140,10 @@ size = {1024}
 graph.variables = {}
 
 -- uncomment one:
-solverName = 'EulerBurgers'
+--solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'			-- needs slope limiter support
 --solverName = 'EulerHLLC'		-- needs slope limiter support
---solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
+solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
 --solverName = 'SRHDRoe'		-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
 -- override solids:
@@ -298,8 +298,8 @@ graph.variables = {'ALPHA', 'GAMMA', 'K'}	-- which variables to graph.  none = a
 if #size == 1 then			-- 1D better be ortho
 	camera.mode = 'ortho'
 elseif #size == 2 then		-- 2D can handle either ortho or frustum
-	--camera.mode = 'ortho'
-	camera.mode = 'frustum'
+	camera.mode = 'ortho'
+	--camera.mode = 'frustum'
 else						-- 3D better be frustum
 	camera.mode = 'frustum'
 end
