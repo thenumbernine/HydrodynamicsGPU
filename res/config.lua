@@ -134,7 +134,7 @@ size = {256, 256}
 size = {1024}
 --]]
 
--- [[ Euler
+--[[ Euler
 
 --graph.variables = {'DENSITY', 'VELOCITY_X', 'PRESSURE'}	-- which variables to graph.  none = all.
 graph.variables = {}
@@ -142,7 +142,7 @@ graph.variables = {}
 -- uncomment one:
 --solverName = 'EulerBurgers'
 --solverName = 'EulerHLL'			-- needs slope limiter support
---solverName = 'EulerHLLC'		-- needs slope limiter support
+--solverName = 'EulerHLLC'		-- needs slope limiter support ... also not working 
 solverName = 'EulerRoe'		-- fails on Colella-Woodward 2-wave problem, but works on all the initial conditions
 --solverName = 'SRHDRoe'		-- working (so long as AMD messing up the boundary kernel doesn't interfere with its calculations)
 
@@ -223,7 +223,7 @@ initCondName = 'Maxwell-1'
 initConds[initCondName].setup()
 --]]
 
---[[ ADM1D
+-- [[ ADM1D
 solverName = 'ADM1DRoe'
 --solverName = 'BSSNOKRoe'		-- not yet.  TODO copy from the gravitation wave sim project, but that BSSNOK+Roe solver isn't as accurate as it should be
 -- TODO ImplicitIncompressibleNavierStokes	<- from my GPU fluid sim Lua+GLSL project
@@ -249,7 +249,7 @@ solverName = 'ADM2DSpherical'	-- not yet
 solverName = 'ADM3DRoe'
 
 --size = {1024}
-size = {256, 256}
+size = {16, 16}
 --size = {32, 32, 32}
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=false}
 --initConds['NR Gauge Shock Waves'].setup{unitDomain=true}	-- for 2D,3D make sure unitDomain=true ... and now not working in 1D as well

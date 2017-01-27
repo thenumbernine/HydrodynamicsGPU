@@ -127,7 +127,7 @@ constant float2 offset[6] = {
 
 __kernel void updateVectorField(
 	__global float* vectorFieldVertexBuffer,
-	real scale,
+	float scale,
 	int displayMethod,
 	const __global real* stateBuffer,
 	const __global real* gravityPotentialBuffer)

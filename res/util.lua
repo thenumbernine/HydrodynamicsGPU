@@ -186,7 +186,7 @@ function initNumRel(args)
 	if solverName == 'ADM1DRoe' then
 		exprs.gamma = exprs.gamma[1]	-- only need g_xx
 		exprs.A = (exprs.alpha:diff(vars[1]) / exprs.alpha)()	-- only need a_x
-		exprs.D = (exprs.gamma:diff(vars[1])/2)()	-- only need D_xxx
+		exprs.D = (exprs.gamma:diff(vars[1])/exprs.gamma)()	-- only need D_g = ln (g_xx),x = 2 D_xxx / g_xx
 		exprs.K = exprs.K[1]	-- only need K_xx
 		print('compiling expressions...')
 		local calc = table.map(exprs, buildCalc)

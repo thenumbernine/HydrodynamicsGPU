@@ -63,7 +63,7 @@ void VectorField::display() {
 		global = cl::NDRange(resolution, resolution, resolution);
 		break;
 	}
-	updateVectorFieldKernel.setArg(1, (real)scale);
+	updateVectorFieldKernel.setArg(1, scale);
 	updateVectorFieldKernel.setArg(2, variable);	//equation->vectorFieldVars
 	solver->equation->setupUpdateVectorFieldKernelArgs(updateVectorFieldKernel, solver.get());
 	
