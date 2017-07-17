@@ -1,4 +1,4 @@
-HYDROGPU_PATH=$(dir $(lastword $(MAKEFILE_LIST)))
+HYDROGPU_PATH=$(dir $(lastword $MAKEFILE_LIST))
 DIST_FILENAME=HydroGPU
 DIST_TYPE=app
 
@@ -14,11 +14,12 @@ include ../LuaCxx/Include.mk
 include ../ImGuiCommon/Include.mk
 
 #override the original -std=c++11 that I have baked in my Base.mk
-CFLAGS+= -std=c++14
+CPPVER= c++14
 
-LUA_EXT_PATH=$(HYDROGPU_PATH)/../lua/ext
-LUA_SYMMATH_PATH=$(HYDROGPU_PATH)/../lua/symmath
-DIST_RESOURCE_PATH=$(DISTDIR)/$(call concat,$(call buildVar,DIST_PREFIX)$(DIST_FILENAME)).app/Contents/Resources/
+LUA_PATH=$(HOME)/Projects/lua
+LUA_EXT_PATH=$(LUA_PATH)/ext
+LUA_SYMMATH_PATH=$(LUA_PATH)/symmath
+DIST_RESOURCE_PATH=$(dir $(DIST))/../Resources/
 
 # $(call copyTreeOfType, pattern, path from, path to)
 copyTreeOfType = rsync -avm --include='$1' -f 'hide,! */' $2 $3
