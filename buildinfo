@@ -8,18 +8,13 @@ local luaPath = os.getenv'HOME'..'/Projects/lua'
 local luaExtPath = luaPath..'/ext'
 local luaSymMathPath = luaPath..'/symmath'
 
--- TODO define this by the build scipt.
--- for OSX it is dist/platform/build/distName.app/Contents/Resources
--- for windows ... idk?  same as linux?
-local distResourcePath = 'dist/'..platform..'/'..build
-
 local function copyTreeOfType(ext, src, dst)
 	exec("rsync -avm --include='"..ext.."' -f 'hide,! */' "..src.." "..dst)
 end
 
-function postBuildDist()
+function postBuildDist(resourcePath)
 	print "copying Lua scripts..."
-	copyTreeOfType('*.lua', luaExtPath, distResourcePath)
-	copyTreeOfType('*.lua', luaSymMathPath, distResourcePath)
+	copyTreeOfType('*.lua', luaExtPath, resourcePath)
+	copyTreeOfType('*.lua', luaSymMathPath, resourcePath)
 	print "done copying Lua scripts."
 end
