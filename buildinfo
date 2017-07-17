@@ -4,17 +4,15 @@ depends:append{'../Common', '../GLApp', '../CLCommon', '../Tensor', '../Profiler
 include:insert'res/include'
 cppver = 'c++14'
 
-local luaPath = os.getenv'HOME'..'/Projects/lua'
-local luaExtPath = luaPath..'/ext'
-local luaSymMathPath = luaPath..'/symmath'
-
 local function copyTreeOfType(ext, src, dst)
 	exec("rsync -avm --include='"..ext.."' -f 'hide,! */' "..src.." "..dst)
 end
 
+local luaPath = os.getenv'HOME'..'/Projects/lua'
 function postBuildDist(resourcePath)
 	print "copying Lua scripts..."
-	copyTreeOfType('*.lua', luaExtPath, resourcePath)
-	copyTreeOfType('*.lua', luaSymMathPath, resourcePath)
+	for _,module in ipairs{'ext', 'symmath', 'gnuplot'} do
+		copyTreeOfType('*.lua', luaPath..'/'..module, resourcePath)
+	end
 	print "done copying Lua scripts."
 end
