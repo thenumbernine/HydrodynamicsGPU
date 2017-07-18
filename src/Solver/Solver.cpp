@@ -141,13 +141,13 @@ std::cout << s;
 	}
 
 	try {
-		program.build({device}, "-I include");// -Werror -cl-fast-relaxed-math");
+		program.build({device}, "-I include -I .");// -Werror -cl-fast-relaxed-math");
 	} catch (std::exception& err) {	//cl::Error
 		throw Common::Exception() 
 			<< "failed to build program executable!\n"
 			<< program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
 	}
-	
+
 	//warnings?
 	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
 	
