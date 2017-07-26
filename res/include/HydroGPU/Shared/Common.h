@@ -1,6 +1,6 @@
 #pragma once
 
-#if 0	//double
+#if 1	//double
 
 #ifdef __OPENCL_VERSION__
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable

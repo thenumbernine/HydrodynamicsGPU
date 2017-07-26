@@ -132,12 +132,16 @@ OR I could just have the debug printfs also output their thread ID and filter al
 	
 	{
 		std::vector<std::string> sourceStrs = getProgramSources();
+#if defined(CL_HPP_TARGET_OPENCL_VERSION) && CL_HPP_TARGET_OPENCL_VERSION>=200
+		program = cl::Program(app->clCommon->context, sourceStrs);
+#else
 		std::vector<std::pair<const char *, size_t>> sources;
 		for (const std::string &s : sourceStrs) {
 std::cout << s;
 			sources.push_back(std::pair<const char *, size_t>(s.c_str(), s.length()));
 		}
 		program = cl::Program(app->clCommon->context, sources);
+#endif	//CL_HPP_TARGET_OPENCL_VERSION
 	}
 
 	try {
