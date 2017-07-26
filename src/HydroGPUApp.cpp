@@ -207,6 +207,9 @@ void HydroGPUApp::init() {
 	lua["useGravity"] >> useGravity;
 	lua["gaussSeidelMaxIter"] >> gaussSeidelMaxIter;
 
+	bool disableGUI = false;
+	lua["disableGUI"] >> disableGUI;
+
 	//store dimension as last non-1 size
 	for (dim = 3; dim > 0; --dim) {
 		if (size.s[dim-1] > 1) {
@@ -228,7 +231,9 @@ void HydroGPUApp::init() {
 
 	Super::init();
 
-	gui = std::make_shared<ImGuiCommon::ImGuiCommon>(window);
+	if (!disableGUI) {
+		gui = std::make_shared<ImGuiCommon::ImGuiCommon>(window);
+	}
 
 	//TODO put this in CLCommon, where a similar function operating on vectors exists
 	auto checkHasGLSharing = [](const cl::Device& device)-> bool {
@@ -571,7 +576,7 @@ PROFILE_BEGIN_FRAME()
 	- a Lua interface into everything would be nice ... if we were using LuaJIT
 	... then *everything* C-callable would be accessible immediately
 	*/
-	gui->update([&](){
+	if (gui) gui->update([&](){
 		//how do you change the window title from "Debug"?
 
 		if (ImGui::CollapsingHeader("setup")) {
@@ -881,7 +886,7 @@ PROFILE_END_FRAME();
 }
 
 void HydroGPUApp::sdlEvent(SDL_Event& event) {
-	gui->sdlEvent(event);
+	if (gui) gui->sdlEvent(event);
 	bool canHandleMouse = !ImGui::GetIO().WantCaptureMouse;
 	bool canHandleKeyboard = !ImGui::GetIO().WantCaptureKeyboard;
 

@@ -48,6 +48,9 @@ xmax = {.5, .5, .5}
 useFixedDT = false
 fixedDT = .001
 
+-- if you want a 5% increase in performance
+--disableGUI = true
+
 -- TODO AMD card has trouble with mirror and periodic boundaries ... probably all boundaries
 boundaryMethods = {
 	{min='FREEFLOW', max='FREEFLOW'},
