@@ -162,7 +162,7 @@ __kernel void updateVectorField(
 #if EULER_DIM > 2
 		field.z = state[STATE_MOMENTUM_Z];
 #endif
-		if (displayMethod == VECTORFIELD_MOMENTUM) field *= 1. / state[STATE_DENSITY];
+		if (displayMethod == VECTORFIELD_MOMENTUM) field *= (real)1. / state[STATE_DENSITY];
 		break;
 	case VECTORFIELD_GRAVITY:
 		{

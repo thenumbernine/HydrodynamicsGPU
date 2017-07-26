@@ -41,7 +41,7 @@ integratorName = 'ForwardEuler'
 --integratorName = 'BackwardEulerConjugateGradient'	-- not fully working, experimental only on EulerBurgers
 
 useGPU = true			-- = false means use OpenCL for CPU, which is shoddy for my intel card
-maxFrames = 0			-- enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
+--maxFrames = 0			-- enable to automatically pause the solver after this many frames.  useful for comparing solutions.  push 'u' to toggle update pause/play.
 showTimestep = false	-- whether to print timestep.  useful for debugging.  push 't' to toggle.
 xmin = {-.5, -.5, -.5}
 xmax = {.5, .5, .5}
@@ -134,7 +134,7 @@ size = {256, 256}
 size = {1024}
 --]]
 
---[[ Euler
+-- [[ Euler
 
 --graph.variables = {'DENSITY', 'VELOCITY_X', 'PRESSURE'}	-- which variables to graph.  none = all.
 graph.variables = {}
@@ -223,7 +223,7 @@ initCondName = 'Maxwell-1'
 initConds[initCondName].setup()
 --]]
 
--- [[ ADM1D
+--[[ ADM1D
 solverName = 'ADM1DRoe'
 --solverName = 'BSSNOKRoe'		-- not yet.  TODO copy from the gravitation wave sim project, but that BSSNOK+Roe solver isn't as accurate as it should be
 -- TODO ImplicitIncompressibleNavierStokes	<- from my GPU fluid sim Lua+GLSL project

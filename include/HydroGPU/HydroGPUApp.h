@@ -42,8 +42,6 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	std::shared_ptr<ImGuiCommon::ImGuiCommon> gui;
 
 	GLuint gradientTex;
-	
-	cl::ImageGL gradientTexMem;	//as it is written, data is read from this for mapping values to colors
 
 	int equationIndex;
 

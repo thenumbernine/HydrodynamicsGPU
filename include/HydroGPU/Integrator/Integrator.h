@@ -1,11 +1,7 @@
 #pragma once
 
 #include "HydroGPU/Shared/Common.h"	//cl shared header
-#ifdef PLATFORM_osx
-#include <OpenCL/cl.hpp>
-#else
-#include <CL/cl.hpp>
-#endif
+#include "CLCommon/cl.hpp"
 #include <functional>
 
 namespace HydroGPU {
@@ -22,4 +18,3 @@ struct Integrator {
 
 }
 }
-

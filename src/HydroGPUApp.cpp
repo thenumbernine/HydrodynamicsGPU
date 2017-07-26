@@ -44,11 +44,7 @@
 
 #include "SDL.h"
 #include "Common/gl.h"
-#ifdef PLATFORM_osx
-#include <OpenCL/cl.hpp>
-#else
-#include <CL/cl.hpp>
-#endif
+#include "CLCommon/cl.hpp"
 #include <iostream>
 #include <algorithm>
 
@@ -273,7 +269,9 @@ void HydroGPUApp::init() {
 		});
 	
 	hasGLSharing = checkHasGLSharing(clCommon->device);
+std::cout << "hasGLSharing " << hasGLSharing << std::endl; 
 	hasFP64 = checkHasFP64(clCommon->device);
+std::cout << "hasFP64 " << hasFP64 << std::endl;
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -323,8 +321,6 @@ void HydroGPUApp::init() {
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glBindTexture(GL_TEXTURE_1D, 0);
 	}
-
-	gradientTexMem = cl::ImageGL(clCommon->context, CL_MEM_READ_ONLY, GL_TEXTURE_1D, 0, gradientTex);
 
 	lua["solverName"] >> solverName;
 	std::cout << "solverName " << solverName << std::endl;

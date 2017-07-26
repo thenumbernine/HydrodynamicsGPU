@@ -48,8 +48,8 @@ __kernel void calcCellTimestep(
 		const __global real* eigenvaluesR = eigenvaluesBuffer + EIGEN_SPACE_DIM * (side + DIM * indexR);
 		
 		//NOTICE assumes eigenvalues are sorted from min to max
-		real maxLambda = max(0., eigenvaluesL[EIGEN_SPACE_DIM-1]);
-		real minLambda = min(0., eigenvaluesR[0]);
+		real maxLambda = (real)max((real)0., eigenvaluesL[EIGEN_SPACE_DIM-1]);
+		real minLambda = (real)min((real)0., eigenvaluesR[0]);
 		
 //Hydrodynamics ii
 #if 1
@@ -57,7 +57,7 @@ __kernel void calcCellTimestep(
 #endif
 //Toro 16.38
 #if 0
-		real dum = dx[side] / (max(fabs(minLambda), fabs(maxLambda)) + 1e-9);
+		real dum = dx[side] / ((real)max((real)fabs(minLambda), (real)fabs(maxLambda)) + (real)1e-9);
 #endif
 		
 		dtBuffer[side + DIM * index] = dum;

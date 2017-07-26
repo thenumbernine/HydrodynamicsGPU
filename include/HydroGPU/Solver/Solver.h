@@ -6,11 +6,7 @@
 #include "HydroGPU/Solver/ISolver.h"
 #include "Profiler/Stat.h"
 #include "Tensor/Vector.h"
-#ifdef PLATFORM_osx
-#include <OpenCL/cl.hpp>
-#else
-#include <CL/cl.hpp>
-#endif
+#include "CLCommon/cl.hpp"
 #include <vector>
 #include <string>
 #include <memory>

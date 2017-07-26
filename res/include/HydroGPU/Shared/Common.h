@@ -1,6 +1,6 @@
 #pragma once
 
-#if 1	//double
+#if 0	//double
 
 #ifdef __OPENCL_VERSION__
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
@@ -33,14 +33,24 @@ typedef float4 real4;
 typedef float8 real8;
 typedef float16 real16;
 #else
+
+//same as in CLCommon/CLCommon.h
+//and similar to src/HydroGPUApp.cpp
+#ifdef PLATFORM_osx
 #include <OpenCL/cl.h>
+#elif PLATFORM_msvc
+#include "CL/cl.h"
+#else
+#include <CL/cl.h>
+#endif
+
 typedef cl_float2 real2;
 typedef cl_float4 real4;
 typedef cl_float8 real8;
 typedef cl_float16 real16;
 #endif
 
-#endif
+#endif	//single/double
 
 #ifdef __OPENCL_VERSION__
 #pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
@@ -48,4 +58,3 @@ typedef cl_float16 real16;
 
 #define INDEX(a,b,c)	((a) + SIZE_X * ((b) + SIZE_Y * (c)))
 #define INDEXV(i)		INDEX((i).x, (i).y, (i).z)
-

@@ -2,11 +2,7 @@
 
 #include "HydroGPU/Plot/Iso3D.h"
 #include "Shader/Program.h"
-#ifdef PLATFORM_osx
-#include <OpenCL/cl.hpp>
-#else
-#include <CL/cl.hpp>
-#endif
+#include "CLCommon/cl.hpp"
 #include <memory>
 
 namespace HydroGPU {
