@@ -301,7 +301,7 @@ initConds = {
 	--EulerHLL works fine
 	--EulerRoe at high resolutions after a long time shows some waves and then blows up
 	{
-		name='Kelvin-Hemholtz',
+		name='Kelvin-Helmholtz',
 		equations={'Euler', 'MHD', 'SRHD'},
 		setup=function()
 			boundaryMethods = {{min='PERIODIC', max='PERIODIC'}, {min='PERIODIC', max='PERIODIC'}, {min='PERIODIC', max='PERIODIC'}}

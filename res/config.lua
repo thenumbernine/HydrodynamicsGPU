@@ -178,7 +178,7 @@ end
 initCondName = 'Sod'
 --initCondName = 'Sphere'
 --initCondName = 'Square Cavity'
---initCondName = 'Kelvin-Hemholtz'
+--initCondName = 'Kelvin-Helmholtz'
 --initCondName = 'Rayleigh-Taylor'
 --initCondName = 'Shock Bubble Interaction'
 --initCondName = 'Flow Around Cylinder'
