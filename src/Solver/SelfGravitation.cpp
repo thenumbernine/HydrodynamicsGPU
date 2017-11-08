@@ -4,7 +4,7 @@
 #include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Image/System.h"
+#include "Image/Image.h"
 
 namespace HydroGPU {
 namespace Solver {

@@ -2,7 +2,7 @@
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Image/System.h"
+#include "Image/Image.h"
 #include "Common/File.h"
 #include "Common/gl.h"
 #include <iomanip>	//don't include iostream after this

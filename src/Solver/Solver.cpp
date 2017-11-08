@@ -8,7 +8,7 @@
 #include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/toNumericString.h"
-#include "Image/System.h"
+#include "Image/Image.h"
 #include "Common/File.h"
 
 namespace HydroGPU {
