@@ -4,7 +4,7 @@
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/Image.h"
 #include "Common/File.h"
-#include "Common/gl.h"
+#include "GLApp/gl.h"
 #include <iomanip>	//don't include iostream after this
 
 namespace HydroGPU {

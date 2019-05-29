@@ -2,7 +2,7 @@
 #include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Common/File.h"
-#include "Common/gl.h"
+#include "GLApp/gl.h"
 #include <cassert>
 
 // TODO put this in one place ... separate of all else.  call it "rulers3D" or something ... and put Graph's 2D stuff in "rulers2D"

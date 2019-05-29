@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Common/gl.h"
+#include "GLApp/gl.h"
 #include "CLCommon/cl.hpp"
 #include <memory>
 
