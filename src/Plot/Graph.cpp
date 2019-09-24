@@ -1,4 +1,4 @@
-#include "Common/gl.h"		//only here for Ubuntu build's sake
+#include "GLApp/gl.h"		//only here for Ubuntu build's sake
 #include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/Plot/Graph.h"
 #include "HydroGPU/Plot/Plot.h"

@@ -1,6 +1,6 @@
 #include "HydroGPU/Plot/CameraOrtho.h"
 #include "HydroGPU/HydroGPUApp.h"
-#include "Common/gl.h"
+#include "GLApp/gl.h"
 
 namespace HydroGPU {
 namespace Plot {

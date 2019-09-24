@@ -1,5 +1,4 @@
 #ifdef PLATFORM_linux	//only here for Ubuntu build's sake
-#include "Common/gl.h"
 #include <istream>
 #include "bits/stream_iterator.h"
 #endif
@@ -43,7 +42,7 @@
 #include "Common/Macros.h"
 
 #include "SDL.h"
-#include "Common/gl.h"
+#include "GLApp/gl.h"
 #include "CLCommon/cl.hpp"
 #include <iostream>
 #include <algorithm>

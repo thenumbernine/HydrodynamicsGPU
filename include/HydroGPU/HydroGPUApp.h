@@ -7,7 +7,7 @@
 #include "Tensor/Tensor.h"
 #include "CLCommon/CLCommon.h"
 #include "HydroGPU/Shared/Common.h"	//real4
-#include "Common/gl.h"
+#include "GLApp/gl.h"
 
 #include <map>
 
