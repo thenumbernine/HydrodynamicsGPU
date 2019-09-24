@@ -9,7 +9,7 @@ namespace Solver {
 Roe solver for Maxwell equations
 */
 struct MaxwellRoe : public Roe {
-	typedef Roe Super;
+	using Super = Roe;
 	using Super::Super;
 
 protected:	

@@ -56,12 +56,12 @@ void calcEigenvaluesSide(
 	real4 velocityL = VELOCITY(stateL);
 	real velocitySqL = dot(velocityL, velocityL);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
-	real energyKineticL = .5f * velocitySqL;
+	real energyKineticL = .5 * velocitySqL;
 	real energyPotentialL = potentialBuffer[indexPrev];
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (gamma - 1.) * densityL * energyInternalL;
 	real enthalpyTotalL = energyTotalL + pressureL * invDensityL;
-	real speedOfSoundL = sqrt((gamma - 1.) * (enthalpyTotalL - .5f * velocitySqL));
+	real speedOfSoundL = sqrt((gamma - 1.) * (enthalpyTotalL - .5 * velocitySqL));
 	real roeWeightL = sqrt(densityL);
 
 	real densityR = stateR[STATE_DENSITY];
@@ -69,12 +69,12 @@ void calcEigenvaluesSide(
 	real4 velocityR = VELOCITY(stateR);
 	real velocitySqR = dot(velocityR, velocityR);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
-	real energyKineticR = .5f * velocitySqR;
+	real energyKineticR = .5 * velocitySqR;
 	real energyPotentialR = potentialBuffer[index];
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 	real pressureR = (gamma - 1.) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
-	real speedOfSoundR = sqrt((gamma - 1.) * (enthalpyTotalR - .5f * velocitySqR));
+	real speedOfSoundR = sqrt((gamma - 1.) * (enthalpyTotalR - .5 * velocitySqR));
 	real roeWeightR = sqrt(densityR);
 	
 	real roeWeightNormalization = 1. / (roeWeightL + roeWeightR);
@@ -84,11 +84,11 @@ void calcEigenvaluesSide(
 
 	//acoustic-type approximation: Toro, 1991
 	//seems sharper than the two-rarefaction Riemann solver...
-	real pressureStar = max(0., .5f * (pressureL + pressureR) - .5f * (velocityR.x - velocityL.x) * .5f * (densityL + densityR) * .5f * (speedOfSoundL + speedOfSoundR));
+	real pressureStar = max(0., .5 * (pressureL + pressureR) - .5 * (velocityR.x - velocityL.x) * .5 * (densityL + densityR) * .5 * (speedOfSoundL + speedOfSoundR));
 
 	//Two-Rarefaction Riemann solver:
-	//real z = .5f - .5f / gamma;
-	//real pressureStar = pow((speedOfSoundL + speedOfSoundR - .5f * (gamma - 1.) * (velocityR.x - velocityL.x)) / (speedOfSoundL / pow(pressureL, z) + speedOfSoundR * pow(pressureR, z)), 1. / z);
+	//real z = .5 - .5 / gamma;
+	//real pressureStar = pow((speedOfSoundL + speedOfSoundR - .5 * (gamma - 1.) * (velocityR.x - velocityL.x)) / (speedOfSoundL / pow(pressureL, z) + speedOfSoundR * pow(pressureR, z)), 1. / z);
 	
 	real qL = pressureStar <= pressureL ? 1. : sqrt(1. + (gamma + 1.) / (2. * gamma) * (pressureStar / pressureL - 1.));
 	real qR = pressureStar <= pressureR ? 1. : sqrt(1. + (gamma + 1.) / (2. * gamma) * (pressureStar / pressureR - 1.));
@@ -149,21 +149,21 @@ __kernel void calcCellTimestep(
 		dtBuffer[index] = INFINITY;
 		return;
 	}
-
+	
 	real result = INFINITY;
 	for (int side = 0; side < DIM; ++side) {
 		int indexNext = index + stepsize[side];
 		
 		const __global real* eigenvaluesL = eigenvaluesBuffer + NUM_STATES * (side + DIM * index);
 		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexNext);
-
+		
 		real minLambda = min(0., eigenvaluesR[0]);
 		real maxLambda = max(0., eigenvaluesL[EULER_DIM+1]);
-
+		
 		real dum = dx[side] / (maxLambda - minLambda);
 		result = min(result, dum);
 	}
-		
+	
 	dtBuffer[index] = result;
 }
 
@@ -220,7 +220,7 @@ void calcFluxSide(
 	real4 velocityL = VELOCITY(stateL);
 	real velocitySqL = dot(velocityL, velocityL);
 	real energyTotalL = stateL[STATE_ENERGY_TOTAL] * invDensityL;
-	real energyKineticL = .5f * velocitySqL;
+	real energyKineticL = .5 * velocitySqL;
 	real energyPotentialL = potentialBuffer[indexPrev];
 	real energyInternalL = energyTotalL - energyKineticL - energyPotentialL;
 	real pressureL = (gamma - 1.) * densityL * energyInternalL;
@@ -231,17 +231,16 @@ void calcFluxSide(
 	real4 velocityR = VELOCITY(stateR);
 	real velocitySqR = dot(velocityR, velocityR);
 	real energyTotalR = stateR[STATE_ENERGY_TOTAL] * invDensityR;
-	real energyKineticR = .5f * velocitySqR;
+	real energyKineticR = .5 * velocitySqR;
 	real energyPotentialR = potentialBuffer[index];
 	real energyInternalR = energyTotalR - energyKineticR - energyPotentialR;
 	real pressureR = (gamma - 1.) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
-
 	
 	//flux
 
 	real sl = eigenvalues[0];
-	real sr = eigenvalues[EULER_DIM+1];
+	real sr = eigenvalues[NUM_STATES-1];
 
 	real fluxL[NUM_STATES];
 	fluxL[0] = densityL * velocityL.x;
@@ -253,8 +252,7 @@ void calcFluxSide(
 	fluxL[3] = densityL * velocityL.z * velocityL.x;
 #endif
 	fluxL[EULER_DIM+1] = densityL * enthalpyTotalL * velocityL.x;
-
-
+	
 	real fluxR[NUM_STATES];
 	fluxR[0] = densityR * velocityR.x;
 	fluxR[1] = densityR * velocityR.x * velocityR.x + pressureR;
@@ -334,7 +332,7 @@ void calcFluxSide(
 #elif HLLC_METHOD == 2
 	
 	} else if (sl <= 0. && 0. <= sStar) {
-		real pressureLR = .5f * (pressureL + pressureR + densityL * (sl - velocityL.x) * (sStar - velocityL.x) + densityR * (sr - velocityR.x) * (sStar - velocityR.x));
+		real pressureLR = .5 * (pressureL + pressureR + densityL * (sl - velocityL.x) * (sStar - velocityL.x) + densityR * (sr - velocityR.x) * (sStar - velocityR.x));
 		flux[STATE_DENSITY] = sStar * (sl * stateL[STATE_DENSITY] - fluxL[STATE_DENSITY]) / (sl - sStar);
 		flux[STATE_MOMENTUM_X] = (sStar * (sl * stateL[STATE_MOMENTUM_X] - fluxL[STATE_MOMENTUM_X]) + sl * pressureLR) / (sl - sStar);
 #if EULER_DIM > 1
@@ -345,7 +343,7 @@ void calcFluxSide(
 #endif
 		flux[STATE_ENERGY_TOTAL] = (sStar * (sl * stateL[STATE_ENERGY_TOTAL] - fluxL[STATE_ENERGY_TOTAL]) + sl * pressureLR * sStar) / (sl - sStar);
 	} else if (sStar <= 0. && 0. <= sr) {
-		real pressureLR = .5f * (pressureL + pressureR + densityL * (sl - velocityL.x) * (sStar - velocityL.x) + densityR * (sr - velocityR.x) * (sStar - velocityR.x));
+		real pressureLR = .5 * (pressureL + pressureR + densityL * (sl - velocityL.x) * (sStar - velocityL.x) + densityR * (sr - velocityR.x) * (sStar - velocityR.x));
 		flux[STATE_DENSITY] = sStar * (sr * stateR[STATE_DENSITY] - fluxR[STATE_DENSITY]) / (sr - sStar);
 		flux[STATE_MOMENTUM_X] = (sStar * (sr * stateR[STATE_MOMENTUM_X] - fluxR[STATE_MOMENTUM_X]) + sr * pressureLR) / (sr - sStar);
 #if EULER_DIM > 1
@@ -362,7 +360,6 @@ void calcFluxSide(
 			flux[i] = fluxR[i];
 		}
 	}
-
 
 /*
 slope limiter?
@@ -406,7 +403,7 @@ or can we use delta q- and delta q+ for the lhs and rhs of the delta q slope, ch
 		}
 		real phi = slopeLimiter(rTilde);
 		real epsilon = eigenvalue * dt_dx;
-		flux[i] -= .5f * deltaFlux * (theta + phi * (epsilon - theta));
+		flux[i] -= .5 * deltaFlux * (theta + phi * (epsilon - theta));
 	}
 #endif
 

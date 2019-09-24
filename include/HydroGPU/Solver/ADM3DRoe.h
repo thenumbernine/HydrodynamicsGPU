@@ -9,7 +9,7 @@ namespace Solver {
 Roe solver for ADM3D equations
 */
 struct ADM3DRoe : public Roe {
-	typedef Roe Super;
+	using Super = Roe;
 	using Super::Super;
 
 protected:

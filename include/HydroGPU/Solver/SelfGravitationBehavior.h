@@ -22,7 +22,7 @@ if we have to keep track for this reason, should we keep track for the sake of c
 */
 template<typename Parent>
 struct SelfGravitationBehavior : public Parent, public SelfGravitationInterface {
-	typedef Parent Super;
+	using Super = Parent;
 	using Super::Super;
 protected:
 	std::shared_ptr<HydroGPU::Solver::SelfGravitation> selfgrav;
@@ -52,7 +52,7 @@ protected:
 	}
 
 	struct Converter : public Super::Converter {
-		typedef typename SelfGravitationBehavior::Super::Converter Super;
+		using Super = typename SelfGravitationBehavior::Super::Converter;
 		std::vector<real> potentialVec;
 
 		//I'm going to put solid flag buffers here for now because I'm lazy

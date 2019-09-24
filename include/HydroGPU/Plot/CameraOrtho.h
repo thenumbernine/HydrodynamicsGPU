@@ -9,7 +9,7 @@ struct HydroGPUApp;
 namespace Plot {
 
 struct CameraOrtho : public Camera {
-	typedef Camera Super;
+	using Super = Camera;
 
 public:	//protected:	
 	Tensor::Vector<float,2> pos;

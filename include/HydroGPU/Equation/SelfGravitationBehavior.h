@@ -13,7 +13,7 @@ struct SelfGravitationInterface {
 
 template<typename Parent>
 struct SelfGravitationBehavior : public Parent, public SelfGravitationInterface {
-	typedef Parent Super;
+	using Super = Parent;
 	using Super::Super;
 	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim, int minmax);
 };

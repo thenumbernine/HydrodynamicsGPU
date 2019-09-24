@@ -9,7 +9,7 @@ struct HydroGPUApp;
 namespace Solver {
 
 struct MHDHLLC : public MHDRemoveDivergenceBehavior<SelfGravitationBehavior<HLL>> {
-	typedef MHDRemoveDivergenceBehavior<SelfGravitationBehavior<HLL>> Super;
+	using Super = MHDRemoveDivergenceBehavior<SelfGravitationBehavior<HLL>>;
 
 public:
 	using Super::Super;

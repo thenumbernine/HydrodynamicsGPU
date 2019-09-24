@@ -8,7 +8,7 @@ namespace Solver {
 
 struct FiniteVolumeSolver : public Solver {
 protected:
-	typedef Solver Super;
+	using Super = Solver;
 	
 	cl::Buffer fluxBuffer;
 

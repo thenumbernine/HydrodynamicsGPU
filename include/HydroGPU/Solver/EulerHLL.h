@@ -8,7 +8,7 @@ struct HydroGPUApp;
 namespace Solver {
 
 struct EulerHLL : public SelfGravitationBehavior<HLL> {
-	typedef SelfGravitationBehavior<HLL> Super;
+	using Super = SelfGravitationBehavior<HLL>;
 	using Super::Super;
 protected:
 	virtual void initKernels();

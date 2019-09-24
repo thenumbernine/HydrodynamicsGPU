@@ -9,7 +9,7 @@ namespace Solver {
 Roe solver for BSSNOK equations
 */
 struct BSSNOKRoe : public Roe {
-	typedef Roe Super;
+	using Super = Roe;
 	using Super::Super;
 protected:
 	virtual void createEquation();

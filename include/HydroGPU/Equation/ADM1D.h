@@ -21,7 +21,7 @@ two solutions to this:
 2) modify underlying roe routines to operate on a subset of states
 */
 struct ADM1D : public Equation {
-	typedef Equation Super;
+	using Super = Equation;
 	ADM1D(HydroGPUApp* app_);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);

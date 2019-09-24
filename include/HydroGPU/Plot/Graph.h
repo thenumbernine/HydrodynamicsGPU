@@ -19,11 +19,11 @@ struct Graph {
 	how to display variables ...
 	*/
 	struct Variable {
-		typedef enum {
+		enum PolyMode {
 			Point,
 			Line,
 			Fill,
-		} PolyMode;
+		};
 		
 		std::string name;
 		bool enabled;

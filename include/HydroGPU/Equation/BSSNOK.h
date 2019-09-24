@@ -9,7 +9,7 @@ struct HydroGPUApp;
 namespace Equation {
 
 struct BSSNOK : public Equation {
-	typedef Equation Super;
+	using Super = Equation;
 	BSSNOK(HydroGPUApp* app_);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);

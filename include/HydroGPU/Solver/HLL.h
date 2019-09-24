@@ -7,7 +7,7 @@ struct HydroGPUApp;
 namespace Solver {
 
 struct HLL : public FiniteVolumeSolver {
-	typedef FiniteVolumeSolver Super;
+	using Super = FiniteVolumeSolver;
 
 protected:
 	cl::Buffer eigenvaluesBuffer;

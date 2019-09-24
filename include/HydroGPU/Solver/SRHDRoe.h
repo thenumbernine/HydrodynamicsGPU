@@ -18,7 +18,7 @@ also, don't forget, SelfGravitationBehavoir comes with solidBuffer ... TODO get 
 */
 struct SRHDRoe : public /*SelfGravitationBehavior<Roe>*/Roe {
 protected:
-	typedef /*SelfGravitationBehavior<Roe>*/Roe Super;
+	using Super = /*SelfGravitationBehavior<Roe>*/Roe;
 
 	/*
 	The primitive buffer holds density, velocity, pressure

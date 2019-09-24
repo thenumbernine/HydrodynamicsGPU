@@ -12,7 +12,7 @@ subclasses need to implement calcEigenBasis
 */
 struct Roe : public FiniteVolumeSolver {
 protected:
-	typedef FiniteVolumeSolver Super;
+	using Super = FiniteVolumeSolver;
 
 	cl::Buffer eigenvaluesBuffer;
 	cl::Buffer eigenvectorsBuffer;	//contains forward and inverse transform information

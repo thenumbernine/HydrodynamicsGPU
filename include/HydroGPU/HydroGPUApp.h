@@ -33,7 +33,7 @@ struct Solver;
 }
 
 struct HydroGPUApp : public ::GLApp::GLApp {
-	typedef ::GLApp::GLApp Super;
+	using Super = ::GLApp::GLApp;
 
 	std::shared_ptr<CLCommon::CLCommon> clCommon;
 	bool hasGLSharing;
@@ -49,8 +49,8 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	int initCondIndex;
 
 	//solverGensForEqns[index corresponding with pair whose first is the equation name][index corresponding with pair whose first is the solver name] = function to create solver
-	typedef std::shared_ptr<Solver::Solver> SolverPtr;
-	typedef std::function<SolverPtr()> SolverGenFunc;
+	using SolverPtr = std::shared_ptr<Solver::Solver>;
+	using SolverGenFunc = std::function<SolverPtr()>;
 	struct SolverGenPair {
 		SolverGenPair(const std::string& name_, SolverGenFunc func_)
 		: name(name_), func(func_) {}
@@ -135,15 +135,15 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	virtual void sdlEvent(SDL_Event &event);
 };
 
-inline std::ostream& operator<<(std::ostream& o, real4 v) {
+inline std::ostream& operator<<(std::ostream& o, const real4& v) {
 	return o << v.s[0] << ", " << v.s[1] << ", " << v.s[2] << ", " << v.s[3];
 }
 
-inline std::ostream& operator<<(std::ostream& o, cl_int4 v) {
+inline std::ostream& operator<<(std::ostream& o, const cl_int4& v) {
 	return o << v.s[0] << ", " << v.s[1] << ", " << v.s[2] << ", " << v.s[3];
 }
 
-inline std::ostream& operator<<(std::ostream& o, cl::NDRange &range) {
+inline std::ostream& operator<<(std::ostream& o, const cl::NDRange &range) {
 	o << "(";
 	const char *comma = "";
 	for (int i = 0; i < (int)range.dimensions(); ++i) {

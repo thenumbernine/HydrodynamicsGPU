@@ -7,7 +7,7 @@ namespace HydroGPU {
 namespace Integrator {
 
 struct BackwardEulerConjugateGradient : public Integrator {
-	typedef Integrator Super;
+	using Super = Integrator;
 	BackwardEulerConjugateGradient(HydroGPU::Solver::Solver* solver);
 	virtual void integrate(real dt, std::function<void(cl::Buffer)> callback);
 	

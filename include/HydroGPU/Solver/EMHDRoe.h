@@ -18,7 +18,7 @@ namespace Solver {
 
 struct EMHDRoe : public ISolver {
 protected:
-	typedef ISolver Super;
+	using Super = ISolver;
 
 	EulerRoe euler;
 	MaxwellRoe maxwell;

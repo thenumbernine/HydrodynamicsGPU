@@ -9,7 +9,7 @@ struct HydroGPUApp;
 namespace Solver {
 
 struct EulerBurgers : public SelfGravitationBehavior<FiniteVolumeSolver> {
-	typedef SelfGravitationBehavior<FiniteVolumeSolver> Super;
+	using Super = SelfGravitationBehavior<FiniteVolumeSolver>;
 
 protected:
 	cl::Buffer interfaceVelocityBuffer;

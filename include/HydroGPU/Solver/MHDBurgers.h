@@ -9,7 +9,7 @@ struct HydroGPUApp;
 namespace Solver {
 
 struct MHDBurgers : public MHDRemoveDivergenceBehavior<SelfGravitationBehavior<FiniteVolumeSolver>> {
-	typedef MHDRemoveDivergenceBehavior<SelfGravitationBehavior<FiniteVolumeSolver>> Super;
+	using Super = MHDRemoveDivergenceBehavior<SelfGravitationBehavior<FiniteVolumeSolver>>;
 
 protected:
 	cl::Buffer interfaceVelocityBuffer;

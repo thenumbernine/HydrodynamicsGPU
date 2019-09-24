@@ -15,7 +15,7 @@ http://www.ams.org/journals/mcom/1998-67-221/S0025-5718-98-00913-2/S0025-5718-98
 */
 template<typename Tableau>
 struct RungeKutta : public Integrator {
-	enum { order = Tableau::Order };
+	static constexpr auto order = Tableau::Order;
 	typedef Integrator Super;
 	RungeKutta(HydroGPU::Solver::Solver* solver);
 	virtual void integrate(real dt, std::function<void(cl::Buffer)> callback);
@@ -127,7 +127,7 @@ void RungeKutta<Tableau>::integrate(real dt, std::function<void(cl::Buffer)> cal
 //the following are from https://en.wikipedia.org/wiki/List_of_Runge%E2%80%93Kutta_methods#Classic_fourth-order_method
 
 struct RungeKutta2Tableau {
-	enum { Order = 2 };
+	static constexpr auto Order = 2;
 	static real alphas(int i, int j) { static real m[Order][Order] = {
 		{1, 0},
 		{1, 0},
@@ -140,7 +140,7 @@ struct RungeKutta2Tableau {
 typedef RungeKutta<RungeKutta2Tableau> RungeKutta2;
 
 struct RungeKutta2HeunTableau {
-	enum { Order = 2 };
+	static constexpr auto Order = 2;
 	static real alphas(int i, int j) { static real m[Order][Order] = {
 		{1, 0},
 		{1, 0},
@@ -153,7 +153,7 @@ struct RungeKutta2HeunTableau {
 typedef RungeKutta<RungeKutta2HeunTableau> RungeKutta2Heun;
 
 struct RungeKutta2RalstonTableau {
-	enum { Order = 2 };
+	static constexpr auto Order = 2;
 	static real alphas(int i, int j) { static real m[Order][Order] = {
 		{1, 0},
 		{1, 0},
@@ -166,7 +166,7 @@ struct RungeKutta2RalstonTableau {
 typedef struct RungeKutta<RungeKutta2RalstonTableau> RungeKutta2Ralston;
 
 struct RungeKutta3Tableau {
-	enum { Order = 3 };
+	static constexpr auto Order = 3;
 	static real alphas(int i, int j) { static real m[Order][Order] = {
 		{1, 0, 0},
 		{1, 0, 0},
@@ -181,7 +181,7 @@ struct RungeKutta3Tableau {
 typedef struct RungeKutta<RungeKutta3Tableau> RungeKutta3;
 
 struct RungeKutta4Tableau {
-	enum { Order = 4 };
+	static constexpr auto Order = 4;
 	static real alphas(int i, int j) { static real m[Order][Order] = {
 		{1, 0, 0, 0},
 		{1, 0, 0, 0},
@@ -198,7 +198,7 @@ struct RungeKutta4Tableau {
 typedef struct RungeKutta<RungeKutta4Tableau> RungeKutta4;
 
 struct RungeKutta4_3_8thsRuleTableau {
-	enum { Order = 4 };
+	static constexpr auto Order = 4;
 	static real alphas(int i, int j) { static real m[Order][Order] = {
 		{1, 0, 0, 0},
 		{1, 0, 0, 0},
@@ -217,7 +217,7 @@ typedef struct RungeKutta<RungeKutta4_3_8thsRuleTableau> RungeKutta4_3_8thsRule;
 //the following are from http://www.ams.org/journals/mcom/1998-67-221/S0025-5718-98-00913-2/S0025-5718-98-00913-2.pdf
 
 struct RungeKutta2TVDTableau {
-	enum { Order = 2 };
+	static constexpr auto Order = 2;
 	static real alphas(int i, int j) { static real m[Order][Order] = {
 		{1, 0},
 		{.5, .5},
@@ -230,7 +230,7 @@ struct RungeKutta2TVDTableau {
 typedef struct RungeKutta<RungeKutta2TVDTableau> RungeKutta2TVD; 
 
 struct RungeKutta2NonTVDTableau {
-	enum { Order = 2 };
+	static constexpr auto Order = 2;
 	static real alphas(int i, int j) { static real m[Order][Order] = {
 		{1, 0},
 		{1, 0},
@@ -243,7 +243,7 @@ struct RungeKutta2NonTVDTableau {
 typedef struct RungeKutta<RungeKutta2NonTVDTableau> RungeKutta2NonTVD; 
 
 struct RungeKutta3TVDTableau {
-	enum { Order = 3 };
+	static constexpr auto Order = 3;
 	static real alphas(int i, int j) { static real m[Order][Order] = {
 		{1, 0, 0},
 		{3./4., 1./4., 0},
@@ -258,7 +258,7 @@ struct RungeKutta3TVDTableau {
 typedef struct RungeKutta<RungeKutta3TVDTableau> RungeKutta3TVD; 
 
 struct RungeKutta4TVDTableau {
-	enum { Order = 4 };
+	static constexpr auto Order = 4;
 	static real alphas(int i, int j) { static real m[Order][Order] = {
 		{1, 0, 0, 0},
 		{649./1600., 951./1600., 0, 0},
@@ -277,7 +277,7 @@ typedef struct RungeKutta<RungeKutta4TVDTableau> RungeKutta4TVD;
 //this one is from http://lsec.cc.ac.cn/lcfd/DEWENO/paper/WENO_1996.pdf
 
 struct RungeKutta4NonTVDTableau {
-	enum { Order = 4 };
+	static constexpr auto Order = 4;
 	static real alphas(int i, int j) { static real m[Order][Order] = {
 		{1, 0, 0, 0},
 		{1, 0, 0, 0},

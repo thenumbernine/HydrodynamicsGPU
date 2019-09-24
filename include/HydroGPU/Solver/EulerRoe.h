@@ -10,7 +10,7 @@ namespace Solver {
 Roe solver for Euler equations
 */
 struct EulerRoe : public SelfGravitationBehavior<Roe> {
-	typedef SelfGravitationBehavior<Roe> Super;
+	using Super = SelfGravitationBehavior<Roe>;
 	using Super::Super;
 protected:
 	virtual void initKernels();

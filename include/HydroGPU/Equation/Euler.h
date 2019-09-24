@@ -10,7 +10,7 @@ struct HydroGPUApp;
 namespace Equation {
 
 struct Euler : public SelfGravitationBehavior<Equation> {
-	typedef SelfGravitationBehavior<Equation> Super;
+	using Super = SelfGravitationBehavior<Equation>;
 	
 protected:
 	int dim;

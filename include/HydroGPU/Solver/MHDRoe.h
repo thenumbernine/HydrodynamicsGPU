@@ -12,7 +12,7 @@ namespace Solver {
 Roe solver for MHD equations
 */
 struct MHDRoe : public MHDRemoveDivergenceBehavior<SelfGravitationBehavior<Roe>> {
-	typedef MHDRemoveDivergenceBehavior<SelfGravitationBehavior<Roe>> Super;
+	using Super = MHDRemoveDivergenceBehavior<SelfGravitationBehavior<Roe>>;
 	using Super::Super;
 
 protected:

@@ -111,7 +111,7 @@ void calcEigenvaluesSide(
 #if EULER_DIM > 2
 	eigenvalues[3] = velocity.x;
 #endif
-	eigenvalues[DIM+1] = sr;
+	eigenvalues[EULER_DIM+1] = sr;
 }
 
 __kernel void calcEigenvalues(
@@ -165,7 +165,7 @@ __kernel void calcCellTimestep(
 		const __global real* eigenvaluesR = eigenvaluesBuffer + NUM_STATES * (side + DIM * indexNext);
 		
 		real minLambda = min(0., eigenvaluesR[0]);
-		real maxLambda = max(0., eigenvaluesL[DIM+1]);
+		real maxLambda = max(0., eigenvaluesL[EULER_DIM+1]);
 		
 		real dum = dx[side] / (maxLambda - minLambda);
 		result = min(result, dum);
@@ -244,10 +244,10 @@ void calcFluxSide(
 	real pressureR = (gamma - 1.) * densityR * energyInternalR;
 	real enthalpyTotalR = energyTotalR + pressureR * invDensityR;
 	
+	//flux
+
 	real sl = eigenvalues[0];
 	real sr = eigenvalues[NUM_STATES-1];
-
-	//flux
 
 	real fluxL[NUM_STATES];
 	fluxL[0] = densityL * velocityL.x;

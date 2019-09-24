@@ -16,7 +16,7 @@ struct HydroGPUApp;
 namespace Solver {
 
 struct Solver : public ISolver {
-	typedef ISolver Super;
+	using Super = ISolver;
 	
 	friend struct HydroGPU::Integrator::Integrator;
 	friend struct HydroGPU::Equation::Equation;

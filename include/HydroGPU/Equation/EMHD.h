@@ -8,7 +8,7 @@ struct HydroGPUApp;
 namespace Equation {
 
 struct EMHD : public Equation {
-	typedef Equation Super;
+	using Super = Equation;
 
 	Euler euler;
 	Maxwell maxwell;

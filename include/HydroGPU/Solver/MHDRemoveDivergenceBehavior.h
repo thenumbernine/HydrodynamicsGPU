@@ -13,7 +13,7 @@ struct MHDRemoveDivergenceInterface {
 
 template<typename Parent>
 struct MHDRemoveDivergenceBehavior : public Parent, public MHDRemoveDivergenceInterface {
-	typedef Parent Super;
+	using Super = Parent;
 	using Super::Super;
 protected:
 	std::shared_ptr<MHDRemoveDivergence> divfree;

@@ -7,7 +7,7 @@ struct HydroGPUApp;
 namespace Solver {
 
 struct EulerHLLC : public EulerHLL {
-	typedef EulerHLL Super;
+	using Super = EulerHLL;
 	using Super::Super;
 
 protected:

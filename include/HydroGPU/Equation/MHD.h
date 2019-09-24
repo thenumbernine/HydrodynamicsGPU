@@ -7,7 +7,7 @@ struct HydroGPUApp;
 namespace Equation {
 
 struct MHD : public Euler {
-	typedef Euler Super;
+	using Super = Euler;
 	MHD(HydroGPUApp* app_);
 	virtual std::string name() const { return "MHD"; } 
 	virtual void getProgramSources(std::vector<std::string>& sources);

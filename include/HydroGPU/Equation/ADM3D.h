@@ -12,7 +12,7 @@ namespace Equation {
 
 //most likely pseudo-cartesian coordinates
 struct ADM3D : public Equation {
-	typedef Equation Super;
+	using Super = Equation;
 	ADM3D(HydroGPUApp* app_);
 	virtual void getProgramSources(std::vector<std::string>& sources);
 	virtual int stateGetBoundaryKernelForBoundaryMethod(int dim, int state, int minmax);
