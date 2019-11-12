@@ -2,9 +2,10 @@
 #include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/Plot/Graph.h"
 #include "HydroGPU/Plot/Plot.h"
-#include "HydroGPU/Plot/CameraOrtho.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "HydroGPU/Solver/Solver.h"
+#include "GLApp/GLApp.h"
+#include "GLApp/ViewOrtho.h"
 #include "Common/Macros.h"
 #include "Common/File.h"
 
@@ -32,7 +33,7 @@ Graph::Graph(HydroGPU::HydroGPUApp* app_)
 void Graph::display() {
 	
 	//if we're in ortho mode and we're 2D then cut out
-	if (app->dim == 2 && std::dynamic_pointer_cast<CameraOrtho>(app->camera)) return;
+	if (app->dim == 2 && std::dynamic_pointer_cast<GLApp::ViewOrtho>(app->view)) return;
 	
 	static float colors[][3] = {
 		{1,0,0},
@@ -122,16 +123,16 @@ void Graph::display() {
 	//for 1-D graphs
 	//draw background grid and axii
 	if (app->dim == 1) {
-		Tensor::Vector<double,2> viewxmax(app->aspectRatio * .5, .5);
+		Tensor::Vector<double,2> viewxmax(app->getAspectRatio() * .5, .5);
 		Tensor::Vector<double,2> viewxmin = -viewxmax;
-		std::shared_ptr<CameraOrtho> cameraOrtho = std::dynamic_pointer_cast<CameraOrtho>(app->camera);
-		if (cameraOrtho) {
-			viewxmin(0) /= cameraOrtho->zoom(0);
-			viewxmin(1) /= cameraOrtho->zoom(1);
-			viewxmax(0) /= cameraOrtho->zoom(0);
-			viewxmax(1) /= cameraOrtho->zoom(1);
-			viewxmin += cameraOrtho->pos;
-			viewxmax += cameraOrtho->pos;
+		std::shared_ptr<GLApp::ViewOrtho> viewOrtho = std::dynamic_pointer_cast<GLApp::ViewOrtho>(app->view);
+		if (viewOrtho) {
+			viewxmin(0) /= viewOrtho->zoom(0);
+			viewxmin(1) /= viewOrtho->zoom(1);
+			viewxmax(0) /= viewOrtho->zoom(0);
+			viewxmax(1) /= viewOrtho->zoom(1);
+			viewxmin += viewOrtho->pos;
+			viewxmax += viewOrtho->pos;
 
 			Tensor::Vector<double,2> spacing;
 			spacing(0) = viewxmax(0) - viewxmin(0);

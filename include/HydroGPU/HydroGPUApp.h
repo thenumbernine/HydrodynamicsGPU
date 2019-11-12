@@ -11,6 +11,12 @@
 
 #include <map>
 
+namespace GLApp {
+struct View;
+struct ViewOrtho;
+struct ViewFrustum;
+}
+
 namespace ImGuiCommon {
 struct ImGuiCommon;
 }
@@ -18,9 +24,6 @@ struct ImGuiCommon;
 namespace HydroGPU {
 
 namespace Plot {
-struct Camera;
-struct CameraOrtho;
-struct CameraFrustum;
 struct Plot;
 struct Graph;
 struct HeatMap;
@@ -100,10 +103,6 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	bool leftGuiDown;
 	bool rightGuiDown;
 
-	//display
-	Tensor::Vector<int,2> screenSize;
-	float aspectRatio;
-	
 	//construct this after the program has been compiled
 	
 	//screenshots, converting cl mem to textures
@@ -121,16 +120,16 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	//1D 2D and 3D vector fields
 	std::shared_ptr<HydroGPU::Plot::VectorField> vectorField;
 
-	std::shared_ptr<HydroGPU::Plot::Camera> camera;
-	std::shared_ptr<HydroGPU::Plot::CameraFrustum> cameraFrustum;
-	std::shared_ptr<HydroGPU::Plot::CameraOrtho> cameraOrtho;
+	std::shared_ptr<::GLApp::View> view;
+	std::shared_ptr<::GLApp::ViewFrustum> viewFrustum;
+	std::shared_ptr<::GLApp::ViewOrtho> viewOrtho;
 
 	HydroGPUApp();
 
 	virtual int main(const std::vector<std::string>& args);
 	virtual void init();
 	virtual void shutdown();
-	virtual void resize(int width, int height);
+	virtual void onResize();
 	virtual void update();
 	virtual void sdlEvent(SDL_Event &event);
 };

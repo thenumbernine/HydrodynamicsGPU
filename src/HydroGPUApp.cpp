@@ -25,8 +25,6 @@
 #include "HydroGPU/Equation/ADM3D.h"
 #include "HydroGPU/Equation/BSSNOK.h"
 
-#include "HydroGPU/Plot/CameraOrtho.h"
-#include "HydroGPU/Plot/CameraFrustum.h"
 #include "HydroGPU/Plot/Graph.h"
 #include "HydroGPU/Plot/HeatMap.h"
 #include "HydroGPU/Plot/Iso3D.h"
@@ -36,7 +34,12 @@
 #include "HydroGPU/HydroGPUApp.h"
 
 #include "ImGuiCommon/ImGuiCommon.h"
+
 #include "Profiler/Profiler.h"
+
+#include "GLApp/ViewOrtho.h"
+#include "GLApp/ViewFrustum.h"
+
 #include "Common/Exception.h"
 #include "Common/File.h"
 #include "Common/Macros.h"
@@ -91,7 +94,6 @@ HydroGPUApp::HydroGPUApp()
 , rightShiftDown(false)
 , leftGuiDown(false)
 , rightGuiDown(false)
-, aspectRatio(0.f)
 {
 #define MAKE_SOLVER(solver) SolverGenPair(#solver, [=]()->SolverPtr{ return std::make_shared<Solver::solver>(this); })
 	solverGensForEqns = {
@@ -406,15 +408,30 @@ std::cout << "hasFP64 " << hasFP64 << std::endl;
 		throw Common::Exception() << "unknown camera";
 	}
 
-	camera = cameraOrtho = std::make_shared<Plot::CameraOrtho>(this);
-	cameraFrustum = std::make_shared<Plot::CameraFrustum>(this);
+	view = viewOrtho = std::make_shared<::GLApp::ViewOrtho>(this);
+	viewFrustum = std::make_shared<::GLApp::ViewFrustum>(this);
+	
+	if (!lua["camera"]["pos"].isNil()) {
+		lua["camera"]["pos"][1] >> viewFrustum->pos(0);
+		lua["camera"]["pos"][2] >> viewFrustum->pos(1);
+		lua["camera"]["pos"][3] >> viewFrustum->pos(2);
+	}
+	lua["camera"]["dist"] >> viewFrustum->dist;
+	
+	if (!lua["camera"]["pos"].isNil()) {
+		lua["camera"]["pos"][1] >> viewOrtho->pos(0);
+		lua["camera"]["pos"][2] >> viewOrtho->pos(1);
+	}
+	lua["camera"]["zoom"] >> viewOrtho->zoom(0);
+	viewOrtho->zoom(1) = viewOrtho->zoom(0);
+
 	{
 		std::string mode;
 		lua["camera"]["mode"] >> mode;
 		if (mode == "ortho") {
-			camera = cameraOrtho;
+			view = viewOrtho;
 		} else if (mode == "frustum") {
-			camera = cameraFrustum;
+			view = viewFrustum;
 		}
 	}
 
@@ -531,10 +548,8 @@ void HydroGPUApp::shutdown() {
 	Super::shutdown();
 }
 
-void HydroGPUApp::resize(int width, int height) {
-	Super::resize(width, height);	//viewport
-	screenSize = Tensor::Vector<int,2>(width, height);
-	aspectRatio = (float)screenSize(0) / (float)screenSize(1);
+void HydroGPUApp::onResize() {
+	Super::onResize();	//viewport
 }
 
 void HydroGPUApp::update() {
@@ -557,8 +572,8 @@ PROFILE_BEGIN_FRAME()
 		if (doUpdate == 2) doUpdate = 0;
 	}
 
-	camera->setupProjection();
-	camera->setupModelview();
+	view->setupProjection();
+	view->setupModelview();
 
 	//no point in showing the graph in ortho
 	if (graph) graph->display();
@@ -803,16 +818,16 @@ PROFILE_BEGIN_FRAME()
 		if (igCollapsingHeader("controls", ImGuiTreeNodeFlags_None)) {
 
 			if (dim > 1) {
-				bool isOrtho = camera == cameraOrtho;
+				bool isOrtho = view == viewOrtho;
 				if (igButton(isOrtho ? "frustum" : "ortho", ImVec2())) {	// switching between ortho and frustum views
 					if (!isOrtho) {
-						camera = cameraOrtho;
+						view = viewOrtho;
 					} else {
-						camera = cameraFrustum;
+						view = viewFrustum;
 					}
 				}
 			} else {
-				camera = cameraOrtho;
+				view = viewOrtho;
 			}
 
 			if (igButton(doUpdate ? "pause" : "start", ImVec2())) doUpdate = !doUpdate; // start/stop simulation
@@ -907,11 +922,11 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 			if (leftButtonDown && !guiDown) {
 				if (shiftDown) {
 					if (dx || dy) {
-						camera->mouseZoom(dx, dy);
+						view->mouseZoom(dx, dy);
 					}
 				} else {
 					if (dx || dy) {
-						camera->mousePan(dx, dy);
+						view->mousePan(dx, dy);
 					}
 				}
 			}

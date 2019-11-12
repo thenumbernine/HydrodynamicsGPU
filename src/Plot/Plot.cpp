@@ -144,7 +144,7 @@ void Plot::screenshot() {
 }
 
 void Plot::screenshotToFile(const std::string& filename) {
-	::Tensor::Vector<int,2> screenSize = app->screenSize;
+	::Tensor::Vector<int,2> screenSize = app->getScreenSize();
 
 	std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(screenSize, nullptr, 3);
 	glReadPixels(0, 0, screenSize(0), screenSize(1), GL_RGB, GL_UNSIGNED_BYTE, image->getData());

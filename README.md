@@ -103,3 +103,9 @@ Runge Kutta & TVD RK:
 * http://lsec.cc.ac.cn/lcfd/DEWENO/paper/WENO_1996.pdf
 
 
+linux packages required:
+* opencl-clhpp-headers
+* cimgui
+* Image requirements:
+	* libcfitsio-dev
+	* libtiff-dev
