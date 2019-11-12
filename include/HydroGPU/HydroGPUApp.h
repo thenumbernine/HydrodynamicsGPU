@@ -4,6 +4,7 @@
 #include "LuaCxx/GlobalTable.h"
 #include "LuaCxx/Ref.h"
 #include "GLApp/GLApp.h"
+#include "GLApp/ViewBehavior.h"
 #include "Tensor/Tensor.h"
 #include "CLCommon/CLCommon.h"
 #include "HydroGPU/Shared/Common.h"	//real4
@@ -35,8 +36,8 @@ namespace Solver {
 struct Solver;
 }
 
-struct HydroGPUApp : public ::GLApp::GLApp {
-	using Super = ::GLApp::GLApp;
+struct HydroGPUApp : public ::GLApp::ViewBehavior<::GLApp::GLApp> {
+	using Super = ::GLApp::ViewBehavior<::GLApp::GLApp>;
 
 	std::shared_ptr<CLCommon::CLCommon> clCommon;
 	bool hasGLSharing;
@@ -120,16 +121,11 @@ struct HydroGPUApp : public ::GLApp::GLApp {
 	//1D 2D and 3D vector fields
 	std::shared_ptr<HydroGPU::Plot::VectorField> vectorField;
 
-	std::shared_ptr<::GLApp::View> view;
-	std::shared_ptr<::GLApp::ViewFrustum> viewFrustum;
-	std::shared_ptr<::GLApp::ViewOrtho> viewOrtho;
-
 	HydroGPUApp();
 
 	virtual int main(const std::vector<std::string>& args);
 	virtual void init();
 	virtual void shutdown();
-	virtual void onResize();
 	virtual void update();
 	virtual void sdlEvent(SDL_Event &event);
 };

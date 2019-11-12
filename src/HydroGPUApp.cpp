@@ -407,9 +407,6 @@ std::cout << "hasFP64 " << hasFP64 << std::endl;
 	if (lua["camera"].isNil()) {
 		throw Common::Exception() << "unknown camera";
 	}
-
-	view = viewOrtho = std::make_shared<::GLApp::ViewOrtho>(this);
-	viewFrustum = std::make_shared<::GLApp::ViewFrustum>(this);
 	
 	if (!lua["camera"]["pos"].isNil()) {
 		lua["camera"]["pos"][1] >> viewFrustum->pos(0);
@@ -548,10 +545,6 @@ void HydroGPUApp::shutdown() {
 	Super::shutdown();
 }
 
-void HydroGPUApp::onResize() {
-	Super::onResize();	//viewport
-}
-
 void HydroGPUApp::update() {
 PROFILE_BEGIN_FRAME()
 
@@ -560,7 +553,7 @@ PROFILE_BEGIN_FRAME()
 		doUpdate = 0;
 	}
 
-	Super::update();	//glclear
+	Super::update();	//glClear, view->setup
 
 	bool guiDown = leftGuiDown || rightGuiDown;
 	if (rightButtonDown || (leftButtonDown && guiDown)) {
@@ -571,9 +564,6 @@ PROFILE_BEGIN_FRAME()
 		solver->update();
 		if (doUpdate == 2) doUpdate = 0;
 	}
-
-	view->setupProjection();
-	view->setupModelview();
 
 	//no point in showing the graph in ortho
 	if (graph) graph->display();
@@ -912,26 +902,13 @@ void HydroGPUApp::sdlEvent(SDL_Event& event) {
 	bool canHandleKeyboard = !igGetIO()->WantCaptureKeyboard;
 
 	bool shiftDown = leftShiftDown || rightShiftDown;
-	bool guiDown = leftGuiDown || rightGuiDown;
+
+	//Super::sdlEvent only consists of ViewBehavior::sdlEvent
+	if (canHandleMouse) {
+		Super::sdlEvent(event);
+	}
 
 	switch (event.type) {
-	case SDL_MOUSEMOTION:
-		if (canHandleMouse) {
-			int dx = event.motion.xrel;
-			int dy = event.motion.yrel;
-			if (leftButtonDown && !guiDown) {
-				if (shiftDown) {
-					if (dx || dy) {
-						view->mouseZoom(dx, dy);
-					}
-				} else {
-					if (dx || dy) {
-						view->mousePan(dx, dy);
-					}
-				}
-			}
-		}
-		break;
 	case SDL_MOUSEBUTTONDOWN:
 		if (event.button.button == SDL_BUTTON_LEFT) {
 			leftButtonDown = true;
