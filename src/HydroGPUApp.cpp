@@ -47,6 +47,13 @@
 #include <iostream>
 #include <algorithm>
 
+//Sooo ... ImGuiCommon is now using cimgui.h.
+//And I was using ImGui here, which is the proper C++ thing to do.
+//However, now that I'm already including cimgui.h via ImGuiCommon, it turns out cimgui.h and imgui.h cause conflicts when included together.
+//So I need to pick just one and stick with it.
+//And for now that will be imgui.h
+//#include "imgui.h"
+
 static std::vector<const char*> getCStrsFromStrVector(const std::vector<std::string>& v) {
 	std::vector<const char*> result;
 	for (const std::string& s : v) {
@@ -231,7 +238,7 @@ void HydroGPUApp::init() {
 	Super::init();
 
 	if (!disableGUI) {
-		gui = std::make_shared<ImGuiCommon::ImGuiCommon>(window);
+		gui = std::make_shared<ImGuiCommon::ImGuiCommon>(window, context);
 	}
 
 	//TODO put this in CLCommon, where a similar function operating on vectors exists
@@ -578,12 +585,12 @@ PROFILE_BEGIN_FRAME()
 	if (gui) gui->update([&](){
 		//how do you change the window title from "Debug"?
 
-		if (ImGui::CollapsingHeader("setup")) {
+		if (igCollapsingHeader("setup", ImGuiTreeNodeFlags_None)) {
 			//list equations
 			int lastEquationIndex = equationIndex;
 			std::vector<const char*> equationNamesCStrs;
 			for (const SolverEqnsPair& p : solverGensForEqns) { equationNamesCStrs.push_back(p.name.c_str()); } 
-			ImGui::Combo("equation", &equationIndex, equationNamesCStrs.data(), equationNamesCStrs.size());
+			igCombo("equation", &equationIndex, equationNamesCStrs.data(), equationNamesCStrs.size(), -1);
 			if (lastEquationIndex != equationIndex) {
 
 				//if we are changing equations then (most likely) our initial conditions will be invalid
@@ -626,7 +633,7 @@ PROFILE_BEGIN_FRAME()
 			for (const SolverGenPair& p : solverGensForEqns[equationIndex].generators) {
 				solverNamesForEqnCStrs.push_back(p.name.c_str());
 			}
-			ImGui::Combo("solver", &solverForEqnIndex, solverNamesForEqnCStrs.data(), solverNamesForEqnCStrs.size());
+			igCombo("solver", &solverForEqnIndex, solverNamesForEqnCStrs.data(), solverNamesForEqnCStrs.size(), -1);
 			if (lastSolverForEqnIndex != solverForEqnIndex) {
 				std::cout << "setting solver to " << solverGensForEqns[equationIndex].generators[solverForEqnIndex].name << std::endl;
 				SolverPtr newSolver = solverGensForEqns[equationIndex].generators[solverForEqnIndex].func();
@@ -666,7 +673,7 @@ PROFILE_BEGIN_FRAME()
 			int lastInitCondIndex = initCondIndex;
 			const std::string& eqnName = solverGensForEqns[equationIndex].name;
 			std::vector<const char*> initCondNamesCStrs = getCStrsFromStrVector(initCondNamesForEqns[eqnName]);
-			ImGui::Combo("init.cond.", &initCondIndex, initCondNamesCStrs.data(), initCondNamesCStrs.size());
+			igCombo("init.cond.", &initCondIndex, initCondNamesCStrs.data(), initCondNamesCStrs.size(), -1);
 			if (lastInitCondIndex != initCondIndex) {
 				std::string initCondName = initCondNamesForEqns[solverGensForEqns[equationIndex].name][initCondIndex];
 				std::cout << "setting up initial condition " << initCondName << std::endl;
@@ -674,7 +681,7 @@ PROFILE_BEGIN_FRAME()
 			}
 		}
 
-		if (ImGui::CollapsingHeader("boundaries")) {
+		if (igCollapsingHeader("boundaries", ImGuiTreeNodeFlags_None)) {
 			std::vector<const char*> methodsCStrs = getCStrsFromStrVector(solver->getEquation()->boundaryMethods);
 			methodsCStrs.insert(methodsCStrs.begin(), "NONE");
 			for (int i = 0; i < dim; ++i) {
@@ -682,70 +689,70 @@ PROFILE_BEGIN_FRAME()
 					std::stringstream comboTitle;
 					comboTitle << (char)('x'+i) << " " << (minmax ? "max" : "min");
 					++boundaryMethods(i,minmax);
-					ImGui::Combo(comboTitle.str().c_str(), &boundaryMethods(i,minmax), methodsCStrs.data(), methodsCStrs.size());
+					igCombo(comboTitle.str().c_str(), &boundaryMethods(i,minmax), methodsCStrs.data(), methodsCStrs.size(), -1);
 					--boundaryMethods(i,minmax);
 				}
 			}
 		}
 
 		if (heatMap) {
-			if (ImGui::CollapsingHeader("heat map")) {
-				ImGui::PushID("heatMap");
-				ImGui::Checkbox("show", &showHeatMap);
+			if (igCollapsingHeader("heat map", ImGuiTreeNodeFlags_None)) {
+				igPushIDStr("heatMap");
+				igCheckbox("show", &showHeatMap);
 
 				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->getEquation()->displayVariables);
-				ImGui::Combo("variable ", &heatMap->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size());
+				igCombo("variable ", &heatMap->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size(), -1);
 
-				ImGui::SliderFloat("scale", &heatMap->scale, 1e-10, 1e+10, "%.16f", 10);
+				igSliderFloat("scale", &heatMap->scale, 1e-10, 1e+10, "%.16f", 10);
 			
-				ImGui::Checkbox("log", &heatMap->useLog);
+				igCheckbox("log", &heatMap->useLog);
 			
-				ImGui::SliderFloat("alpha", &heatMap->alpha, 0.f, 1.f);
-				ImGui::PopID();
+				igSliderFloat("alpha", &heatMap->alpha, 0.f, 1.f, "%.3f", 1);
+				igPopID();
 			}
 		}
 
 		if (iso3D) {
-			if (ImGui::CollapsingHeader("isosurfaces")) {
-				ImGui::PushID("isosurfaces");
-				ImGui::Checkbox("show ", &showIso3D);
+			if (igCollapsingHeader("isosurfaces", ImGuiTreeNodeFlags_None)) {
+				igPushIDStr("isosurfaces");
+				igCheckbox("show ", &showIso3D);
 
 				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->getEquation()->displayVariables);
-				ImGui::Combo("variable", &iso3D->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size()); 
+				igCombo("variable", &iso3D->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size(), -1); 
 
-				ImGui::SliderFloat("scale", &iso3D->scale, 1e-10, 1e+10, "%.16f", 10); 
+				igSliderFloat("scale", &iso3D->scale, 1e-10, 1e+10, "%.16f", 10); 
 			
-				ImGui::Checkbox("log", &iso3D->useLog);
+				igCheckbox("log", &iso3D->useLog);
 				
-				ImGui::SliderFloat("alpha", &iso3D->alpha, 0.f, 1.f);
-				ImGui::PopID();
+				igSliderFloat("alpha", &iso3D->alpha, 0.f, 1.f, "%.3f", 1);
+				igPopID();
 			}
 		}
 
 		if (graph) {
-			if (ImGui::CollapsingHeader("graph")) {
+			if (igCollapsingHeader("graph", ImGuiTreeNodeFlags_None)) {
 				std::function<void(Plot::Graph::Variable&)> addVarControls = [&](Plot::Graph::Variable& var){
 					const std::string& name = var.name;
-					ImGui::PushID("graph tree");
-					ImGui::PushID(name.c_str());
-					ImGui::Checkbox(name.c_str(), &var.enabled);
-					ImGui::SameLine();
-					if (ImGui::TreeNode("")) {
-						ImGui::Checkbox("log", &var.log);
+					igPushIDStr("graph tree");
+					igPushIDStr(name.c_str());
+					igCheckbox(name.c_str(), &var.enabled);
+					igSameLine(0, 0);
+					if (igTreeNodeStr("")) {
+						igCheckbox("log", &var.log);
 				
 						const char* polyModes[] = {"point", "line", "fill"};
-						ImGui::Combo("polyMode", &var.polyMode, polyModes, numberof(polyModes));
+						igCombo("polyMode", &var.polyMode, polyModes, numberof(polyModes), -1);
 						
-						ImGui::SliderFloat("alpha", &var.alpha, 0.f, 1.f);
+						igSliderFloat("alpha", &var.alpha, 0.f, 1.f, "%.3f", 1);
 
-						ImGui::SliderFloat("scale", &var.scale, 1e-10, 1e+10, "%.16f", 10); 
+						igSliderFloat("scale", &var.scale, 1e-10, 1e+10, "%.16f", 10); 
 
-						ImGui::SliderInt("spacing", &var.step, 1, (int)size.s[0]);
+						igSliderInt("spacing", &var.step, 1, (int)size.s[0], "%d");
 						
-						ImGui::TreePop();
+						igTreePop();
 					}
-					ImGui::PopID();
-					ImGui::PopID();
+					igPopID();
+					igPopID();
 				};
 
 				Plot::Graph::Variable all = graph->variables[0];
@@ -782,22 +789,22 @@ PROFILE_BEGIN_FRAME()
 			}
 		}
 
-		if (ImGui::CollapsingHeader("vector field")) {
-			ImGui::PushID("vector field");
+		if (igCollapsingHeader("vector field", ImGuiTreeNodeFlags_None)) {
+			igPushIDStr("vector field");
 			std::vector<const char*> vectorFieldVarsCStrs = getCStrsFromStrVector(solver->getEquation()->vectorFieldVars);
-			ImGui::Combo("variable", &vectorField->variable, vectorFieldVarsCStrs.data(), vectorFieldVarsCStrs.size()); 
+			igCombo("variable", &vectorField->variable, vectorFieldVarsCStrs.data(), vectorFieldVarsCStrs.size(), -1); 
 			
-			ImGui::Checkbox("show", &showVectorField); // velocity field on/off
+			igCheckbox("show", &showVectorField); // velocity field on/off
 			//TODO velocity field variable
-			ImGui::SliderFloat("scale", &vectorField->scale, 1e-10, 1e+10, "%.16f", 10); // velocity field size
-			ImGui::PopID();
+			igSliderFloat("scale", &vectorField->scale, 1e-10, 1e+10, "%.16f", 10); // velocity field size
+			igPopID();
 		}
 
-		if (ImGui::CollapsingHeader("controls")) {
+		if (igCollapsingHeader("controls", ImGuiTreeNodeFlags_None)) {
 
 			if (dim > 1) {
 				bool isOrtho = camera == cameraOrtho;
-				if (ImGui::Button(isOrtho ? "frustum" : "ortho")) {	// switching between ortho and frustum views
+				if (igButton(isOrtho ? "frustum" : "ortho", ImVec2())) {	// switching between ortho and frustum views
 					if (!isOrtho) {
 						camera = cameraOrtho;
 					} else {
@@ -808,25 +815,25 @@ PROFILE_BEGIN_FRAME()
 				camera = cameraOrtho;
 			}
 
-			if (ImGui::Button(doUpdate ? "pause" : "start")) doUpdate = !doUpdate; // start/stop simulation
-			if (ImGui::Button("step")) doUpdate = 2;
-			if (ImGui::Button("reset")) solver->resetState();
+			if (igButton(doUpdate ? "pause" : "start", ImVec2())) doUpdate = !doUpdate; // start/stop simulation
+			if (igButton("step", ImVec2())) doUpdate = 2;
+			if (igButton("reset", ImVec2())) solver->resetState();
 
 			// used fixed dt vs cfl #
 			//TODO fixed dt means writing to the dtBuffer
-			ImGui::InputFloat("cfl", &cfl);
+			igInputFloat("cfl", &cfl, .1, 1, "%.3f", ImGuiInputTextFlags_None);
 
 			// take screenshot
-			if (ImGui::Button("screenshot")) {
+			if (igButton("screenshot", ImVec2())) {
 				plot->screenshot();
 			}
 
 			// continuous screenshots
-			if (ImGui::Button(createAnimation ? "stop frame dump" : "start frame dump")) {
+			if (igButton(createAnimation ? "stop frame dump" : "start frame dump", ImVec2())) {
 				createAnimation = !createAnimation;
 			}
 
-			if (ImGui::Button("save")) {	// dump state of simulation
+			if (igButton("save", ImVec2())) {	// dump state of simulation
 				solver->save();
 			}
 		}
@@ -836,10 +843,10 @@ PROFILE_BEGIN_FRAME()
 			//TODO redirect stdout to here ...
 			//or just override print() and io.write() ... anything else?
 			//static char output[16384] = {'\0'};
-			//ImGui::InputTextMultiline("##output", output, sizeof(output), ImVec2(), ImGuiInputTextFlags_ReadOnly);
+			//igInputTextMultiline("##output", output, sizeof(output), ImVec2(), ImGuiInputTextFlags_ReadOnly);
 
 			static char scriptInputBuffer[512] = {'\0'};
-			if (ImGui::InputTextMultiline("##scriptInputBuffer", scriptInputBuffer, sizeof(scriptInputBuffer), ImVec2(),
+			if (igInputTextMultiline("##scriptInputBuffer", scriptInputBuffer, sizeof(scriptInputBuffer), ImVec2(),
 				ImGuiInputTextFlags_AllowTabInput |
 				ImGuiInputTextFlags_EnterReturnsTrue |
 				ImGuiInputTextFlags_CtrlEnterForNewLine)
@@ -886,8 +893,8 @@ PROFILE_END_FRAME();
 
 void HydroGPUApp::sdlEvent(SDL_Event& event) {
 	if (gui) gui->sdlEvent(event);
-	bool canHandleMouse = !ImGui::GetIO().WantCaptureMouse;
-	bool canHandleKeyboard = !ImGui::GetIO().WantCaptureKeyboard;
+	bool canHandleMouse = !igGetIO()->WantCaptureMouse;
+	bool canHandleKeyboard = !igGetIO()->WantCaptureKeyboard;
 
 	bool shiftDown = leftShiftDown || rightShiftDown;
 	bool guiDown = leftGuiDown || rightGuiDown;
