@@ -121,13 +121,11 @@ struct HydroGPUApp : public ::GLApp::ViewBehavior<::GLApp::GLApp> {
 	//1D 2D and 3D vector fields
 	std::shared_ptr<HydroGPU::Plot::VectorField> vectorField;
 
-	HydroGPUApp();
+	HydroGPUApp(const Init& args);
+	~HydroGPUApp();
 
-	virtual int main(const std::vector<std::string>& args);
-	virtual void init();
-	virtual void shutdown();
-	virtual void update();
-	virtual void sdlEvent(SDL_Event &event);
+	virtual void onUpdate();
+	virtual void onSDLEvent(SDL_Event &event);
 };
 
 inline std::ostream& operator<<(std::ostream& o, const real4& v) {

@@ -67,8 +67,8 @@ static std::vector<const char*> getCStrsFromStrVector(const std::vector<std::str
 
 namespace HydroGPU {
 
-HydroGPUApp::HydroGPUApp()
-: Super()
+HydroGPUApp::HydroGPUApp(const Init& args)
+: Super(args)
 , hasGLSharing(false)
 , hasFP64(false)
 , gradientTex(GLuint())
@@ -95,6 +95,14 @@ HydroGPUApp::HydroGPUApp()
 , leftGuiDown(false)
 , rightGuiDown(false)
 {
+	for (int i = 1; i < (int)args.size(); ++i) {
+		if (i < (int)args.size()-1 && args[i] == "-e") {
+			configString = args[++i];
+		} else {
+			configFilename = args[++i];
+		}
+	}
+
 #define MAKE_SOLVER(solver) SolverGenPair(#solver, [=]()->SolverPtr{ return std::make_shared<Solver::solver>(this); })
 	solverGensForEqns = {
 		SolverEqnsPair("Euler", {
@@ -133,20 +141,6 @@ HydroGPUApp::HydroGPUApp()
 		xmin.s[i] = -.5f;
 		xmax.s[i] = .5f;
 	}
-}
-
-int HydroGPUApp::main(const std::vector<std::string>& args) {
-	for (int i = 1; i < (int)args.size(); ++i) {
-		if (i < (int)args.size()-1 && args[i] == "-e") {
-			configString = args[++i];
-		} else {
-			configFilename = args[++i];
-		}
-	}
-	return Super::main(args);
-}
-
-void HydroGPUApp::init() {
 
 	{
 		std::string extensionStr = (char*)glGetString(GL_EXTENSIONS);
@@ -236,8 +230,6 @@ void HydroGPUApp::init() {
 	std::cout << "xmax " << xmax << std::endl;
 	std::cout << "size " << size << std::endl;
 	std::cout << "dx " << dx << std::endl;
-
-	Super::init();
 
 	if (!disableGUI) {
 		gui = std::make_shared<ImGuiCommon::ImGuiCommon>(window, context);
@@ -538,14 +530,12 @@ std::cout << "hasFP64 " << hasFP64 << std::endl;
 	std::cout << "Success!" << std::endl;
 }
 
-void HydroGPUApp::shutdown() {
-	gui = nullptr;	//dealloc and shutdown before sdl shuts down
+HydroGPUApp::~HydroGPUApp() {
 	glDeleteTextures(1, &gradientTex);
 	clCommon.reset();
-	Super::shutdown();
 }
 
-void HydroGPUApp::update() {
+void HydroGPUApp::onUpdate() {
 PROFILE_BEGIN_FRAME()
 
 	++currentFrame;
@@ -553,7 +543,7 @@ PROFILE_BEGIN_FRAME()
 		doUpdate = 0;
 	}
 
-	Super::update();	//glClear, view->setup
+	Super::onUpdate();	//glClear, view->setup
 
 	bool guiDown = leftGuiDown || rightGuiDown;
 	if (rightButtonDown || (leftButtonDown && guiDown)) {
@@ -587,7 +577,7 @@ PROFILE_BEGIN_FRAME()
 	- a Lua interface into everything would be nice ... if we were using LuaJIT
 	... then *everything* C-callable would be accessible immediately
 	*/
-	if (gui) gui->update([&](){
+	if (gui) gui->onUpdate([&](){
 		//how do you change the window title from "Debug"?
 
 		if (igCollapsingHeader("setup", ImGuiTreeNodeFlags_None)) {
@@ -896,16 +886,16 @@ PROFILE_BEGIN_FRAME()
 PROFILE_END_FRAME();
 }
 
-void HydroGPUApp::sdlEvent(SDL_Event& event) {
-	if (gui) gui->sdlEvent(event);
+void HydroGPUApp::onSDLEvent(SDL_Event& event) {
+	if (gui) gui->onSDLEvent(event);
 	bool canHandleMouse = !igGetIO()->WantCaptureMouse;
 	bool canHandleKeyboard = !igGetIO()->WantCaptureKeyboard;
 
 	bool shiftDown = leftShiftDown || rightShiftDown;
 
-	//Super::sdlEvent only consists of ViewBehavior::sdlEvent
+	//Super::onSDLEvent only consists of ViewBehavior::onSDLEvent
 	if (canHandleMouse) {
-		Super::sdlEvent(event);
+		Super::onSDLEvent(event);
 	}
 
 	switch (event.type) {
