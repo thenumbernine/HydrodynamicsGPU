@@ -20,9 +20,9 @@ but that becomes problematic.
 what of the CL kernel arg order? what of the index numbers?
 if we have to keep track for this reason, should we keep track for the sake of consolidating all buffers and making one giant SoA to pass into all kernels?
 */
-template<typename Parent>
-struct SelfGravitationBehavior : public Parent, public SelfGravitationInterface {
-	using Super = Parent;
+template<typename Super_>
+struct SelfGravitationBehavior : public Super_, public SelfGravitationInterface {
+	using Super = Super_;
 	using Super::Super;
 protected:
 	std::shared_ptr<HydroGPU::Solver::SelfGravitation> selfgrav;

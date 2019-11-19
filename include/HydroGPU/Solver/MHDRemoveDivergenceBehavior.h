@@ -11,9 +11,9 @@ struct MHDRemoveDivergenceInterface {
 	virtual cl::Buffer getMagneticFieldDivergenceBuffer() = 0;
 };
 
-template<typename Parent>
-struct MHDRemoveDivergenceBehavior : public Parent, public MHDRemoveDivergenceInterface {
-	using Super = Parent;
+template<typename Super_>
+struct MHDRemoveDivergenceBehavior : public Super_, public MHDRemoveDivergenceInterface {
+	using Super = Super_;
 	using Super::Super;
 protected:
 	std::shared_ptr<MHDRemoveDivergence> divfree;

@@ -11,15 +11,15 @@ struct SelfGravitationInterface {
 	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim, int minmax) = 0;
 };
 
-template<typename Parent>
-struct SelfGravitationBehavior : public Parent, public SelfGravitationInterface {
-	using Super = Parent;
+template<typename Super_>
+struct SelfGravitationBehavior : public Super_, public SelfGravitationInterface {
+	using Super = Super_;
 	using Super::Super;
 	virtual int gravityGetBoundaryKernelForBoundaryMethod(int dim, int minmax);
 };
 
-template<typename Parent>
-int SelfGravitationBehavior<Parent>::gravityGetBoundaryKernelForBoundaryMethod(int dim, int minmax) {
+template<typename Super_>
+int SelfGravitationBehavior<Super_>::gravityGetBoundaryKernelForBoundaryMethod(int dim, int minmax) {
 	switch (Super::app->boundaryMethods(dim, minmax)) {
 	case BOUNDARY_METHOD_NONE:
 		return BOUNDARY_KERNEL_NONE;
