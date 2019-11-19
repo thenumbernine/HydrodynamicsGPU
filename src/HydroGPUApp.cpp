@@ -67,34 +67,9 @@ static std::vector<const char*> getCStrsFromStrVector(const std::vector<std::str
 
 namespace HydroGPU {
 
-HydroGPUApp::HydroGPUApp(const Init& args)
-: Super(args)
-, hasGLSharing(false)
-, hasFP64(false)
-, gradientTex(GLuint())
-, configFilename("config.lua")
-, solverName("EulerBurgers")
-, dim(0)
-, doUpdate(1)
-, maxFrames(-1)
-, currentFrame(-1)
-, useFixedDT(false)
-, fixedDT(.001f)
-, cfl(.5f)
-, showHeatMap(true)
-, showIso3D(true)
-, useGravity(false)
-, gaussSeidelMaxIter(20)
-, showVectorField(true)
-, createAnimation(false)
-, showTimestep(false)
-, leftButtonDown(false)
-, rightButtonDown(false)
-, leftShiftDown(false)
-, rightShiftDown(false)
-, leftGuiDown(false)
-, rightGuiDown(false)
-{
+void HydroGPUApp::init(const Init& args) {
+	Super::init(args);
+
 	for (int i = 1; i < (int)args.size(); ++i) {
 		if (i < (int)args.size()-1 && args[i] == "-e") {
 			configString = args[++i];
@@ -133,8 +108,6 @@ HydroGPUApp::HydroGPUApp(const Init& args)
 		}),
 	};
 #undef MAKE_SOLVER
-
-	equationIndex = 0;
 
 	for (int i = 0; i < 4; ++i) {
 		size.s[i] = 1;	//default each dimension to a point.  so if lua doesn't define it then the dimension will be ignored
@@ -899,43 +872,8 @@ void HydroGPUApp::onSDLEvent(SDL_Event& event) {
 	}
 
 	switch (event.type) {
-	case SDL_MOUSEBUTTONDOWN:
-		if (event.button.button == SDL_BUTTON_LEFT) {
-			leftButtonDown = true;
-		}
-		if (event.button.button == SDL_BUTTON_RIGHT) {
-			rightButtonDown = true;
-		}
-		break;
-	case SDL_MOUSEBUTTONUP:
-		if (event.button.button == SDL_BUTTON_LEFT) {
-			leftButtonDown = false;
-		}
-		if (event.button.button == SDL_BUTTON_RIGHT) {
-			rightButtonDown = false;
-		}
-		break;
-	case SDL_KEYDOWN:
-		if (event.key.keysym.sym == SDLK_LSHIFT) {
-			leftShiftDown = true;
-		} else if (event.key.keysym.sym == SDLK_RSHIFT) {
-			rightShiftDown = true;
-		} else if (event.key.keysym.sym == SDLK_LGUI) {
-			leftGuiDown = true;
-		} else if (event.key.keysym.sym == SDLK_RGUI) {
-			rightGuiDown = true;
-		}
-		break;
 	case SDL_KEYUP:
-		if (event.key.keysym.sym == SDLK_LSHIFT) {
-			leftShiftDown = false;
-		} else if (event.key.keysym.sym == SDLK_RSHIFT) {
-			rightShiftDown = false;
-		} else if (event.key.keysym.sym == SDLK_LGUI) {
-			leftGuiDown = false;
-		} else if (event.key.keysym.sym == SDLK_RGUI) {
-			rightGuiDown = false;
-		} else if (canHandleKeyboard) {
+		if (canHandleKeyboard) {
 			if (event.key.keysym.sym == SDLK_s) {
 				if (shiftDown) {
 					solver->save();

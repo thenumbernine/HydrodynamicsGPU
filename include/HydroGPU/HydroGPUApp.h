@@ -40,17 +40,17 @@ struct HydroGPUApp : public ::GLApp::ViewBehavior<::GLApp::GLApp> {
 	using Super = ::GLApp::ViewBehavior<::GLApp::GLApp>;
 
 	std::shared_ptr<CLCommon::CLCommon> clCommon;
-	bool hasGLSharing;
-	bool hasFP64;
+	bool hasGLSharing = {};
+	bool hasFP64 = {};
 	
 	std::shared_ptr<ImGuiCommon::ImGuiCommon> gui;
 
-	GLuint gradientTex;
+	GLuint gradientTex = {};
 
-	int equationIndex;
+	int equationIndex = {};
 
 	std::map<std::string, std::vector<std::string>> initCondNamesForEqns;
-	int initCondIndex;
+	int initCondIndex = {};
 
 	//solverGensForEqns[index corresponding with pair whose first is the equation name][index corresponding with pair whose first is the solver name] = function to create solver
 	using SolverPtr = std::shared_ptr<Solver::Solver>;
@@ -69,40 +69,33 @@ struct HydroGPUApp : public ::GLApp::ViewBehavior<::GLApp::GLApp> {
 	};
 	std::vector<SolverEqnsPair> solverGensForEqns;
 	
-	int solverForEqnIndex;
+	int solverForEqnIndex = {};
 	
 	SolverPtr solver;
 
 	//config
-	std::string configFilename;
+	std::string configFilename = "config.lua";
 	std::string configString;
-	std::string solverName;
-	int dim;
-	cl_int4 size;
+	std::string solverName = "EulerBurgers";
+	int dim = 0;
+	cl_int4 size = {0,0,0,0};
 	real4 xmin, xmax;
-	int doUpdate;	//0 = no, 1 = continuous, 2 = single step
-	int maxFrames;	//run this far and pause.  -1 = forever = default
-	int currentFrame;
-	bool useFixedDT;
-	real fixedDT;
-	float cfl;
-	bool showHeatMap;
-	bool showIso3D;
+	int doUpdate = 1;	//0 = no, 1 = continuous, 2 = single step
+	int maxFrames = -1;	//run this far and pause.  -1 = forever = default
+	int currentFrame = -1;
+	bool useFixedDT = false;
+	real fixedDT = .001;
+	float cfl = .5;
+	bool showHeatMap = true;
+	bool showIso3D = true;
 	Tensor::Tensor<int, Tensor::Lower<3>, Tensor::Lower<2>> boundaryMethods;
-	bool useGravity;
-	int gaussSeidelMaxIter;	//max iterations for Gauss-Seidel max iterations
+	bool useGravity = false;
+	int gaussSeidelMaxIter = 20;	//max iterations for Gauss-Seidel max iterations
 	LuaCxx::State lua;
 	real4 dx;
-	bool showVectorField;
-	bool createAnimation;
-	bool showTimestep;
-	//input
-	bool leftButtonDown;
-	bool rightButtonDown;
-	bool leftShiftDown;
-	bool rightShiftDown;
-	bool leftGuiDown;
-	bool rightGuiDown;
+	bool showVectorField = true;
+	bool createAnimation = false;
+	bool showTimestep = false;
 
 	//construct this after the program has been compiled
 	
@@ -121,9 +114,8 @@ struct HydroGPUApp : public ::GLApp::ViewBehavior<::GLApp::GLApp> {
 	//1D 2D and 3D vector fields
 	std::shared_ptr<HydroGPU::Plot::VectorField> vectorField;
 
-	HydroGPUApp(const Init& args);
-	~HydroGPUApp();
-
+	virtual ~HydroGPUApp();
+	virtual void init(const Init& args);
 	virtual void onUpdate();
 	virtual void onSDLEvent(SDL_Event &event);
 };
