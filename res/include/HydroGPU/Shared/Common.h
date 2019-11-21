@@ -13,7 +13,7 @@ typedef double4 real4;
 typedef double8 real8;
 typedef double16 real16;
 #else
-#ifdef PLATFORM_osx
+#if PLATFORM_OSX
 #include <OpenCL/cl.h>
 #else
 #include <CL/cl.h>
@@ -36,9 +36,9 @@ typedef float16 real16;
 
 //same as in CLCommon/CLCommon.h
 //and similar to src/HydroGPUApp.cpp
-#ifdef PLATFORM_osx
+#if PLATFORM_OSX
 #include <OpenCL/cl.h>
-#elif PLATFORM_msvc
+#elif PLATFORM_MSVC
 #include "CL/cl.h"
 #else
 #include <CL/cl.h>

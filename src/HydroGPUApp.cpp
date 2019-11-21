@@ -1,4 +1,4 @@
-#ifdef PLATFORM_linux	//only here for Ubuntu build's sake
+#if PLATFORM_LINUX	//only here for Ubuntu build's sake
 #include <istream>
 #include "bits/stream_iterator.h"
 #endif
