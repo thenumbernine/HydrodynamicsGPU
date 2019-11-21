@@ -156,7 +156,7 @@ std::cout << s;
 	std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
 	
 	//for curiousity's sake
-#ifndef PLATFORM_linux
+#if !PLATFORM_LINUX
 	if (app->clCommon->useGPU) {
 		cl_int err;
 		
