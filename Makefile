@@ -13,9 +13,6 @@ include ../Shader/Include.mk
 include ../LuaCxx/Include.mk
 include ../ImGuiCommon/Include.mk
 
-#override the original -std=c++11 that I have baked in my Base.mk
-CPPVER= c++14
-
 LUA_PATH=$(HOME)/Projects/lua
 LUA_EXT_PATH=$(LUA_PATH)/ext
 LUA_SYMMATH_PATH=$(LUA_PATH)/symmath
