@@ -118,6 +118,7 @@ struct HydroGPUApp : public ::GLApp::ViewBehavior<::GLApp::GLApp> {
 	virtual void init(const Init& args);
 	virtual void onUpdate();
 	virtual void onSDLEvent(SDL_Event &event);
+	virtual const char *getTitle() { return "Hydrodynmics on the GPU"; }
 };
 
 inline std::ostream& operator<<(std::ostream& o, const real4& v) {

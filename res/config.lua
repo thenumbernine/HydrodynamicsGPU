@@ -53,9 +53,9 @@ fixedDT = .001
 
 -- TODO AMD card has trouble with mirror and periodic boundaries ... probably all boundaries
 boundaryMethods = {
-	{min='FREEFLOW', max='FREEFLOW'},
-	{min='FREEFLOW', max='FREEFLOW'},
-	{min='FREEFLOW', max='FREEFLOW'},
+	{min='PERIODIC', max='PERIODIC'},
+	{min='PERIODIC', max='PERIODIC'},
+	{min='PERIODIC', max='PERIODIC'},
 }
 
 -- TODO organize solver/equation variables:
@@ -175,10 +175,10 @@ end
 --solidFilename = 'test-solid.png'
 --]=]
 
-initCondName = 'Sod'
+--initCondName = 'Sod'
 --initCondName = 'Sphere'
 --initCondName = 'Square Cavity'
---initCondName = 'Kelvin-Helmholtz'
+initCondName = 'Kelvin-Helmholtz'
 --initCondName = 'Rayleigh-Taylor'
 --initCondName = 'Shock Bubble Interaction'
 --initCondName = 'Flow Around Cylinder'

@@ -74,7 +74,7 @@ void HydroGPUApp::init(const Init& args) {
 		if (i < (int)args.size()-1 && args[i] == "-e") {
 			configString = args[++i];
 		} else {
-			configFilename = args[++i];
+			configFilename = args[i];
 		}
 	}
 
