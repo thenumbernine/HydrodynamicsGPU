@@ -177,7 +177,7 @@ std::cout << s;
 	
 	using gensMap_t = std::map<std::string, std::function<std::shared_ptr<HydroGPU::Integrator::Integrator>()>>;
 	gensMap_t gens;
-#define MAKE_INTEGRATOR(integrator) gens[#integrator] = [=]()->std::shared_ptr<HydroGPU::Integrator::Integrator> { return std::make_shared<HydroGPU::Integrator::integrator>(this); }
+#define MAKE_INTEGRATOR(integrator) gens[#integrator] = [this]()->std::shared_ptr<HydroGPU::Integrator::Integrator> { return std::make_shared<HydroGPU::Integrator::integrator>(this); }
 	MAKE_INTEGRATOR(ForwardEuler);
 	MAKE_INTEGRATOR(RungeKutta2);
 	MAKE_INTEGRATOR(RungeKutta2Heun);
