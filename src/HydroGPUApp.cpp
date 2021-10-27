@@ -120,6 +120,7 @@ void HydroGPUApp::init(const Init& args) {
 		std::istringstream iss(extensionStr);
 		std::vector<std::string> extensions;
 		std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(), std::back_inserter<std::vector<std::string>>(extensions));
+		std::sort(extensions.begin(), extensions.end());
 		std::cout << "GL_EXTENSIONS:" << std::endl;
 		for (std::string &s : extensions) {
 			std::cout << "\t" << s << std::endl;
@@ -248,6 +249,10 @@ void HydroGPUApp::init(const Init& args) {
 	
 	hasGLSharing = checkHasGLSharing(clCommon->device);
 std::cout << "hasGLSharing " << hasGLSharing << std::endl; 
+
+	//override if it exists
+	lua["hasGLSharing"] >> hasGLSharing;
+
 	hasFP64 = checkHasFP64(clCommon->device);
 std::cout << "hasFP64 " << hasFP64 << std::endl;
 
@@ -671,11 +676,11 @@ PROFILE_BEGIN_FRAME()
 				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->getEquation()->displayVariables);
 				igComboStr_arr("variable ", &heatMap->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size(), -1);
 
-				igSliderFloat("scale", &heatMap->scale, 1e-10, 1e+10, "%.16f", 10);
+				igSliderFloat("scale", &heatMap->scale, 1e-10, 1e+10, "%.16f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
 			
 				igCheckbox("log", &heatMap->useLog);
 			
-				igSliderFloat("alpha", &heatMap->alpha, 0.f, 1.f, "%.3f", 1);
+				igSliderFloat("alpha", &heatMap->alpha, 0.f, 1.f, "%.3f", ImGuiSliderFlags_None);
 				igPopID();
 			}
 		}
@@ -688,11 +693,11 @@ PROFILE_BEGIN_FRAME()
 				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->getEquation()->displayVariables);
 				igComboStr_arr("variable", &iso3D->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size(), -1); 
 
-				igSliderFloat("scale", &iso3D->scale, 1e-10, 1e+10, "%.16f", 10); 
+				igSliderFloat("scale", &iso3D->scale, 1e-10, 1e+10, "%.16f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat); 
 			
 				igCheckbox("log", &iso3D->useLog);
 				
-				igSliderFloat("alpha", &iso3D->alpha, 0.f, 1.f, "%.3f", 1);
+				igSliderFloat("alpha", &iso3D->alpha, 0.f, 1.f, "%.3f", ImGuiSliderFlags_None);
 				igPopID();
 			}
 		}
@@ -711,9 +716,9 @@ PROFILE_BEGIN_FRAME()
 						const char* polyModes[] = {"point", "line", "fill"};
 						igComboStr_arr("polyMode", &var.polyMode, polyModes, numberof(polyModes), -1);
 						
-						igSliderFloat("alpha", &var.alpha, 0.f, 1.f, "%.3f", 1);
+						igSliderFloat("alpha", &var.alpha, 0.f, 1.f, "%.3f", ImGuiSliderFlags_None);
 
-						igSliderFloat("scale", &var.scale, 1e-10, 1e+10, "%.16f", 10); 
+						igSliderFloat("scale", &var.scale, 1e-10, 1e+10, "%.16f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat); 
 
 						igSliderInt("spacing", &var.step, 1, (int)size.s[0], "%d", ImGuiSliderFlags_None);
 						
@@ -764,7 +769,7 @@ PROFILE_BEGIN_FRAME()
 			
 			igCheckbox("show", &showVectorField); // velocity field on/off
 			//TODO velocity field variable
-			igSliderFloat("scale", &vectorField->scale, 1e-10, 1e+10, "%.16f", 10); // velocity field size
+			igSliderFloat("scale", &vectorField->scale, 1e-10, 1e+10, "%.16f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat); // velocity field size
 			igPopID();
 		}
 

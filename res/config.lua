@@ -51,6 +51,9 @@ fixedDT = .001
 -- if you want a 5% increase in performance
 --disableGUI = true
 
+-- force disable GL sharing 
+--hasGLSharing = false
+
 -- TODO AMD card has trouble with mirror and periodic boundaries ... probably all boundaries
 boundaryMethods = {
 	{min='PERIODIC', max='PERIODIC'},
