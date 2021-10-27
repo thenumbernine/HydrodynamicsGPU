@@ -1,8 +1,3 @@
-#if PLATFORM_LINUX	//only here for Ubuntu build's sake
-#include <istream>
-#include "bits/stream_iterator.h"
-#endif
-
 #include "HydroGPU/Solver/EulerHLL.h"
 #include "HydroGPU/Solver/EulerHLLC.h"
 #include "HydroGPU/Solver/EulerBurgers.h"
