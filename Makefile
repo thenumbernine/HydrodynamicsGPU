@@ -18,9 +18,6 @@ LUA_EXT_PATH=$(LUA_PATH)/ext
 LUA_SYMMATH_PATH=$(LUA_PATH)/symmath
 DIST_RESOURCE_PATH=$(dir $(DIST))/../Resources/
 
-# $(call copyTreeOfType, pattern, path from, path to)
-copyTreeOfType = rsync -avm --include='$1' -f 'hide,! */' $2 $3
-
 INCLUDE+=res/include
 post_builddist_osx_app::
 	@echo "copying Lua scripts..."
