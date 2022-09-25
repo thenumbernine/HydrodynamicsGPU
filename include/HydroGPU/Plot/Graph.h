@@ -10,10 +10,10 @@ struct HydroGPUApp;
 namespace Plot {
 
 struct Graph {
-	HydroGPU::HydroGPUApp* app;	
-	std::shared_ptr<GLCxx::Program> graphShader;
+	HydroGPU::HydroGPUApp * app = {};
+	GLCxx::Program graphShader;
 	
-	Graph(HydroGPU::HydroGPUApp* app_);
+	Graph(HydroGPU::HydroGPUApp * app_);
 	
 	/*
 	how to display variables ...
@@ -26,26 +26,20 @@ struct Graph {
 		};
 		
 		std::string name;
-		bool enabled;
-		bool log;
-		int polyMode;	//0=point, 1=line, 2=fill
-		float alpha;
-		float scale;
-		int step;
+		bool enabled = false;
+		bool log = false;
+		int polyMode = PolyMode::Fill;	//0=point, 1=line, 2=fill
+		float alpha = 1.f;
+		float scale = 1.f;
+		int step = 1;
 		
-		Variable(const std::string& name_)
+		Variable(std::string const & name_)
 		: name(name_)
-		, enabled(false)
-		, log(false)
-		, polyMode(PolyMode::Fill)
-		, alpha(1.f)
-		, scale(1.f)
-		, step(1)
 		{}
 	};
 	std::vector<Variable> variables;
 
-	virtual void display();
+	void display();
 };
 
 }

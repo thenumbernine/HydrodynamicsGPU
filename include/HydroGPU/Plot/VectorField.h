@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CLCommon/cl.hpp"
+#include "GLCxx/Buffer.h"
 #include "GLCxx/gl.h"
 #include <memory>
 
@@ -13,7 +14,7 @@ namespace Plot {
 struct VectorField {
 protected:
 	std::shared_ptr<HydroGPU::Solver::Solver> solver;
-	GLuint glBuffer;
+	GLCxx::Buffer glBuffer;
 	
 	//with cl/gl sharing
 	cl::BufferGL vertexBufferGL;
@@ -22,14 +23,17 @@ protected:
 	std::vector<float> vertexBufferCPU;
 
 	cl::Kernel updateVectorFieldKernel;
-	int resolution;
-	int vertexCount;
+	int resolution = {};
+	
+	int vertexCount = 0;
 public:
 	VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_, int resolution_);
-	virtual ~VectorField();
-	virtual void display();
-	int variable;
-	float scale;
+	
+	void display();
+	
+	int variable = 0;
+	float scale = .125f;
+	
 	int getResolution() const { return resolution; }
 };
 

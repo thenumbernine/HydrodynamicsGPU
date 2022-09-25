@@ -247,9 +247,6 @@ std::cout << "hasFP64 " << hasFP64 << std::endl;
 
 	//gradient texture
 	{
-		glGenTextures(1, &gradientTex);
-		glBindTexture(GL_TEXTURE_1D, gradientTex);
-
 		const int width = 256;
 		unsigned char data[width*3];
 //TODO texture options for heat map vs isobar display
@@ -281,15 +278,14 @@ std::cout << "hasFP64 " << hasFP64 << std::endl;
 		memset(data, 0, sizeof(data));
 		memset(data, -1, sizeof(data)/8);
 #endif
-		glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, width, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-		
-		//glGenerateMipmap(GL_TEXTURE_1D);
-		//glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);	//isobars look good with mipmapping
-		
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);	//heatmaps do not
-		
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glBindTexture(GL_TEXTURE_1D, 0);
+		gradientTex = GLCxx::Texture1D()
+			.bind()
+			.create1D(width, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, data)
+			//.generateMipmap()
+			//.setParam<GL_TEXTURE_MIN_FILTER>(GL_LINEAR_MIPMAP_LINEAR)	//isobars look good with mipmapping
+			.setParam<GL_TEXTURE_MIN_FILTER>(GL_NEAREST)	//heatmaps do not
+			.setParam<GL_TEXTURE_MAG_FILTER>(GL_LINEAR)
+			.unbind();
 	}
 
 	lua["solverName"] >> solverName;
@@ -499,7 +495,6 @@ std::cout << "hasFP64 " << hasFP64 << std::endl;
 }
 
 HydroGPUApp::~HydroGPUApp() {
-	glDeleteTextures(1, &gradientTex);
 	clCommon.reset();
 }
 

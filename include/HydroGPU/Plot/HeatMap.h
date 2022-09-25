@@ -9,18 +9,18 @@ namespace Plot {
 
 struct HeatMap {
 protected:
-	HydroGPUApp* app;
-	std::shared_ptr<GLCxx::Program> heatShader;
+	HydroGPUApp * app = {};
+	GLCxx::Program heatShader;
 
 public:
-	int variable;
-	float scale;
-	bool useLog;
-	float alpha;
+	int variable = {};
+	float scale = 1.f;
+	bool useLog = false;
+	float alpha = 1.f;
 
-	HeatMap(HydroGPU::HydroGPUApp* app_);
+	HeatMap(HydroGPU::HydroGPUApp * app_);
 
-	virtual void display();
+	void display();
 };
 
 }

@@ -56,7 +56,7 @@ void Solver::init() {
 	// NDRanges
 
 #if 0
-	Tensor::Vector<size_t,3> localSizeVec;
+	Tensor::size3 localSizeVec;
 	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
 	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
 	for (int n = 0; n < 3; ++n) {
@@ -570,7 +570,7 @@ void Solver::save() {
 	
 	//hmm, rather than a plane per variable, now that I'm saving 3D stuff,
 	// how about a plane per 3rd dim, and separate save files per variable?
-	std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::Vector<int,2>(app->size.s[0], app->size.s[1]), nullptr, 1, app->size.s[2]);
+	std::shared_ptr<Image::ImageType<float>> image = std::make_shared<Image::ImageType<float>>(Tensor::int2(app->size.s[0], app->size.s[1]), nullptr, 1, app->size.s[2]);
 		
 	for (int channel = 0; channel < (int)channelNames.size(); ++channel) {
 		for (int z = 0; z < app->size.s[2]; ++z) {	

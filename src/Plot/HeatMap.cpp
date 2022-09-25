@@ -33,18 +33,13 @@ namespace Plot {
 	
 HeatMap::HeatMap(HydroGPU::HydroGPUApp* app_)
 : app(app_)
-, variable(0)
-, scale(1.f)
-, useLog(false)
-, alpha(1.f)
 {
 	std::string shaderCode = Common::File::read(app->dim < 3 ? "HeatMap2D.shader" : "HeatMap3D.shader");
-	std::vector<GLCxx::Shader> shaders = {
-		GLCxx::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
-		GLCxx::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
-	};
-	heatShader = std::make_shared<GLCxx::Program>(shaders);
-	heatShader->setUniform<int>("tex", 0)
+	heatShader = GLCxx::Program(
+			std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode},
+			std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode}
+		)
+		.setUniform<int>("tex", 0)
 		.setUniform<int>("gradient", 1)
 		.done();
 }
@@ -69,21 +64,20 @@ void HeatMap::display() {
 	
 	app->plot->convertVariableToTex(variable);
 
-	heatShader->use();
-	heatShader->setUniform<float>("scale", scale)
-				.setUniform<bool>("useLog", useLog)
-				.setUniform<float>("alpha", alpha);
+	heatShader
+		.use()
+		.setUniform<float>("scale", scale)
+		.setUniform<bool>("useLog", useLog)
+		.setUniform<float>("alpha", alpha);
 
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(app->plot->getTarget(), app->plot->getTex());
-//TODO heat map flag for texture mag filtering
-//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_1D, app->gradientTex);
+	auto tex = app->plot->getTex();
+	tex.bind(0);
+	//TODO heat map flag for texture mag filtering
+	//.setParam<GL_TEXTURE_MIN_FILTER>(GL_NEAREST)
+	//.setParam<GL_TEXTURE_MAG_FILTER>(GL_NEAREST);
+	app->gradientTex.bind(1);
 	
 	if (app->dim < 3) {
-		assert(app->plot->getTarget() == GL_TEXTURE_2D);
 		const float xofs = 0.f;
 		const float yofs = 0.f;
 		glBegin(GL_QUADS);
@@ -93,7 +87,6 @@ void HeatMap::display() {
 		glTexCoord2f(0+xofs,1+yofs); glVertex2f(app->xmin.s[0], app->xmax.s[1]);
 		glEnd();
 	} else {
-		assert(app->plot->getTarget() == GL_TEXTURE_3D);
 		//point cloud ... at what spacing?
 		//TODO use a buffer or a call list
 		glPointSize(5);
@@ -119,11 +112,9 @@ void HeatMap::display() {
 		glPointSize(1);
 	}
 	
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_1D, 0);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(app->plot->getTarget(), 0);
-	heatShader->done();
+	app->gradientTex.unbind(1);
+	tex.unbind(0);
+	heatShader.done();
 }
 
 }

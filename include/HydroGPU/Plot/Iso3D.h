@@ -11,14 +11,14 @@ namespace Plot {
 
 struct Iso3D {
 protected:
-	HydroGPUApp* app;
-	std::shared_ptr<GLCxx::Program> shader;
+	HydroGPUApp * app = {};
+	GLCxx::Program shader;
 
 public:
-	int variable;
-	float scale;
-	bool useLog;
-	float alpha;
+	int variable = 0;
+	float scale = 1.f;
+	bool useLog = false;
+	float alpha = .5f;
 
 	Iso3D(HydroGPU::HydroGPUApp* app_);
 

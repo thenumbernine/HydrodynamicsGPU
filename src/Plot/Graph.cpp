@@ -16,12 +16,17 @@ Graph::Graph(HydroGPU::HydroGPUApp* app_)
 : app(app_)
 {
 	std::string shaderCode = Common::File::read("Graph.shader");
-	std::vector<GLCxx::Shader> shaders = {
-		GLCxx::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
-		GLCxx::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
-	};
-	graphShader = std::make_shared<GLCxx::Program>(shaders);
-	graphShader->setUniform<int>("tex", 0)
+	graphShader = GLCxx::Program(
+		std::vector<std::string>{
+			"#define VERTEX_SHADER\n",
+			shaderCode,
+		},
+		std::vector<std::string>{
+			"#define FRAGMENT_SHADER\n",
+			shaderCode,
+		}
+	)
+		.setUniform<int>("tex", 0)
 		.done();
 
 	variables.clear();
@@ -62,15 +67,17 @@ void Graph::display() {
 		
 			app->plot->convertVariableToTex(i);
 			
-			graphShader->use();
-			graphShader->setUniform<float>("scale", var.scale)
-						.setUniform<int>("axis", app->dim)
-						.setUniform<float>("ambient", app->dim == 1 ? 1 : .4)
-						.setUniform<bool>("useLog", var.log)
-						.setUniform<float>("size", app->size.s[0], app->size.s[1])
-						.setUniform<float>("xmin", app->xmin.s[0], app->xmin.s[1])
-						.setUniform<float>("xmax", app->xmax.s[0], app->xmax.s[1]);
-			glBindTexture(GL_TEXTURE_2D, app->plot->getTex());
+			graphShader
+				.use()
+				.setUniform<float>("scale", var.scale)
+				.setUniform<int>("axis", app->dim)
+				.setUniform<float>("ambient", app->dim == 1 ? 1 : .4)
+				.setUniform<bool>("useLog", var.log)
+				.setUniform<float>("size", app->size.s[0], app->size.s[1])
+				.setUniform<float>("xmin", app->xmin.s[0], app->xmin.s[1])
+				.setUniform<float>("xmax", app->xmax.s[0], app->xmax.s[1]);
+			auto tex = app->plot->getTex();
+			tex.bind();
 			const float* c = colors[i % numberof(colors)];
 			glColor4f(c[0], c[1], c[2], var.alpha);
 			
@@ -91,7 +98,7 @@ void Graph::display() {
 					case Variable::PolyMode::Fill: default: glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); break;
 					}
 
-					Tensor::Vector<float,2> pt;
+					Tensor::float2 pt;
 					for (int j = 2; j < app->size.s[1]-2-step; j += step) {
 						glBegin(GL_TRIANGLE_STRIP);
 						for (int i = 2; i < app->size.s[0]-2; i += step) {
@@ -111,8 +118,8 @@ void Graph::display() {
 				break;
 			}
 			
-			graphShader->done();
-			glBindTexture(GL_TEXTURE_2D, 0);	
+			graphShader.done();
+			tex.unbind();
 		}
 		if (drawAlpha) {
 			glDisable(GL_BLEND);
@@ -123,8 +130,8 @@ void Graph::display() {
 	//for 1-D graphs
 	//draw background grid and axii
 	if (app->dim == 1) {
-		Tensor::Vector<double,2> viewxmax(app->getAspectRatio() * .5, .5);
-		Tensor::Vector<double,2> viewxmin = -viewxmax;
+		Tensor::double2 viewxmax(app->getAspectRatio() * .5, .5);
+		Tensor::double2 viewxmin = -viewxmax;
 		std::shared_ptr<GLApp::ViewOrtho> viewOrtho = std::dynamic_pointer_cast<GLApp::ViewOrtho>(app->view);
 		if (viewOrtho) {
 			viewxmin(0) /= viewOrtho->zoom(0);
@@ -134,7 +141,7 @@ void Graph::display() {
 			viewxmin += viewOrtho->pos;
 			viewxmax += viewOrtho->pos;
 
-			Tensor::Vector<double,2> spacing;
+			Tensor::double2 spacing;
 			spacing(0) = viewxmax(0) - viewxmin(0);
 			spacing(0) = pow(10.,floor(log10(spacing(0)))) * .1;
 			

@@ -10,46 +10,48 @@
 namespace HydroGPU {
 namespace Plot {
 
-static GLuint targets[] = {
-	GL_TEXTURE_2D,	//1D?
-	GL_TEXTURE_2D,
-	GL_TEXTURE_3D,
-};
-
 Plot::Plot(HydroGPU::HydroGPUApp* app_)
 : app(app_)
-, tex(GLuint())
 {
-	target = targets[app->dim-1]; 
-	
 	//get a texture going for visualizing the output
-	glGenTextures(1, &tex);
-	glBindTexture(target, tex);
-	glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	Tensor::Vector<int,3> glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
+	if (app->dim == 1) {
+		tex = GLCxx::Texture2D();	//1D?
+	} else if (app->dim == 2) {
+		tex = GLCxx::Texture2D();
+	} else if (app->dim == 3) {
+		tex = GLCxx::Texture3D();
+	}
+
+	tex
+		.bind()
+		.setParam<GL_TEXTURE_MIN_FILTER>(GL_NEAREST)
+		.setParam<GL_TEXTURE_MAG_FILTER>(GL_LINEAR);
+	
+	Tensor::int3 glWraps(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R);
 	//specific to Euler
 	for (int i = 0; i < app->dim; ++i) {
 		switch (app->boundaryMethods(i, 0)) {	//can't wrap one side and not the other, so just use the min 
 		case 0://BOUNDARY_PERIODIC:
-			glTexParameteri(target, glWraps(i), GL_REPEAT);
+			tex.setParam(glWraps(i), GL_REPEAT);
 			break;
 		case 1://BOUNDARY_MIRROR:
 		case 2://BOUNDARY_FREEFLOW:
-			glTexParameteri(target, glWraps(i), GL_CLAMP_TO_EDGE);
+			tex.setParam(glWraps(i), GL_CLAMP_TO_EDGE);
 			break;
 		}
 	}
-	std::function<void()> uploads[] = {
-		[&](){ glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app->size.s[0], app->size.s[1], 0, GL_RGBA, GL_FLOAT, nullptr); },
-		[&](){ glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, app->size.s[0], app->size.s[1], 0, GL_RGBA, GL_FLOAT, nullptr); },
-		[&](){ glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F_ARB, app->size.s[0], app->size.s[1], app->size.s[2], 0, GL_RGBA, GL_FLOAT, nullptr); },
+	
+	if (app->dim == 1) {
+		tex.create2D(app->size.s[0], app->size.s[1], GL_RGBA32F_ARB, GL_RGBA, GL_FLOAT);
+	} else if (app->dim == 2) {
+		tex.create2D(app->size.s[0], app->size.s[1], GL_RGBA32F_ARB, GL_RGBA, GL_FLOAT);
+	} else if (app->dim == 3) {
+		tex.create3D(app->size.s[0], app->size.s[1], app->size.s[2], GL_RGBA32F_ARB, GL_RGBA, GL_FLOAT);
 	};
-	uploads[app->dim-1]();
 	int volume = app->solver->getVolume();
 	app->solver->cl.totalAlloc += sizeof(float) * 4 * volume;
 	std::cout << "allocating texture size " << (sizeof(float) * 4 * volume) << " running total " << app->solver->cl.totalAlloc << std::endl;
-	glBindTexture(target, 0);
+	tex.unbind();
 	int err = glGetError();
 	if (err != 0) throw Common::Exception() << "failed to create GL texture.  got error " << err;
 }
@@ -62,7 +64,7 @@ void Plot::init() {
 	//...and convertVariableToTex is image3d_t
 	//...but it all seems to work.
 	if (app->hasGLSharing) {
-		texCLMem = cl::ImageGL(app->clCommon->context, CL_MEM_WRITE_ONLY, GL_TEXTURE_3D, 0, tex);
+		texCLMem = cl::ImageGL(app->clCommon->context, CL_MEM_WRITE_ONLY, tex.target, 0, tex());
 	} else {
 		texBuffer = app->solver->cl.alloc(sizeof(float) * 4 * app->solver->getVolume());
 	}
@@ -72,9 +74,7 @@ void Plot::init() {
 	app->solver->equation->setupConvertToTexKernelArgs(convertToTexKernel, app->solver.get());
 }
 
-Plot::~Plot() {
-	glDeleteTextures(1, &tex);
-}
+Plot::~Plot() {}
 
 static int npo2(int x) {
 	int y = 1;	
@@ -119,11 +119,11 @@ void Plot::convertVariableToTex(int displayVariable) {
 	} else {
 		texVec.resize(4 * app->solver->getVolume());
 		commands.enqueueReadBuffer(texBuffer, CL_TRUE, 0, sizeof(float) * 4 * app->solver->getVolume(), texVec.data());
-		target = targets[app->dim-1]; 
-		glBindTexture(target, tex);
 		if (app->dim == 3) throw Common::Exception() << "still need to add 3D texture uploads with gl_sharing";
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, app->size.s[0], app->size.s[1], GL_RGBA, GL_FLOAT, texVec.data());
-		glBindTexture(target, 0);
+		tex
+			.bind()
+			.subImage2D(texVec.data())
+			.unbind();
 	}
 
 	int err = glGetError();
@@ -144,7 +144,7 @@ void Plot::screenshot() {
 }
 
 void Plot::screenshotToFile(const std::string& filename) {
-	::Tensor::Vector<int,2> screenSize = app->getScreenSize();
+	::Tensor::int2 screenSize = app->getScreenSize();
 
 	std::shared_ptr<Image::Image> image = std::make_shared<Image::Image>(screenSize, nullptr, 3);
 	glReadPixels(0, 0, screenSize(0), screenSize(1), GL_RGB, GL_UNSIGNED_BYTE, image->getData());

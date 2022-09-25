@@ -31,18 +31,13 @@ namespace Plot {
 
 Iso3D::Iso3D(HydroGPU::HydroGPUApp* app_)
 : app(app_)
-, variable(0)
-, scale(1.f)
-, useLog(false)
-, alpha(.5f)
 {
 	std::string shaderCode = Common::File::read("Isosurface3D.shader");
-	std::vector<GLCxx::Shader> shaders = {
-		GLCxx::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
-		GLCxx::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
-	};
-	shader = std::make_shared<GLCxx::Program>(shaders);
-	shader->setUniform<int>("tex", 0)
+	shader = GLCxx::Program(
+			std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode},
+			std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode}
+		)
+		.setUniform<int>("tex", 0)
 		.setUniform<int>("gradient", 1)
 		.setUniform<int>("maxiter", std::max(app->size.s[0], std::max(app->size.s[1], app->size.s[2])))
 		.setUniform<float>("oneOverDx", app->xmax.s[0] - app->xmin.s[0], app->xmax.s[1] - app->xmin.s[1], app->xmax.s[2] - app->xmin.s[2])
@@ -51,6 +46,7 @@ Iso3D::Iso3D(HydroGPU::HydroGPUApp* app_)
 	
 void Iso3D::display() {
 	app->plot->convertVariableToTex(variable);
+	auto tex = app->plot->getTex();
 
 	glColor3f(1,1,1);
 	for (int pass = 0; pass < 2; ++pass) {
@@ -62,15 +58,13 @@ void Iso3D::display() {
 			glEnable(GL_DEPTH_TEST);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			glEnable(GL_BLEND);
-			shader->use()
+			shader
+				.use()
 				.setUniform<float>("scale", scale)
 				.setUniform<bool>("useLog", useLog)
 				.setUniform<float>("alpha", alpha);
-			assert(app->plot->getTarget() == GL_TEXTURE_3D);
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_3D, app->plot->getTex());
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_1D, app->gradientTex);
+			tex.bind(0);
+			app->gradientTex.bind(1);
 		}
 		glBegin(GL_QUADS);
 		for (int i = 0; i < 24; ++i) {
@@ -87,11 +81,9 @@ void Iso3D::display() {
 		if (pass == 0) {
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		} else {
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_1D, 0);
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_3D, 0);
-			shader->done();
+			app->gradientTex.unbind(1);
+			tex.unbind(0);
+			shader.done();
 			glDisable(GL_BLEND);
 			glDisable(GL_DEPTH_TEST);
 			glCullFace(GL_BACK);

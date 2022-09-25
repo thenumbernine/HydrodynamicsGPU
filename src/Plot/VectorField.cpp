@@ -8,27 +8,20 @@ namespace Plot {
 
 VectorField::VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_, int resolution_)
 : solver(solver_)
-, glBuffer(0)
 , resolution(resolution_)
-, vertexCount(0)
-, variable(0)
-, scale(.125f)
 {
 	//create GL buffer
-	glGenBuffers(1, &glBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER_ARB, glBuffer);
 	int volume = 1;
 	for (int i = 0; i < solver->app->dim; ++i) {
 		volume *= resolution;
 	}
 	vertexCount = 3 * 6 * volume;
-	glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(float) * vertexCount, nullptr, GL_DYNAMIC_DRAW_ARB);
+	glBuffer = GLCxx::ArrayBuffer(sizeof(float) * vertexCount, nullptr, GL_DYNAMIC_DRAW);
 	solver->cl.totalAlloc += sizeof(float) * vertexCount;
-	glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
 	
 	//create CL interop
 	if (solver->app->hasGLSharing) {
-		vertexBufferGL = cl::BufferGL(solver->app->clCommon->context, CL_MEM_READ_WRITE, glBuffer);
+		vertexBufferGL = cl::BufferGL(solver->app->clCommon->context, CL_MEM_READ_WRITE, glBuffer());
 	} else {
 		vertexBufferCL = solver->cl.alloc(sizeof(float) * vertexCount);
 		vertexBufferCPU.resize(vertexCount);
@@ -43,10 +36,6 @@ VectorField::VectorField(std::shared_ptr<HydroGPU::Solver::Solver> solver_, int 
 	}
 	updateVectorFieldKernel.setArg(1, scale);
 	updateVectorFieldKernel.setArg(2, variable);
-}
-
-VectorField::~VectorField() {
-	glDeleteBuffers(1, &glBuffer);	
 }
 
 void VectorField::display() {
@@ -70,18 +59,18 @@ void VectorField::display() {
 	solver->app->clCommon->commands.enqueueNDRangeKernel(updateVectorFieldKernel, solver->offsetNd, global, solver->localSize);
 	solver->app->clCommon->commands.finish();
 
-	glBindBuffer(GL_ARRAY_BUFFER_ARB, glBuffer);
 	if (!solver->app->hasGLSharing) {
 		solver->app->clCommon->commands.enqueueReadBuffer(vertexBufferCL, CL_TRUE, 0, sizeof(float) * vertexCount, vertexBufferCPU.data());
-		glBufferSubData(GL_ARRAY_BUFFER_ARB, 0, sizeof(float) * vertexCount, vertexBufferCPU.data());
+		glBuffer.updateData(sizeof(float) * vertexCount, vertexBufferCPU.data());
 	}
 
+	glBuffer.bind();
 	glColor3f(1,1,1);
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glVertexPointer(3, GL_FLOAT, 0, 0);
 	glDrawArrays(GL_LINES, 0, vertexCount);
 	glDisableClientState(GL_VERTEX_ARRAY);
-	glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
+	glBuffer.unbind();
 
 }
 

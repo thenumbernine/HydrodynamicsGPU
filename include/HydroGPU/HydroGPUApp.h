@@ -1,11 +1,12 @@
 #pragma once
 
 #include "HydroGPU/Shared/Common.h"
+#include "GLApp/GLApp.h"
+#include "GLApp/ViewBehavior.h"
 #include "LuaCxx/State.h"
 #include "LuaCxx/GlobalTable.h"
 #include "LuaCxx/Ref.h"
-#include "GLApp/GLApp.h"
-#include "GLApp/ViewBehavior.h"
+#include "GLCxx/Texture.h"
 #include "GLCxx/gl.h"
 #include "Tensor/Tensor.h"
 #include "CLCommon/CLCommon.h"
@@ -45,7 +46,7 @@ struct HydroGPUApp : public ::GLApp::ViewBehavior<::GLApp::GLApp> {
 	
 	std::shared_ptr<ImGuiCommon::ImGuiCommon> gui;
 
-	GLuint gradientTex = {};
+	GLCxx::Texture gradientTex;
 
 	int equationIndex = {};
 
