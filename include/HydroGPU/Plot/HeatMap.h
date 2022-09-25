@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shader/Program.h"
+#include "GLCxx/Program.h"
 #include <memory>
 
 namespace HydroGPU {
@@ -10,7 +10,7 @@ namespace Plot {
 struct HeatMap {
 protected:
 	HydroGPUApp* app;
-	std::shared_ptr<Shader::Program> heatShader;
+	std::shared_ptr<GLCxx::Program> heatShader;
 
 public:
 	int variable;

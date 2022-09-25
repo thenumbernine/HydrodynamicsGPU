@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Shader/Program.h"
+#include "GLCxx/Program.h"
+#include "GLCxx/gl.h"
 #include "Tensor/Tensor.h"
-#include "GLApp/gl.h"
 #include <memory>
 
 namespace HydroGPU {
@@ -11,7 +11,7 @@ namespace Plot {
 
 struct Graph {
 	HydroGPU::HydroGPUApp* app;	
-	std::shared_ptr<Shader::Program> graphShader;
+	std::shared_ptr<GLCxx::Program> graphShader;
 	
 	Graph(HydroGPU::HydroGPUApp* app_);
 	

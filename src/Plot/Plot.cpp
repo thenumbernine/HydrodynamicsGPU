@@ -3,8 +3,8 @@
 #include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/Image.h"
+#include "GLCxx/gl.h"
 #include "Common/File.h"
-#include "GLApp/gl.h"
 #include <iomanip>	//don't include iostream after this
 
 namespace HydroGPU {

@@ -1,14 +1,14 @@
 #pragma once
 
+#include "HydroGPU/Shared/Common.h"
 #include "LuaCxx/State.h"
 #include "LuaCxx/GlobalTable.h"
 #include "LuaCxx/Ref.h"
 #include "GLApp/GLApp.h"
 #include "GLApp/ViewBehavior.h"
+#include "GLCxx/gl.h"
 #include "Tensor/Tensor.h"
 #include "CLCommon/CLCommon.h"
-#include "HydroGPU/Shared/Common.h"	//real4
-#include "GLApp/gl.h"
 
 #include <map>
 

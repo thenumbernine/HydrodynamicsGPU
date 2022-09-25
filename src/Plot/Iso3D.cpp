@@ -3,8 +3,8 @@
 #include "HydroGPU/Solver/Solver.h"
 #include "HydroGPU/HydroGPUApp.h"
 #include "Image/Image.h"
+#include "GLCxx/gl.h"
 #include "Common/File.h"
-#include "GLApp/gl.h"
 
 static float vertexes[] = {
 	0,0,0,
@@ -37,11 +37,11 @@ Iso3D::Iso3D(HydroGPU::HydroGPUApp* app_)
 , alpha(.5f)
 {
 	std::string shaderCode = Common::File::read("Isosurface3D.shader");
-	std::vector<Shader::Shader> shaders = {
-		Shader::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
-		Shader::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
+	std::vector<GLCxx::Shader> shaders = {
+		GLCxx::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
+		GLCxx::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
 	};
-	shader = std::make_shared<Shader::Program>(shaders);
+	shader = std::make_shared<GLCxx::Program>(shaders);
 	shader->setUniform<int>("tex", 0)
 		.setUniform<int>("gradient", 1)
 		.setUniform<int>("maxiter", std::max(app->size.s[0], std::max(app->size.s[1], app->size.s[2])))

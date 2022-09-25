@@ -1,6 +1,6 @@
 distName='HydroGPU'
 distType='app'
-depends:append{'../Common', '../GLApp', '../CLCommon', '../Tensor', '../Profiler', '../Image', '../Shader', '../LuaCxx', '../ImGuiCommon'}
+depends:append{'../Common', '../GLApp', '../CLCommon', '../Tensor', '../Profiler', '../Image', '../GLCxx', '../LuaCxx', '../ImGuiCommon'}
 include:insert'res/include'
 
 local luaPath = home..'/Projects/lua'

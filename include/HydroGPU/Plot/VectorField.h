@@ -1,7 +1,7 @@
 #pragma once
 
-#include "GLApp/gl.h"
 #include "CLCommon/cl.hpp"
+#include "GLCxx/gl.h"
 #include <memory>
 
 namespace HydroGPU {

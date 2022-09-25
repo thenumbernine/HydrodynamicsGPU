@@ -50,7 +50,7 @@ C++
 - Tensor: https://github.com/thenumbernine/Tensor
 - Profiler: https://github.com/thenumbernine/Profiler
 - Image: https://github.com/thenumbernine/Image (depends on LibPNG, listed below)
-- Shader: https://github.com/thenumbernine/Shader
+- GLCxx: https://github.com/thenumbernine/GLCxx
 - LuaCxx: https://github.com/thenumbernine/LuaCxx (depends on Lua/LuaJIT, listed below)
 
 Lua

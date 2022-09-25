@@ -1,4 +1,3 @@
-#include "GLApp/gl.h"		//only here for Ubuntu build's sake
 #include "HydroGPU/Equation/Equation.h"
 #include "HydroGPU/Plot/Graph.h"
 #include "HydroGPU/Plot/Plot.h"
@@ -6,6 +5,7 @@
 #include "HydroGPU/Solver/Solver.h"
 #include "GLApp/GLApp.h"
 #include "GLApp/ViewOrtho.h"
+#include "GLCxx/gl.h"
 #include "Common/Macros.h"
 #include "Common/File.h"
 
@@ -16,11 +16,11 @@ Graph::Graph(HydroGPU::HydroGPUApp* app_)
 : app(app_)
 {
 	std::string shaderCode = Common::File::read("Graph.shader");
-	std::vector<Shader::Shader> shaders = {
-		Shader::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
-		Shader::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
+	std::vector<GLCxx::Shader> shaders = {
+		GLCxx::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
+		GLCxx::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
 	};
-	graphShader = std::make_shared<Shader::Program>(shaders);
+	graphShader = std::make_shared<GLCxx::Program>(shaders);
 	graphShader->setUniform<int>("tex", 0)
 		.done();
 

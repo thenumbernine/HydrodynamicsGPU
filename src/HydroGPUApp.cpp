@@ -10,7 +10,6 @@
 #include "HydroGPU/Solver/ADM1DRoe.h"
 #include "HydroGPU/Solver/ADM3DRoe.h"
 #include "HydroGPU/Solver/BSSNOKRoe.h"
-
 #include "HydroGPU/Equation/Euler.h"
 #include "HydroGPU/Equation/SRHD.h"
 #include "HydroGPU/Equation/MHD.h"
@@ -19,29 +18,22 @@
 #include "HydroGPU/Equation/ADM2DSpherical.h"
 #include "HydroGPU/Equation/ADM3D.h"
 #include "HydroGPU/Equation/BSSNOK.h"
-
 #include "HydroGPU/Plot/Graph.h"
 #include "HydroGPU/Plot/HeatMap.h"
 #include "HydroGPU/Plot/Iso3D.h"
 #include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/Plot/VectorField.h"
-
 #include "HydroGPU/HydroGPUApp.h"
-
 #include "ImGuiCommon/ImGuiCommon.h"
-
 #include "Profiler/Profiler.h"
-
+#include "CLCommon/cl.hpp"
 #include "GLApp/ViewOrtho.h"
 #include "GLApp/ViewFrustum.h"
-
+#include "GLCxx/gl.h"
 #include "Common/Exception.h"
 #include "Common/File.h"
 #include "Common/Macros.h"
-
 #include "SDL.h"
-#include "GLApp/gl.h"
-#include "CLCommon/cl.hpp"
 #include <iostream>
 #include <algorithm>
 
@@ -378,8 +370,11 @@ std::cout << "hasFP64 " << hasFP64 << std::endl;
 		lua["camera"]["pos"][2] >> viewFrustum->pos(1);
 		lua["camera"]["pos"][3] >> viewFrustum->pos(2);
 	}
-	lua["camera"]["dist"] >> viewFrustum->dist;
-	
+	if (!lua["camera"]["orbit"].isNil()) {
+		lua["camera"]["orbit"][1] >> viewFrustum->orbit(0);
+		lua["camera"]["orbit"][2] >> viewFrustum->orbit(1);
+		lua["camera"]["orbit"][3] >> viewFrustum->orbit(2);
+	}
 	if (!lua["camera"]["pos"].isNil()) {
 		lua["camera"]["pos"][1] >> viewOrtho->pos(0);
 		lua["camera"]["pos"][2] >> viewOrtho->pos(1);
@@ -519,7 +514,7 @@ PROFILE_BEGIN_FRAME()
 	Super::onUpdate();	//glClear, view->setup
 
 	bool guiDown = leftGuiDown || rightGuiDown;
-	if (rightButtonDown || (leftButtonDown && guiDown)) {
+	if (mouse.rightDown || (mouse.leftDown && guiDown)) {
 		//TODO - direct edit of the field ... solver->addDrop();
 	}
 
@@ -553,12 +548,12 @@ PROFILE_BEGIN_FRAME()
 	if (gui) gui->onUpdate([&](){
 		//how do you change the window title from "Debug"?
 
-		if (igCollapsingHeaderTreeNodeFlags("setup", ImGuiTreeNodeFlags_None)) {
+		if (igCollapsingHeader_TreeNodeFlags("setup", ImGuiTreeNodeFlags_None)) {
 			//list equations
 			int lastEquationIndex = equationIndex;
 			std::vector<const char*> equationNamesCStrs;
 			for (const SolverEqnsPair& p : solverGensForEqns) { equationNamesCStrs.push_back(p.name.c_str()); } 
-			igComboStr_arr("equation", &equationIndex, equationNamesCStrs.data(), equationNamesCStrs.size(), -1);
+			igCombo_Str_arr("equation", &equationIndex, equationNamesCStrs.data(), equationNamesCStrs.size(), -1);
 			if (lastEquationIndex != equationIndex) {
 
 				//if we are changing equations then (most likely) our initial conditions will be invalid
@@ -601,7 +596,7 @@ PROFILE_BEGIN_FRAME()
 			for (const SolverGenPair& p : solverGensForEqns[equationIndex].generators) {
 				solverNamesForEqnCStrs.push_back(p.name.c_str());
 			}
-			igComboStr_arr("solver", &solverForEqnIndex, solverNamesForEqnCStrs.data(), solverNamesForEqnCStrs.size(), -1);
+			igCombo_Str_arr("solver", &solverForEqnIndex, solverNamesForEqnCStrs.data(), solverNamesForEqnCStrs.size(), -1);
 			if (lastSolverForEqnIndex != solverForEqnIndex) {
 				std::cout << "setting solver to " << solverGensForEqns[equationIndex].generators[solverForEqnIndex].name << std::endl;
 				SolverPtr newSolver = solverGensForEqns[equationIndex].generators[solverForEqnIndex].func();
@@ -641,7 +636,7 @@ PROFILE_BEGIN_FRAME()
 			int lastInitCondIndex = initCondIndex;
 			const std::string& eqnName = solverGensForEqns[equationIndex].name;
 			std::vector<const char*> initCondNamesCStrs = getCStrsFromStrVector(initCondNamesForEqns[eqnName]);
-			igComboStr_arr("init.cond.", &initCondIndex, initCondNamesCStrs.data(), initCondNamesCStrs.size(), -1);
+			igCombo_Str_arr("init.cond.", &initCondIndex, initCondNamesCStrs.data(), initCondNamesCStrs.size(), -1);
 			if (lastInitCondIndex != initCondIndex) {
 				std::string initCondName = initCondNamesForEqns[solverGensForEqns[equationIndex].name][initCondIndex];
 				std::cout << "setting up initial condition " << initCondName << std::endl;
@@ -649,7 +644,7 @@ PROFILE_BEGIN_FRAME()
 			}
 		}
 
-		if (igCollapsingHeaderTreeNodeFlags("boundaries", ImGuiTreeNodeFlags_None)) {
+		if (igCollapsingHeader_TreeNodeFlags("boundaries", ImGuiTreeNodeFlags_None)) {
 			std::vector<const char*> methodsCStrs = getCStrsFromStrVector(solver->getEquation()->boundaryMethods);
 			methodsCStrs.insert(methodsCStrs.begin(), "NONE");
 			for (int i = 0; i < dim; ++i) {
@@ -657,19 +652,19 @@ PROFILE_BEGIN_FRAME()
 					std::stringstream comboTitle;
 					comboTitle << (char)('x'+i) << " " << (minmax ? "max" : "min");
 					++boundaryMethods(i,minmax);
-					igComboStr_arr(comboTitle.str().c_str(), &boundaryMethods(i,minmax), methodsCStrs.data(), methodsCStrs.size(), -1);
+					igCombo_Str_arr(comboTitle.str().c_str(), &boundaryMethods(i,minmax), methodsCStrs.data(), methodsCStrs.size(), -1);
 					--boundaryMethods(i,minmax);
 				}
 			}
 		}
 
 		if (heatMap) {
-			if (igCollapsingHeaderTreeNodeFlags("heat map", ImGuiTreeNodeFlags_None)) {
-				igPushIDStr("heatMap");
+			if (igCollapsingHeader_TreeNodeFlags("heat map", ImGuiTreeNodeFlags_None)) {
+				igPushID_Str("heatMap");
 				igCheckbox("show", &showHeatMap);
 
 				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->getEquation()->displayVariables);
-				igComboStr_arr("variable ", &heatMap->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size(), -1);
+				igCombo_Str_arr("variable ", &heatMap->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size(), -1);
 
 				igSliderFloat("scale", &heatMap->scale, 1e-10, 1e+10, "%.16f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
 			
@@ -681,12 +676,12 @@ PROFILE_BEGIN_FRAME()
 		}
 
 		if (iso3D) {
-			if (igCollapsingHeaderTreeNodeFlags("isosurfaces", ImGuiTreeNodeFlags_None)) {
-				igPushIDStr("isosurfaces");
+			if (igCollapsingHeader_TreeNodeFlags("isosurfaces", ImGuiTreeNodeFlags_None)) {
+				igPushID_Str("isosurfaces");
 				igCheckbox("show ", &showIso3D);
 
 				std::vector<const char*> displayVariablesCStrs = getCStrsFromStrVector(solver->getEquation()->displayVariables);
-				igComboStr_arr("variable", &iso3D->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size(), -1); 
+				igCombo_Str_arr("variable", &iso3D->variable, displayVariablesCStrs.data(), displayVariablesCStrs.size(), -1); 
 
 				igSliderFloat("scale", &iso3D->scale, 1e-10, 1e+10, "%.16f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat); 
 			
@@ -698,18 +693,18 @@ PROFILE_BEGIN_FRAME()
 		}
 
 		if (graph) {
-			if (igCollapsingHeaderTreeNodeFlags("graph", ImGuiTreeNodeFlags_None)) {
+			if (igCollapsingHeader_TreeNodeFlags("graph", ImGuiTreeNodeFlags_None)) {
 				std::function<void(Plot::Graph::Variable&)> addVarControls = [&](Plot::Graph::Variable& var){
 					const std::string& name = var.name;
-					igPushIDStr("graph tree");
-					igPushIDStr(name.c_str());
+					igPushID_Str("graph tree");
+					igPushID_Str(name.c_str());
 					igCheckbox(name.c_str(), &var.enabled);
 					igSameLine(0, 0);
-					if (igTreeNodeStr("")) {
+					if (igTreeNode_Str("")) {
 						igCheckbox("log", &var.log);
 				
 						const char* polyModes[] = {"point", "line", "fill"};
-						igComboStr_arr("polyMode", &var.polyMode, polyModes, numberof(polyModes), -1);
+						igCombo_Str_arr("polyMode", &var.polyMode, polyModes, numberof(polyModes), -1);
 						
 						igSliderFloat("alpha", &var.alpha, 0.f, 1.f, "%.3f", ImGuiSliderFlags_None);
 
@@ -757,10 +752,10 @@ PROFILE_BEGIN_FRAME()
 			}
 		}
 
-		if (igCollapsingHeaderTreeNodeFlags("vector field", ImGuiTreeNodeFlags_None)) {
-			igPushIDStr("vector field");
+		if (igCollapsingHeader_TreeNodeFlags("vector field", ImGuiTreeNodeFlags_None)) {
+			igPushID_Str("vector field");
 			std::vector<const char*> vectorFieldVarsCStrs = getCStrsFromStrVector(solver->getEquation()->vectorFieldVars);
-			igComboStr_arr("variable", &vectorField->variable, vectorFieldVarsCStrs.data(), vectorFieldVarsCStrs.size(), -1); 
+			igCombo_Str_arr("variable", &vectorField->variable, vectorFieldVarsCStrs.data(), vectorFieldVarsCStrs.size(), -1); 
 			
 			igCheckbox("show", &showVectorField); // velocity field on/off
 			//TODO velocity field variable
@@ -768,7 +763,7 @@ PROFILE_BEGIN_FRAME()
 			igPopID();
 		}
 
-		if (igCollapsingHeaderTreeNodeFlags("controls", ImGuiTreeNodeFlags_None)) {
+		if (igCollapsingHeader_TreeNodeFlags("controls", ImGuiTreeNodeFlags_None)) {
 
 			if (dim > 1) {
 				bool isOrtho = view == viewOrtho;

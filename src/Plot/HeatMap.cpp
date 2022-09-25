@@ -1,8 +1,8 @@
 #include "HydroGPU/Plot/HeatMap.h"
 #include "HydroGPU/Plot/Plot.h"
 #include "HydroGPU/HydroGPUApp.h"
+#include "GLCxx/gl.h"
 #include "Common/File.h"
-#include "GLApp/gl.h"
 #include <cassert>
 
 // TODO put this in one place ... separate of all else.  call it "rulers3D" or something ... and put Graph's 2D stuff in "rulers2D"
@@ -39,11 +39,11 @@ HeatMap::HeatMap(HydroGPU::HydroGPUApp* app_)
 , alpha(1.f)
 {
 	std::string shaderCode = Common::File::read(app->dim < 3 ? "HeatMap2D.shader" : "HeatMap3D.shader");
-	std::vector<Shader::Shader> shaders = {
-		Shader::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
-		Shader::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
+	std::vector<GLCxx::Shader> shaders = {
+		GLCxx::VertexShader(std::vector<std::string>{"#define VERTEX_SHADER\n", shaderCode}),
+		GLCxx::FragmentShader(std::vector<std::string>{"#define FRAGMENT_SHADER\n", shaderCode})
 	};
-	heatShader = std::make_shared<Shader::Program>(shaders);
+	heatShader = std::make_shared<GLCxx::Program>(shaders);
 	heatShader->setUniform<int>("tex", 0)
 		.setUniform<int>("gradient", 1)
 		.done();

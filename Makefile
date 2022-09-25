@@ -9,7 +9,7 @@ include ../CLCommon/Include.mk
 include ../Tensor/Include.mk
 include ../Profiler/Include.mk
 include ../Image/Include.mk
-include ../Shader/Include.mk
+include ../GLCxx/Include.mk
 include ../LuaCxx/Include.mk
 include ../ImGuiCommon/Include.mk
 
