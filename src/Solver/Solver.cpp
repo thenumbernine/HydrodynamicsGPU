@@ -60,11 +60,11 @@ void Solver::init() {
 	size_t maxWorkGroupSize = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
 	std::vector<size_t> maxWorkItemSizes = device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
 	for (int n = 0; n < 3; ++n) {
-		localSizeVec(n) = std::min<size_t>(maxWorkItemSizes[n], app->size.s[n]);
+		localSizeVec[n] = std::min<size_t>(maxWorkItemSizes[n], app->size.s[n]);
 	}
 	while (localSizeVec.volume() > maxWorkGroupSize) {
 		for (int n = 0; n < 3; ++n) {
-			localSizeVec(n) = (size_t)ceil((double)localSizeVec(n) * .5);
+			localSizeVec[n] = (size_t)ceil((double)localSizeVec[n] * .5);
 		}
 	}
 #endif	

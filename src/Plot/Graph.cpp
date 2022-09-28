@@ -102,10 +102,10 @@ void Graph::display() {
 					for (int j = 2; j < app->size.s[1]-2-step; j += step) {
 						glBegin(GL_TRIANGLE_STRIP);
 						for (int i = 2; i < app->size.s[0]-2; i += step) {
-							pt(0) = ((real)(i) + .5f) / (real)app->size.s[0];
+							pt.x = ((real)i + (real).5) / (real)app->size.s[0];
 							for (int jofs = step; jofs >= 0; jofs -= step) {
-								pt(1) = ((real)(j + jofs) + .5f) / (real)app->size.s[1];
-								glVertex2f(pt(0), pt(1));
+								pt.y = ((real)(j + jofs) + (real).5) / (real)app->size.s[1];
+								glVertex2f(pt.x, pt.y);
 							}
 						}
 						glEnd();
@@ -134,19 +134,19 @@ void Graph::display() {
 		Tensor::double2 viewxmin = -viewxmax;
 		std::shared_ptr<GLApp::ViewOrtho> viewOrtho = std::dynamic_pointer_cast<GLApp::ViewOrtho>(app->view);
 		if (viewOrtho) {
-			viewxmin(0) /= viewOrtho->zoom(0);
-			viewxmin(1) /= viewOrtho->zoom(1);
-			viewxmax(0) /= viewOrtho->zoom(0);
-			viewxmax(1) /= viewOrtho->zoom(1);
+			viewxmin.x /= viewOrtho->zoom.x;
+			viewxmin.y /= viewOrtho->zoom.y;
+			viewxmax.x /= viewOrtho->zoom.x;
+			viewxmax.y /= viewOrtho->zoom.y;
 			viewxmin += viewOrtho->pos;
 			viewxmax += viewOrtho->pos;
 
 			Tensor::double2 spacing;
-			spacing(0) = viewxmax(0) - viewxmin(0);
-			spacing(0) = pow(10.,floor(log10(spacing(0)))) * .1;
+			spacing.x = viewxmax.x - viewxmin.x;
+			spacing.x = pow(10.,floor(log10(spacing.x))) * .1;
 			
-			spacing(1) = viewxmax(1) - viewxmin(1);
-			spacing(1) = pow(10.,floor(log10(spacing(1)))) * .1;
+			spacing.y = viewxmax.y - viewxmin.y;
+			spacing.y = pow(10.,floor(log10(spacing.y))) * .1;
 			
 			for (int i = 0; i < 2; ++i) {
 				viewxmin(i) = spacing(i) * floor(viewxmin(i) / spacing(i));
@@ -155,18 +155,18 @@ void Graph::display() {
 		
 			glBegin(GL_LINES);
 			glColor3f(.5, .5, .5);
-			glVertex2f(0, viewxmin(1));
-			glVertex2f(0, viewxmax(1));
-			glVertex2f(viewxmin(0), 0);
-			glVertex2f(viewxmax(0), 0);
+			glVertex2f(0, viewxmin.y);
+			glVertex2f(0, viewxmax.y);
+			glVertex2f(viewxmin.x, 0);
+			glVertex2f(viewxmax.x, 0);
 			glColor3f(.25, .25, .25);
-			for (double x = viewxmin(0); x <= viewxmax(0); x += spacing(0)) {
-				glVertex2f(x, viewxmin(1));
-				glVertex2f(x, viewxmax(1));
+			for (double x = viewxmin.x; x <= viewxmax.x; x += spacing.x) {
+				glVertex2f(x, viewxmin.y);
+				glVertex2f(x, viewxmax.y);
 			}
-			for (double y = viewxmin(1); y < viewxmax(1); y += spacing(1)) {
-				glVertex2f(viewxmin(0), y);
-				glVertex2f(viewxmax(0), y);
+			for (double y = viewxmin.y; y < viewxmax.y; y += spacing.y) {
+				glVertex2f(viewxmin.x, y);
+				glVertex2f(viewxmax.x, y);
 			}
 			glEnd();
 		}

@@ -89,7 +89,7 @@ struct HydroGPUApp : public ::GLApp::ViewBehavior<::GLApp::GLApp> {
 	float cfl = .5;
 	bool showHeatMap = true;
 	bool showIso3D = true;
-	Tensor::Tensor<int, Tensor::Lower<3>, Tensor::Lower<2>> boundaryMethods;
+	Tensor::_tensor<int, 3, 2> boundaryMethods;
 	bool useGravity = false;
 	int gaussSeidelMaxIter = 20;	//max iterations for Gauss-Seidel max iterations
 	LuaCxx::State lua;

@@ -32,11 +32,11 @@ Plot::Plot(HydroGPU::HydroGPUApp* app_)
 	for (int i = 0; i < app->dim; ++i) {
 		switch (app->boundaryMethods(i, 0)) {	//can't wrap one side and not the other, so just use the min 
 		case 0://BOUNDARY_PERIODIC:
-			tex.setParam(glWraps(i), GL_REPEAT);
+			tex.setParam(glWraps[i], GL_REPEAT);
 			break;
 		case 1://BOUNDARY_MIRROR:
 		case 2://BOUNDARY_FREEFLOW:
-			tex.setParam(glWraps(i), GL_CLAMP_TO_EDGE);
+			tex.setParam(glWraps[i], GL_CLAMP_TO_EDGE);
 			break;
 		}
 	}
