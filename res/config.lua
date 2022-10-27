@@ -134,7 +134,7 @@ size = {32, 32, 32}
 vectorField.resolution = 16
 --]]
 -- [[ 2D
-size = {256, 256}
+size = {64, 64}
 --]]
 --[[ 1D
 size = {1024}
@@ -178,10 +178,10 @@ end
 --solidFilename = 'test-solid.png'
 --]=]
 
---initCondName = 'Sod'
+initCondName = 'Sod'
 --initCondName = 'Sphere'
 --initCondName = 'Square Cavity'
-initCondName = 'Kelvin-Helmholtz'
+--initCondName = 'Kelvin-Helmholtz'
 --initCondName = 'Rayleigh-Taylor'
 --initCondName = 'Shock Bubble Interaction'
 --initCondName = 'Flow Around Cylinder'
