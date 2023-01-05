@@ -47,7 +47,8 @@ C++
 - Common: https://github.com/thenumbernine/Common
 - CLCommon: https://github.com/thenumbernine/CLCommon (depends on OpenCL)
 - ImGuiCommon: https://github.com/thenumbernine/ImGuiCommon (depends on ImGui listed below)
-- GLApp: https://github.com/thenumbernine/GLApp (depends on OpenGL, SDL2 listed below)
+- GLApp: https://github.com/thenumbernine/GLApp (depends on OpenGL listed below)
+- SDLApp: https://github.com/thenumbernine/SDLApp (depends on SDL2 listed below)
 - Tensor: https://github.com/thenumbernine/Tensor
 - Profiler: https://github.com/thenumbernine/Profiler
 - Image: https://github.com/thenumbernine/Image (depends on LibPNG, listed below)
