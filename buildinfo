@@ -1,12 +1,27 @@
 distName='HydroGPU'
 distType='app'
-depends:append{'../Common', '../GLApp', '../SDLApp', '../CLCommon', '../Tensor', '../Profiler', '../Image', '../GLCxx', '../LuaCxx', '../ImGuiCommon'}
+depends:append{
+	'../Common',
+	'../GLApp',
+	'../CLCommon',
+	'../Tensor',
+	'../Profiler',
+	'../Image',
+	'../GLCxx',
+	'../LuaCxx',
+	'../ImGuiCommon',
+}
 include:insert'res/include'
 
 local luaPath = home..'/Projects/lua'
 function postBuildDist(resourcePath)
 	print "copying Lua scripts..."
-	for _,module in ipairs{'ext', 'symmath', 'gnuplot', 'complex'} do
+	for _,module in ipairs{
+		'ext',
+		'symmath',
+		'gnuplot',
+		'complex',
+	} do
 		env:copyTree('*.lua', luaPath..'/'..module, resourcePath)
 	end
 	print "done copying Lua scripts."
