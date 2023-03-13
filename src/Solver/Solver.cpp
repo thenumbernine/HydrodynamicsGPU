@@ -62,7 +62,7 @@ void Solver::init() {
 	for (int n = 0; n < 3; ++n) {
 		localSizeVec[n] = std::min<size_t>(maxWorkItemSizes[n], app->size.s[n]);
 	}
-	while (localSizeVec.volume() > maxWorkGroupSize) {
+	while (localSizeVec.product() > maxWorkGroupSize) {
 		for (int n = 0; n < 3; ++n) {
 			localSizeVec[n] = (size_t)ceil((double)localSizeVec[n] * .5);
 		}
