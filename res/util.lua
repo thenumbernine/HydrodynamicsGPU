@@ -1,4 +1,4 @@
-local table = require 'ext.table'	
+local table = require 'ext.table'
 local range = require 'ext.range'
 local symmath = require 'symmath'
 local mat33 = require 'mat33'
@@ -20,9 +20,9 @@ local function getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFi
 end
 
 --[=[
-table-driven so may be slower, but much more readable 
+table-driven so may be slower, but much more readable
 args:
-	x,y,z, 
+	x,y,z,
 	density (required)
 	velocityX, velocityY (optional) velocity
 	noise (optional) noise to add to velocity
@@ -48,35 +48,35 @@ function buildStateEuler(args)
 	local specificEnergyInternal = args.specificEnergyInternal or getSpecificEnergyInternalForPressure(assert(args.pressure, "you need to provide either specificEnergyInternal or pressure"), density)
 	local magneticFieldEnergy = getMagneticFieldEnergy(magneticFieldX, magneticFieldY, magneticFieldZ)
 	local potentialEnergy = args.potentialEnergy or 0
-	-- dont' add potential energy to total energy.  
+	-- dont' add potential energy to total energy.
 	-- it is added to total energy after self-gravity optionally calculates it (if enabled)
 	local energyTotal = density * (specificEnergyKinetic + specificEnergyInternal) + magneticFieldEnergy
 	local solid = args.solid or 0	-- 0 or 1
 
-	if calcSolid then 
+	if calcSolid then
 		local x = assert(args.x)
 		local y = assert(args.y)
 		local z = assert(args.z)
-		solid = calcSolid(x,y,z) 
+		solid = calcSolid(x,y,z)
 	end
 
-	return 
+	return
 		density,
 		-- momentum
 		density * velocityX,
-		density * velocityY, 
-		density * velocityZ, 
+		density * velocityY,
+		density * velocityZ,
 		-- magnetic field
-		-- TODO put this last, so I can keep tacking crap on the end without readjusting indexes 
+		-- TODO put this last, so I can keep tacking crap on the end without readjusting indexes
 		magneticFieldX,
 		magneticFieldY,
-		magneticFieldZ, 
+		magneticFieldZ,
 		-- energy
 		energyTotal,
 		potentialEnergy,
 		-- solid or not
 		-- TODO get rid of this? solid sucks at the moment.
-		solid	
+		solid
 end
 
 function buildStateEulerQuadrant(x,y,z,args)
@@ -144,9 +144,9 @@ args:
 
 	density = lua function
 --]]
-function initNumRel(args)	
+function initNumRel(args)
 	local vars = assert(args.vars)
-	
+
 	local exprs = table{
 		alpha = assert(args.alpha),
 		gamma = {table.unpack(args.gamma)},
@@ -162,7 +162,7 @@ function initNumRel(args)
 				expr = table.map(expr, toExpr)
 			end
 			-- simplify?
-			if symmath.Expression.is(expr) then
+			if symmath.Expression:isa(expr) then
 				expr = expr()
 			end
 		end
@@ -171,17 +171,17 @@ function initNumRel(args)
 	print('converting everything to expressions...')
 	exprs = table.map(exprs, toExpr)
 	print('...done converting everything to expressions')
-	
+
 	local function buildCalc(expr, name)
 		assert(type(expr) == 'table')
-		if symmath.Expression.is(expr) then 
+		if symmath.Expression:isa(expr) then
 			expr = expr()
 			print('compiling '..expr)
 			return expr:compile(vars), name
 		end
 		return table.map(expr, buildCalc), name
 	end
-	
+
 	-- ADM
 	if solverName == 'ADM1DRoe' then
 		exprs.gamma = exprs.gamma[1]	-- only need g_xx
@@ -200,7 +200,7 @@ function initNumRel(args)
 			return alpha, gamma, A, D, K
 		end
 	elseif solverName == 'ADM3DRoe' then
-		
+
 		-- for complex computations it might be handy to extract the determinant first ...
 		-- or even just perform a numerical inverse ...
 		if not args.useNumericInverse then
@@ -218,35 +218,35 @@ function initNumRel(args)
 			end)
 		end)
 		print('...done building metric partials')
-	
+
 		print('building lapse partials...')
 		exprs.A = table.map(vars, function(var)
 			return (exprs.alpha:diff(var) / exprs.alpha)()
 		end)
 		print('...done building lapse partials')
-		
+
 		print('compiling expressions...')
 		local calc = table.map(exprs, buildCalc)
 		print('...done compiling expressions')
-	
+
 		local densityFunc = args.density or 0
-		if symmath.Expression.is(densityFunc) then
+		if symmath.Expression:isa(densityFunc) then
 			densityFunc = densityFunc():compile(vars)
 		end
 
 		local pressureFunc = args.pressure or 0
-		if symmath.Expression.is(pressureFunc) then
+		if symmath.Expression:isa(pressureFunc) then
 			pressureFunc = pressureFunc():compile(vars)
 		end
 
 		initState = function(x,y,z)
-		
+
 			local alpha = calc.alpha(x,y,z)
 			local gamma = calc.gamma:map(function(g_ij) return g_ij(x,y,z) end)
 			local A = calc.A:map(function(A_i) return A_i(x,y,z) end)
 			local D = calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
-			local gammaU = args.useNumericInverse and table{mat33.inv(gamma:unpack())} or calc.gammaU:map(function(gammaUij) return gammaUij(x,y,z) end) 
-			
+			local gammaU = args.useNumericInverse and table{mat33.inv(gamma:unpack())} or calc.gammaU:map(function(gammaUij) return gammaUij(x,y,z) end)
+
 			local function sym3x3(m,i,j)
 				local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = m:unpack()
 				if i==1 then
@@ -290,7 +290,7 @@ function initNumRel(args)
 			elseif densityFunc ~= nil then
 				error("don't know how to handle density")
 			end
-			
+
 			local pressure = 0
 			if type(pressureFunc) == 'number' then
 				pressure = pressureFunc
@@ -299,7 +299,7 @@ function initNumRel(args)
 			elseif pressureFunc ~= nil then
 				error("don't know how to handle pressure")
 			end
-		
+
 			local velocityX, velocityY, velocityZ
 			if args.velocity then velocityX, velocityY, velocityZ = args.velocity(x,y,z) end
 			velocityX = velocityX or 0
