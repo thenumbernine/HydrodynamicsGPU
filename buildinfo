@@ -21,6 +21,7 @@ function postBuildDist(resourcePath)
 		'symmath',
 		'gnuplot',
 		'complex',
+		'bignumber',
 	} do
 		env:copyTree('*.lua', luaPath..'/'..module, resourcePath)
 	end
